@@ -16,6 +16,7 @@ import WinnersPage from "@/pages/WinnersPage";
 import ProfilePage from "@/pages/ProfilePage";
 import AdminPage from "@/pages/AdminPage";
 import ReferralPage from "@/pages/ReferralPage";
+import ReviewsPage from "@/pages/ReviewsPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +42,7 @@ function Router() {
         <Route path="/profile" component={ProfilePage} />
         <Route path="/admin" component={AdminPage} />
         <Route path="/referral" component={ReferralPage} />
+        <Route path="/reviews" component={ReviewsPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
