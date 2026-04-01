@@ -307,4 +307,90 @@ router.post("/transactions/:id/reject", async (req, res) => {
   res.json({ message: "Transaction rejected" });
 });
 
+/* ── GET /api/admin/reviews — all reviews for admin ── */
+router.get("/reviews", async (req, res) => {
+  try {
+    const { rows } = await (await import("@workspace/db")).pool.query(
+      `SELECT r.id, r.user_id, r.user_name, r.message, r.rating,
+              r.is_winner, r.pool_title, r.prize,
+              r.is_visible, r.is_featured, r.created_at
+       FROM reviews r
+       ORDER BY r.created_at DESC`
+    );
+    res.json(rows.map((r: any) => ({
+      id: r.id,
+      userId: r.user_id,
+      userName: r.user_name,
+      message: r.message,
+      rating: r.rating,
+      isWinner: r.is_winner,
+      poolTitle: r.pool_title,
+      prize: r.prize ? parseFloat(r.prize) : null,
+      isVisible: r.is_visible,
+      isFeatured: r.is_featured,
+      createdAt: r.created_at,
+    })));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch reviews" });
+  }
+});
+
+/* ── DELETE /api/admin/reviews/:id ── */
+router.delete("/reviews/:id", async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid review ID" });
+  try {
+    const dbPool = (await import("@workspace/db")).pool;
+    const { rows } = await dbPool.query("SELECT user_name FROM reviews WHERE id = $1", [id]);
+    if (!rows[0]) return res.status(404).json({ error: "Review not found" });
+    await dbPool.query("DELETE FROM reviews WHERE id = $1", [id]);
+    await logAction(getAdminId(req), "review", id, "delete_review", `Deleted review #${id} by ${rows[0].user_name}`);
+    res.json({ message: "Review deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete review" });
+  }
+});
+
+/* ── PATCH /api/admin/reviews/:id/visibility ── */
+router.patch("/reviews/:id/visibility", async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid review ID" });
+  const { visible } = req.body;
+  try {
+    const dbPool = (await import("@workspace/db")).pool;
+    const { rows } = await dbPool.query(
+      "UPDATE reviews SET is_visible = $1 WHERE id = $2 RETURNING id, user_name, is_visible",
+      [!!visible, id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: "Review not found" });
+    await logAction(getAdminId(req), "review", id, visible ? "show_review" : "hide_review", `${visible ? "Showed" : "Hid"} review #${id} by ${rows[0].user_name}`);
+    res.json({ id: rows[0].id, isVisible: rows[0].is_visible });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update visibility" });
+  }
+});
+
+/* ── PATCH /api/admin/reviews/:id/featured ── */
+router.patch("/reviews/:id/featured", async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid review ID" });
+  const { featured } = req.body;
+  try {
+    const dbPool = (await import("@workspace/db")).pool;
+    const { rows } = await dbPool.query(
+      "UPDATE reviews SET is_featured = $1 WHERE id = $2 RETURNING id, user_name, is_featured",
+      [!!featured, id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: "Review not found" });
+    await logAction(getAdminId(req), "review", id, featured ? "feature_review" : "unfeature_review", `${featured ? "Featured" : "Unfeatured"} review #${id} by ${rows[0].user_name}`);
+    res.json({ id: rows[0].id, isFeatured: rows[0].is_featured });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update featured status" });
+  }
+});
+
 export default router;

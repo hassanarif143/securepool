@@ -50,6 +50,7 @@ export default function AdminPage() {
           <TabsTrigger value="create">Create Pool</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
+          <TabsTrigger value="reviews">Reviews</TabsTrigger>
           <TabsTrigger value="audit">Audit Logs</TabsTrigger>
         </TabsList>
         <TabsContent value="pending"><PendingTransactionsTab /></TabsContent>
@@ -58,6 +59,7 @@ export default function AdminPage() {
         <TabsContent value="create"><CreatePoolTab /></TabsContent>
         <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="transactions"><TransactionsTab /></TabsContent>
+        <TabsContent value="reviews"><ReviewsTab /></TabsContent>
         <TabsContent value="audit"><AuditLogsTab /></TabsContent>
       </Tabs>
     </div>
@@ -966,6 +968,268 @@ function TransactionsTab() {
         </Card>
       ))}
     </div>
+  );
+}
+
+/* ─── Reviews Tab ─── */
+function ReviewsTab() {
+  const { toast } = useToast();
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filterWinner, setFilterWinner] = useState<"all" | "winner" | "regular">("all");
+  const [filterVisible, setFilterVisible] = useState<"all" | "visible" | "hidden">("all");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [toggling, setToggling] = useState<number | null>(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/reviews", { credentials: "include" });
+      const data = await res.json();
+      setReviews(Array.isArray(data) ? data : []);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function deleteReview(id: number) {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/reviews/${id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: "Review deleted" });
+      setConfirmDeleteId(null);
+      setReviews((prev) => prev.filter((r) => r.id !== id));
+    } catch (err: any) {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    } finally { setDeleting(false); }
+  }
+
+  async function toggleVisibility(id: number, visible: boolean) {
+    setToggling(id);
+    try {
+      const res = await fetch(`/api/admin/reviews/${id}/visibility`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visible }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: visible ? "Review shown" : "Review hidden" });
+      setReviews((prev) => prev.map((r) => r.id === id ? { ...r, isVisible: visible } : r));
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    } finally { setToggling(null); }
+  }
+
+  async function toggleFeatured(id: number, featured: boolean) {
+    setToggling(id);
+    try {
+      const res = await fetch(`/api/admin/reviews/${id}/featured`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ featured }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: featured ? "Review featured ⭐" : "Review unfeatured" });
+      setReviews((prev) => prev.map((r) => r.id === id ? { ...r, isFeatured: featured } : r));
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    } finally { setToggling(null); }
+  }
+
+  const filtered = reviews.filter((r) => {
+    const matchSearch =
+      r.userName.toLowerCase().includes(search.toLowerCase()) ||
+      r.message.toLowerCase().includes(search.toLowerCase());
+    const matchWinner =
+      filterWinner === "all" ||
+      (filterWinner === "winner" && r.isWinner) ||
+      (filterWinner === "regular" && !r.isWinner);
+    const matchVisible =
+      filterVisible === "all" ||
+      (filterVisible === "visible" && r.isVisible) ||
+      (filterVisible === "hidden" && !r.isVisible);
+    return matchSearch && matchWinner && matchVisible;
+  });
+
+  /* Aggregate stats */
+  const total = reviews.length;
+  const visible = reviews.filter((r) => r.isVisible).length;
+  const hidden = reviews.filter((r) => !r.isVisible).length;
+  const featured = reviews.filter((r) => r.isFeatured).length;
+  const avgRating = total > 0
+    ? (reviews.reduce((s, r) => s + r.rating, 0) / total).toFixed(1)
+    : "–";
+
+  function Stars({ value }: { value: number }) {
+    return (
+      <span className="flex gap-0.5">
+        {[1,2,3,4,5].map((s) => (
+          <svg key={s} className={`w-3.5 h-3.5 ${s <= value ? "text-yellow-400" : "text-muted/20"}`} fill="currentColor" viewBox="0 0 20 20">
+            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+          </svg>
+        ))}
+      </span>
+    );
+  }
+
+  return (
+    <>
+      {/* Delete confirm modal */}
+      {confirmDeleteId !== null && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-sm">
+            <CardContent className="p-6 space-y-4">
+              <p className="font-semibold text-lg">Delete Review?</p>
+              <p className="text-sm text-muted-foreground">This will permanently remove the review from the platform. The user will not be notified.</p>
+              <div className="flex gap-3 justify-end">
+                <Button variant="outline" onClick={() => setConfirmDeleteId(null)} disabled={deleting}>Cancel</Button>
+                <Button variant="destructive" onClick={() => deleteReview(confirmDeleteId!)} disabled={deleting}>
+                  {deleting ? "Deleting..." : "Delete"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <div className="space-y-4 mt-4">
+        {/* Stats bar */}
+        <div className="grid grid-cols-5 gap-3">
+          {[
+            { label: "Total", value: total, color: "text-foreground" },
+            { label: "Visible", value: visible, color: "text-green-400" },
+            { label: "Hidden", value: hidden, color: "text-red-400" },
+            { label: "Featured", value: featured, color: "text-yellow-400" },
+            { label: "Avg Rating", value: `${avgRating}★`, color: "text-yellow-400" },
+          ].map((s) => (
+            <Card key={s.label}>
+              <CardContent className="p-3 text-center">
+                <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-wrap gap-2">
+          <Input
+            placeholder="Search name or message..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 min-w-[160px]"
+          />
+          <select
+            value={filterWinner}
+            onChange={(e) => setFilterWinner(e.target.value as any)}
+            className="border rounded-md px-3 py-2 text-sm bg-background"
+          >
+            <option value="all">All users</option>
+            <option value="winner">Winners only</option>
+            <option value="regular">Regular users</option>
+          </select>
+          <select
+            value={filterVisible}
+            onChange={(e) => setFilterVisible(e.target.value as any)}
+            className="border rounded-md px-3 py-2 text-sm bg-background"
+          >
+            <option value="all">All visibility</option>
+            <option value="visible">Visible</option>
+            <option value="hidden">Hidden</option>
+          </select>
+        </div>
+
+        <p className="text-xs text-muted-foreground">{filtered.length} review{filtered.length !== 1 ? "s" : ""}</p>
+
+        {loading ? (
+          <p className="text-center text-muted-foreground py-8">Loading reviews...</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">No reviews match your filters</p>
+        ) : (
+          <div className="space-y-2">
+            {filtered.map((r) => (
+              <Card key={r.id} className={!r.isVisible ? "opacity-50" : ""}>
+                <CardContent className="p-4 space-y-2">
+                  {/* Header row */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                        <span className="font-semibold text-sm">{r.userName}</span>
+                        {r.isWinner && (
+                          <Badge className="bg-yellow-500/15 text-yellow-400 border-yellow-500/25 text-[10px] py-0">
+                            🏆 Winner
+                          </Badge>
+                        )}
+                        {r.isFeatured && (
+                          <Badge className="bg-primary/15 text-primary border-primary/25 text-[10px] py-0">
+                            ⭐ Featured
+                          </Badge>
+                        )}
+                        {!r.isVisible && (
+                          <Badge variant="destructive" className="text-[10px] py-0">Hidden</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Stars value={r.rating} />
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(r.createdAt).toLocaleDateString()}
+                        </span>
+                        {r.poolTitle && (
+                          <span className="text-xs text-muted-foreground">
+                            · Won in <span className="text-yellow-400">{r.poolTitle}</span>
+                            {r.prize && <span className="text-primary font-semibold"> (+{r.prize} USDT)</span>}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={`h-7 text-xs ${r.isFeatured ? "border-yellow-500/40 text-yellow-400" : ""}`}
+                        disabled={toggling === r.id}
+                        onClick={() => toggleFeatured(r.id, !r.isFeatured)}
+                      >
+                        {r.isFeatured ? "Unfeature" : "⭐ Feature"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={`h-7 text-xs ${!r.isVisible ? "border-green-500/40 text-green-400" : "border-orange-500/40 text-orange-400"}`}
+                        disabled={toggling === r.id}
+                        onClick={() => toggleVisibility(r.id, !r.isVisible)}
+                      >
+                        {r.isVisible ? "Hide" : "Show"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs text-red-500 hover:text-red-700 hover:bg-red-500/10"
+                        onClick={() => setConfirmDeleteId(r.id)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Review text */}
+                  <p className="text-sm text-muted-foreground leading-relaxed border-l-2 border-border pl-3 ml-0.5">
+                    {r.message}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

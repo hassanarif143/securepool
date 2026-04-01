@@ -11,10 +11,11 @@ router.get("/", async (req, res) => {
 
     const { rows } = await pool.query(
       `SELECT r.id, r.user_name, r.message, r.rating, r.is_winner,
-              r.pool_title, r.prize, r.created_at,
+              r.pool_title, r.prize, r.is_featured, r.created_at,
               COUNT(*) OVER() AS total_count
        FROM reviews r
-       ORDER BY r.created_at DESC
+       WHERE r.is_visible = TRUE
+       ORDER BY r.is_featured DESC, r.created_at DESC
        LIMIT $1 OFFSET $2`,
       [limit, offset]
     );
