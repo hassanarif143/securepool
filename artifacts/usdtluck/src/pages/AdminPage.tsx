@@ -23,11 +23,16 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function AdminPage() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
 
-  if (!user) { navigate("/login"); return null; }
-  if (!user.isAdmin) { navigate("/dashboard"); return null; }
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user) navigate("/login");
+    else if (!user.isAdmin) navigate("/dashboard");
+  }, [user, isLoading]);
+
+  if (isLoading || !user) return null;
 
   return (
     <div className="space-y-6">

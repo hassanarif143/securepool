@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useGetUserTransactions, getGetUserTransactionsQueryKey, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
@@ -32,7 +32,7 @@ function txColor(type: string) {
 }
 
 export default function WalletPage() {
-  const { user, setUser } = useAuth();
+  const { user, isLoading, setUser } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -45,14 +45,18 @@ export default function WalletPage() {
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: transactions, isLoading } = useGetUserTransactions(user?.id ?? 0, {
+  const { data: transactions, isLoading: txsLoading } = useGetUserTransactions(user?.id ?? 0, {
     query: {
       enabled: !!user?.id,
       queryKey: getGetUserTransactionsQueryKey(user?.id ?? 0),
     },
   });
 
-  if (!user) { navigate("/login"); return null; }
+  useEffect(() => {
+    if (!isLoading && !user) navigate("/login");
+  }, [user, isLoading]);
+
+  if (isLoading || !user) return null;
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -289,7 +293,7 @@ export default function WalletPage() {
         </TabsContent>
 
         <TabsContent value="history" className="mt-4">
-          {isLoading ? (
+          {txsLoading ? (
             <p className="text-center text-muted-foreground py-8">Loading...</p>
           ) : !transactions || transactions.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">No transactions yet</p>

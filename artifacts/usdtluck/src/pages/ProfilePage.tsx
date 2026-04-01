@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { getGetMeQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function ProfilePage() {
-  const { user, setUser } = useAuth();
+  const { user, isLoading, setUser } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -19,7 +19,11 @@ export default function ProfilePage() {
   const [cryptoAddress, setCryptoAddress] = useState(user?.cryptoAddress ?? "");
   const [saving, setSaving] = useState(false);
 
-  if (!user) { navigate("/login"); return null; }
+  useEffect(() => {
+    if (!isLoading && !user) navigate("/login");
+  }, [user, isLoading]);
+
+  if (isLoading || !user) return null;
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();

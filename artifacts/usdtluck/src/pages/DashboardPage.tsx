@@ -1,24 +1,26 @@
+import { useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
-import { useListPools, useGetUserTransactions, useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
+import { useListPools, useGetUserTransactions } from "@workspace/api-client-react";
 import { PoolCard } from "@/components/PoolCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
 
-  if (!user) {
-    navigate("/login");
-    return null;
-  }
-
   const { data: pools, isLoading: poolsLoading } = useListPools();
-  const { data: transactions } = useGetUserTransactions(user.id, {
-    query: { enabled: !!user.id },
+  const { data: transactions } = useGetUserTransactions(user?.id ?? 0, {
+    query: { enabled: !!user?.id },
   });
+
+  useEffect(() => {
+    if (!isLoading && !user) navigate("/login");
+  }, [user, isLoading]);
+
+  if (isLoading || !user) return null;
 
   const activePools = pools?.filter((p) => p.status === "open") ?? [];
   const recentTxs = transactions?.slice(0, 5) ?? [];
