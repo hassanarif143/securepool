@@ -8,6 +8,7 @@ interface UserType {
   name: string;
   email: string;
   walletBalance: number;
+  cryptoAddress: string | null;
   isAdmin: boolean;
   joinedAt: string;
 }

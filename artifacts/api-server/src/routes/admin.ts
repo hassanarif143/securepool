@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, poolsTable, poolParticipantsTable, transactionsTable, winnersTable } from "@workspace/db";
-import { eq, count, sum, desc } from "drizzle-orm";
+import { eq, count, sum, desc, and } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -14,19 +14,19 @@ router.get("/stats", async (req, res) => {
   const rewardTxs = await db
     .select({ total: sum(transactionsTable.amount) })
     .from(transactionsTable)
-    .where(eq(transactionsTable.txType, "reward"));
+    .where(and(eq(transactionsTable.txType, "reward"), eq(transactionsTable.status, "completed")));
   const totalRewardsDistributed = parseFloat(rewardTxs[0]?.total ?? "0");
 
   const depositTxs = await db
     .select({ total: sum(transactionsTable.amount) })
     .from(transactionsTable)
-    .where(eq(transactionsTable.txType, "deposit"));
+    .where(and(eq(transactionsTable.txType, "deposit"), eq(transactionsTable.status, "completed")));
   const totalDeposits = parseFloat(depositTxs[0]?.total ?? "0");
 
   const withdrawTxs = await db
     .select({ total: sum(transactionsTable.amount) })
     .from(transactionsTable)
-    .where(eq(transactionsTable.txType, "withdraw"));
+    .where(and(eq(transactionsTable.txType, "withdraw"), eq(transactionsTable.status, "completed")));
   const totalWithdrawals = parseFloat(withdrawTxs[0]?.total ?? "0");
 
   const recentWinnersRaw = await db
@@ -68,14 +68,12 @@ router.get("/users", async (req, res) => {
       const [depositTotal] = await db
         .select({ total: sum(transactionsTable.amount) })
         .from(transactionsTable)
-        .where(eq(transactionsTable.userId, user.id))
-        .where(eq(transactionsTable.txType, "deposit"));
+        .where(and(eq(transactionsTable.userId, user.id), eq(transactionsTable.txType, "deposit"), eq(transactionsTable.status, "completed")));
 
       const [withdrawTotal] = await db
         .select({ total: sum(transactionsTable.amount) })
         .from(transactionsTable)
-        .where(eq(transactionsTable.userId, user.id))
-        .where(eq(transactionsTable.txType, "withdraw"));
+        .where(and(eq(transactionsTable.userId, user.id), eq(transactionsTable.txType, "withdraw")));
 
       const [poolsJoinedCount] = await db
         .select({ ct: count() })
@@ -87,6 +85,7 @@ router.get("/users", async (req, res) => {
         name: user.name,
         email: user.email,
         walletBalance: parseFloat(user.walletBalance),
+        cryptoAddress: user.cryptoAddress ?? null,
         isAdmin: user.isAdmin,
         joinedAt: user.joinedAt,
         totalDeposited: parseFloat(depositTotal?.total ?? "0"),
@@ -97,6 +96,66 @@ router.get("/users", async (req, res) => {
   );
 
   res.json(result);
+});
+
+router.get("/transactions/pending", async (req, res) => {
+  const txs = await db
+    .select({
+      id: transactionsTable.id,
+      userId: transactionsTable.userId,
+      userName: usersTable.name,
+      userEmail: usersTable.email,
+      userCryptoAddress: usersTable.cryptoAddress,
+      txType: transactionsTable.txType,
+      amount: transactionsTable.amount,
+      status: transactionsTable.status,
+      note: transactionsTable.note,
+      screenshotUrl: transactionsTable.screenshotUrl,
+      createdAt: transactionsTable.createdAt,
+    })
+    .from(transactionsTable)
+    .innerJoin(usersTable, eq(transactionsTable.userId, usersTable.id))
+    .where(eq(transactionsTable.status, "pending"))
+    .orderBy(desc(transactionsTable.createdAt));
+
+  res.json(txs.map((t) => ({
+    ...t,
+    amount: parseFloat(t.amount),
+    screenshotUrl: t.screenshotUrl ?? null,
+    userCryptoAddress: t.userCryptoAddress ?? null,
+  })));
+});
+
+router.post("/transactions/:id/approve", async (req, res) => {
+  const txId = parseInt(req.params.id);
+  if (isNaN(txId)) { res.status(400).json({ error: "Invalid transaction ID" }); return; }
+
+  const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txId)).limit(1);
+  if (!tx) { res.status(404).json({ error: "Transaction not found" }); return; }
+  if (tx.status !== "pending") { res.status(400).json({ error: "Transaction is not pending" }); return; }
+
+  await db.update(transactionsTable).set({ status: "completed" }).where(eq(transactionsTable.id, txId));
+
+  if (tx.txType === "deposit") {
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
+    const newBalance = parseFloat(user.walletBalance) + parseFloat(tx.amount);
+    await db.update(usersTable).set({ walletBalance: String(newBalance) }).where(eq(usersTable.id, tx.userId));
+  }
+
+  res.json({ message: "Transaction approved" });
+});
+
+router.post("/transactions/:id/reject", async (req, res) => {
+  const txId = parseInt(req.params.id);
+  if (isNaN(txId)) { res.status(400).json({ error: "Invalid transaction ID" }); return; }
+
+  const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txId)).limit(1);
+  if (!tx) { res.status(404).json({ error: "Transaction not found" }); return; }
+  if (tx.status !== "pending") { res.status(400).json({ error: "Transaction is not pending" }); return; }
+
+  await db.update(transactionsTable).set({ status: "failed" }).where(eq(transactionsTable.id, txId));
+
+  res.json({ message: "Transaction rejected" });
 });
 
 export default router;

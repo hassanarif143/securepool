@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
   useGetDashboardStats,
@@ -36,14 +36,16 @@ export default function AdminPage() {
         <p className="text-muted-foreground mt-1">Manage pools, users, and rewards</p>
       </div>
 
-      <Tabs defaultValue="stats">
+      <Tabs defaultValue="pending">
         <TabsList className="flex-wrap h-auto">
+          <TabsTrigger value="pending">Pending</TabsTrigger>
           <TabsTrigger value="stats">Stats</TabsTrigger>
           <TabsTrigger value="pools">Pools</TabsTrigger>
           <TabsTrigger value="create">Create Pool</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
         </TabsList>
+        <TabsContent value="pending"><PendingTransactionsTab /></TabsContent>
         <TabsContent value="stats"><StatsTab /></TabsContent>
         <TabsContent value="pools"><PoolsTab /></TabsContent>
         <TabsContent value="create"><CreatePoolTab /></TabsContent>
@@ -302,6 +304,106 @@ function UsersTab() {
   );
 }
 
+function PendingTransactionsTab() {
+  const [pendingTxs, setPendingTxs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [acting, setActing] = useState<number | null>(null);
+  const { toast } = useToast();
+
+  async function loadPending() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/transactions/pending", { credentials: "include" });
+      setPendingTxs(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadPending(); }, []);
+
+  async function handleAction(id: number, action: "approve" | "reject") {
+    setActing(id);
+    try {
+      const res = await fetch(`/api/admin/transactions/${id}/${action}`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Action failed");
+      toast({ title: action === "approve" ? "Deposit approved ✓" : "Deposit rejected", description: action === "approve" ? "Wallet balance has been updated." : "Transaction marked as failed." });
+      loadPending();
+    } catch {
+      toast({ title: "Action failed", variant: "destructive" });
+    } finally {
+      setActing(null);
+    }
+  }
+
+  if (loading) return <p className="text-center text-muted-foreground py-8">Loading...</p>;
+
+  return (
+    <div className="space-y-4 mt-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold">Pending Deposits & Withdrawals</h2>
+        <Button size="sm" variant="outline" onClick={loadPending}>Refresh</Button>
+      </div>
+      {pendingTxs.length === 0 ? (
+        <p className="text-muted-foreground text-center py-8">No pending requests</p>
+      ) : pendingTxs.map((tx) => (
+        <Card key={tx.id} className="border-yellow-200">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold">{tx.userName}</p>
+                  <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 capitalize">{tx.txType}</Badge>
+                  <span className="font-bold text-primary">{tx.amount.toFixed(2)} USDT</span>
+                </div>
+                <p className="text-xs text-muted-foreground">{tx.userEmail}</p>
+                {tx.userCryptoAddress && (
+                  <p className="text-xs font-mono text-muted-foreground mt-0.5">Wallet: {tx.userCryptoAddress}</p>
+                )}
+                {tx.note && <p className="text-xs text-muted-foreground">Note: {tx.note}</p>}
+                <p className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleString()}</p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  onClick={() => handleAction(tx.id, "approve")}
+                  disabled={acting === tx.id}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => handleAction(tx.id, "reject")}
+                  disabled={acting === tx.id}
+                >
+                  Reject
+                </Button>
+              </div>
+            </div>
+            {tx.screenshotUrl && (
+              <div className="rounded border overflow-hidden">
+                <a href={tx.screenshotUrl} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={tx.screenshotUrl}
+                    alt="Payment screenshot"
+                    className="max-h-64 w-full object-contain bg-muted"
+                  />
+                </a>
+                <p className="text-xs text-muted-foreground text-center py-1">Click image to view full size</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 function TransactionsTab() {
   const { data: txs } = useListTransactions({ query: { queryKey: ["listTransactions"] } });
 
@@ -309,19 +411,36 @@ function TransactionsTab() {
     return type === "deposit" || type === "reward" ? "text-green-600" : "text-red-500";
   }
 
+  function TxStatus({ status }: { status: string }) {
+    if (status === "completed") return <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">Completed</Badge>;
+    if (status === "pending") return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">Pending</Badge>;
+    return <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">Failed</Badge>;
+  }
+
   return (
     <div className="space-y-2 mt-4">
       {!txs || txs.length === 0 ? (
         <p className="text-muted-foreground text-center py-8">No transactions</p>
-      ) : txs.map((tx) => (
+      ) : (txs as any[]).map((tx) => (
         <Card key={tx.id}>
-          <CardContent className="p-3 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-sm">{tx.userName} <span className="text-muted-foreground text-xs capitalize">— {tx.txType.replace("_", " ")}</span></p>
-              {tx.note && <p className="text-xs text-muted-foreground">{tx.note}</p>}
+          <CardContent className="p-3 flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-medium text-sm">{tx.userName}</p>
+                <span className="text-xs text-muted-foreground capitalize">{tx.txType.replace("_", " ")}</span>
+                <TxStatus status={tx.status} />
+              </div>
+              {tx.note && <p className="text-xs text-muted-foreground truncate">{tx.note}</p>}
               <p className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleString()}</p>
             </div>
-            <p className={`font-bold ${txColor(tx.txType)}`}>{tx.amount} USDT</p>
+            <div className="text-right">
+              <p className={`font-bold ${txColor(tx.txType)}`}>{tx.amount} USDT</p>
+              {tx.screenshotUrl && (
+                <a href={tx.screenshotUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline">
+                  Receipt
+                </a>
+              )}
+            </div>
           </CardContent>
         </Card>
       ))}

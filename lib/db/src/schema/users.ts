@@ -8,6 +8,7 @@ export const usersTable = pgTable("users", {
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   walletBalance: numeric("wallet_balance", { precision: 18, scale: 2 }).notNull().default("0"),
+  cryptoAddress: text("crypto_address"),
   isAdmin: boolean("is_admin").notNull().default(false),
   joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
 });

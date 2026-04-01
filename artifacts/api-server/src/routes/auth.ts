@@ -74,6 +74,7 @@ router.post("/login", async (req, res) => {
       name: user.name,
       email: user.email,
       walletBalance: parseFloat(user.walletBalance),
+      cryptoAddress: user.cryptoAddress ?? null,
       isAdmin: user.isAdmin,
       joinedAt: user.joinedAt,
     },
@@ -104,6 +105,7 @@ router.get("/me", async (req, res) => {
     name: user.name,
     email: user.email,
     walletBalance: parseFloat(user.walletBalance),
+    cryptoAddress: user.cryptoAddress ?? null,
     isAdmin: user.isAdmin,
     joinedAt: user.joinedAt,
   });

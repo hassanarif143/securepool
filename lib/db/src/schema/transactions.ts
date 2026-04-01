@@ -11,6 +11,7 @@ export const transactionsTable = pgTable("transactions", {
   amount: numeric("amount", { precision: 18, scale: 2 }).notNull(),
   status: txStatusEnum("status").notNull().default("completed"),
   note: text("note"),
+  screenshotUrl: text("screenshot_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

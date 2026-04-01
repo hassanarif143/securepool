@@ -25,12 +25,15 @@ A full-stack USDT reward pool web app. Users join prize pools for 10 USDT, 3 ran
 
 **Features:**
 - User auth (signup/login/logout) with session cookies
-- Wallet management (deposit/withdraw)
+- Wallet management with screenshot-based deposit verification flow
+- Deposits: user submits amount + payment screenshot → pending → admin approves → balance credited
+- Withdrawals: balance deducted immediately, admin processes payout
+- USDT wallet address stored on user profile for identity verification
 - Pool joining with countdown timers
 - Random reward distribution (admin triggered)
-- Admin panel: manage pools, view users, distribute rewards
+- Admin panel: Pending deposits/withdrawals tab (approve/reject with screenshot preview), Stats, Pools, Users, Transactions
 - Recent winners feed
-- Transaction history
+- Transaction history with status badges and receipt links
 
 **Demo accounts (password: `password123`):**
 - Admin: `admin@usdtluck.com`
@@ -40,13 +43,18 @@ A full-stack USDT reward pool web app. Users join prize pools for 10 USDT, 3 ran
 Express 5 REST API serving all USDTLuck functionality.
 
 **Routes:**
-- `/api/auth` — signup, login, logout, /me
-- `/api/users/:id` — get/update user, user transactions
+- `/api/auth` — signup, login, logout, /me (returns cryptoAddress)
+- `/api/users/:id` — get/update user (name, cryptoAddress), user transactions
 - `/api/pools` — CRUD pools, join pool, distribute rewards, participants
-- `/api/transactions` — create/list transactions
+- `/api/transactions/deposit` — multipart/form-data (amount + screenshot image); creates pending tx
+- `/api/transactions/withdraw` — JSON body; deducts balance immediately, creates pending tx
 - `/api/winners` — recent winners feed
 - `/api/dashboard/stats` — admin dashboard stats
 - `/api/admin/users` — admin user listing
+- `/api/admin/transactions/pending` — pending deposits & withdrawals for review
+- `/api/admin/transactions/:id/approve` — approve tx, credit wallet for deposits
+- `/api/admin/transactions/:id/reject` — reject tx, mark as failed
+- `/uploads/*` — static file serving for uploaded screenshots
 
 ## Structure
 
@@ -69,11 +77,14 @@ artifacts-monorepo/
 
 ## Database Schema
 
-- **users**: id, name, email, password_hash, wallet_balance, is_admin, joined_at
+- **users**: id, name, email, password_hash, wallet_balance, crypto_address (TRC-20 wallet), is_admin, joined_at
 - **pools**: id, title, entry_fee, max_users, start_time, end_time, status (open/closed/completed), prize_first/second/third, created_at
 - **pool_participants**: id, pool_id, user_id, ticket_count, joined_at
-- **transactions**: id, user_id, tx_type (deposit/withdraw/reward/pool_entry), amount, status, note, created_at
+- **transactions**: id, user_id, tx_type (deposit/withdraw/reward/pool_entry), amount, status (pending/completed/failed), note, screenshot_url, created_at
 - **winners**: id, pool_id, user_id, place (1/2/3), prize, awarded_at
+- **session**: sid, sess, expire (connect-pg-simple session store — created manually, do NOT drizzle push)
+
+**Important**: `session` table was created manually via SQL. Never run `drizzle push` as it will try to drop it. Use direct ALTER TABLE SQL for schema changes.
 
 ## TypeScript & Composite Projects
 

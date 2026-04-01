@@ -1,40 +1,46 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useUpdateUser } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { getGetMeQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function ProfilePage() {
   const { user, setUser } = useAuth();
   const [, navigate] = useLocation();
-
-  if (!user) {
-    navigate("/login");
-    return null;
-  }
-
-  const [name, setName] = useState(user.name);
-  const updateMutation = useUpdateUser();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  function handleSave(e: React.FormEvent) {
+  const [name, setName] = useState(user?.name ?? "");
+  const [cryptoAddress, setCryptoAddress] = useState(user?.cryptoAddress ?? "");
+  const [saving, setSaving] = useState(false);
+
+  if (!user) { navigate("/login"); return null; }
+
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    updateMutation.mutate(
-      { userId: user.id, data: { name } },
-      {
-        onSuccess: (updated) => {
-          setUser({ ...user, name: updated.name });
-          toast({ title: "Profile updated" });
-        },
-        onError: () => {
-          toast({ title: "Update failed", variant: "destructive" });
-        },
-      }
-    );
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name, cryptoAddress: cryptoAddress || null }),
+      });
+      if (!res.ok) throw new Error("Update failed");
+      const updated = await res.json();
+      setUser({ ...user, name: updated.name, cryptoAddress: updated.cryptoAddress });
+      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      toast({ title: "Profile updated", description: "Your details have been saved." });
+    } catch {
+      toast({ title: "Update failed", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -44,37 +50,60 @@ export default function ProfilePage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Account Information</CardTitle>
+          <CardDescription>Update your name and crypto address below</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSave} className="space-y-4">
             <div className="space-y-1.5">
-              <Label>Full name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} required minLength={2} />
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your full name"
+                required
+                minLength={2}
+              />
             </div>
+
             <div className="space-y-1.5">
-              <Label>Email address</Label>
-              <Input value={user.email} disabled className="opacity-60" />
-              <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" value={user.email} disabled className="opacity-60" />
             </div>
+
             <div className="space-y-1.5">
-              <Label>Wallet Balance</Label>
-              <div className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 bg-muted">
-                <span className="font-bold text-primary">{user.walletBalance.toFixed(2)} USDT</span>
-              </div>
+              <Label htmlFor="cryptoAddress">Your USDT Wallet Address (TRC-20)</Label>
+              <Input
+                id="cryptoAddress"
+                value={cryptoAddress}
+                onChange={(e) => setCryptoAddress(e.target.value)}
+                placeholder="e.g. TQn9Y2khEsLJW1ChVWFMSMeRDow5k..."
+              />
+              <p className="text-xs text-muted-foreground">
+                This is where we identify your incoming payments. Make sure it matches the wallet you send from.
+              </p>
             </div>
-            <div className="space-y-1.5">
-              <Label>Member since</Label>
-              <Input value={new Date(user.joinedAt).toLocaleDateString()} disabled className="opacity-60" />
-            </div>
-            {user.isAdmin && (
-              <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-sm text-primary font-medium">
-                Administrator account
-              </div>
-            )}
-            <Button type="submit" disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? "Saving..." : "Save Changes"}
+
+            <Button type="submit" disabled={saving} className="w-full">
+              {saving ? "Saving..." : "Save Changes"}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Account Stats</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 gap-4">
+          <div className="space-y-0.5">
+            <p className="text-xs text-muted-foreground">Wallet Balance</p>
+            <p className="text-xl font-bold text-primary">{user.walletBalance.toFixed(2)} USDT</p>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-xs text-muted-foreground">Member Since</p>
+            <p className="text-sm font-medium">{new Date(user.joinedAt).toLocaleDateString()}</p>
+          </div>
         </CardContent>
       </Card>
     </div>
