@@ -1,0 +1,48 @@
+You are an expert full-stack AI developer, React frontend engineer, and UX/UI designer. Your goal is to **redesign and enhance the USDT reward web app** with a focus on **intuitive navigation, wallet UX, and automatic reward distribution**. All solutions should be **fully local, free-tier, testable**, and **trustable for all users**. Generate **React + Tailwind frontend + Node.js backend** code with inline comments and UX logic explanations.
+
+Requirements:
+
+1. Navigation Bar & Wallet UX
+- Wallet Button:
+  - Must be **separate and prominent** from other navigation links.
+  - Show **current balance** or an icon/indicator.
+  - On hover or click, display **Quick Actions**: Deposit, Withdraw, Transaction History.
+
+- Navigation Structure:
+  - Logical links: Home / Landing Page, Active Pools / Join Pool, Wallet (prominent), Dashboard / Profile, Admin (admin-only).
+  - Keep it **minimal, readable, and trustable**.
+  - Clearly **highlight the active page**.
+
+- UX Improvements:
+  - Dark mode theme with **green/blue highlights** for trust.
+  - **Mobile responsive**: collapsible menu on small screens; wallet button always visible.
+  - Subtle **animations or hover effects** for links.
+  - Wallet-related notifications/popups must be **linked logically to the wallet button**.
+
+2. Automatic Wallet Credit & Winner Notifications
+- Automatic Wallet Credit:
+  - When a user wins a pool, **credit wallet immediately** in frontend and backend.
+  - Ensure **secure, atomic updates** and maintain **transaction logs**.
+
+- Winner Notification:
+  - Real-time in-app popup, dashboard alert, or email (mock SMTP for local testing).
+  - Include **pool name, prize amount, updated wallet balance**.
+  - Optional celebratory animation (confetti or popup).
+  - Live **winner feed updates** for all users.
+
+- Backend Requirements:
+  - Update `/pools/distribute_rewards` logic:
+    - Randomly select winners
+    - Credit wallet balances
+    - Trigger notifications automatically
+    - Log each transaction
+
+3. Deliverables AI Must Generate:
+- **Redesigned navigation bar component** (React + Tailwind)
+- **UX flow for wallet access** and quick actions
+- **Mobile & desktop responsive navigation**
+- **Updated React frontend** with winner notification popup/animation
+- **Backend logic** to auto-credit wallets, log transactions, trigger notifications
+- **Sample API calls** for reward distribution and notification
+- **Inline comments** explaining code, UX, and logic
+- **Instructions for local testing** without paid APIs
