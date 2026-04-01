@@ -1,22 +1,30 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: USDTLuck API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: users
+    description: User operations
+  - name: pools
+    description: Pool operations
+  - name: transactions
+    description: Transaction operations
+  - name: admin
+    description: Admin operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +32,396 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/signup:
+    post:
+      operationId: signup
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupBody"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout user
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/{userId}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user profile
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update user profile
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserBody"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{userId}/transactions:
+    get:
+      operationId: getUserTransactions
+      tags: [users]
+      summary: Get user transaction history
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Transaction list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+
+  /pools:
+    get:
+      operationId: listPools
+      tags: [pools]
+      summary: List all pools
+      responses:
+        "200":
+          description: Pool list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Pool"
+    post:
+      operationId: createPool
+      tags: [pools]
+      summary: Create a new pool (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePoolBody"
+      responses:
+        "201":
+          description: Pool created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pool"
+
+  /pools/{poolId}:
+    get:
+      operationId: getPool
+      tags: [pools]
+      summary: Get pool details
+      parameters:
+        - name: poolId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Pool details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoolDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updatePool
+      tags: [pools]
+      summary: Update pool (admin)
+      parameters:
+        - name: poolId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePoolBody"
+      responses:
+        "200":
+          description: Updated pool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pool"
+
+  /pools/{poolId}/join:
+    post:
+      operationId: joinPool
+      tags: [pools]
+      summary: Join a pool
+      parameters:
+        - name: poolId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Joined pool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Cannot join (full, insufficient balance, already joined, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /pools/{poolId}/distribute:
+    post:
+      operationId: distributeRewards
+      tags: [pools]
+      summary: Distribute rewards for a pool (admin)
+      parameters:
+        - name: poolId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Rewards distributed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DistributeResult"
+        "400":
+          description: Pool not eligible for distribution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /pools/{poolId}/participants:
+    get:
+      operationId: getPoolParticipants
+      tags: [pools]
+      summary: Get pool participants
+      parameters:
+        - name: poolId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Participants list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Participant"
+
+  /transactions:
+    get:
+      operationId: listTransactions
+      tags: [transactions]
+      summary: List all transactions (admin)
+      responses:
+        "200":
+          description: Transaction list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+    post:
+      operationId: createTransaction
+      tags: [transactions]
+      summary: Create a deposit or withdrawal transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransactionBody"
+      responses:
+        "201":
+          description: Transaction created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Insufficient balance or invalid amount
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /winners:
+    get:
+      operationId: listWinners
+      tags: [pools]
+      summary: Get recent winners feed
+      responses:
+        "200":
+          description: Recent winners
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Winner"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [admin]
+      summary: Get dashboard stats
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /admin/users:
+    get:
+      operationId: listAdminUsers
+      tags: [admin]
+      summary: List all users (admin)
+      responses:
+        "200":
+          description: Users list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminUser"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +429,312 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required: [error]
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        walletBalance:
+          type: number
+        isAdmin:
+          type: boolean
+        joinedAt:
+          type: string
+          format: date-time
+      required: [id, name, email, walletBalance, isAdmin, joinedAt]
+
+    AdminUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        walletBalance:
+          type: number
+        isAdmin:
+          type: boolean
+        joinedAt:
+          type: string
+          format: date-time
+        totalDeposited:
+          type: number
+        totalWithdrawn:
+          type: number
+        poolsJoined:
+          type: integer
+      required: [id, name, email, walletBalance, isAdmin, joinedAt, totalDeposited, totalWithdrawn, poolsJoined]
+
+    SignupBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+      required: [name, email, password]
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+
+    UpdateUserBody:
+      type: object
+      properties:
+        name:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        message:
+          type: string
+      required: [user, message]
+
+    Pool:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        entryFee:
+          type: number
+        maxUsers:
+          type: integer
+        participantCount:
+          type: integer
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [open, closed, completed]
+        prizeFirst:
+          type: number
+        prizeSecond:
+          type: number
+        prizeThird:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, title, entryFee, maxUsers, participantCount, startTime, endTime, status, prizeFirst, prizeSecond, prizeThird, createdAt]
+
+    PoolDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        entryFee:
+          type: number
+        maxUsers:
+          type: integer
+        participantCount:
+          type: integer
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [open, closed, completed]
+        prizeFirst:
+          type: number
+        prizeSecond:
+          type: number
+        prizeThird:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        userJoined:
+          type: boolean
+      required: [id, title, entryFee, maxUsers, participantCount, startTime, endTime, status, prizeFirst, prizeSecond, prizeThird, createdAt, userJoined]
+
+    CreatePoolBody:
+      type: object
+      properties:
+        title:
+          type: string
+        entryFee:
+          type: number
+        maxUsers:
+          type: integer
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        prizeFirst:
+          type: number
+        prizeSecond:
+          type: number
+        prizeThird:
+          type: number
+      required: [title, entryFee, maxUsers, startTime, endTime, prizeFirst, prizeSecond, prizeThird]
+
+    UpdatePoolBody:
+      type: object
+      properties:
+        title:
+          type: string
+        status:
+          type: string
+          enum: [open, closed, completed]
+        endTime:
+          type: string
+          format: date-time
+
+    Participant:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        userName:
+          type: string
+        userEmail:
+          type: string
+        ticketCount:
+          type: integer
+        joinedAt:
+          type: string
+          format: date-time
+      required: [id, userId, userName, userEmail, ticketCount, joinedAt]
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        userName:
+          type: string
+        txType:
+          type: string
+          enum: [deposit, withdraw, reward, pool_entry]
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [pending, completed, failed]
+        note:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, userId, txType, amount, status, createdAt]
+
+    CreateTransactionBody:
+      type: object
+      properties:
+        txType:
+          type: string
+          enum: [deposit, withdraw]
+        amount:
+          type: number
+        note:
+          type: string
+      required: [txType, amount]
+
+    DistributeResult:
+      type: object
+      properties:
+        message:
+          type: string
+        winners:
+          type: array
+          items:
+            $ref: "#/components/schemas/Winner"
+      required: [message, winners]
+
+    Winner:
+      type: object
+      properties:
+        id:
+          type: integer
+        poolId:
+          type: integer
+        poolTitle:
+          type: string
+        userId:
+          type: integer
+        userName:
+          type: string
+        place:
+          type: integer
+        prize:
+          type: number
+        awardedAt:
+          type: string
+          format: date-time
+      required: [id, poolId, poolTitle, userId, userName, place, prize, awardedAt]
+
+    DashboardStats:
+      type: object
+      properties:
+        totalUsers:
+          type: integer
+        activePools:
+          type: integer
+        completedPools:
+          type: integer
+        totalRewardsDistributed:
+          type: number
+        totalDeposits:
+          type: number
+        totalWithdrawals:
+          type: number
+        recentWinners:
+          type: array
+          items:
+            $ref: "#/components/schemas/Winner"
+      required: [totalUsers, activePools, completedPools, totalRewardsDistributed, totalDeposits, totalWithdrawals, recentWinners]

@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "USDTLuck"
+version = "1.0.0"
+id = "artifacts/usdtluck"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21905
+
+[services.development]
+run = "pnpm --filter @workspace/usdtluck run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/usdtluck", "run", "build" ]
+publicDir = "artifacts/usdtluck/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21905"
+BASE_PATH = "/"
