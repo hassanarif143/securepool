@@ -47,7 +47,10 @@ export default function ReferralPage() {
   useEffect(() => {
     if (!user) return;
     fetch("/api/referral/me", { credentials: "include" })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d) => setData(d))
       .catch(() => toast({ title: "Failed to load referral data", variant: "destructive" }))
       .finally(() => setFetching(false));
@@ -173,11 +176,11 @@ export default function ReferralPage() {
           <div className="grid grid-cols-3 gap-4">
             {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24" />)}
           </div>
-        ) : data && (
+        ) : data?.stats && (
           <div className="grid grid-cols-3 gap-4">
-            <StatCard label="Total Referrals" value={data.stats.total} icon="👥" />
-            <StatCard label="Pending Bonus" value={`${(data.stats.pending * 2).toFixed(0)} USDT`} icon="⏳" color="text-yellow-400" />
-            <StatCard label="Total Earned" value={`${data.stats.totalEarned.toFixed(2)} USDT`} icon="💰" color="text-primary" />
+            <StatCard label="Total Referrals" value={data.stats.total ?? 0} icon="👥" />
+            <StatCard label="Pending Bonus" value={`${((data.stats.pending ?? 0) * 2).toFixed(0)} USDT`} icon="⏳" color="text-yellow-400" />
+            <StatCard label="Total Earned" value={`${(data.stats.totalEarned ?? 0).toFixed(2)} USDT`} icon="💰" color="text-primary" />
           </div>
         )}
 
@@ -185,7 +188,7 @@ export default function ReferralPage() {
         <div>
           <h2 className="font-semibold text-lg mb-4">
             Referred Friends
-            {data && data.stats.total > 0 && (
+            {data?.stats?.total != null && data.stats.total > 0 && (
               <span className="ml-2 text-sm font-normal text-muted-foreground">({data.stats.total})</span>
             )}
           </h2>
