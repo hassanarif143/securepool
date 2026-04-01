@@ -155,6 +155,12 @@ router.post("/transactions/:id/reject", async (req, res) => {
 
   await db.update(transactionsTable).set({ status: "failed" }).where(eq(transactionsTable.id, txId));
 
+  if (tx.txType === "withdraw") {
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
+    const restored = parseFloat(user.walletBalance) + parseFloat(tx.amount);
+    await db.update(usersTable).set({ walletBalance: String(restored) }).where(eq(usersTable.id, tx.userId));
+  }
+
   res.json({ message: "Transaction rejected" });
 });
 
