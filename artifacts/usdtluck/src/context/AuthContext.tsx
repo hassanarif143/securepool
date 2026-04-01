@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { useGetMe, useLogout } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
+import { useLocation } from "wouter";
 
 interface UserType {
   id: number;
@@ -28,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserType | null>(null);
   const queryClient = useQueryClient();
   const logoutMutation = useLogout();
+  const [, navigate] = useLocation();
 
   const { data, isLoading } = useGetMe({
     query: {
@@ -48,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       onSuccess: () => {
         setUser(null);
         queryClient.clear();
+        navigate("/login");
       },
     });
   }
