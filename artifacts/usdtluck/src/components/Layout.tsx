@@ -2,14 +2,15 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
+import { TierBadge } from "@/components/TierBadge";
 
-/* ---------- Wallet quick-action dropdown ---------- */
+/* ─────────────────────────────────────────────
+   Wallet quick-action dropdown
+───────────────────────────────────────────── */
 function WalletDropdown({ balance }: { balance: number }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const [, navigate] = useLocation() as any;
 
-  /* close on outside click */
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
@@ -26,62 +27,42 @@ function WalletDropdown({ balance }: { balance: number }) {
 
   return (
     <div ref={ref} className="relative">
-      {/* Trigger button */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-xl px-3 py-2 transition-all border focus:outline-none"
+        className="flex items-center gap-2 rounded-xl px-3 py-1.5 transition-all border focus:outline-none"
         style={{
           background: open
-            ? "linear-gradient(135deg, hsla(152,72%,44%,0.2), hsla(200,80%,55%,0.12))"
-            : "linear-gradient(135deg, hsla(152,72%,44%,0.1), hsla(200,80%,55%,0.06))",
-          borderColor: open ? "hsla(152,72%,44%,0.5)" : "hsla(152,72%,44%,0.25)",
-          boxShadow: open ? "0 0 16px rgba(34,197,94,0.15)" : "none",
+            ? "hsla(152,72%,44%,0.15)"
+            : "hsla(152,72%,44%,0.08)",
+          borderColor: open ? "hsla(152,72%,44%,0.4)" : "hsla(152,72%,44%,0.2)",
         }}
       >
-        <span className="text-base leading-none">💳</span>
+        <span className="text-sm leading-none">💳</span>
         <div className="text-left">
-          <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Balance</p>
-          <p className="text-sm font-bold text-primary leading-none">
-            {balance.toFixed(2)} <span className="font-normal text-xs opacity-70">USDT</span>
+          <p className="text-xs font-bold text-primary leading-none">
+            {balance.toFixed(2)} <span className="font-normal text-[10px] opacity-70">USDT</span>
           </p>
         </div>
-        <svg
-          className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
-        >
+        <svg className={`w-3 h-3 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
-      {/* Dropdown panel */}
       {open && (
-        <div
-          className="absolute right-0 mt-2 w-64 rounded-2xl border shadow-2xl overflow-hidden z-50"
-          style={{
-            background: "hsl(222,30%,10%)",
-            borderColor: "hsla(152,72%,44%,0.2)",
-            boxShadow: "0 20px 40px rgba(0,0,0,0.5), 0 0 0 1px hsla(152,72%,44%,0.1)",
-          }}
-        >
-          {/* Balance header */}
-          <div
-            className="px-4 py-4"
-            style={{ background: "linear-gradient(135deg, hsla(152,72%,44%,0.12), hsla(200,80%,55%,0.06))" }}
-          >
-            <p className="text-xs text-muted-foreground mb-0.5">Available Balance</p>
-            <p className="text-2xl font-bold text-primary">{balance.toFixed(2)}</p>
-            <p className="text-xs text-muted-foreground">USDT</p>
+        <div className="absolute right-0 mt-2 w-64 rounded-2xl border shadow-2xl overflow-hidden z-50"
+          style={{ background: "hsl(222,30%,10%)", borderColor: "hsla(152,72%,44%,0.2)", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}>
+          <div className="px-4 py-3.5" style={{ background: "linear-gradient(135deg, hsla(152,72%,44%,0.12), hsla(200,80%,55%,0.06))" }}>
+            <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wide">Available Balance</p>
+            <p className="text-2xl font-bold text-primary leading-none">{balance.toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">USDT</p>
           </div>
-
-          {/* Quick actions */}
           <div className="p-2 space-y-0.5">
             {actions.map((a) => (
               <Link key={a.href} href={a.href}>
-                <button
-                  onClick={() => setOpen(false)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-white/5 group"
-                >
-                  <span className="text-lg w-7 text-center shrink-0">{a.icon}</span>
+                <button onClick={() => setOpen(false)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-white/5 group">
+                  <span className="text-lg w-6 text-center shrink-0">{a.icon}</span>
                   <div>
                     <p className="text-sm font-medium group-hover:text-primary transition-colors">{a.label}</p>
                     <p className="text-xs text-muted-foreground">{a.desc}</p>
@@ -96,63 +77,216 @@ function WalletDropdown({ balance }: { balance: number }) {
   );
 }
 
-/* ---------- Mobile menu ---------- */
+/* ─────────────────────────────────────────────
+   User avatar dropdown (Profile + Logout)
+───────────────────────────────────────────── */
+function UserMenu({ user, logout }: { user: any; logout: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-all focus:outline-none hover:bg-white/5"
+        style={{ border: `1px solid ${open ? "hsla(152,72%,44%,0.3)" : "transparent"}` }}
+      >
+        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+          style={{ background: "hsla(152,72%,44%,0.15)", border: "1px solid hsla(152,72%,44%,0.3)", color: "hsl(152,72%,60%)" }}>
+          {user.name.charAt(0).toUpperCase()}
+        </div>
+        <span className="hidden lg:block text-sm font-medium max-w-[90px] truncate">{user.name.split(" ")[0]}</span>
+        <svg className={`w-3 h-3 text-muted-foreground transition-transform hidden lg:block ${open ? "rotate-180" : ""}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-56 rounded-2xl border shadow-2xl overflow-hidden z-50"
+          style={{ background: "hsl(222,30%,10%)", borderColor: "hsl(217,28%,18%)", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}>
+          {/* User info header */}
+          <div className="px-4 py-3 border-b" style={{ borderColor: "hsl(217,28%,16%)" }}>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                style={{ background: "hsla(152,72%,44%,0.15)", border: "1px solid hsla(152,72%,44%,0.3)", color: "hsl(152,72%,60%)" }}>
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-sm truncate">{user.name}</p>
+                <TierBadge tier={user.tier ?? "aurora"} size="xs" />
+              </div>
+            </div>
+          </div>
+
+          <div className="p-2 space-y-0.5">
+            <Link href="/profile">
+              <button onClick={() => setOpen(false)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground">
+                <span className="w-5 text-center">👤</span> Profile & Settings
+              </button>
+            </Link>
+            <Link href="/wallet">
+              <button onClick={() => setOpen(false)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground">
+                <span className="w-5 text-center">💼</span> My Wallet
+              </button>
+            </Link>
+            <Link href="/leaderboard">
+              <button onClick={() => setOpen(false)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground">
+                <span className="w-5 text-center">🎖️</span> Tier Leaderboard
+              </button>
+            </Link>
+          </div>
+
+          <div className="p-2 border-t" style={{ borderColor: "hsl(217,28%,16%)" }}>
+            <button onClick={() => { logout(); setOpen(false); }}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors text-red-400 hover:bg-red-500/10">
+              <span className="w-5 text-center">🚪</span> Sign Out
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   "More" overflow dropdown for secondary links
+───────────────────────────────────────────── */
+function MoreMenu({ links, location }: { links: { href: string; label: string; icon: string }[]; location: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const anyActive = links.some((l) => location.startsWith(l.href));
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+          anyActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+        }`}
+        style={anyActive ? { background: "hsla(152,72%,44%,0.1)", border: "1px solid hsla(152,72%,44%,0.2)" } : {}}
+      >
+        <span>More</span>
+        <svg className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 mt-2 w-48 rounded-2xl border shadow-2xl overflow-hidden z-50"
+          style={{ background: "hsl(222,30%,10%)", borderColor: "hsl(217,28%,18%)", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}>
+          <div className="p-2 space-y-0.5">
+            {links.map((link) => {
+              const active = location.startsWith(link.href);
+              return (
+                <Link key={link.href} href={link.href}>
+                  <button onClick={() => setOpen(false)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors ${
+                      active ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                    }`}>
+                    <span className="w-5 text-center">{link.icon}</span>
+                    <span className="font-medium">{link.label}</span>
+                    {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
+                  </button>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   Mobile full-screen slide menu
+───────────────────────────────────────────── */
 function MobileMenu({
-  navLinks,
+  primaryLinks,
+  secondaryLinks,
   location,
   user,
   logout,
   onClose,
 }: {
-  navLinks: { href: string; label: string; icon: string }[];
+  primaryLinks: { href: string; label: string; icon: string }[];
+  secondaryLinks: { href: string; label: string; icon: string }[];
   location: string;
   user: any;
   logout: () => void;
   onClose: () => void;
 }) {
+  const allLinks = [...primaryLinks, ...secondaryLinks];
+
   return (
-    <div
-      className="md:hidden border-t border-border"
-      style={{ background: "hsl(224,30%,8%)" }}
-    >
-      <nav className="px-4 pt-3 pb-4 space-y-1">
-        {navLinks.map((link) => (
+    <div className="md:hidden border-t" style={{ background: "hsl(224,30%,8%)", borderColor: "hsl(217,28%,16%)" }}>
+      {/* User identity strip */}
+      <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b" style={{ borderColor: "hsl(217,28%,14%)" }}>
+        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+          style={{ background: "hsla(152,72%,44%,0.15)", border: "1px solid hsla(152,72%,44%,0.3)", color: "hsl(152,72%,60%)" }}>
+          {user.name.charAt(0).toUpperCase()}
+        </div>
+        <div>
+          <p className="font-semibold text-sm">{user.name}</p>
+          <TierBadge tier={user.tier ?? "aurora"} size="xs" />
+        </div>
+        <div className="ml-auto text-right">
+          <p className="text-xs font-bold text-primary">{user.walletBalance?.toFixed(2)} USDT</p>
+          <p className="text-[10px] text-muted-foreground">balance</p>
+        </div>
+      </div>
+
+      <nav className="px-3 pt-3 pb-4 space-y-0.5">
+        {allLinks.map((link) => (
           <Link key={link.href} href={link.href}>
-            <span
-              onClick={onClose}
+            <span onClick={onClose}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
                 location.startsWith(link.href)
-                  ? "bg-primary/15 text-primary"
+                  ? "bg-primary/12 text-primary"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-              }`}
-            >
+              }`}>
               <span className="text-base w-5 text-center">{link.icon}</span>
               {link.label}
+              {location.startsWith(link.href) && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
             </span>
           </Link>
         ))}
 
-        <div className="pt-2 border-t border-border mt-2 space-y-2">
-          <Link href="/wallet?tab=deposit">
-            <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
-              <span className="w-5 text-center">⬆️</span> Deposit USDT
-            </button>
-          </Link>
-          <Link href="/wallet?tab=withdraw">
-            <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
-              <span className="w-5 text-center">⬇️</span> Withdraw USDT
-            </button>
-          </Link>
+        <div className="pt-2 mt-2 border-t space-y-0.5" style={{ borderColor: "hsl(217,28%,14%)" }}>
           <Link href="/profile">
             <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
-              <span className="w-5 text-center">👤</span> Profile
+              <span className="w-5 text-center">👤</span> Profile & Settings
             </button>
           </Link>
-          <button
-            onClick={() => { logout(); onClose(); }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
-          >
-            <span className="w-5 text-center">🚪</span> Logout
+          <Link href="/wallet">
+            <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
+              <span className="w-5 text-center">💼</span> My Wallet
+            </button>
+          </Link>
+          <button onClick={() => { logout(); onClose(); }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors">
+            <span className="w-5 text-center">🚪</span> Sign Out
           </button>
         </div>
       </nav>
@@ -160,110 +294,104 @@ function MobileMenu({
   );
 }
 
-/* ---------- Main layout ---------- */
+/* ─────────────────────────────────────────────
+   Main Layout
+───────────────────────────────────────────── */
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, isLoading } = useAuth();
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const navLinks = user
-    ? [
-        { href: "/dashboard", label: "Dashboard", icon: "🏠" },
-        { href: "/pools", label: "Pools", icon: "🎱" },
-        { href: "/winners", label: "Winners", icon: "🏆" },
-        { href: "/reviews", label: "Reviews", icon: "💬" },
-        { href: "/leaderboard", label: "Leaderboard", icon: "🎖️" },
-        { href: "/referral", label: "Referral", icon: "🔗" },
-        ...(user.isAdmin ? [{ href: "/admin", label: "Admin", icon: "⚙️" }] : []),
-      ]
-    : [];
+  /* Close mobile menu on navigation */
+  useEffect(() => { setMobileOpen(false); }, [location]);
+
+  /* Primary links — always visible in the top bar */
+  const primaryLinks = user ? [
+    { href: "/dashboard", label: "Dashboard", icon: "🏠" },
+    { href: "/pools",     label: "Pools",      icon: "🎱" },
+    { href: "/winners",   label: "Winners",    icon: "🏆" },
+  ] : [];
+
+  /* Secondary links — tucked into "More" dropdown on desktop */
+  const secondaryLinks = user ? [
+    { href: "/reviews",    label: "Reviews",    icon: "💬" },
+    { href: "/referral",   label: "Referral",   icon: "🔗" },
+    ...(user.isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: "⚙️" }] : []),
+  ] : [];
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header
-        className="border-b border-border sticky top-0 z-50"
+        className="border-b sticky top-0 z-50"
         style={{
-          background: "hsla(224,30%,7%,0.88)",
-          backdropFilter: "blur(14px)",
-          WebkitBackdropFilter: "blur(14px)",
+          background: "hsla(224,30%,7%,0.92)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          borderColor: "hsl(217,28%,14%)",
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-4">
+          <div className="flex items-center h-14 gap-3">
 
             {/* ── Logo ── */}
-            <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-2 shrink-0">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 2px 8px rgba(22,163,74,0.4)" }}
-              >
-                <span className="text-white font-bold text-sm">U</span>
+            <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-2 shrink-0 mr-2">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+                style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 2px 8px rgba(22,163,74,0.35)" }}>
+                <span className="text-white font-bold text-xs">U</span>
               </div>
-              <span className="font-bold text-lg tracking-tight">
+              <span className="font-bold text-base tracking-tight">
                 USDT<span className="text-primary">Luck</span>
               </span>
             </Link>
 
-            {/* ── Desktop nav links ── */}
+            {/* ── Desktop primary nav ── */}
             {user && (
               <nav className="hidden md:flex items-center gap-0.5 flex-1">
-                {navLinks.map((link) => {
+                {primaryLinks.map((link) => {
                   const active = location.startsWith(link.href);
                   return (
                     <Link key={link.href} href={link.href}>
                       <span
-                        className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                          active
-                            ? "text-primary"
-                            : "text-muted-foreground hover:text-foreground"
+                        className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer whitespace-nowrap ${
+                          active ? "text-primary" : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
                         }`}
+                        style={active ? { background: "hsla(152,72%,44%,0.1)", border: "1px solid hsla(152,72%,44%,0.2)" } : {}}
                       >
-                        {active && (
-                          <span
-                            className="absolute inset-0 rounded-lg"
-                            style={{ background: "hsla(152,72%,44%,0.1)", border: "1px solid hsla(152,72%,44%,0.2)" }}
-                          />
-                        )}
-                        <span className="relative">{link.icon}</span>
-                        <span className="relative">{link.label}</span>
+                        <span>{link.icon}</span>
+                        <span>{link.label}</span>
+                        {active && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 h-0.5 rounded-full bg-primary opacity-60" />}
                       </span>
                     </Link>
                   );
                 })}
+
+                {/* Secondary links in "More" dropdown */}
+                {secondaryLinks.length > 0 && (
+                  <MoreMenu links={secondaryLinks} location={location} />
+                )}
               </nav>
             )}
 
             {/* ── Right side ── */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 ml-auto shrink-0">
               {!isLoading && user && (
                 <>
-                  {/* Wallet dropdown — always visible */}
+                  {/* Wallet balance */}
                   <WalletDropdown balance={user.walletBalance} />
 
-                  {/* Profile button — hidden on mobile (in mobile menu) */}
-                  <Link href="/profile">
-                    <button className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
-                      <span className="w-7 h-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary text-xs font-bold">
-                        {user.name.charAt(0).toUpperCase()}
-                      </span>
-                      <span className="hidden lg:block">{user.name.split(" ")[0]}</span>
-                    </button>
-                  </Link>
+                  {/* Divider */}
+                  <div className="hidden md:block w-px h-5 opacity-30" style={{ background: "hsl(217,28%,40%)" }} />
 
-                  {/* Logout — hidden on mobile */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={logout}
-                    className="hidden md:flex text-xs border-border/60 hover:border-red-500/40 hover:text-red-400 transition-colors"
-                  >
-                    Logout
-                  </Button>
+                  {/* User menu */}
+                  <div className="hidden md:block">
+                    <UserMenu user={user} logout={logout} />
+                  </div>
 
                   {/* Hamburger — mobile only */}
                   <button
                     onClick={() => setMobileOpen((v) => !v)}
-                    className="md:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+                    className="md:hidden p-2 rounded-lg transition-colors"
+                    style={{ color: mobileOpen ? "hsl(152,72%,55%)" : undefined }}
                     aria-label="Menu"
                   >
                     {mobileOpen ? (
@@ -271,7 +399,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     ) : (
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                       </svg>
                     )}
@@ -280,31 +408,29 @@ export function Layout({ children }: { children: React.ReactNode }) {
               )}
 
               {!isLoading && !user && (
-                <>
+                <div className="flex items-center gap-2">
                   <Link href="/login">
-                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm">
                       Login
                     </Button>
                   </Link>
                   <Link href="/signup">
-                    <Button
-                      size="sm"
-                      className="font-semibold"
-                      style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 2px 8px rgba(22,163,74,0.3)" }}
-                    >
+                    <Button size="sm" className="font-semibold text-sm"
+                      style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 2px 8px rgba(22,163,74,0.3)" }}>
                       Get Started
                     </Button>
                   </Link>
-                </>
+                </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Mobile menu */}
+        {/* Mobile menu slide-down */}
         {mobileOpen && user && (
           <MobileMenu
-            navLinks={navLinks}
+            primaryLinks={primaryLinks}
+            secondaryLinks={secondaryLinks}
             location={location}
             user={user}
             logout={logout}
@@ -317,8 +443,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <footer className="border-t border-border mt-auto py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-muted-foreground">
+      <footer className="border-t mt-auto py-5" style={{ borderColor: "hsl(217,28%,14%)" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground">
           USDTLuck &mdash; Transparent USDT Reward Pools &mdash; {new Date().getFullYear()}
         </div>
       </footer>
