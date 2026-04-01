@@ -20,7 +20,7 @@ export default function SignupPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     signupMutation.mutate(
-      { name, email, password },
+      { data: { name, email, password } },
       {
         onSuccess: (data) => {
           setUser(data.user as any);
