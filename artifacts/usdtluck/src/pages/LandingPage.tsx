@@ -89,33 +89,36 @@ export default function LandingPage() {
       {/* Recent Winners */}
       {winners && winners.length > 0 && (
         <section className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-center mb-8">Recent Winners</h2>
-          <div className="space-y-3">
-            {winners.slice(0, 6).map((winner) => (
-              <Card key={winner.id}>
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                      winner.place === 1 ? "bg-yellow-100 text-yellow-700" :
-                      winner.place === 2 ? "bg-slate-100 text-slate-600" :
-                      "bg-orange-100 text-orange-600"
-                    }`}>
-                      {winner.place}
-                    </div>
-                    <div>
-                      <p className="font-medium">{winner.userName}</p>
-                      <p className="text-xs text-muted-foreground">{winner.poolTitle}</p>
-                    </div>
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold">Recent Winners 🏆</h2>
+            <p className="text-muted-foreground text-sm mt-1">Real rewards, verified payouts — updated live</p>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {(winners as any[]).slice(0, 6).map((winner) => {
+              const placeEmoji = winner.place === 1 ? "🥇" : winner.place === 2 ? "🥈" : "🥉";
+              const placeStyle =
+                winner.place === 1 ? "border-yellow-200 bg-gradient-to-br from-yellow-50 to-amber-50 shadow-yellow-100" :
+                winner.place === 2 ? "border-slate-200 bg-gradient-to-br from-slate-50 to-gray-100 shadow-slate-100" :
+                "border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 shadow-orange-100";
+              return (
+                <div key={winner.id} className={`flex items-center gap-3 p-4 rounded-xl border-2 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 ${placeStyle}`}>
+                  <span className="text-2xl">{placeEmoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground truncate">{winner.userName}</p>
+                    <p className="text-xs text-muted-foreground truncate">{winner.poolTitle}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-primary">{winner.prize} USDT</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(winner.awardedAt).toLocaleDateString()}
-                    </p>
+                  <div className="text-right shrink-0">
+                    <p className="font-bold text-primary">+{winner.prize} USDT</p>
+                    <p className="text-xs text-muted-foreground">{new Date(winner.awardedAt).toLocaleDateString()}</p>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+              );
+            })}
+          </div>
+          <div className="text-center mt-4">
+            <Link href="/winners">
+              <Button variant="ghost" size="sm">View all winners →</Button>
+            </Link>
           </div>
         </section>
       )}

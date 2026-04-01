@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { CelebrationModal } from "@/components/CelebrationModal";
 
 export default function AdminPage() {
   const { user, isLoading } = useAuth();
@@ -115,6 +116,10 @@ function PoolsTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const [celebrationWinners, setCelebrationWinners] = useState<{ id: number; userName: string; place: number; prize: number }[]>([]);
+  const [celebrationPool, setCelebrationPool] = useState("");
+  const [showCelebration, setShowCelebration] = useState(false);
+
   function handleStatusChange(poolId: number, status: "open" | "closed" | "completed") {
     updatePool.mutate(
       { poolId, data: { status } },
@@ -128,14 +133,16 @@ function PoolsTab() {
     );
   }
 
-  function handleDistribute(poolId: number) {
+  function handleDistribute(poolId: number, poolTitle: string) {
     distributeRewards.mutate(
       { poolId },
       {
-        onSuccess: (result) => {
-          toast({ title: "Rewards distributed!", description: `${result.winners.length} winners rewarded` });
+        onSuccess: (result: any) => {
           queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetDashboardStatsQueryKey() });
+          setCelebrationWinners(result.winners ?? []);
+          setCelebrationPool(poolTitle);
+          setShowCelebration(true);
         },
         onError: (err: any) => toast({ title: "Distribution failed", description: err?.message, variant: "destructive" }),
       }
@@ -143,6 +150,14 @@ function PoolsTab() {
   }
 
   return (
+    <>
+    {showCelebration && (
+      <CelebrationModal
+        winners={celebrationWinners}
+        poolTitle={celebrationPool}
+        onClose={() => setShowCelebration(false)}
+      />
+    )}
     <div className="space-y-3 mt-4">
       {!pools || pools.length === 0 ? (
         <p className="text-muted-foreground py-8 text-center">No pools yet</p>
@@ -176,7 +191,7 @@ function PoolsTab() {
                     <Button
                       size="sm"
                       variant="destructive"
-                      onClick={() => handleDistribute(pool.id)}
+                      onClick={() => handleDistribute(pool.id, pool.title)}
                       disabled={distributeRewards.isPending}
                     >
                       Distribute
@@ -189,6 +204,7 @@ function PoolsTab() {
         </Card>
       ))}
     </div>
+    </>
   );
 }
 
