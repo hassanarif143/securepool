@@ -1,11 +1,11 @@
 import { pool } from "@workspace/db";
 
 export const TIER_CONFIG = [
-  { id: "aurora",   label: "Aurora",   minPoints: 0,   icon: "🌙", free_ticket: false },
-  { id: "lumen",    label: "Lumen",    minPoints: 50,  icon: "🌿", free_ticket: true  },
-  { id: "nova",     label: "Nova",     minPoints: 150, icon: "✨", free_ticket: true  },
-  { id: "celestia", label: "Celestia", minPoints: 350, icon: "🌟", free_ticket: true  },
-  { id: "orion",    label: "Orion",    minPoints: 750, icon: "🔱", free_ticket: true  },
+  { id: "aurora",   label: "Bronze",   minPoints: 0,   icon: "🥉", free_ticket: false },
+  { id: "lumen",    label: "Silver",   minPoints: 50,  icon: "🥈", free_ticket: true  },
+  { id: "nova",     label: "Gold",     minPoints: 150, icon: "🥇", free_ticket: true  },
+  { id: "celestia", label: "Platinum", minPoints: 350, icon: "💎", free_ticket: true  },
+  { id: "orion",    label: "Diamond",  minPoints: 750, icon: "👑", free_ticket: true  },
 ] as const;
 
 export type TierId = typeof TIER_CONFIG[number]["id"];

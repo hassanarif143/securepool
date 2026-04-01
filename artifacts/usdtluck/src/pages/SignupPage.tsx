@@ -159,7 +159,7 @@ export default function SignupPage() {
               {[
                 { icon: "🎁", title: "Free welcome bonus", desc: "Instant USDT bonus when you join with a referral" },
                 { icon: "🎱", title: "Access to all pools", desc: "Join any open pool — 10 USDT entry, up to 100 USDT prize" },
-                { icon: "🌙", title: "Aurora tier instantly", desc: "Start earning tier points from your very first pool" },
+                { icon: "🥉", title: "Bronze tier instantly", desc: "Start earning tier points from your very first pool" },
                 { icon: "💰", title: "Withdraw anytime", desc: "Your wallet balance is always yours to withdraw" },
                 { icon: "🔗", title: "Your own referral link", desc: "Share and earn bonuses every time someone joins" },
               ].map((f) => (
