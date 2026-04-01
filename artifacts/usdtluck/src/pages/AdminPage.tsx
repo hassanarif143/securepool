@@ -113,8 +113,30 @@ function StatsTab() {
   );
 }
 
+/* ── Shared status chip ── */
+function PoolStatusChip({ status }: { status: string }) {
+  if (status === "open") return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+      style={{ background: "hsla(152,72%,44%,0.12)", color: "hsl(152,72%,55%)", border: "1px solid hsla(152,72%,44%,0.3)" }}>
+      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />Open
+    </span>
+  );
+  if (status === "closed") return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+      style={{ background: "hsla(38,100%,55%,0.1)", color: "hsl(38,100%,60%)", border: "1px solid hsla(38,100%,55%,0.25)" }}>
+      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Closed
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+      style={{ background: "hsla(220,20%,50%,0.12)", color: "hsl(220,15%,60%)", border: "1px solid hsla(220,20%,50%,0.2)" }}>
+      <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />Completed
+    </span>
+  );
+}
+
 function PoolsTab() {
-  const { data: pools, refetch } = useListPools({ query: { queryKey: getListPoolsQueryKey() } });
+  const { data: pools } = useListPools({ query: { queryKey: getListPoolsQueryKey() } });
   const updatePool = useUpdatePool();
   const distributeRewards = useDistributeRewards();
   const { toast } = useToast();
@@ -135,6 +157,8 @@ function PoolsTab() {
   const [participantsPoolId, setParticipantsPoolId] = useState<number | null>(null);
   const [participants, setParticipants] = useState<any[]>([]);
   const [participantsLoading, setParticipantsLoading] = useState(false);
+
+  const [filterStatus, setFilterStatus] = useState<"all" | "open" | "closed" | "completed">("all");
 
   function startEdit(pool: any) {
     setEditingId(pool.id);
@@ -213,6 +237,17 @@ function PoolsTab() {
     );
   }
 
+  const filteredPools = (pools ?? []).filter(
+    (p) => filterStatus === "all" || p.status === filterStatus
+  );
+
+  const counts = {
+    all: pools?.length ?? 0,
+    open: pools?.filter((p) => p.status === "open").length ?? 0,
+    closed: pools?.filter((p) => p.status === "closed").length ?? 0,
+    completed: pools?.filter((p) => p.status === "completed").length ?? 0,
+  };
+
   return (
     <>
     {showCelebration && (
@@ -223,142 +258,253 @@ function PoolsTab() {
       />
     )}
 
+    {/* Delete confirm dialog */}
     {confirmDeleteId !== null && (
-      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-sm">
-          <CardContent className="p-6 space-y-4">
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="w-full max-w-sm rounded-2xl p-6 space-y-4"
+          style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+              style={{ background: "hsla(0,72%,44%,0.1)", border: "1px solid hsla(0,72%,44%,0.2)" }}>🗑️</div>
             <div>
-              <p className="font-semibold text-lg">Delete Pool?</p>
-              <p className="text-sm text-muted-foreground mt-1">All participants will be refunded their entry fee. This cannot be undone.</p>
+              <p className="font-semibold">Delete Pool?</p>
+              <p className="text-sm text-muted-foreground">This action cannot be undone</p>
             </div>
-            <div className="flex gap-3 justify-end">
-              <Button variant="outline" onClick={() => setConfirmDeleteId(null)} disabled={deleting}>Cancel</Button>
-              <Button variant="destructive" onClick={() => deletePool(confirmDeleteId!)} disabled={deleting}>
-                {deleting ? "Deleting..." : "Delete & Refund"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            All participants will be <span className="text-primary font-medium">automatically refunded</span> their entry fee before deletion.
+          </p>
+          <div className="flex gap-3 justify-end pt-1">
+            <Button variant="outline" size="sm" onClick={() => setConfirmDeleteId(null)} disabled={deleting}>Cancel</Button>
+            <Button size="sm" onClick={() => deletePool(confirmDeleteId!)} disabled={deleting}
+              style={{ background: "hsl(0,72%,44%)", color: "white" }}>
+              {deleting ? "Deleting..." : "Delete & Refund"}
+            </Button>
+          </div>
+        </div>
       </div>
     )}
 
-    <div className="space-y-3 mt-4">
-      {!pools || pools.length === 0 ? (
-        <p className="text-muted-foreground py-8 text-center">No pools yet</p>
-      ) : pools.map((pool) => {
+    <div className="space-y-4 mt-4">
+      {/* Filter pills + summary */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {(["all", "open", "closed", "completed"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setFilterStatus(s)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all capitalize ${
+              filterStatus === s
+                ? "bg-primary text-white shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            style={filterStatus !== s ? { background: "hsl(222,30%,11%)", border: "1px solid hsl(217,28%,16%)" } : {}}
+          >
+            {s === "all" ? `All (${counts.all})` : `${s} (${counts[s]})`}
+          </button>
+        ))}
+      </div>
+
+      {filteredPools.length === 0 ? (
+        <div className="text-center py-16 rounded-2xl"
+          style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}>
+          <p className="text-4xl mb-2">🎱</p>
+          <p className="text-muted-foreground">No pools {filterStatus !== "all" ? `with status "${filterStatus}"` : "yet"}</p>
+        </div>
+      ) : filteredPools.map((pool) => {
         const fillPct = Math.min(100, Math.round((pool.participantCount / pool.maxUsers) * 100));
         const isEditing = editingId === pool.id;
         const showParticipants = participantsPoolId === pool.id;
+        const totalPrize = pool.prizeFirst + pool.prizeSecond + pool.prizeThird;
+        const isCompleted = pool.status === "completed";
 
         return (
-        <Card key={pool.id} className="overflow-hidden">
-          <CardContent className="p-4 space-y-3">
+          <div key={pool.id} className="rounded-2xl overflow-hidden transition-all"
+            style={{ background: "hsl(222,30%,9%)", border: `1px solid ${isCompleted ? "hsl(217,28%,14%)" : "hsl(217,28%,16%)"}` }}>
+
+            {/* ── Edit panel (replaces card content when editing) ── */}
             {isEditing ? (
-              <div className="space-y-3">
-                <p className="font-semibold text-sm text-muted-foreground">Edit Pool</p>
-                <div className="grid gap-2">
+              <div className="p-5 space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-semibold">Edit Pool</span>
+                  <PoolStatusChip status={pool.status} />
+                </div>
+                <div className="space-y-3">
                   <div>
-                    <Label className="text-xs">Title</Label>
-                    <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="h-8 text-sm mt-1" />
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">Pool Title</Label>
+                    <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)}
+                      className="h-9" placeholder="Pool title..." />
                   </div>
                   <div>
-                    <Label className="text-xs">End Time</Label>
-                    <Input type="datetime-local" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)} className="h-8 text-sm mt-1" />
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">End Date & Time</Label>
+                    <Input type="datetime-local" value={editEndTime}
+                      onChange={(e) => setEditEndTime(e.target.value)} className="h-9" />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Currently: {new Date(pool.endTime).toLocaleString()}
+                    </p>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => saveEdit(pool.id)} disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Button>
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" onClick={() => saveEdit(pool.id)} disabled={saving}
+                    className="font-semibold" style={{ background: "hsl(152,72%,36%)", color: "white" }}>
+                    {saving ? "Saving..." : "Save Changes"}
+                  </Button>
                   <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
                 </div>
               </div>
             ) : (
-              <>
-                <div className="flex items-start justify-between gap-4">
+              <div className="p-5">
+                {/* Top row: title + status + badges */}
+                <div className="flex items-start gap-3 mb-4">
+                  {/* Pool icon */}
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
+                    style={{ background: isCompleted ? "hsl(222,28%,12%)" : "hsla(152,72%,44%,0.08)", border: `1px solid ${isCompleted ? "hsl(217,28%,16%)" : "hsla(152,72%,44%,0.2)"}` }}>
+                    🎱
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold">{pool.title}</p>
-                      <StatusBadge status={pool.status} />
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <p className={`font-bold text-base ${isCompleted ? "text-muted-foreground" : ""}`}>{pool.title}</p>
+                      <PoolStatusChip status={pool.status} />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Entry: {pool.entryFee} USDT &bull; Max: {pool.maxUsers} participants
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Ends: {new Date(pool.endTime).toLocaleString()}
-                    </p>
-                    <div className="flex gap-3 mt-1.5 text-xs font-medium">
-                      <span className="text-yellow-600">🥇 {pool.prizeFirst} USDT</span>
-                      <span className="text-gray-500">🥈 {pool.prizeSecond} USDT</span>
-                      <span className="text-amber-700">🥉 {pool.prizeThird} USDT</span>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                      <span>Pool #{pool.id}</span>
+                      <span>·</span>
+                      <span className="font-medium text-foreground/70">{pool.entryFee} USDT entry</span>
+                      <span>·</span>
+                      <span>Total prizes: <span className="text-primary font-semibold">{totalPrize} USDT</span></span>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1.5 items-end shrink-0">
-                    <div className="flex gap-1.5 flex-wrap justify-end">
+                </div>
+
+                {/* Prize strip */}
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  {[
+                    { place: 1, icon: "🥇", prize: pool.prizeFirst, color: "hsla(45,100%,50%,1)", bg: "hsla(45,100%,50%,0.07)", border: "hsla(45,100%,50%,0.2)" },
+                    { place: 2, icon: "🥈", prize: pool.prizeSecond, color: "hsla(220,20%,70%,1)", bg: "hsla(220,20%,70%,0.07)", border: "hsla(220,20%,70%,0.2)" },
+                    { place: 3, icon: "🥉", prize: pool.prizeThird, color: "hsla(25,80%,55%,1)", bg: "hsla(25,80%,55%,0.07)", border: "hsla(25,80%,55%,0.2)" },
+                  ].map((p) => (
+                    <div key={p.place} className="rounded-xl px-3 py-2 text-center"
+                      style={{ background: p.bg, border: `1px solid ${p.border}` }}>
+                      <div className="text-lg mb-0.5">{p.icon}</div>
+                      <p className="text-sm font-bold" style={{ color: p.color }}>{p.prize} USDT</p>
+                      <p className="text-[10px] text-muted-foreground">{p.place === 1 ? "1st" : p.place === 2 ? "2nd" : "3rd"} Place</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Schedule + capacity */}
+                <div className="grid grid-cols-2 gap-3 mb-4 text-xs">
+                  <div className="rounded-xl px-3 py-2.5"
+                    style={{ background: "hsl(222,28%,12%)", border: "1px solid hsl(217,28%,16%)" }}>
+                    <p className="text-muted-foreground mb-1">⏰ Ends</p>
+                    <p className="font-medium text-foreground/80">{new Date(pool.endTime).toLocaleDateString()}</p>
+                    <p className="text-muted-foreground">{new Date(pool.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+                  </div>
+                  <div className="rounded-xl px-3 py-2.5"
+                    style={{ background: "hsl(222,28%,12%)", border: "1px solid hsl(217,28%,16%)" }}>
+                    <div className="flex justify-between mb-1.5">
+                      <p className="text-muted-foreground">Capacity</p>
+                      <p className="font-semibold text-foreground/80">{pool.participantCount}/{pool.maxUsers}</p>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "hsl(217,28%,18%)" }}>
+                      <div className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${fillPct}%`,
+                          background: fillPct >= 100 ? "hsl(152,72%,44%)" : fillPct >= 60 ? "hsl(38,100%,55%)" : "hsl(152,72%,44%)",
+                        }} />
+                    </div>
+                    <p className="text-muted-foreground mt-1">{fillPct}% full</p>
+                  </div>
+                </div>
+
+                {/* Action toolbar */}
+                <div className="flex items-center gap-2 flex-wrap pt-1"
+                  style={{ borderTop: "1px solid hsl(217,28%,14%)" }}>
+                  {/* Status controls */}
+                  {!isCompleted && (
+                    <>
                       {pool.status !== "open" && (
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleStatusChange(pool.id, "open")}>Open</Button>
+                        <button onClick={() => handleStatusChange(pool.id, "open")}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                          style={{ background: "hsla(152,72%,44%,0.08)", color: "hsl(152,72%,55%)", border: "1px solid hsla(152,72%,44%,0.2)" }}>
+                          ▶ Open
+                        </button>
                       )}
-                      {pool.status !== "closed" && pool.status !== "completed" && (
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleStatusChange(pool.id, "closed")}>Close</Button>
+                      {pool.status !== "closed" && (
+                        <button onClick={() => handleStatusChange(pool.id, "closed")}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                          style={{ background: "hsla(38,100%,55%,0.08)", color: "hsl(38,100%,60%)", border: "1px solid hsla(38,100%,55%,0.2)" }}>
+                          ⏸ Close
+                        </button>
                       )}
-                      {pool.status !== "completed" && (
-                        <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleDistribute(pool.id, pool.title)} disabled={distributeRewards.isPending}>Distribute</Button>
-                      )}
-                    </div>
-                    <div className="flex gap-1.5">
-                      {pool.status !== "completed" && (
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => startEdit(pool)}>Edit</Button>
-                      )}
-                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => loadParticipants(pool.id)}>
-                        {showParticipants ? "Hide" : "Participants"}
-                      </Button>
-                      {pool.status !== "completed" && (
-                        <Button size="sm" variant="ghost" className="h-7 text-xs text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setConfirmDeleteId(pool.id)}>Delete</Button>
-                      )}
-                    </div>
-                  </div>
+                      <button
+                        onClick={() => handleDistribute(pool.id, pool.title)}
+                        disabled={distributeRewards.isPending}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                        style={{ background: "hsl(152,72%,36%)", color: "white" }}>
+                        🎉 Distribute Rewards
+                      </button>
+                    </>
+                  )}
+
+                  {/* Spacer */}
+                  <div className="flex-1" />
+
+                  {/* Secondary actions */}
+                  {!isCompleted && (
+                    <button onClick={() => startEdit(pool)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                      style={{ background: "hsl(222,28%,12%)", color: "hsl(217,28%,65%)", border: "1px solid hsl(217,28%,16%)" }}>
+                      ✏️ Edit
+                    </button>
+                  )}
+                  <button
+                    onClick={() => loadParticipants(pool.id)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                    style={{ background: "hsl(222,28%,12%)", color: "hsl(217,28%,65%)", border: "1px solid hsl(217,28%,16%)" }}>
+                    👥 {showParticipants ? "Hide" : `Participants (${pool.participantCount})`}
+                  </button>
+                  {!isCompleted && (
+                    <button onClick={() => setConfirmDeleteId(pool.id)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                      style={{ background: "hsla(0,72%,44%,0.06)", color: "hsl(0,72%,55%)", border: "1px solid hsla(0,72%,44%,0.15)" }}>
+                      🗑️ Delete
+                    </button>
+                  )}
                 </div>
 
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{pool.participantCount} joined</span>
-                    <span>{pool.maxUsers} max · {fillPct}% full</span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div
-                      className="h-2 rounded-full transition-all"
-                      style={{
-                        width: `${fillPct}%`,
-                        background: fillPct >= 100 ? "#16a34a" : fillPct >= 60 ? "#f59e0b" : "#22c55e",
-                      }}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {showParticipants && (
-              <div className="border-t pt-3">
-                <p className="text-xs font-semibold text-muted-foreground mb-2">Participants ({participants.length})</p>
-                {participantsLoading ? (
-                  <p className="text-xs text-muted-foreground">Loading...</p>
-                ) : participants.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No participants yet</p>
-                ) : (
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                    {participants.map((p, i) => (
-                      <div key={p.id} className="flex items-center justify-between text-xs bg-muted/40 rounded px-2 py-1.5">
-                        <div>
-                          <span className="font-medium">{p.userName}</span>
-                          <span className="text-muted-foreground ml-1.5">{p.userEmail}</span>
-                        </div>
-                        <span className="text-muted-foreground shrink-0 ml-2">{new Date(p.joinedAt).toLocaleDateString()}</span>
+                {/* Participants panel */}
+                {showParticipants && (
+                  <div className="mt-4 pt-4" style={{ borderTop: "1px solid hsl(217,28%,14%)" }}>
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">
+                      Participants — <span className="text-foreground">{participants.length}</span> joined
+                    </p>
+                    {participantsLoading ? (
+                      <p className="text-xs text-muted-foreground animate-pulse">Loading participants...</p>
+                    ) : participants.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No participants yet</p>
+                    ) : (
+                      <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                        {participants.map((p, i) => (
+                          <div key={p.id} className="flex items-center gap-3 rounded-xl px-3 py-2"
+                            style={{ background: "hsl(222,28%,11%)", border: "1px solid hsl(217,28%,15%)" }}>
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                              style={{ background: "hsla(152,72%,44%,0.1)", color: "hsl(152,72%,55%)", border: "1px solid hsla(152,72%,44%,0.2)" }}>
+                              {p.userName?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">{p.userName}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">{p.userEmail}</p>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground shrink-0">{new Date(p.joinedAt).toLocaleDateString()}</p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
         );
       })}
     </div>
@@ -371,6 +517,12 @@ function CreatePoolTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  function localDatetimeValue(date: Date) {
+    const dt = new Date(date);
+    dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+    return dt.toISOString().slice(0, 16);
+  }
+
   const now = new Date();
   const defaultEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
@@ -378,15 +530,28 @@ function CreatePoolTab() {
     title: "",
     entryFee: 10,
     maxUsers: 50,
-    startTime: now.toISOString().slice(0, 16),
-    endTime: defaultEnd.toISOString().slice(0, 16),
+    startTime: localDatetimeValue(now),
+    endTime: localDatetimeValue(defaultEnd),
     prizeFirst: 100,
     prizeSecond: 50,
     prizeThird: 30,
   });
+  const [submitted, setSubmitted] = useState(false);
+
+  function setDuration(days: number) {
+    const start = new Date();
+    const end = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+    setForm((f) => ({ ...f, startTime: localDatetimeValue(start), endTime: localDatetimeValue(end) }));
+  }
+
+  const totalPrize = (form.prizeFirst || 0) + (form.prizeSecond || 0) + (form.prizeThird || 0);
+  const poolRevenue = (form.entryFee || 0) * (form.maxUsers || 0);
+  const durationMs = new Date(form.endTime).getTime() - new Date(form.startTime).getTime();
+  const durationDays = Math.max(0, Math.round(durationMs / 86400000));
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSubmitted(true);
     createPool.mutate(
       {
         data: {
@@ -397,63 +562,266 @@ function CreatePoolTab() {
       },
       {
         onSuccess: () => {
-          toast({ title: "Pool created!" });
+          toast({ title: "🎉 Pool created successfully!" });
           queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
+          const now2 = new Date();
+          const end2 = new Date(now2.getTime() + 7 * 24 * 60 * 60 * 1000);
+          setForm({ title: "", entryFee: 10, maxUsers: 50, startTime: localDatetimeValue(now2), endTime: localDatetimeValue(end2), prizeFirst: 100, prizeSecond: 50, prizeThird: 30 });
+          setSubmitted(false);
         },
-        onError: (err: any) => toast({ title: "Error", description: err?.message, variant: "destructive" }),
+        onError: (err: any) => {
+          toast({ title: "Creation failed", description: err?.message, variant: "destructive" });
+          setSubmitted(false);
+        },
       }
     );
   }
 
   return (
-    <Card className="mt-4 max-w-lg">
-      <CardHeader><CardTitle className="text-base">Create New Pool</CardTitle></CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Pool Title</Label>
-            <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="e.g. Weekly USDT Pool" />
+    <div className="mt-4">
+      <form onSubmit={handleSubmit}>
+        <div className="grid lg:grid-cols-5 gap-6">
+          {/* ── Left: Form ── */}
+          <div className="lg:col-span-3 space-y-5">
+
+            {/* Section: Basic Info */}
+            <div className="rounded-2xl p-5 space-y-4"
+              style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs"
+                  style={{ background: "hsla(152,72%,44%,0.1)", border: "1px solid hsla(152,72%,44%,0.2)" }}>1</div>
+                <p className="text-sm font-semibold">Basic Info</p>
+              </div>
+
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">Pool Title <span className="text-red-400">*</span></Label>
+                <Input
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  required
+                  placeholder="e.g. Weekly Lucky USDT Pool"
+                  className="h-10"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">Entry Fee (USDT)</Label>
+                  <div className="relative">
+                    <Input
+                      type="number" min="1" step="0.5"
+                      value={form.entryFee}
+                      onChange={(e) => setForm({ ...form, entryFee: parseFloat(e.target.value) || 0 })}
+                      className="h-10 pr-14"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-primary">USDT</span>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">Max Participants</Label>
+                  <div className="relative">
+                    <Input
+                      type="number" min="2" step="1"
+                      value={form.maxUsers}
+                      onChange={(e) => setForm({ ...form, maxUsers: parseInt(e.target.value) || 0 })}
+                      className="h-10 pr-14"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">users</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section: Schedule */}
+            <div className="rounded-2xl p-5 space-y-4"
+              style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs"
+                  style={{ background: "hsla(152,72%,44%,0.1)", border: "1px solid hsla(152,72%,44%,0.2)" }}>2</div>
+                <p className="text-sm font-semibold">Schedule</p>
+              </div>
+
+              {/* Quick duration presets */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Quick duration presets:</p>
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    { label: "1 Day", days: 1 },
+                    { label: "3 Days", days: 3 },
+                    { label: "1 Week", days: 7 },
+                    { label: "2 Weeks", days: 14 },
+                    { label: "30 Days", days: 30 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.days}
+                      type="button"
+                      onClick={() => setDuration(preset.days)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      style={{ background: "hsl(222,28%,12%)", color: "hsl(217,28%,65%)", border: "1px solid hsl(217,28%,18%)" }}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">🗓 Start Date & Time</Label>
+                  <Input
+                    type="datetime-local"
+                    value={form.startTime}
+                    onChange={(e) => setForm({ ...form, startTime: e.target.value })}
+                    className="h-10 text-sm"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">⏱ End Date & Time</Label>
+                  <Input
+                    type="datetime-local"
+                    value={form.endTime}
+                    onChange={(e) => setForm({ ...form, endTime: e.target.value })}
+                    className="h-10 text-sm"
+                  />
+                </div>
+              </div>
+              {durationDays > 0 && (
+                <p className="text-xs text-primary font-medium">
+                  ⏳ Duration: {durationDays} day{durationDays !== 1 ? "s" : ""}
+                </p>
+              )}
+            </div>
+
+            {/* Section: Prizes */}
+            <div className="rounded-2xl p-5 space-y-4"
+              style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs"
+                  style={{ background: "hsla(152,72%,44%,0.1)", border: "1px solid hsla(152,72%,44%,0.2)" }}>3</div>
+                <p className="text-sm font-semibold">Prize Distribution</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: "1st Place", icon: "🥇", key: "prizeFirst" as const, color: "hsla(45,100%,50%,1)", bg: "hsla(45,100%,50%,0.06)", border: "hsla(45,100%,50%,0.2)" },
+                  { label: "2nd Place", icon: "🥈", key: "prizeSecond" as const, color: "hsla(220,20%,70%,1)", bg: "hsla(220,20%,70%,0.06)", border: "hsla(220,20%,70%,0.2)" },
+                  { label: "3rd Place", icon: "🥉", key: "prizeThird" as const, color: "hsla(25,80%,55%,1)", bg: "hsla(25,80%,55%,0.06)", border: "hsla(25,80%,55%,0.2)" },
+                ].map((prize) => (
+                  <div key={prize.key} className="rounded-xl px-3 pt-2 pb-3"
+                    style={{ background: prize.bg, border: `1px solid ${prize.border}` }}>
+                    <div className="text-center mb-2">
+                      <span className="text-2xl">{prize.icon}</span>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{prize.label}</p>
+                    </div>
+                    <div className="relative">
+                      <Input
+                        type="number" min="0" step="1"
+                        value={form[prize.key]}
+                        onChange={(e) => setForm({ ...form, [prize.key]: parseFloat(e.target.value) || 0 })}
+                        className="h-8 text-center text-sm font-bold pr-10"
+                        style={{ color: prize.color }}
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-muted-foreground">USDT</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={createPool.isPending || !form.title}
+              className="w-full h-11 font-bold text-base"
+              style={{ background: "hsl(152,72%,36%)", color: "white", boxShadow: "0 4px 16px hsla(152,72%,36%,0.3)" }}
+            >
+              {createPool.isPending ? "Creating Pool..." : "🎱 Create Pool"}
+            </Button>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Entry Fee (USDT)</Label>
-              <Input type="number" value={form.entryFee} onChange={(e) => setForm({ ...form, entryFee: parseFloat(e.target.value) })} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Max Participants</Label>
-              <Input type="number" value={form.maxUsers} onChange={(e) => setForm({ ...form, maxUsers: parseInt(e.target.value) })} />
+
+          {/* ── Right: Live Preview ── */}
+          <div className="lg:col-span-2">
+            <div className="sticky top-4 space-y-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest px-1">Live Preview</p>
+
+              {/* Preview card */}
+              <div className="rounded-2xl overflow-hidden"
+                style={{ background: "hsl(222,30%,9%)", border: "1px solid hsla(152,72%,44%,0.2)" }}>
+                <div className="p-4">
+                  {/* Header */}
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0"
+                      style={{ background: "hsla(152,72%,44%,0.08)", border: "1px solid hsla(152,72%,44%,0.2)" }}>🎱</div>
+                    <div className="flex-1">
+                      <p className="font-bold">{form.title || <span className="text-muted-foreground italic text-sm">Pool title...</span>}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {form.entryFee} USDT entry · {form.maxUsers} max users
+                      </p>
+                    </div>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                      style={{ background: "hsla(152,72%,44%,0.12)", color: "hsl(152,72%,55%)", border: "1px solid hsla(152,72%,44%,0.3)" }}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />Open
+                    </span>
+                  </div>
+
+                  {/* Prizes */}
+                  <div className="grid grid-cols-3 gap-1.5 mb-4">
+                    {[
+                      { icon: "🥇", prize: form.prizeFirst, color: "hsla(45,100%,50%,1)", bg: "hsla(45,100%,50%,0.07)" },
+                      { icon: "🥈", prize: form.prizeSecond, color: "hsla(220,20%,70%,1)", bg: "hsla(220,20%,70%,0.07)" },
+                      { icon: "🥉", prize: form.prizeThird, color: "hsla(25,80%,55%,1)", bg: "hsla(25,80%,55%,0.07)" },
+                    ].map((p, i) => (
+                      <div key={i} className="rounded-xl px-2 py-2 text-center" style={{ background: p.bg }}>
+                        <div className="text-base">{p.icon}</div>
+                        <p className="text-xs font-bold" style={{ color: p.color }}>{p.prize} USDT</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Capacity bar */}
+                  <div className="mb-3">
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>0 joined</span>
+                      <span>{form.maxUsers} max</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full" style={{ background: "hsl(217,28%,16%)" }} />
+                  </div>
+
+                  {/* Time info */}
+                  {form.endTime && (
+                    <p className="text-xs text-muted-foreground">
+                      ⏰ Ends {new Date(form.endTime).toLocaleDateString()} at {new Date(form.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  )}
+                </div>
+
+                {/* Stats footer */}
+                <div className="px-4 py-3 grid grid-cols-2 gap-3"
+                  style={{ borderTop: "1px solid hsl(217,28%,14%)", background: "hsl(222,30%,8%)" }}>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-primary">{totalPrize} USDT</p>
+                    <p className="text-[10px] text-muted-foreground">Total Prizes</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold">{poolRevenue} USDT</p>
+                    <p className="text-[10px] text-muted-foreground">Max Revenue</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Duration info */}
+              {durationDays > 0 && (
+                <div className="rounded-xl px-4 py-3 text-center"
+                  style={{ background: "hsla(152,72%,44%,0.05)", border: "1px solid hsla(152,72%,44%,0.15)" }}>
+                  <p className="text-xs text-muted-foreground">Pool runs for</p>
+                  <p className="text-xl font-bold text-primary">{durationDays}</p>
+                  <p className="text-xs text-muted-foreground">day{durationDays !== 1 ? "s" : ""}</p>
+                </div>
+              )}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Start Time</Label>
-              <Input type="datetime-local" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>End Time</Label>
-              <Input type="datetime-local" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} />
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5">
-              <Label>1st Prize (USDT)</Label>
-              <Input type="number" value={form.prizeFirst} onChange={(e) => setForm({ ...form, prizeFirst: parseFloat(e.target.value) })} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>2nd Prize (USDT)</Label>
-              <Input type="number" value={form.prizeSecond} onChange={(e) => setForm({ ...form, prizeSecond: parseFloat(e.target.value) })} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>3rd Prize (USDT)</Label>
-              <Input type="number" value={form.prizeThird} onChange={(e) => setForm({ ...form, prizeThird: parseFloat(e.target.value) })} />
-            </div>
-          </div>
-          <Button type="submit" disabled={createPool.isPending}>
-            {createPool.isPending ? "Creating..." : "Create Pool"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -1233,8 +1601,3 @@ function ReviewsTab() {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  if (status === "open") return <Badge className="bg-green-100 text-green-700 border-green-200">Open</Badge>;
-  if (status === "closed") return <Badge variant="outline">Closed</Badge>;
-  return <Badge variant="secondary">Completed</Badge>;
-}
