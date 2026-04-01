@@ -208,9 +208,11 @@ function CreatePoolTab() {
     e.preventDefault();
     createPool.mutate(
       {
-        ...form,
-        startTime: new Date(form.startTime).toISOString(),
-        endTime: new Date(form.endTime).toISOString(),
+        data: {
+          ...form,
+          startTime: new Date(form.startTime).toISOString(),
+          endTime: new Date(form.endTime).toISOString(),
+        },
       },
       {
         onSuccess: () => {

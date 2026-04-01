@@ -40,7 +40,7 @@ export default function WalletPage() {
       return;
     }
     createTxMutation.mutate(
-      { txType: type, amount: val, note },
+      { data: { txType: type, amount: val, note } },
       {
         onSuccess: (tx) => {
           toast({ title: `${type === "deposit" ? "Deposit" : "Withdrawal"} successful`, description: `${val} USDT ${type === "deposit" ? "added to" : "removed from"} your wallet` });
