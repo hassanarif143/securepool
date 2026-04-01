@@ -145,6 +145,33 @@ router.post("/transactions/:id/approve", async (req, res) => {
   res.json({ message: "Transaction approved" });
 });
 
+router.post("/users/:id/adjust-balance", async (req, res) => {
+  const userId = parseInt(req.params.id);
+  if (isNaN(userId)) { res.status(400).json({ error: "Invalid user ID" }); return; }
+
+  const amount = parseFloat(req.body?.amount);
+  const note = req.body?.note ?? "Admin balance adjustment";
+  if (isNaN(amount) || amount === 0) { res.status(400).json({ error: "Amount must be a non-zero number" }); return; }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  const newBalance = parseFloat(user.walletBalance) + amount;
+  if (newBalance < 0) { res.status(400).json({ error: "Balance cannot go below 0" }); return; }
+
+  await db.update(usersTable).set({ walletBalance: String(newBalance) }).where(eq(usersTable.id, userId));
+
+  await db.insert(transactionsTable).values({
+    userId,
+    txType: amount > 0 ? "deposit" : "withdraw",
+    amount: String(Math.abs(amount)),
+    status: "completed",
+    note: `[Admin] ${note}`,
+  });
+
+  res.json({ message: "Balance adjusted", newBalance });
+});
+
 router.post("/transactions/:id/reject", async (req, res) => {
   const txId = parseInt(req.params.id);
   if (isNaN(txId)) { res.status(400).json({ error: "Invalid transaction ID" }); return; }

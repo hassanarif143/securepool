@@ -1,0 +1,157 @@
+You are an expert full-stack AI assistant and React developer. Your goal is to generate a complete USDT reward web app scaffold that is fully local, free-tier, and testable, without any paid APIs or paid services. The app must include React frontend + Tailwind CSS + Node.js/Express backend + PostgreSQL database, covering all UX, pool logic, wallet, transactions, admin panel features, and crypto deposit management.
+
+Important Constraints:
+- No paid APIs or paid services anywhere; only free tools allowed.
+- UX must be trustworthy, professional, and intuitive, suitable for crypto/finance users.
+- Everything must be fully local-testable, including:
+  - Database operations
+  - Wallet logic (manual)
+  - Email verification (mock SMTP)
+  - Pool participation and reward distribution
+  - Crypto exchange deposit tracking (manual)
+- Optional deployment should be compatible with free-tier services like Vercel, Railway, or Render.
+
+1. App Overview
+- App Name: USDTLuck (or similar professional crypto name)
+- Theme: Clean, modern, finance/crypto style (white + green/blue with subtle gradients)
+- Target Audience: Pakistan, India, Dubai, global-friendly
+- Responsive Design: Fully mobile-friendly
+- UX Focus:
+  - Professional typography & spacing
+  - Trustable, readable fonts
+  - Clear instructions, labels, and CTAs
+  - Subtle animations for interactions
+- Pool Completion Effects: When a pool ends, show celebration animations, highlight winners’ names, and display confetti or glow effect.
+
+2. User Features
+- Authentication: Sign Up / Login / Logout with email verification (mock SMTP allowed), password hashing (bcrypt)
+- Profile Page: Name, email, wallet balance, total deposits, total rewards, crypto exchange address
+- Dashboard: Active pools, countdown timers, wallet balance
+- Pool Participation: Entry tickets (10 USDT per ticket)
+- Recent Winners Feed: Build trust and transparency
+- Transaction History: Deposits, withdrawals, rewards, status of each transaction
+- Crypto Deposit Request:
+  - User can add crypto exchange address
+  - Upload screenshot of payment
+  - Request marked as Pending until admin approves → wallet balance updated
+- Withdrawals: User enters withdrawal amount + wallet address → pending approval → wallet updated after admin approval
+- Optional: Referral system
+
+3. Admin Panel Features (Full Control)
+- **Pool Management:**
+  - Create, edit, delete pools
+  - Start/end pools manually
+  - Set max participants, entry fee, and reward structure
+  - Close pools early if needed
+- **User Management:**
+  - View all users, edit user info, reset passwords
+  - Adjust wallet balances manually
+  - Suspend or ban users if needed
+  - Track referrals, rewards, deposits, and withdrawals
+- **Transaction & Deposit Management:**
+  - Approve/reject deposits and withdrawals
+  - View user crypto addresses and uploaded screenshots
+  - Manually credit/debit funds if needed
+- **Reward Distribution:**
+  - Trigger pool rewards manually or automatically
+  - Adjust winner amounts or override for special cases
+  - Track history of all rewards
+- **Dashboard:**
+  - View pool stats, participant lists, user activity logs
+  - Recent deposits and withdrawals
+  - Real-time updates for pending approvals
+- **Advanced Controls:**
+  - Export user, pool, transaction, and deposit data as CSV
+  - Search and filter users/pools/transactions by date, status, or amount
+  - Audit logs for all admin actions
+  - Configurable notifications for deposits, withdrawals, and pool completion
+
+4. Backend Requirements
+- Stack: Node.js + Express REST API
+- Routes:
+  - /auth: signup, login, logout
+  - /users: get/update user info, add crypto exchange address, admin controls
+  - /pools: get pools, join pool, distribute rewards, admin CRUD
+  - /transactions: deposits, withdrawals, rewards
+  - /deposits: add crypto deposit, upload screenshot, approve/reject deposits
+  - /admin: pool management, user management, transaction & deposit approvals, reward overrides, audit logs
+- Database: PostgreSQL (SQLite allowed for local dev)
+- Security: Data validation, bcrypt password hashing
+- Wallet Logic: Manual, simple, easy for any user
+  - Deposit: User submits → Pending → admin approves → wallet updated
+  - Withdrawal: User requests → Pending → admin approves → wallet reduced
+  - Reward: Automatically credited on pool win
+- Optional Enhancements: Logging for all wallet, deposit, and pool actions, testnet crypto integration for future
+
+5. Database Schema (PostgreSQL / SQLite)
+- Users: user_id, name, email, password_hash, wallet_balance, total_deposits, total_rewards, crypto_address, status (active/suspended), joined_at
+- Transactions: tx_id, user_id, tx_type (deposit, withdraw, reward), amount, status (pending, completed, failed), created_at
+- CryptoDeposits: deposit_id, user_id, crypto_address, screenshot_url, amount, status (pending, approved, rejected), created_at
+- Pools: pool_id, entry_fee, max_users, start_time, end_time, reward_structure, status (open, closed, completed)
+- PoolParticipants: id, pool_id, user_id, ticket_count, joined_at
+- AdminActions (Audit Logs): action_id, admin_id, target_type, target_id, action_type, description, timestamp
+- Optional: Referrals: id, referrer_user_id, referred_user_id, reward_amount
+
+6. Frontend Structure (React + Tailwind)
+- src/components: Buttons, PoolCard, WalletCard, Notifications, TransactionTable, DepositRequestCard, WinnerCard, AdminUserCard, AdminPoolCard
+- src/pages: LandingPage, Dashboard, PoolPage, AdminPanel, Login, Signup, DepositRequestPage, AdminUserManagement, AdminTransactionManagement
+- src/services: API calls (users, pools, wallet, transactions, deposits, admin)
+- src/utils: Helper functions (countdown timer, random winner selection, celebration animations)
+- src/context: UserContext (auth, wallet balance, transactions, deposits)
+
+7. Extra UX & Theme Guidelines
+- Countdown timers for each pool
+- Recent winners feed visible to all users
+- Clear CTA buttons & mobile responsive
+- Professional colors and fonts (white + green/blue), subtle gradients
+- Users always see wallet balance, participation status, deposit status
+- Deposit screenshot previews
+- Confetti/glow animation when pool ends and winners revealed
+- Easy-going flows for deposits/withdrawals → no confusion for any user
+- Subtle hover and click effects for buttons → professional interactive feel
+- Admin dashboard: sortable, filterable tables with search functionality
+
+8. Local Testing Guide
+Phase 1 – Local Development:
+1. Clone repo & install dependencies (npm install)
+2. Start frontend: npm start → localhost:3000
+3. Start backend: npm run dev → localhost:5000
+4. Database: SQLite for local dev, PostgreSQL optional later
+5. Email verification: Use mock SMTP (MailDev / MailHog)
+6. Manual wallet deposit/withdraw for pool participation
+   - Deposits: mark as Pending, admin approves → wallet updated
+   - Crypto Deposits: user adds address + screenshot → Pending → admin approves → wallet updated
+   - Withdrawals: mark as Pending, admin approves → wallet reduced
+7. Test pool join → random reward distribution → wallet update
+8. Pool end → winners revealed → celebration effect displayed
+9. Admin panel: test full controls for user, pool, transaction, and deposit management
+
+Phase 2 – Optional Deployment:
+- Frontend: Vercel free tier
+- Backend + PostgreSQL: Railway / Render free tier
+- Free domain (.com/.io optional)
+- Wallet operations remain manual initially
+
+9. Deliverables AI Must Generate
+1. Full folder structure
+2. React + Tailwind frontend code
+3. Node.js + Express backend code
+4. PostgreSQL / SQLite database scripts
+5. Sample API call examples
+6. Admin panel + dashboard with full controls
+7. Pool join + reward distribution logic
+8. Manual deposit/withdrawal logic
+9. Crypto deposit request handling with screenshot uploads
+10. Celebration effects for pool winners
+11. Audit logs for admin actions
+12. Inline comments explaining code & structure
+13. Instructions for full local testing
+14. Optional notes for future USDT wallet automation (free tools/testnet)
+
+Key Notes for AI
+- No paid APIs or services
+- Local development and testing is mandatory before deployment
+- UX must be professional, trustable, and intuitive for crypto finance users
+- Include sample data for pools, users, transactions, crypto deposits
+- Countdown timers, winner feed, celebration effects, and full admin control are essential
+- Output must be fully ready to run locally first

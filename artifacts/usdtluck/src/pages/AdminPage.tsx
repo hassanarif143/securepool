@@ -300,24 +300,121 @@ function CreatePoolTab() {
 }
 
 function UsersTab() {
-  const { data: users } = useListAdminUsers({ query: { queryKey: getListAdminUsersQueryKey() } });
+  const { data: users, refetch } = useListAdminUsers({ query: { queryKey: getListAdminUsersQueryKey() } });
+  const [search, setSearch] = useState("");
+  const [adjustingId, setAdjustingId] = useState<number | null>(null);
+  const [adjustAmount, setAdjustAmount] = useState("");
+  const [adjustNote, setAdjustNote] = useState("");
+  const [adjusting, setAdjusting] = useState(false);
+  const { toast } = useToast();
+
+  const filtered = (users as any[] ?? []).filter((u) =>
+    u.name.toLowerCase().includes(search.toLowerCase()) ||
+    u.email.toLowerCase().includes(search.toLowerCase())
+  );
+
+  function exportCSV() {
+    const rows = [
+      ["ID", "Name", "Email", "Wallet Balance", "Total Deposited", "Pools Joined", "Admin", "Joined At"],
+      ...(users as any[] ?? []).map((u) => [
+        u.id, u.name, u.email, u.walletBalance.toFixed(2), u.totalDeposited.toFixed(2), u.poolsJoined, u.isAdmin ? "Yes" : "No", new Date(u.joinedAt).toLocaleDateString(),
+      ]),
+    ];
+    const csv = rows.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "users.csv"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleAdjust(userId: number) {
+    const amt = parseFloat(adjustAmount);
+    if (isNaN(amt) || amt === 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
+    setAdjusting(true);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/adjust-balance`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: amt, note: adjustNote || "Admin adjustment" }),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+      const data = await res.json();
+      toast({ title: "Balance adjusted", description: `New balance: ${data.newBalance.toFixed(2)} USDT` });
+      setAdjustingId(null); setAdjustAmount(""); setAdjustNote("");
+      refetch();
+    } catch (err: any) {
+      toast({ title: "Adjustment failed", description: err.message, variant: "destructive" });
+    } finally { setAdjusting(false); }
+  }
 
   return (
-    <div className="space-y-2 mt-4">
-      {!users || users.length === 0 ? (
+    <div className="space-y-3 mt-4">
+      <div className="flex gap-2">
+        <Input
+          placeholder="Search by name or email..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1"
+        />
+        <Button variant="outline" size="sm" onClick={exportCSV}>Export CSV</Button>
+      </div>
+
+      {filtered.length === 0 ? (
         <p className="text-muted-foreground text-center py-8">No users found</p>
-      ) : users.map((u) => (
+      ) : filtered.map((u) => (
         <Card key={u.id}>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="font-medium">{u.name} {u.isAdmin && <span className="text-xs text-primary ml-1">(Admin)</span>}</p>
-              <p className="text-xs text-muted-foreground">{u.email}</p>
-              <p className="text-xs text-muted-foreground">Joined: {new Date(u.joinedAt).toLocaleDateString()} &bull; Pools joined: {u.poolsJoined}</p>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="font-semibold">{u.name}</p>
+                  {u.isAdmin && <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">Admin</span>}
+                </div>
+                <p className="text-xs text-muted-foreground">{u.email}</p>
+                <p className="text-xs text-muted-foreground">Joined: {new Date(u.joinedAt).toLocaleDateString()} · Pools: {u.poolsJoined} · Deposited: {u.totalDeposited.toFixed(2)} USDT</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="font-bold text-primary text-lg">{u.walletBalance.toFixed(2)} USDT</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-1 text-xs h-7"
+                  onClick={() => setAdjustingId(adjustingId === u.id ? null : u.id)}
+                >
+                  {adjustingId === u.id ? "Cancel" : "Adjust Balance"}
+                </Button>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="font-bold text-primary">{u.walletBalance.toFixed(2)} USDT</p>
-              <p className="text-xs text-muted-foreground">Deposited: {u.totalDeposited.toFixed(2)}</p>
-            </div>
+
+            {adjustingId === u.id && (
+              <div className="border rounded-lg p-3 bg-muted/30 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Use positive amount to credit, negative to debit</p>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={adjustAmount}
+                    onChange={(e) => setAdjustAmount(e.target.value)}
+                    placeholder="e.g. 50 or -20"
+                    className="flex-1 h-8 text-sm"
+                  />
+                  <Input
+                    value={adjustNote}
+                    onChange={(e) => setAdjustNote(e.target.value)}
+                    placeholder="Reason (optional)"
+                    className="flex-1 h-8 text-sm"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => handleAdjust(u.id)}
+                    disabled={adjusting}
+                    className="h-8"
+                  >
+                    Apply
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       ))}
@@ -427,6 +524,16 @@ function PendingTransactionsTab() {
 
 function TransactionsTab() {
   const { data: txs } = useListTransactions({ query: { queryKey: ["listTransactions"] } });
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+
+  const filtered = (txs as any[] ?? []).filter((tx) => {
+    const matchSearch = !search || tx.userName.toLowerCase().includes(search.toLowerCase()) || (tx.note ?? "").toLowerCase().includes(search.toLowerCase());
+    const matchType = filterType === "all" || tx.txType === filterType;
+    const matchStatus = filterStatus === "all" || tx.status === filterStatus;
+    return matchSearch && matchType && matchStatus;
+  });
 
   function txColor(type: string) {
     return type === "deposit" || type === "reward" ? "text-green-600" : "text-red-500";
@@ -438,11 +545,57 @@ function TransactionsTab() {
     return <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">Failed</Badge>;
   }
 
+  function exportCSV() {
+    const rows = [
+      ["ID", "User", "Type", "Amount (USDT)", "Status", "Note", "Date"],
+      ...filtered.map((tx) => [
+        tx.id, tx.userName, tx.txType, tx.amount, tx.status, tx.note ?? "", new Date(tx.createdAt).toLocaleString(),
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob); const a = document.createElement("a");
+    a.href = url; a.download = "transactions.csv"; a.click(); URL.revokeObjectURL(url);
+  }
+
   return (
-    <div className="space-y-2 mt-4">
-      {!txs || txs.length === 0 ? (
-        <p className="text-muted-foreground text-center py-8">No transactions</p>
-      ) : (txs as any[]).map((tx) => (
+    <div className="space-y-3 mt-4">
+      <div className="flex flex-wrap gap-2">
+        <Input
+          placeholder="Search user or note..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 min-w-40"
+        />
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+          className="border rounded-md px-3 py-2 text-sm bg-background"
+        >
+          <option value="all">All Types</option>
+          <option value="deposit">Deposit</option>
+          <option value="withdraw">Withdrawal</option>
+          <option value="reward">Reward</option>
+          <option value="pool_entry">Pool Entry</option>
+        </select>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="border rounded-md px-3 py-2 text-sm bg-background"
+        >
+          <option value="all">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="completed">Completed</option>
+          <option value="failed">Failed</option>
+        </select>
+        <Button variant="outline" size="sm" onClick={exportCSV} className="shrink-0">Export CSV</Button>
+      </div>
+
+      <p className="text-xs text-muted-foreground">{filtered.length} transaction{filtered.length !== 1 ? "s" : ""}</p>
+
+      {filtered.length === 0 ? (
+        <p className="text-muted-foreground text-center py-8">No transactions match your filters</p>
+      ) : filtered.map((tx) => (
         <Card key={tx.id}>
           <CardContent className="p-3 flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
@@ -454,7 +607,7 @@ function TransactionsTab() {
               {tx.note && <p className="text-xs text-muted-foreground truncate">{tx.note}</p>}
               <p className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleString()}</p>
             </div>
-            <div className="text-right">
+            <div className="text-right shrink-0">
               <p className={`font-bold ${txColor(tx.txType)}`}>{tx.amount} USDT</p>
               {tx.screenshotUrl && (
                 <a href={tx.screenshotUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline">
