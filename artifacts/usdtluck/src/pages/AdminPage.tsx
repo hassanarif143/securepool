@@ -110,7 +110,7 @@ function StatsTab() {
 }
 
 function PoolsTab() {
-  const { data: pools } = useListPools({ query: { queryKey: getListPoolsQueryKey() } });
+  const { data: pools, refetch } = useListPools({ query: { queryKey: getListPoolsQueryKey() } });
   const updatePool = useUpdatePool();
   const distributeRewards = useDistributeRewards();
   const { toast } = useToast();
@@ -119,6 +119,66 @@ function PoolsTab() {
   const [celebrationWinners, setCelebrationWinners] = useState<{ id: number; userName: string; place: number; prize: number }[]>([]);
   const [celebrationPool, setCelebrationPool] = useState("");
   const [showCelebration, setShowCelebration] = useState(false);
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editEndTime, setEditEndTime] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const [participantsPoolId, setParticipantsPoolId] = useState<number | null>(null);
+  const [participants, setParticipants] = useState<any[]>([]);
+  const [participantsLoading, setParticipantsLoading] = useState(false);
+
+  function startEdit(pool: any) {
+    setEditingId(pool.id);
+    setEditTitle(pool.title);
+    const dt = new Date(pool.endTime);
+    dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+    setEditEndTime(dt.toISOString().slice(0, 16));
+  }
+
+  async function saveEdit(poolId: number) {
+    setSaving(true);
+    try {
+      await fetch(`/api/pools/${poolId}`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editTitle, endTime: new Date(editEndTime).toISOString() }),
+      });
+      toast({ title: "Pool updated" });
+      setEditingId(null);
+      queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
+    } catch {
+      toast({ title: "Update failed", variant: "destructive" });
+    } finally { setSaving(false); }
+  }
+
+  async function deletePool(poolId: number) {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/pools/${poolId}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+      const data = await res.json();
+      toast({ title: "Pool deleted", description: data.refundedCount > 0 ? `${data.refundedCount} participant(s) refunded.` : "No participants to refund." });
+      setConfirmDeleteId(null);
+      queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
+    } catch (err: any) {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    } finally { setDeleting(false); }
+  }
+
+  async function loadParticipants(poolId: number) {
+    if (participantsPoolId === poolId) { setParticipantsPoolId(null); return; }
+    setParticipantsPoolId(poolId);
+    setParticipantsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/pools/${poolId}/participants`, { credentials: "include" });
+      setParticipants(await res.json());
+    } finally { setParticipantsLoading(false); }
+  }
 
   function handleStatusChange(poolId: number, status: "open" | "closed" | "completed") {
     updatePool.mutate(
@@ -158,51 +218,145 @@ function PoolsTab() {
         onClose={() => setShowCelebration(false)}
       />
     )}
-    <div className="space-y-3 mt-4">
-      {!pools || pools.length === 0 ? (
-        <p className="text-muted-foreground py-8 text-center">No pools yet</p>
-      ) : pools.map((pool) => (
-        <Card key={pool.id}>
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="font-semibold">{pool.title}</p>
-                <p className="text-xs text-muted-foreground">
-                  {pool.participantCount}/{pool.maxUsers} participants &bull; Entry: {pool.entryFee} USDT
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Ends: {new Date(pool.endTime).toLocaleString()}
-                </p>
-              </div>
-              <div className="flex flex-col gap-2 items-end">
-                <StatusBadge status={pool.status} />
-                <div className="flex gap-2">
-                  {pool.status !== "open" && (
-                    <Button size="sm" variant="outline" onClick={() => handleStatusChange(pool.id, "open")}>
-                      Open
-                    </Button>
-                  )}
-                  {pool.status !== "closed" && pool.status !== "completed" && (
-                    <Button size="sm" variant="outline" onClick={() => handleStatusChange(pool.id, "closed")}>
-                      Close
-                    </Button>
-                  )}
-                  {pool.status !== "completed" && (
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDistribute(pool.id, pool.title)}
-                      disabled={distributeRewards.isPending}
-                    >
-                      Distribute
-                    </Button>
-                  )}
-                </div>
-              </div>
+
+    {confirmDeleteId !== null && (
+      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-sm">
+          <CardContent className="p-6 space-y-4">
+            <div>
+              <p className="font-semibold text-lg">Delete Pool?</p>
+              <p className="text-sm text-muted-foreground mt-1">All participants will be refunded their entry fee. This cannot be undone.</p>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setConfirmDeleteId(null)} disabled={deleting}>Cancel</Button>
+              <Button variant="destructive" onClick={() => deletePool(confirmDeleteId!)} disabled={deleting}>
+                {deleting ? "Deleting..." : "Delete & Refund"}
+              </Button>
             </div>
           </CardContent>
         </Card>
-      ))}
+      </div>
+    )}
+
+    <div className="space-y-3 mt-4">
+      {!pools || pools.length === 0 ? (
+        <p className="text-muted-foreground py-8 text-center">No pools yet</p>
+      ) : pools.map((pool) => {
+        const fillPct = Math.min(100, Math.round((pool.participantCount / pool.maxUsers) * 100));
+        const isEditing = editingId === pool.id;
+        const showParticipants = participantsPoolId === pool.id;
+
+        return (
+        <Card key={pool.id} className="overflow-hidden">
+          <CardContent className="p-4 space-y-3">
+            {isEditing ? (
+              <div className="space-y-3">
+                <p className="font-semibold text-sm text-muted-foreground">Edit Pool</p>
+                <div className="grid gap-2">
+                  <div>
+                    <Label className="text-xs">Title</Label>
+                    <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="h-8 text-sm mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">End Time</Label>
+                    <Input type="datetime-local" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)} className="h-8 text-sm mt-1" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => saveEdit(pool.id)} disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold">{pool.title}</p>
+                      <StatusBadge status={pool.status} />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Entry: {pool.entryFee} USDT &bull; Max: {pool.maxUsers} participants
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Ends: {new Date(pool.endTime).toLocaleString()}
+                    </p>
+                    <div className="flex gap-3 mt-1.5 text-xs font-medium">
+                      <span className="text-yellow-600">🥇 {pool.prizeFirst} USDT</span>
+                      <span className="text-gray-500">🥈 {pool.prizeSecond} USDT</span>
+                      <span className="text-amber-700">🥉 {pool.prizeThird} USDT</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5 items-end shrink-0">
+                    <div className="flex gap-1.5 flex-wrap justify-end">
+                      {pool.status !== "open" && (
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleStatusChange(pool.id, "open")}>Open</Button>
+                      )}
+                      {pool.status !== "closed" && pool.status !== "completed" && (
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleStatusChange(pool.id, "closed")}>Close</Button>
+                      )}
+                      {pool.status !== "completed" && (
+                        <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleDistribute(pool.id, pool.title)} disabled={distributeRewards.isPending}>Distribute</Button>
+                      )}
+                    </div>
+                    <div className="flex gap-1.5">
+                      {pool.status !== "completed" && (
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => startEdit(pool)}>Edit</Button>
+                      )}
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => loadParticipants(pool.id)}>
+                        {showParticipants ? "Hide" : "Participants"}
+                      </Button>
+                      {pool.status !== "completed" && (
+                        <Button size="sm" variant="ghost" className="h-7 text-xs text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setConfirmDeleteId(pool.id)}>Delete</Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{pool.participantCount} joined</span>
+                    <span>{pool.maxUsers} max · {fillPct}% full</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div
+                      className="h-2 rounded-full transition-all"
+                      style={{
+                        width: `${fillPct}%`,
+                        background: fillPct >= 100 ? "#16a34a" : fillPct >= 60 ? "#f59e0b" : "#22c55e",
+                      }}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {showParticipants && (
+              <div className="border-t pt-3">
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Participants ({participants.length})</p>
+                {participantsLoading ? (
+                  <p className="text-xs text-muted-foreground">Loading...</p>
+                ) : participants.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No participants yet</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {participants.map((p, i) => (
+                      <div key={p.id} className="flex items-center justify-between text-xs bg-muted/40 rounded px-2 py-1.5">
+                        <div>
+                          <span className="font-medium">{p.userName}</span>
+                          <span className="text-muted-foreground ml-1.5">{p.userEmail}</span>
+                        </div>
+                        <span className="text-muted-foreground shrink-0 ml-2">{new Date(p.joinedAt).toLocaleDateString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        );
+      })}
     </div>
     </>
   );

@@ -98,6 +98,66 @@ router.get("/users", async (req, res) => {
   res.json(result);
 });
 
+router.delete("/pools/:id", async (req, res) => {
+  const poolId = parseInt(req.params.id);
+  if (isNaN(poolId)) { res.status(400).json({ error: "Invalid pool ID" }); return; }
+
+  const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  if (!pool) { res.status(404).json({ error: "Pool not found" }); return; }
+
+  if (pool.status === "completed") {
+    res.status(400).json({ error: "Cannot delete a completed pool" });
+    return;
+  }
+
+  const participants = await db
+    .select()
+    .from(poolParticipantsTable)
+    .where(eq(poolParticipantsTable.poolId, poolId));
+
+  const entryFee = parseFloat(pool.entryFee);
+  for (const p of participants) {
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, p.userId)).limit(1);
+    if (user) {
+      const refunded = parseFloat(user.walletBalance) + entryFee;
+      await db.update(usersTable).set({ walletBalance: String(refunded) }).where(eq(usersTable.id, p.userId));
+      await db.insert(transactionsTable).values({
+        userId: p.userId,
+        txType: "deposit",
+        amount: String(entryFee),
+        status: "completed",
+        note: `[Admin] Refund: pool "${pool.title}" was deleted`,
+      });
+    }
+  }
+
+  await db.delete(poolParticipantsTable).where(eq(poolParticipantsTable.poolId, poolId));
+  await db.delete(poolsTable).where(eq(poolsTable.id, poolId));
+
+  res.json({ message: "Pool deleted and participants refunded", refundedCount: participants.length });
+});
+
+router.get("/pools/:id/participants", async (req, res) => {
+  const poolId = parseInt(req.params.id);
+  if (isNaN(poolId)) { res.status(400).json({ error: "Invalid pool ID" }); return; }
+
+  const participants = await db
+    .select({
+      id: poolParticipantsTable.id,
+      userId: poolParticipantsTable.userId,
+      userName: usersTable.name,
+      userEmail: usersTable.email,
+      ticketCount: poolParticipantsTable.ticketCount,
+      joinedAt: poolParticipantsTable.joinedAt,
+    })
+    .from(poolParticipantsTable)
+    .innerJoin(usersTable, eq(poolParticipantsTable.userId, usersTable.id))
+    .where(eq(poolParticipantsTable.poolId, poolId))
+    .orderBy(desc(poolParticipantsTable.joinedAt));
+
+  res.json(participants);
+});
+
 router.get("/transactions/pending", async (req, res) => {
   const txs = await db
     .select({
