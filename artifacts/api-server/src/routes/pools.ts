@@ -210,7 +210,20 @@ router.post("/:poolId/join", async (req, res) => {
     await maybeCreditReferralBonus(sessionUserId);
   }
 
-  res.json({ message: "Successfully joined the pool!" });
+  /* Award tier points for joining a pool */
+  const { awardTierPoints, POINTS_POOL_JOIN } = await import("../lib/tier");
+  const tierResult = await awardTierPoints(sessionUserId, POINTS_POOL_JOIN);
+
+  res.json({
+    message: "Successfully joined the pool!",
+    tierUpdate: tierResult ? {
+      tier: tierResult.newTier,
+      tierPoints: tierResult.newPoints,
+      tierChanged: tierResult.tierChanged,
+      previousTier: tierResult.previousTier,
+      freeTicketGranted: tierResult.freeTicketGranted,
+    } : null,
+  });
 });
 
 router.post("/:poolId/distribute", async (req, res) => {

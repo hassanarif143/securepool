@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable, referralsTable, transactionsTable } from "@workspace/db";
+import { db, pool as dbPool, usersTable, referralsTable, transactionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { SignupBody, LoginBody } from "@workspace/api-zod";
 
@@ -145,7 +145,12 @@ router.get("/me", async (req, res) => {
     return;
   }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.session.userId)).limit(1);
+  const { rows } = await dbPool.query(
+    `SELECT id, name, email, wallet_balance, crypto_address, is_admin, joined_at, tier, tier_points
+     FROM users WHERE id = $1 LIMIT 1`,
+    [req.session.userId]
+  );
+  const user = rows[0];
   if (!user) {
     res.status(401).json({ error: "User not found" });
     return;
@@ -155,10 +160,12 @@ router.get("/me", async (req, res) => {
     id: user.id,
     name: user.name,
     email: user.email,
-    walletBalance: parseFloat(user.walletBalance),
-    cryptoAddress: user.cryptoAddress ?? null,
-    isAdmin: user.isAdmin,
-    joinedAt: user.joinedAt,
+    walletBalance: parseFloat(user.wallet_balance),
+    cryptoAddress: user.crypto_address ?? null,
+    isAdmin: user.is_admin,
+    joinedAt: user.joined_at,
+    tier: user.tier ?? "aurora",
+    tierPoints: parseInt(user.tier_points ?? "0"),
   });
 });
 

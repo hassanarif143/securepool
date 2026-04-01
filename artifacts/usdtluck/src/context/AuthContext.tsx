@@ -11,6 +11,8 @@ interface UserType {
   cryptoAddress: string | null;
   isAdmin: boolean;
   joinedAt: string;
+  tier: string;
+  tierPoints: number;
 }
 
 interface AuthContextType {

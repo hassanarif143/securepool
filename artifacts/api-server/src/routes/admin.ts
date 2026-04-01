@@ -248,6 +248,13 @@ router.post("/transactions/:id/approve", async (req, res) => {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
     const newBalance = parseFloat(user.walletBalance) + parseFloat(tx.amount);
     await db.update(usersTable).set({ walletBalance: String(newBalance) }).where(eq(usersTable.id, tx.userId));
+
+    /* Award tier points for deposit: 2 pts per USDT */
+    try {
+      const { awardTierPoints, POINTS_PER_USDT } = await import("../lib/tier");
+      const pts = Math.max(1, Math.floor(parseFloat(tx.amount) * POINTS_PER_USDT));
+      await awardTierPoints(tx.userId, pts);
+    } catch {}
   }
 
   const [txUser] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
@@ -305,6 +312,38 @@ router.post("/transactions/:id/reject", async (req, res) => {
   await logAction(getAdminId(req), "transaction", txId, "reject", `Rejected ${tx.txType} of ${tx.amount} USDT for ${txUser?.name ?? "user"} (tx #${txId})${tx.txType === "withdraw" ? " — balance refunded" : ""}`);
 
   res.json({ message: "Transaction rejected" });
+});
+
+/* ── PATCH /api/admin/users/:id/tier — admin override tier ── */
+router.patch("/users/:id/tier", async (req, res) => {
+  const userId = parseInt(req.params.id);
+  if (isNaN(userId)) return res.status(400).json({ error: "Invalid user ID" });
+
+  const { tier, tierPoints } = req.body;
+  const validTiers = ["aurora", "lumen", "nova", "celestia", "orion"];
+  if (tier && !validTiers.includes(tier)) return res.status(400).json({ error: "Invalid tier" });
+
+  try {
+    const dbPool = (await import("@workspace/db")).pool;
+    const updates: string[] = [];
+    const vals: any[] = [];
+    let idx = 1;
+    if (tier) { updates.push(`tier = $${idx++}`); vals.push(tier); }
+    if (tierPoints !== undefined) { updates.push(`tier_points = $${idx++}`); vals.push(parseInt(tierPoints)); }
+    if (!updates.length) return res.status(400).json({ error: "No fields to update" });
+
+    vals.push(userId);
+    const { rows } = await dbPool.query(
+      `UPDATE users SET ${updates.join(", ")} WHERE id = $${idx} RETURNING name, tier, tier_points`,
+      vals
+    );
+    if (!rows[0]) return res.status(404).json({ error: "User not found" });
+    await logAction(getAdminId(req), "user", userId, "override_tier", `Set ${rows[0].name}'s tier to ${rows[0].tier} (${rows[0].tier_points} pts)`);
+    res.json({ name: rows[0].name, tier: rows[0].tier, tierPoints: parseInt(rows[0].tier_points) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update tier" });
+  }
 });
 
 /* ── GET /api/admin/reviews — all reviews for admin ── */

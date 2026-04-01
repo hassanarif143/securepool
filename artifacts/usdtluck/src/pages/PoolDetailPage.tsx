@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
 import confetti from "canvas-confetti";
+import { TierUpgradeModal } from "@/components/TierUpgradeModal";
 
 function JoinCelebrationModal({ poolTitle, entryFee, onClose }: { poolTitle: string; entryFee: number; onClose: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -88,6 +89,9 @@ export default function PoolDetailPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showCelebration, setShowCelebration] = useState(false);
+  const [tierUpgrade, setTierUpgrade] = useState<{
+    previousTier: string; newTier: string; freeTicketGranted: boolean; tierPoints: number;
+  } | null>(null);
 
   const { data: pool, isLoading } = useGetPool(id, {
     query: { enabled: !!id, queryKey: getGetPoolQueryKey(id) },
@@ -107,10 +111,23 @@ export default function PoolDetailPage() {
     joinMutation.mutate(
       { poolId: id },
       {
-        onSuccess: () => {
+        onSuccess: (data: any) => {
           queryClient.invalidateQueries({ queryKey: getGetPoolQueryKey(id) });
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
           setShowCelebration(true);
+          if (data?.tierUpdate?.tierChanged) {
+            const t = data.tierUpdate;
+            /* Short delay so celebration modal shows first */
+            setTimeout(() => {
+              setShowCelebration(false);
+              setTierUpgrade({
+                previousTier: t.previousTier,
+                newTier: t.tier,
+                freeTicketGranted: t.freeTicketGranted,
+                tierPoints: t.tierPoints,
+              });
+            }, 2200);
+          }
         },
         onError: (err: any) => {
           toast({
@@ -136,6 +153,15 @@ export default function PoolDetailPage() {
           poolTitle={pool.title}
           entryFee={pool.entryFee}
           onClose={() => setShowCelebration(false)}
+        />
+      )}
+      {tierUpgrade && (
+        <TierUpgradeModal
+          previousTier={tierUpgrade.previousTier}
+          newTier={tierUpgrade.newTier}
+          freeTicketGranted={tierUpgrade.freeTicketGranted}
+          tierPoints={tierUpgrade.tierPoints}
+          onClose={() => setTierUpgrade(null)}
         />
       )}
 

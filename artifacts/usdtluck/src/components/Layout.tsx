@@ -172,6 +172,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { href: "/pools", label: "Pools", icon: "🎱" },
         { href: "/winners", label: "Winners", icon: "🏆" },
         { href: "/reviews", label: "Reviews", icon: "💬" },
+        { href: "/leaderboard", label: "Leaderboard", icon: "🎖️" },
         { href: "/referral", label: "Referral", icon: "🔗" },
         ...(user.isAdmin ? [{ href: "/admin", label: "Admin", icon: "⚙️" }] : []),
       ]

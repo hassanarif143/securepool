@@ -34,6 +34,10 @@ A full-stack USDT reward pool web app. Users join prize pools for 10 USDT, 3 ran
 - Admin panel: Pending deposits/withdrawals tab (approve/reject with screenshot preview), Stats, Pools, Users, Transactions
 - Recent winners feed
 - Transaction history with status badges and receipt links
+- Reviews/testimonials system with star ratings, "Verified Winner" badges, admin moderation
+- Referral program with referral codes and bonus crediting
+- **Tier progression system**: 5 tiers (Aurora→Lumen→Nova→Celestia→Orion), awarded for pool joins (+15 pts) and deposits (+2 pts/USDT); free 10 USDT ticket on each tier upgrade; animated TierUpgradeModal with confetti
+- **Tier Leaderboard**: public leaderboard ranked by tier points with tier badges and threshold display
 
 **Demo accounts (password: `password123`):**
 - Admin: `admin@usdtluck.com`
@@ -55,6 +59,12 @@ Express 5 REST API serving all USDTLuck functionality.
 - `/api/admin/transactions/:id/approve` — approve tx, credit wallet for deposits
 - `/api/admin/transactions/:id/reject` — reject tx, mark as failed
 - `/uploads/*` — static file serving for uploaded screenshots
+- `/api/reviews` — GET public reviews, POST submit review, GET /mine
+- `/api/referral` — referral stats and code
+- `/api/tier/me` — current user's tier info and progress
+- `/api/tier/leaderboard` — top 20 users by tier points
+- `/api/admin/users/:id/tier` — PATCH admin tier override
+- `/api/admin/reviews` — full CRUD for reviews (hide/show/feature/delete)
 
 ## Structure
 

@@ -8,6 +8,7 @@ import winnersRouter from "./winners";
 import adminRouter from "./admin";
 import referralRouter from "./referral";
 import reviewsRouter from "./reviews";
+import tierRouter from "./tier";
 
 const router: IRouter = Router();
 
@@ -21,5 +22,6 @@ router.use("/dashboard", adminRouter);
 router.use("/admin", adminRouter);
 router.use("/referral", referralRouter);
 router.use("/reviews", reviewsRouter);
+router.use("/tier", tierRouter);
 
 export default router;
