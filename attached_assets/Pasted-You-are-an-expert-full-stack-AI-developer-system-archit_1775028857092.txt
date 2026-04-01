@@ -1,0 +1,211 @@
+You are an expert full-stack AI developer, system architect, and UX/UI designer. Your goal is to design and implement a **production-grade USDT Reward Web App** that is **secure, scalable, trustable, and fully testable locally**, based on an incentivized reward pool model (NOT gambling).
+
+Your implementation must handle **real-world edge cases, financial safety, user trust, and system reliability**.
+
+--------------------------------------------------
+
+🔷 CORE BUSINESS MODEL
+- Users join pools by depositing USDT.
+- Each pool has limited slots and a time limit.
+- A random winner is selected.
+- Winner gets the majority of funds.
+- Non-winners receive a **partial refund**.
+- Platform earns via **transparent fees only**.
+- Users should NEVER feel their money is lost unfairly.
+
+--------------------------------------------------
+
+🔷 PHASE 1: NAVIGATION & WALLET UX
+
+- Design a **clean, trustable navigation bar (React + Tailwind)**:
+  - Wallet must be **separate and prominent**
+  - Show **live balance**
+  - Wallet dropdown: Deposit, Withdraw, Transactions
+
+- UX Requirements:
+  - Dark theme with green/blue trust colors
+  - Mobile responsive (wallet always visible)
+  - Active page highlight
+  - Loading indicators, hover states, micro-interactions
+  - Accessible (keyboard + screen reader support)
+
+--------------------------------------------------
+
+🔷 PHASE 2: POOL SYSTEM (ROBUST LOGIC)
+
+- Pool Features:
+  - Fixed slots + countdown timer
+  - Multiple pools running simultaneously
+  - Users can join multiple pools
+
+- Critical Scenarios:
+  - Prevent **overbooking (atomic slot locking)**
+  - Handle **simultaneous joins (race conditions)**
+  - Temporary slot reservation during payment
+
+- Incomplete Pool Handling:
+  - If not filled:
+    - Auto-extend (max 2 times)
+    - OR refund all users
+    - If ≥80% filled → optional partial draw
+
+- UX:
+  - Show statuses: Filling / Full / Extended / Refunded
+  - Live participant updates
+
+--------------------------------------------------
+
+🔷 PHASE 3: WALLET & MONEY SAFETY
+
+- Wallet must support:
+  - Instant updates
+  - Transaction history
+  - Deposit / Withdraw flows
+
+- Safety Requirements:
+  - Prevent **double credit (idempotent transactions)**
+  - Prevent negative balance
+  - Handle pending states (deposit/withdraw)
+
+- Always:
+  - Use backend as source of truth
+  - Log every transaction
+
+--------------------------------------------------
+
+🔷 PHASE 4: REWARD DISTRIBUTION SYSTEM
+
+- `/pools/distribute_rewards`:
+  - Secure RNG winner selection
+  - Atomic execution:
+    - Credit winner
+    - Refund others
+    - Log all transactions
+
+- Handle failures:
+  - Retry system
+  - No partial execution allowed
+
+--------------------------------------------------
+
+🔷 PHASE 5: NOTIFICATIONS & REAL-TIME UX
+
+- Real-time notifications:
+  - Win alerts
+  - Refund alerts
+  - Pool updates
+
+- Requirements:
+  - Store notifications in DB
+  - Prevent duplicates
+  - Show in dashboard
+
+- UX:
+  - Confetti / celebratory animation
+  - Live winner feed
+
+--------------------------------------------------
+
+🔷 PHASE 6: REFERRAL SYSTEM
+
+- Features:
+  - Unique referral codes
+  - Bonus after real action (first pool join)
+
+- Safety:
+  - Prevent self-referral
+  - Prevent fake accounts
+  - Avoid circular rewards
+
+- Wallet:
+  - Auto-credit referral bonus
+  - Transaction logs
+
+--------------------------------------------------
+
+🔷 PHASE 7: SYSTEM RESILIENCE & EDGE CASES
+
+Handle ALL:
+
+- Network failure during actions → pending state + retry
+- Page refresh → recover state from backend
+- Multi-tab conflicts → action locking
+- Slow API → disable duplicate clicks
+
+--------------------------------------------------
+
+🔷 PHASE 8: ADVANCED SECURITY
+
+- Rate limiting APIs
+- Prevent bot abuse
+- Limit entries per user (anti-whale)
+- Protect against timing attacks
+
+--------------------------------------------------
+
+🔷 PHASE 9: TRUST & TRANSPARENCY LAYER
+
+- Show:
+  - “How it works”
+  - Winner selection logic
+  - Public transaction logs
+  - Pool math breakdown
+
+- Always answer user question:
+  👉 “Mera paisa kahan hai?”
+
+--------------------------------------------------
+
+🔷 PHASE 10: SYSTEM CONTROL & SCALE
+
+- Add:
+  - Cron job for pool expiry
+  - Retry queue system
+  - Kill switch (pause system)
+  - Audit logs
+  - Versioning for pool logic
+
+--------------------------------------------------
+
+🔷 TECHNICAL STACK
+
+- Frontend: React + Tailwind
+- Backend: Node.js + Express
+- Database: PostgreSQL
+
+--------------------------------------------------
+
+🔷 DELIVERABLES
+
+Generate:
+
+1. Full project structure (frontend + backend)
+2. Navigation bar with wallet UX
+3. Pool system (with edge case handling)
+4. Wallet system with transaction logs
+5. Reward distribution logic
+6. Referral system
+7. Notification system
+8. API endpoints (with examples)
+9. Mock data for testing
+10. Inline comments explaining logic + UX decisions
+11. Step-by-step local setup guide
+
+--------------------------------------------------
+
+🔷 CONSTRAINTS
+
+- Fully local (no paid APIs)
+- Free-tier only
+- Modular and scalable
+- Production-ready logic
+
+--------------------------------------------------
+
+🔷 FINAL GOAL
+
+Build a system where:
+- No money is lost unfairly
+- No action is ambiguous
+- Every edge case is handled
+- Users fully trust the platform

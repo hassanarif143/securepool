@@ -5,6 +5,123 @@ import { Button } from "@/components/ui/button";
 import { TierBadge } from "@/components/TierBadge";
 
 /* ─────────────────────────────────────────────
+   Notification Bell
+───────────────────────────────────────────── */
+function NotificationBell() {
+  const [open, setOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const [notifs, setNotifs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  /* Poll unread count every 60s */
+  useEffect(() => {
+    function fetchCount() {
+      fetch("/api/notifications/unread-count", { credentials: "include" })
+        .then((r) => r.ok ? r.json() : { count: 0 })
+        .then((d) => setUnread(d.count ?? 0))
+        .catch(() => {});
+    }
+    fetchCount();
+    const id = setInterval(fetchCount, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  /* Close on outside click */
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  function openDropdown() {
+    setOpen((v) => !v);
+    if (!open) {
+      setLoading(true);
+      fetch("/api/notifications", { credentials: "include" })
+        .then((r) => r.ok ? r.json() : [])
+        .then((d) => { setNotifs(d); setLoading(false); })
+        .catch(() => setLoading(false));
+      /* Mark all read */
+      fetch("/api/notifications/read-all", { method: "PATCH", credentials: "include" })
+        .then(() => setUnread(0)).catch(() => {});
+    }
+  }
+
+  const typeIcon: Record<string, string> = {
+    win: "🏆", refund: "💸", pool_update: "🎱", referral: "🔗", tier: "⭐", pool: "🎱",
+  };
+  function timeAgo(d: string) {
+    const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return `${m}m ago`;
+    if (m < 1440) return `${Math.floor(m / 60)}h ago`;
+    return `${Math.floor(m / 1440)}d ago`;
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={openDropdown}
+        className="relative p-2 rounded-xl transition-all hover:bg-white/[0.05] focus:outline-none"
+        aria-label="Notifications"
+      >
+        <svg className="w-4.5 h-4.5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        {unread > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center text-[9px] font-bold rounded-full px-1"
+            style={{ background: "hsl(0,72%,55%)", color: "white" }}>
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-80 rounded-2xl border shadow-2xl overflow-hidden z-50"
+          style={{ background: "hsl(222,30%,10%)", borderColor: "hsl(217,28%,18%)", boxShadow: "0 20px 40px rgba(0,0,0,0.6)" }}>
+          <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "hsl(217,28%,16%)" }}>
+            <p className="text-sm font-semibold">Notifications</p>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Recent</span>
+          </div>
+
+          <div className="max-h-72 overflow-y-auto">
+            {loading ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">Loading…</div>
+            ) : notifs.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-2xl mb-2">🔔</p>
+                <p className="text-sm text-muted-foreground">No notifications yet</p>
+              </div>
+            ) : (
+              notifs.map((n) => (
+                <div key={n.id} className="flex items-start gap-3 px-4 py-3 border-b transition-colors hover:bg-white/[0.02]"
+                  style={{ borderColor: "hsl(217,28%,13%)", background: n.read ? "transparent" : "hsla(152,72%,44%,0.03)" }}>
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm shrink-0 mt-0.5"
+                    style={{ background: "hsl(217,28%,13%)" }}>
+                    {typeIcon[n.type] ?? "📢"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold leading-none">{n.title}</p>
+                      {!n.read && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "hsl(152,72%,55%)" }} />}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{n.message}</p>
+                    <p className="text-[10px] text-muted-foreground/50 mt-1">{timeAgo(n.created_at)}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
    Wallet quick-action dropdown
 ───────────────────────────────────────────── */
 function WalletDropdown({ balance }: { balance: number }) {
@@ -376,6 +493,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2 ml-auto shrink-0">
               {!isLoading && user && (
                 <>
+                  {/* Notification bell */}
+                  <NotificationBell />
+
                   {/* Wallet balance */}
                   <WalletDropdown balance={user.walletBalance} />
 

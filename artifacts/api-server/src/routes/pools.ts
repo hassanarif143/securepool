@@ -66,6 +66,38 @@ router.post("/", async (req, res) => {
   res.status(201).json(formatPool(pool, 0));
 });
 
+/* GET /pools/my-entries — pools the current user has joined */
+router.get("/my-entries", async (req, res) => {
+  const userId = (req as any).session?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { pool: pgPool } = await import("@workspace/db");
+  const { rows } = await pgPool.query(
+    `SELECT
+       p.id, p.title, p.status, p.end_time, p.prize_first, p.prize_second, p.prize_third,
+       p.entry_fee, p.max_users,
+       pp.joined_at,
+       (SELECT COUNT(*) FROM pool_participants pp2 WHERE pp2.pool_id = p.id)::int AS participant_count
+     FROM pool_participants pp
+     JOIN pools p ON p.id = pp.pool_id
+     WHERE pp.user_id = $1
+     ORDER BY pp.joined_at DESC
+     LIMIT 10`,
+    [userId]
+  );
+  res.json(rows.map((r: any) => ({
+    id: r.id,
+    title: r.title,
+    status: r.status,
+    endTime: r.end_time,
+    prizeFirst: parseFloat(r.prize_first),
+    entryFee: parseFloat(r.entry_fee),
+    maxUsers: r.max_users,
+    participantCount: r.participant_count,
+    joinedAt: r.joined_at,
+  })));
+});
+
 router.get("/:poolId", async (req, res) => {
   const poolId = parseInt(req.params.poolId);
   if (isNaN(poolId)) {

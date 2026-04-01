@@ -9,6 +9,7 @@ import adminRouter from "./admin";
 import referralRouter from "./referral";
 import reviewsRouter from "./reviews";
 import tierRouter from "./tier";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -23,5 +24,6 @@ router.use("/admin", adminRouter);
 router.use("/referral", referralRouter);
 router.use("/reviews", reviewsRouter);
 router.use("/tier", tierRouter);
+router.use("/notifications", notificationsRouter);
 
 export default router;

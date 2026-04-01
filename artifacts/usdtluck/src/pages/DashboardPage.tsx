@@ -117,6 +117,19 @@ function DashPoolCard({ pool }: { pool: any }) {
   );
 }
 
+/* ── "My Entry" status chip ── */
+function EntryStatusBadge({ status, endTime }: { status: string; endTime: string }) {
+  const msLeft = new Date(endTime).getTime() - Date.now();
+  const hoursLeft = Math.max(0, Math.floor(msLeft / 3_600_000));
+  if (status === "open" && hoursLeft < 3)
+    return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "hsla(38,90%,55%,0.15)", color: "hsl(38,90%,65%)", border: "1px solid hsla(38,90%,55%,0.25)" }}>⏳ Ending Soon</span>;
+  if (status === "open")
+    return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "hsla(152,72%,44%,0.12)", color: "hsl(152,72%,55%)", border: "1px solid hsla(152,72%,44%,0.2)" }}>● Active</span>;
+  if (status === "closed")
+    return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "hsl(217,28%,14%)", color: "hsl(215,16%,55%)", border: "1px solid hsl(217,28%,20%)" }}>Completed</span>;
+  return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "hsl(217,28%,14%)", color: "hsl(215,16%,55%)" }}>{status}</span>;
+}
+
 /* ══════════════════════════════════════════ */
 export default function DashboardPage() {
   const { user, isLoading } = useAuth();
@@ -125,6 +138,8 @@ export default function DashboardPage() {
   const [tierUpgrade, setTierUpgrade] = useState<{
     previousTier: string; newTier: string; freeTicketGranted: boolean; tierPoints: number;
   } | null>(null);
+
+  const [myEntries, setMyEntries] = useState<any[]>([]);
 
   const { data: pools, isLoading: poolsLoading } = useListPools();
   const { data: transactions } = useGetUserTransactions(user?.id ?? 0, {
@@ -139,6 +154,8 @@ export default function DashboardPage() {
     if (!user) return;
     fetch("/api/tier/me", { credentials: "include" })
       .then((r) => r.json()).then(setTierInfo).catch(() => {});
+    fetch("/api/pools/my-entries", { credentials: "include" })
+      .then((r) => r.ok ? r.json() : []).then(setMyEntries).catch(() => {});
   }, [user]);
 
   if (isLoading || !user) return null;
@@ -407,7 +424,77 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ═══ 4. TIER PROGRESS ═══ */}
+      {/* ═══ 4. MY ACTIVE ENTRIES ═══ */}
+      {myEntries.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <h2 className="font-bold text-sm uppercase tracking-wide text-muted-foreground">My Pool Entries</h2>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{ background: "hsla(152,72%,44%,0.15)", color: "hsl(152,72%,55%)", border: "1px solid hsla(152,72%,44%,0.2)" }}>
+                {myEntries.length}
+              </span>
+            </div>
+            <span className="text-[10px] text-muted-foreground">💡 Your 10 USDT per pool is active</span>
+          </div>
+
+          <div className="rounded-xl overflow-hidden" style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}>
+            {/* Trust header */}
+            <div className="px-4 py-2.5 flex items-center gap-2 border-b"
+              style={{ background: "hsla(152,72%,44%,0.05)", borderColor: "hsl(217,28%,14%)" }}>
+              <span className="text-xs">🔒</span>
+              <p className="text-[11px] text-muted-foreground">
+                Your entry fee is locked safely in the pool until the draw. Winners receive USDT directly.
+              </p>
+            </div>
+
+            <div className="divide-y" style={{ borderColor: "hsl(217,28%,13%)" }}>
+              {myEntries.map((entry) => {
+                const msLeft = entry.endTime ? new Date(entry.endTime).getTime() - Date.now() : 0;
+                const hoursLeft = Math.max(0, Math.floor(msLeft / 3_600_000));
+                const pct = entry.maxUsers > 0 ? Math.round((entry.participantCount / entry.maxUsers) * 100) : 0;
+                const winChance = entry.participantCount > 0 ? (1 / entry.participantCount * 100).toFixed(1) : "—";
+
+                return (
+                  <Link key={entry.id} href={`/pools/${entry.id}`}>
+                    <div className="flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-white/[0.02] cursor-pointer group">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0"
+                        style={{ background: "hsla(152,72%,44%,0.08)", border: "1px solid hsla(152,72%,44%,0.15)" }}>
+                        🎱
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-semibold text-sm leading-none truncate group-hover:text-primary transition-colors">
+                            {entry.title}
+                          </p>
+                          <EntryStatusBadge status={entry.status} endTime={entry.endTime} />
+                        </div>
+                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                          <span>🎯 {winChance}% win chance</span>
+                          <span>👥 {entry.participantCount}/{entry.maxUsers} players</span>
+                          {entry.status === "open" && hoursLeft > 0 && <span>⏱ {hoursLeft}h left</span>}
+                        </div>
+                        {/* mini fill bar */}
+                        <div className="mt-1.5 h-1 rounded-full overflow-hidden w-32" style={{ background: "hsl(217,28%,16%)" }}>
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "hsl(152,72%,44%)" }} />
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-bold" style={{ color: "hsl(152,72%,55%)" }}>
+                          🥇 {entry.prizeFirst} USDT
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">top prize</p>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ 5. TIER PROGRESS ═══ */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-bold text-sm uppercase tracking-wide text-muted-foreground">Tier & Rewards</h2>
@@ -420,6 +507,74 @@ export default function DashboardPage() {
         ) : (
           <Skeleton className="h-44 rounded-2xl" />
         )}
+      </div>
+
+      {/* ═══ 6. HOW IT WORKS (trust layer) ═══ */}
+      <div className="rounded-2xl overflow-hidden"
+        style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}>
+        <div className="px-5 py-4 border-b flex items-center justify-between"
+          style={{ borderColor: "hsl(217,28%,14%)", background: "hsl(222,30%,10%)" }}>
+          <div className="flex items-center gap-2">
+            <span>🔍</span>
+            <h2 className="font-bold text-sm">How USDTLuck Works</h2>
+          </div>
+          <span className="text-[10px] font-semibold px-2 py-1 rounded-full uppercase tracking-wide"
+            style={{ background: "hsla(152,72%,44%,0.1)", color: "hsl(152,72%,55%)", border: "1px solid hsla(152,72%,44%,0.2)" }}>
+            Transparent
+          </span>
+        </div>
+
+        <div className="p-5 grid sm:grid-cols-3 gap-4">
+          {[
+            {
+              step: "1",
+              icon: "💰",
+              title: "Pay Entry Fee",
+              desc: "Join any open pool for 10 USDT. Your funds are held securely until the draw.",
+              color: "hsl(152,72%,55%)",
+            },
+            {
+              step: "2",
+              icon: "🎲",
+              title: "Fair Random Draw",
+              desc: "When the pool closes, 3 winners are selected randomly. Every player has an equal chance.",
+              color: "hsl(210,90%,65%)",
+            },
+            {
+              step: "3",
+              icon: "⚡",
+              title: "Instant Payout",
+              desc: "🥇 100 USDT, 🥈 50 USDT, 🥉 30 USDT sent instantly to winners' wallets.",
+              color: "hsl(45,90%,55%)",
+            },
+          ].map((s) => (
+            <div key={s.step} className="flex gap-3">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 mt-0.5"
+                style={{ background: `${s.color}15`, border: `1px solid ${s.color}25`, color: s.color }}>
+                {s.step}
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span>{s.icon}</span>
+                  <p className="font-semibold text-sm">{s.title}</p>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">{s.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="px-5 pb-4">
+          <div className="rounded-xl p-3 flex items-start gap-3"
+            style={{ background: "hsl(217,28%,12%)", border: "1px solid hsl(217,28%,18%)" }}>
+            <span className="text-base mt-0.5">🛡️</span>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              <span className="font-semibold text-foreground">Your money is always safe.</span> Pool funds are distributed
+              only during the official draw. If a pool is cancelled, all entry fees are fully refunded to participants.
+              Every transaction is logged and visible in your wallet history.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
