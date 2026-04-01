@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { TierBadge } from "@/components/TierBadge";
+import { Logo } from "@/components/Logo";
 
 /* ─────────────────────────────────────────────
    Notification Bell
@@ -451,14 +452,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center h-14 gap-3">
 
             {/* ── Logo ── */}
-            <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-2 shrink-0 mr-2">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 2px 8px rgba(22,163,74,0.35)" }}>
-                <span className="text-white font-bold text-xs">U</span>
-              </div>
-              <span className="font-bold text-base tracking-tight">
-                USDT<span className="text-primary">Luck</span>
-              </span>
+            <Link href={user ? "/dashboard" : "/"} className="shrink-0 mr-2">
+              <Logo size="sm" />
             </Link>
 
             {/* ── Desktop primary nav ── */}
@@ -565,7 +560,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <footer className="border-t mt-auto py-5" style={{ borderColor: "hsl(217,28%,14%)" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground">
-          USDTLuck &mdash; Transparent USDT Reward Pools &mdash; {new Date().getFullYear()}
+          SecurePool &mdash; Transparent USDT Reward Pools &mdash; {new Date().getFullYear()}
         </div>
       </footer>
     </div>

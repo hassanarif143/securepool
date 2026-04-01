@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useLogin } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { Logo } from "@/components/Logo";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -72,14 +73,8 @@ export default function LoginPage() {
             {/* Logo */}
             <div>
               <Link href="/">
-                <div className="flex items-center gap-2.5 cursor-pointer">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                    style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 4px 12px rgba(22,163,74,0.45)" }}>
-                    <span className="text-white font-bold">U</span>
-                  </div>
-                  <span className="font-bold text-xl tracking-tight">
-                    USDT<span style={{ color: "hsl(152,72%,55%)" }}>Luck</span>
-                  </span>
+                <div className="cursor-pointer">
+                  <Logo size="lg" />
                 </div>
               </Link>
               <p className="text-muted-foreground text-sm mt-3 leading-relaxed max-w-xs">
@@ -128,14 +123,8 @@ export default function LoginPage() {
           <div className="flex flex-col justify-center p-8 md:p-10"
             style={{ background: "hsl(222,30%,10%)" }}>
             {/* Mobile logo */}
-            <div className="flex md:hidden items-center gap-2 mb-8">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}>
-                <span className="text-white font-bold text-sm">U</span>
-              </div>
-              <span className="font-bold text-lg tracking-tight">
-                USDT<span style={{ color: "hsl(152,72%,55%)" }}>Luck</span>
-              </span>
+            <div className="flex md:hidden mb-8">
+              <Logo size="md" />
             </div>
 
             <div className="mb-7">

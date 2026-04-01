@@ -229,7 +229,7 @@ function WriteReviewForm({ onSuccess }: { onSuccess: () => void }) {
             onChange={(e) => setMessage(e.target.value)}
             maxLength={500}
             rows={4}
-            placeholder="Tell others about your experience with USDTLuck..."
+            placeholder="Tell others about your experience with SecurePool..."
             className="w-full rounded-xl px-4 py-3 text-sm bg-background/60 border border-border focus:border-primary/40 focus:ring-1 focus:ring-primary/20 outline-none resize-none transition-colors placeholder:text-muted-foreground/50"
           />
           <div className="flex justify-between mt-1">
@@ -401,7 +401,7 @@ export default function ReviewsPage() {
           style={{ background: "hsla(152,72%,44%,0.07)", border: "1px solid hsla(152,72%,44%,0.2)" }}
         >
           <span className="text-xl">✅</span>
-          <span className="text-muted-foreground">You've shared your review — thank you for helping others trust USDTLuck!</span>
+          <span className="text-muted-foreground">You've shared your review — thank you for helping others trust SecurePool!</span>
         </div>
       )}
 
@@ -429,7 +429,7 @@ export default function ReviewsPage() {
             <div className="text-5xl mb-4">💬</div>
             <p className="font-semibold text-lg mb-1">No reviews yet</p>
             <p className="text-muted-foreground text-sm">
-              Be the first to share your experience with USDTLuck!
+              Be the first to share your experience with SecurePool!
             </p>
           </CardContent>
         </Card>
