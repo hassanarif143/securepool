@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, referralsTable, transactionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { SignupBody, LoginBody } from "@workspace/api-zod";
 
@@ -9,6 +9,8 @@ declare module "express-session" {
     userId: number;
   }
 }
+
+const SIGNUP_BONUS_USDT = 1; // bonus credited to new user when they sign up via referral
 
 const router: IRouter = Router();
 
@@ -20,6 +22,8 @@ router.post("/signup", async (req, res) => {
   }
 
   const { name, email, password } = parse.data;
+  /* Optional referral code passed as ?ref= query param or in request body */
+  const referralCode: string | undefined = (req.body.referralCode as string) || undefined;
 
   const existing = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
   if (existing.length > 0) {
@@ -27,8 +31,52 @@ router.post("/signup", async (req, res) => {
     return;
   }
 
+  /* Resolve referrer if code provided */
+  let referrer: typeof usersTable.$inferSelect | null = null;
+  if (referralCode) {
+    const found = await db.select().from(usersTable).where(eq(usersTable.referralCode, referralCode.toUpperCase())).limit(1);
+    if (found.length > 0) referrer = found[0];
+  }
+
   const passwordHash = await bcrypt.hash(password, 12);
-  const [user] = await db.insert(usersTable).values({ name, email, passwordHash }).returning();
+
+  /* Credit new user with signup bonus if referred */
+  const startBalance = referrer ? SIGNUP_BONUS_USDT : 0;
+
+  const [user] = await db
+    .insert(usersTable)
+    .values({
+      name,
+      email,
+      passwordHash,
+      walletBalance: String(startBalance),
+      referredBy: referrer?.id ?? undefined,
+    })
+    .returning();
+
+  /* Log the signup bonus transaction */
+  if (referrer) {
+    await db.insert(transactionsTable).values({
+      userId: user.id,
+      txType: "reward",
+      amount: String(SIGNUP_BONUS_USDT),
+      status: "completed",
+      note: `Welcome bonus — joined via referral from ${referrer.name}`,
+    });
+
+    /* Create referral record (status: pending — becomes credited on first pool join) */
+    try {
+      await db.insert(referralsTable).values({
+        referrerId: referrer.id,
+        referredId: user.id,
+        status: "pending",
+        bonusReferrer: "2.00",
+        bonusReferred: String(SIGNUP_BONUS_USDT),
+      });
+    } catch (_) {
+      /* Ignore duplicate — safety guard */
+    }
+  }
 
   req.session.userId = user.id;
 
@@ -41,7 +89,10 @@ router.post("/signup", async (req, res) => {
       isAdmin: user.isAdmin,
       joinedAt: user.joinedAt,
     },
-    message: "Account created successfully",
+    message: referrer
+      ? `Account created! You received ${SIGNUP_BONUS_USDT} USDT welcome bonus.`
+      : "Account created successfully",
+    referralBonus: referrer ? SIGNUP_BONUS_USDT : 0,
   });
 });
 

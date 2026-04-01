@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, poolsTable, poolParticipantsTable, usersTable, transactionsTable, winnersTable } from "@workspace/db";
 import { eq, and, sql, desc, count } from "drizzle-orm";
+import { maybeCreditReferralBonus } from "./referral";
 import { CreatePoolBody, UpdatePoolBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -197,6 +198,17 @@ router.post("/:poolId/join", async (req, res) => {
     status: "completed",
     note: `Joined pool: ${pool.title}`,
   });
+
+  /* Check if this is the user's first pool join — if so, credit any pending referral bonus */
+  const [{ totalJoins }] = await db
+    .select({ totalJoins: count() })
+    .from(poolParticipantsTable)
+    .where(eq(poolParticipantsTable.userId, sessionUserId));
+
+  if (Number(totalJoins) === 1) {
+    /* First ever pool join — trigger referral bonus for the referrer */
+    await maybeCreditReferralBonus(sessionUserId);
+  }
 
   res.json({ message: "Successfully joined the pool!" });
 });

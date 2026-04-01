@@ -1,0 +1,61 @@
+You are an expert full-stack AI developer, React frontend engineer, and UX/UI designer. Your task is to **design and implement a Referral Program** for a USDT Reward Web App based on the following **business model and principles**:
+
+**Referral Program Business Model**
+- Users can invite friends to join the platform.
+- Each successful referral earns **a bonus for both the referrer and the new user**.
+- Referral bonuses are **added automatically to the user’s wallet**.
+- Bonuses should be **small, capped, and sustainable**, aligned with platform revenue.
+- Referral system must be **trustable, transparent, and legally safe**: no gambling or unfair incentives.
+
+**Requirements**
+
+1. **Frontend / UX**
+- Referral section accessible from **Dashboard / Profile**.
+- Users can copy a **unique referral link/code**.
+- Display:
+  - Total referrals made.
+  - Pending vs credited bonuses.
+  - Status of referred friends (joined, active, rewarded).
+- Include **real-time updates** for referrals and bonuses.
+- Optional celebratory animation (confetti/popup) when a referral bonus is credited.
+- Mobile responsive with clear UX and tooltips explaining referral mechanics.
+
+2. **Backend Logic**
+- Generate **unique referral codes** for each user.
+- Track referred users and their signup/activation status.
+- Automatically **credit wallet bonuses** when a referral completes the required action (e.g., first pool participation).
+- Log **transactions** for each referral bonus.
+- Prevent abuse: e.g., self-referral, duplicate accounts.
+
+3. **Notifications**
+- Real-time in-app notification when referral bonus is credited.
+- Optional email mock notifications for local testing.
+- Notification includes:
+  - Referrer name
+  - Bonus amount
+  - Updated wallet balance
+
+4. **API / Technical Requirements**
+- Node.js/Express backend with PostgreSQL database.
+- API endpoints:
+  - `/referral/generate_code` – generate referral code for a user.
+  - `/referral/check_status` – check referred friends and bonus status.
+  - `/referral/credit_bonus` – credit bonus automatically when conditions are met.
+- Handle **concurrent referral completions** safely to avoid double-crediting.
+- Provide **sample API calls** for testing.
+
+5. **Deliverables AI Must Generate**
+- **Referral dashboard component** (React + Tailwind) showing referral status and stats.
+- **Real-time wallet bonus updates** with notifications.
+- **Backend logic** for referral code generation, tracking, and bonus crediting.
+- **Transaction logs** for referral bonuses.
+- **Mobile & desktop responsive design**.
+- **Mock data** for testing referrals.
+- **Inline comments** explaining code, UX decisions, and business logic.
+- **Step-by-step instructions** for local testing.
+
+**Constraints**
+- Fully local and free-tier.
+- No paid APIs or services.
+- Scalable, modular, and easy to maintain.
+- Ensure fairness, transparency, and trust for all users.

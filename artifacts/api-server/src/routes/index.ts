@@ -6,6 +6,7 @@ import poolsRouter from "./pools";
 import transactionsRouter from "./transactions";
 import winnersRouter from "./winners";
 import adminRouter from "./admin";
+import referralRouter from "./referral";
 
 const router: IRouter = Router();
 
@@ -17,5 +18,6 @@ router.use("/transactions", transactionsRouter);
 router.use("/winners", winnersRouter);
 router.use("/dashboard", adminRouter);
 router.use("/admin", adminRouter);
+router.use("/referral", referralRouter);
 
 export default router;
