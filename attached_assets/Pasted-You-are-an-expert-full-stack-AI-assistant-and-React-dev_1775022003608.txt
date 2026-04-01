@@ -1,0 +1,82 @@
+You are an expert full-stack AI assistant and React developer. Your goal is to generate a complete USDT reward web app scaffold that is fully local, free-tier, and testable, without any paid APIs or paid services. The app must include React frontend + Tailwind CSS + Node.js/Express backend + PostgreSQL database, covering all UX, pool logic, wallet, transactions, admin panel features, crypto deposit verification, and screenshot approval workflow.
+
+Important Constraints:
+- No paid APIs or paid services anywhere; only free tools allowed.
+- UX must be professional, trustable, and intuitive, suitable for crypto/finance users.
+- Everything must be fully local-testable, including database, wallet logic, email verification (mock SMTP), pool participation, and reward distribution.
+
+New Requirements:
+
+1. Transaction Screenshot Verification
+- Users must upload a screenshot of their deposit or transaction.
+- The transaction request will go into Pending status until the admin reviews it.
+- Admin can approve or reject the transaction.
+- Upon approval, the user wallet balance is updated automatically.
+- Upon rejection, the balance remains unchanged and the user sees a clear rejection message.
+
+2. Full Admin Control Over Users
+- Admin can view all users’ detailed profiles, including:
+  - Recent deposits and withdrawals
+  - Wallet balances
+  - Crypto exchange addresses
+  - Uploaded transaction screenshots
+- Admin can approve/reject pending deposits and withdrawals directly from the user profile.
+- Admin can manually adjust wallet balances if needed.
+- All actions should be logged for auditing.
+
+3. Admin Dashboard Enhancements
+- Dashboard shows all pending transactions with screenshot previews.
+- Admin can filter/search users by name, email, status, deposit/withdrawal amount.
+- Admin can trigger reward distribution for pools or adjust payouts manually.
+- Admin can view audit logs of all user and admin actions.
+- All approvals automatically update user balances in real-time.
+
+4. UX & Theme Guidelines
+- Professional, clean, and finance/crypto style (white + green/blue)
+- Countdown timers for pools
+- Recent winners feed visible
+- Clear CTA buttons for deposits, withdrawals, approvals, pool participation
+- Subtle animations for pool completion, winner announcements, and approval actions
+- Mobile responsive and easy for non-technical users to navigate
+
+5. Backend Requirements
+- Routes for deposits with screenshot upload:
+  - /deposits/create → user submits screenshot
+  - /deposits/list → list user deposits with status
+  - /admin/deposits/approve → approve/reject deposit, auto-update wallet
+- Routes for withdrawals with optional verification:
+  - /transactions/withdraw → request, pending approval
+  - /admin/transactions/approve → approve/reject, auto-update wallet
+- User management:
+  - /users → get/update user info, crypto address, wallet balance
+  - /admin/users → detailed profile view with transaction history and screenshots
+- Wallet logic: Manual but auto-updated after admin approval
+- Database: PostgreSQL (SQLite for local dev allowed)
+- Security: Validation, bcrypt hashing, audit logs
+
+6. Database Schema Enhancements
+- Users: user_id, name, email, password_hash, wallet_balance, total_deposits, total_rewards, crypto_address, status (active/suspended), joined_at
+- Transactions: tx_id, user_id, tx_type (deposit, withdraw, reward), amount, status (pending, completed, rejected), screenshot_url, created_at
+- CryptoDeposits: deposit_id, user_id, crypto_address, screenshot_url, amount, status (pending, approved, rejected), created_at
+- AdminActions (Audit Logs): action_id, admin_id, target_type, target_id, action_type, description, timestamp
+
+7. Frontend Components
+- DepositRequestCard → shows screenshot, amount, status
+- TransactionTable → shows all deposits/withdrawals with status and screenshots
+- AdminUserCard → full user profile with recent deposits/withdrawals and approval actions
+- WinnerCard → pool winners with celebration effect
+
+8. Deliverables AI Must Generate
+- Full folder structure
+- React + Tailwind frontend code
+- Node.js + Express backend code
+- PostgreSQL / SQLite scripts
+- Sample API call examples
+- Admin panel with full user profile control
+- Transaction screenshot verification logic
+- Deposit/withdraw approval flow with wallet auto-update
+- Celebration effects for pool winners
+- Audit logs for admin actions
+- Inline comments explaining code & structure
+- Instructions for local testing
+- Optional notes for future USDT wallet automation (free tools/testnet)

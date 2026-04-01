@@ -1,8 +1,18 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, poolsTable, poolParticipantsTable, transactionsTable, winnersTable } from "@workspace/db";
+import { db, usersTable, poolsTable, poolParticipantsTable, transactionsTable, winnersTable, adminActionsTable } from "@workspace/db";
 import { eq, count, sum, desc, and } from "drizzle-orm";
 
 const router: IRouter = Router();
+
+async function logAction(adminId: number, targetType: string, targetId: number | null, actionType: string, description: string) {
+  try {
+    await db.insert(adminActionsTable).values({ adminId, targetType, targetId: targetId ?? undefined, actionType, description });
+  } catch {}
+}
+
+function getAdminId(req: any): number {
+  return req.session?.userId ?? 0;
+}
 
 router.get("/stats", async (req, res) => {
   const [{ totalUsers }] = await db.select({ totalUsers: count() }).from(usersTable);
@@ -53,10 +63,7 @@ router.get("/stats", async (req, res) => {
     totalRewardsDistributed,
     totalDeposits,
     totalWithdrawals,
-    recentWinners: recentWinnersRaw.map((w) => ({
-      ...w,
-      prize: parseFloat(w.prize),
-    })),
+    recentWinners: recentWinnersRaw.map((w) => ({ ...w, prize: parseFloat(w.prize) })),
   });
 });
 
@@ -98,6 +105,48 @@ router.get("/users", async (req, res) => {
   res.json(result);
 });
 
+router.get("/users/:id/transactions", async (req, res) => {
+  const userId = parseInt(req.params.id);
+  if (isNaN(userId)) { res.status(400).json({ error: "Invalid user ID" }); return; }
+
+  const txs = await db
+    .select()
+    .from(transactionsTable)
+    .where(eq(transactionsTable.userId, userId))
+    .orderBy(desc(transactionsTable.createdAt))
+    .limit(50);
+
+  res.json(txs.map((t) => ({
+    id: t.id,
+    txType: t.txType,
+    amount: parseFloat(t.amount),
+    status: t.status,
+    note: t.note ?? null,
+    screenshotUrl: t.screenshotUrl ?? null,
+    createdAt: t.createdAt,
+  })));
+});
+
+router.get("/audit-logs", async (req, res) => {
+  const logs = await db
+    .select({
+      id: adminActionsTable.id,
+      adminId: adminActionsTable.adminId,
+      adminName: usersTable.name,
+      targetType: adminActionsTable.targetType,
+      targetId: adminActionsTable.targetId,
+      actionType: adminActionsTable.actionType,
+      description: adminActionsTable.description,
+      createdAt: adminActionsTable.createdAt,
+    })
+    .from(adminActionsTable)
+    .innerJoin(usersTable, eq(adminActionsTable.adminId, usersTable.id))
+    .orderBy(desc(adminActionsTable.createdAt))
+    .limit(200);
+
+  res.json(logs);
+});
+
 router.delete("/pools/:id", async (req, res) => {
   const poolId = parseInt(req.params.id);
   if (isNaN(poolId)) { res.status(400).json({ error: "Invalid pool ID" }); return; }
@@ -110,12 +159,9 @@ router.delete("/pools/:id", async (req, res) => {
     return;
   }
 
-  const participants = await db
-    .select()
-    .from(poolParticipantsTable)
-    .where(eq(poolParticipantsTable.poolId, poolId));
-
+  const participants = await db.select().from(poolParticipantsTable).where(eq(poolParticipantsTable.poolId, poolId));
   const entryFee = parseFloat(pool.entryFee);
+
   for (const p of participants) {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, p.userId)).limit(1);
     if (user) {
@@ -133,6 +179,8 @@ router.delete("/pools/:id", async (req, res) => {
 
   await db.delete(poolParticipantsTable).where(eq(poolParticipantsTable.poolId, poolId));
   await db.delete(poolsTable).where(eq(poolsTable.id, poolId));
+
+  await logAction(getAdminId(req), "pool", poolId, "delete_pool", `Deleted pool "${pool.title}" — ${participants.length} participant(s) refunded`);
 
   res.json({ message: "Pool deleted and participants refunded", refundedCount: participants.length });
 });
@@ -202,6 +250,9 @@ router.post("/transactions/:id/approve", async (req, res) => {
     await db.update(usersTable).set({ walletBalance: String(newBalance) }).where(eq(usersTable.id, tx.userId));
   }
 
+  const [txUser] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
+  await logAction(getAdminId(req), "transaction", txId, "approve", `Approved ${tx.txType} of ${tx.amount} USDT for ${txUser?.name ?? "user"} (tx #${txId})`);
+
   res.json({ message: "Transaction approved" });
 });
 
@@ -229,6 +280,8 @@ router.post("/users/:id/adjust-balance", async (req, res) => {
     note: `[Admin] ${note}`,
   });
 
+  await logAction(getAdminId(req), "user", userId, "adjust_balance", `${amount > 0 ? "Credited" : "Debited"} ${Math.abs(amount)} USDT ${amount > 0 ? "to" : "from"} ${user.name} — reason: ${note}`);
+
   res.json({ message: "Balance adjusted", newBalance });
 });
 
@@ -247,6 +300,9 @@ router.post("/transactions/:id/reject", async (req, res) => {
     const restored = parseFloat(user.walletBalance) + parseFloat(tx.amount);
     await db.update(usersTable).set({ walletBalance: String(restored) }).where(eq(usersTable.id, tx.userId));
   }
+
+  const [txUser] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
+  await logAction(getAdminId(req), "transaction", txId, "reject", `Rejected ${tx.txType} of ${tx.amount} USDT for ${txUser?.name ?? "user"} (tx #${txId})${tx.txType === "withdraw" ? " — balance refunded" : ""}`);
 
   res.json({ message: "Transaction rejected" });
 });

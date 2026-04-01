@@ -50,6 +50,7 @@ export default function AdminPage() {
           <TabsTrigger value="create">Create Pool</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
+          <TabsTrigger value="audit">Audit Logs</TabsTrigger>
         </TabsList>
         <TabsContent value="pending"><PendingTransactionsTab /></TabsContent>
         <TabsContent value="stats"><StatsTab /></TabsContent>
@@ -57,6 +58,7 @@ export default function AdminPage() {
         <TabsContent value="create"><CreatePoolTab /></TabsContent>
         <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="transactions"><TransactionsTab /></TabsContent>
+        <TabsContent value="audit"><AuditLogsTab /></TabsContent>
       </Tabs>
     </div>
   );
@@ -460,6 +462,7 @@ function UsersTab() {
   const [adjustAmount, setAdjustAmount] = useState("");
   const [adjustNote, setAdjustNote] = useState("");
   const [adjusting, setAdjusting] = useState(false);
+  const [profileUser, setProfileUser] = useState<any | null>(null);
   const { toast } = useToast();
 
   const filtered = (users as any[] ?? []).filter((u) =>
@@ -502,6 +505,10 @@ function UsersTab() {
   }
 
   return (
+    <>
+    {profileUser && (
+      <UserProfileModal user={profileUser} onClose={() => { setProfileUser(null); refetch(); }} />
+    )}
     <div className="space-y-3 mt-4">
       <div className="flex gap-2">
         <Input
@@ -525,18 +532,29 @@ function UsersTab() {
                   {u.isAdmin && <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">Admin</span>}
                 </div>
                 <p className="text-xs text-muted-foreground">{u.email}</p>
+                {u.cryptoAddress && <p className="text-xs font-mono text-muted-foreground truncate">Wallet: {u.cryptoAddress}</p>}
                 <p className="text-xs text-muted-foreground">Joined: {new Date(u.joinedAt).toLocaleDateString()} · Pools: {u.poolsJoined} · Deposited: {u.totalDeposited.toFixed(2)} USDT</p>
               </div>
-              <div className="text-right shrink-0">
+              <div className="text-right shrink-0 space-y-1">
                 <p className="font-bold text-primary text-lg">{u.walletBalance.toFixed(2)} USDT</p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-1 text-xs h-7"
-                  onClick={() => setAdjustingId(adjustingId === u.id ? null : u.id)}
-                >
-                  {adjustingId === u.id ? "Cancel" : "Adjust Balance"}
-                </Button>
+                <div className="flex gap-1 justify-end">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-7"
+                    onClick={() => setProfileUser(u)}
+                  >
+                    View Profile
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-7"
+                    onClick={() => setAdjustingId(adjustingId === u.id ? null : u.id)}
+                  >
+                    {adjustingId === u.id ? "Cancel" : "Adjust"}
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -571,6 +589,181 @@ function UsersTab() {
             )}
           </CardContent>
         </Card>
+      ))}
+    </div>
+    </>
+  );
+}
+
+function UserProfileModal({ user, onClose }: { user: any; onClose: () => void }) {
+  const [txs, setTxs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [acting, setActing] = useState<number | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetch(`/api/admin/users/${user.id}/transactions`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => setTxs(data))
+      .finally(() => setLoading(false));
+  }, [user.id]);
+
+  async function handleAction(txId: number, action: "approve" | "reject") {
+    setActing(txId);
+    try {
+      const res = await fetch(`/api/admin/transactions/${txId}/${action}`, { method: "POST", credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      toast({ title: action === "approve" ? "Approved ✓" : "Rejected", description: action === "approve" ? "Balance updated." : "Transaction rejected." });
+      const updated = await fetch(`/api/admin/users/${user.id}/transactions`, { credentials: "include" }).then((r) => r.json());
+      setTxs(updated);
+    } catch {
+      toast({ title: "Action failed", variant: "destructive" });
+    } finally { setActing(null); }
+  }
+
+  function txColor(type: string) {
+    return type === "deposit" || type === "reward" ? "text-green-600" : "text-red-500";
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-background rounded-xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 border-b">
+          <div>
+            <h2 className="font-bold text-lg">{user.name}</h2>
+            <p className="text-sm text-muted-foreground">{user.email}</p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose}>✕</Button>
+        </div>
+
+        <div className="p-5 border-b grid grid-cols-2 gap-3">
+          <div className="bg-muted/40 rounded-lg p-3">
+            <p className="text-xs text-muted-foreground">Wallet Balance</p>
+            <p className="font-bold text-primary text-xl">{user.walletBalance.toFixed(2)} USDT</p>
+          </div>
+          <div className="bg-muted/40 rounded-lg p-3">
+            <p className="text-xs text-muted-foreground">Total Deposited</p>
+            <p className="font-bold text-lg">{user.totalDeposited.toFixed(2)} USDT</p>
+          </div>
+          {user.cryptoAddress && (
+            <div className="col-span-2 bg-muted/40 rounded-lg p-3">
+              <p className="text-xs text-muted-foreground mb-1">Crypto Address</p>
+              <p className="text-xs font-mono break-all">{user.cryptoAddress}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Transaction History</p>
+          {loading ? (
+            <p className="text-sm text-muted-foreground text-center py-6">Loading...</p>
+          ) : txs.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">No transactions yet</p>
+          ) : txs.map((tx) => (
+            <div key={tx.id} className="border rounded-lg p-3 space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`font-bold ${txColor(tx.txType)}`}>{tx.txType === "deposit" || tx.txType === "reward" ? "+" : "-"}{tx.amount.toFixed(2)} USDT</span>
+                    <span className="text-xs text-muted-foreground capitalize">{tx.txType.replace("_", " ")}</span>
+                    {tx.status === "pending" && <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">Pending</Badge>}
+                    {tx.status === "completed" && <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">Completed</Badge>}
+                    {tx.status === "failed" && <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">Rejected</Badge>}
+                  </div>
+                  {tx.note && <p className="text-xs text-muted-foreground truncate">{tx.note}</p>}
+                  <p className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleString()}</p>
+                </div>
+                {tx.status === "pending" && (tx.txType === "deposit" || tx.txType === "withdraw") && (
+                  <div className="flex gap-1 shrink-0">
+                    <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white" onClick={() => handleAction(tx.id, "approve")} disabled={acting === tx.id}>Approve</Button>
+                    <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => handleAction(tx.id, "reject")} disabled={acting === tx.id}>Reject</Button>
+                  </div>
+                )}
+              </div>
+              {tx.screenshotUrl && (
+                <a href={tx.screenshotUrl} target="_blank" rel="noopener noreferrer">
+                  <img src={tx.screenshotUrl} alt="Screenshot" className="w-full max-h-32 object-contain rounded border bg-muted cursor-pointer hover:opacity-90" />
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AuditLogsTab() {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState("all");
+
+  useEffect(() => {
+    fetch("/api/admin/audit-logs", { credentials: "include" })
+      .then((r) => r.json())
+      .then(setLogs)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = logs.filter((l) => {
+    const matchSearch = !search || l.description.toLowerCase().includes(search.toLowerCase()) || l.adminName.toLowerCase().includes(search.toLowerCase());
+    const matchType = filterType === "all" || l.actionType === filterType;
+    return matchSearch && matchType;
+  });
+
+  const actionTypes = [...new Set(logs.map((l) => l.actionType))];
+
+  function actionColor(type: string) {
+    if (type === "approve") return "text-green-700 bg-green-50 border-green-200";
+    if (type === "reject") return "text-red-700 bg-red-50 border-red-200";
+    if (type === "adjust_balance") return "text-blue-700 bg-blue-50 border-blue-200";
+    if (type === "delete_pool") return "text-orange-700 bg-orange-50 border-orange-200";
+    return "text-gray-700 bg-gray-50 border-gray-200";
+  }
+
+  if (loading) return <p className="text-center text-muted-foreground py-8">Loading audit logs...</p>;
+
+  return (
+    <div className="space-y-3 mt-4">
+      <div className="flex flex-wrap gap-2">
+        <Input
+          placeholder="Search description or admin name..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 min-w-40"
+        />
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+          className="border rounded-md px-3 py-2 text-sm bg-background"
+        >
+          <option value="all">All Actions</option>
+          {actionTypes.map((t) => (
+            <option key={t} value={t}>{t.replace("_", " ")}</option>
+          ))}
+        </select>
+        <Button variant="outline" size="sm" onClick={() => {
+          setLoading(true);
+          fetch("/api/admin/audit-logs", { credentials: "include" }).then((r) => r.json()).then(setLogs).finally(() => setLoading(false));
+        }}>Refresh</Button>
+      </div>
+      <p className="text-xs text-muted-foreground">{filtered.length} log entr{filtered.length !== 1 ? "ies" : "y"}</p>
+      {filtered.length === 0 ? (
+        <p className="text-muted-foreground text-center py-8">No audit logs yet</p>
+      ) : filtered.map((log) => (
+        <div key={log.id} className="flex items-start gap-3 border rounded-lg p-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`text-xs font-medium px-2 py-0.5 rounded border capitalize ${actionColor(log.actionType)}`}>
+                {log.actionType.replace(/_/g, " ")}
+              </span>
+              <span className="text-xs text-muted-foreground">by {log.adminName}</span>
+            </div>
+            <p className="text-sm mt-1">{log.description}</p>
+            <p className="text-xs text-muted-foreground">{new Date(log.createdAt).toLocaleString()}</p>
+          </div>
+        </div>
       ))}
     </div>
   );
