@@ -1,0 +1,137 @@
+You are an expert full-stack AI developer and UX/UI designer. Your task is to implement a **simple manual payment system** for a USDT Reward Web App that is easy, trustable, and beginner-friendly.
+
+--------------------------------------------------
+
+🔷 PAYMENT FLOW (MANUAL DEPOSIT SYSTEM)
+
+- Each user will:
+  1. Copy the platform’s **USDT wallet address**.
+  2. Send USDT from their own exchange (e.g. Binance).
+  3. Take a **screenshot of the transaction**.
+  4. Upload the screenshot inside the app.
+  5. Submit a **payment request**.
+
+- Admin will:
+  - Review the screenshot
+  - Verify the transaction manually
+  - Approve or reject the payment
+
+--------------------------------------------------
+
+🔷 FRONTEND REQUIREMENTS (React + Tailwind)
+
+- Create a **Deposit Page** with:
+  - Display of **USDT Wallet Address** (copy button included)
+  - Network info (e.g. TRC20 / BEP20 clearly mentioned)
+  - Input field for:
+    - Amount sent
+  - Screenshot upload (image only)
+  - Submit button
+
+- UX Requirements:
+  - Show clear steps:
+    1. Copy address
+    2. Send payment
+    3. Upload proof
+  - Show **status states**:
+    - Pending Verification
+    - Approved
+    - Rejected
+  - Show warning:
+    - “Send only USDT on correct network”
+
+--------------------------------------------------
+
+🔷 BACKEND REQUIREMENTS (Node.js + Express)
+
+- Create APIs:
+  - POST `/deposit/submit`
+    - Save:
+      - user_id
+      - amount
+      - screenshot URL
+      - status = pending
+
+  - GET `/deposit/status`
+    - Return user deposit requests
+
+  - POST `/admin/deposit/approve`
+    - Admin approves deposit
+    - Credit user wallet
+    - Update status = approved
+
+  - POST `/admin/deposit/reject`
+    - Reject request
+    - Status = rejected
+
+--------------------------------------------------
+
+🔷 WALLET INTEGRATION
+
+- On approval:
+  - Automatically **credit user wallet balance**
+  - Create **transaction log**
+  - Show update in frontend instantly
+
+--------------------------------------------------
+
+🔷 ADMIN PANEL
+
+- Admin dashboard:
+  - List of all deposit requests
+  - View screenshot
+  - Approve / Reject buttons
+  - Filter: Pending / Approved / Rejected
+
+--------------------------------------------------
+
+🔷 NOTIFICATIONS
+
+- When user submits:
+  - Show: “Your deposit is under review”
+
+- When approved:
+  - Notify: “Your wallet has been credited”
+
+- When rejected:
+  - Notify: “Your deposit was rejected”
+
+--------------------------------------------------
+
+🔷 SECURITY & SAFETY
+
+- Only allow image uploads
+- Prevent duplicate submissions
+- Validate amount input
+- Log all actions (audit trail)
+
+--------------------------------------------------
+
+🔷 DELIVERABLES
+
+Generate:
+- Deposit page UI (React + Tailwind)
+- Backend APIs for deposit system
+- Admin panel UI
+- Wallet credit logic
+- Transaction logs
+- Mock data for testing
+- Step-by-step local setup instructions
+
+--------------------------------------------------
+
+🔷 CONSTRAINTS
+
+- Fully local system
+- No paid APIs
+- Simple, trustable, beginner-friendly UX
+
+--------------------------------------------------
+
+🔷 FINAL GOAL
+
+Build a payment system where:
+- User easily understands how to deposit
+- Admin can verify payments safely
+- Wallet updates are clear and transparent
+- No confusion about payment status

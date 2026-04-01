@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, poolsTable, poolParticipantsTable, transactionsTable, winnersTable, adminActionsTable } from "@workspace/db";
-import { eq, count, sum, desc, and } from "drizzle-orm";
+import { eq, count, sum, desc, and, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -260,6 +260,16 @@ router.post("/transactions/:id/approve", async (req, res) => {
   const [txUser] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
   await logAction(getAdminId(req), "transaction", txId, "approve", `Approved ${tx.txType} of ${tx.amount} USDT for ${txUser?.name ?? "user"} (tx #${txId})`);
 
+  /* Notify user */
+  try {
+    const notifMsg = tx.txType === "deposit"
+      ? `Your deposit of ${tx.amount} USDT has been approved ✓ Your wallet has been credited.`
+      : `Your withdrawal of ${tx.amount} USDT has been approved and is being processed.`;
+    await db.execute(
+      sql`INSERT INTO notifications (user_id, title, body, type) VALUES (${tx.userId}, 'Payment Approved', ${notifMsg}, 'success')`
+    );
+  } catch {}
+
   res.json({ message: "Transaction approved" });
 });
 
@@ -310,6 +320,16 @@ router.post("/transactions/:id/reject", async (req, res) => {
 
   const [txUser] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
   await logAction(getAdminId(req), "transaction", txId, "reject", `Rejected ${tx.txType} of ${tx.amount} USDT for ${txUser?.name ?? "user"} (tx #${txId})${tx.txType === "withdraw" ? " — balance refunded" : ""}`);
+
+  /* Notify user */
+  try {
+    const notifMsg = tx.txType === "deposit"
+      ? `Your deposit of ${tx.amount} USDT was rejected. Please check your screenshot and try again, or contact support.`
+      : `Your withdrawal of ${tx.amount} USDT was rejected. Your balance has been refunded.`;
+    await db.execute(
+      sql`INSERT INTO notifications (user_id, title, body, type) VALUES (${tx.userId}, 'Payment Rejected', ${notifMsg}, 'error')`
+    );
+  } catch {}
 
   res.json({ message: "Transaction rejected" });
 });

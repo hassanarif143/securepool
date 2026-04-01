@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request } from "express";
 import { db, transactionsTable, usersTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -77,6 +77,22 @@ router.post("/deposit", upload.single("screenshot"), async (req: Request, res: a
 
   if (!req.file) {
     res.status(400).json({ error: "Payment screenshot is required" });
+    return;
+  }
+
+  /* Prevent duplicate pending deposits */
+  const [existingPending] = await db
+    .select({ id: transactionsTable.id })
+    .from(transactionsTable)
+    .where(and(
+      eq(transactionsTable.userId, sessionUserId),
+      eq(transactionsTable.txType, "deposit"),
+      eq(transactionsTable.status, "pending"),
+    ))
+    .limit(1);
+
+  if (existingPending) {
+    res.status(409).json({ error: "You already have a pending deposit awaiting review. Please wait for it to be processed before submitting a new one." });
     return;
   }
 
