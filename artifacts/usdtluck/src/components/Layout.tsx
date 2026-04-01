@@ -19,14 +19,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border bg-card sticky top-0 z-50">
+      <header
+        className="border-b border-border sticky top-0 z-50"
+        style={{
+          background: "hsla(224,30%,7%,0.85)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+        }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">U</span>
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 2px 8px rgba(22,163,74,0.4)" }}
+              >
+                <span className="text-white font-bold text-sm">U</span>
               </div>
-              <span className="font-bold text-lg tracking-tight">USDTLuck</span>
+              <span className="font-bold text-lg tracking-tight">USDT<span className="text-primary">Luck</span></span>
             </Link>
 
             {user && (
@@ -72,7 +82,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <Button variant="ghost" size="sm">Login</Button>
                   </Link>
                   <Link href="/signup">
-                    <Button size="sm">Get Started</Button>
+                    <Button
+                      size="sm"
+                      style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 2px 8px rgba(22,163,74,0.3)" }}
+                    >
+                      Get Started
+                    </Button>
                   </Link>
                 </>
               )}

@@ -1,0 +1,93 @@
+You are an expert full-stack AI assistant and React developer. Your goal is to generate a **complete USDT reward web app** scaffold that is **fully local, free-tier, and testable**, without any paid APIs or paid services. The app must include **React frontend + Tailwind CSS + Node.js/Express backend + PostgreSQL database**, covering **UX, UI, pool logic, wallet, transactions, admin panel, crypto deposit verification, celebration effects, and earning model**.
+
+Important Constraints:
+- No paid APIs or paid services anywhere; only free tools allowed.
+- Everything must be fully local-testable, including database, wallet logic, email verification (mock SMTP), pool participation, and reward distribution.
+- UX/UI must be **trustable, professional, and intuitive**, especially for crypto/finance users.
+- Theme should be **slightly dark with modern gradients** (dark grey + green/blue highlights).
+
+1. UX & Landing Page Improvements
+- Build **trust with users**: clear CTAs, readable fonts, clear instructions.
+- Landing page includes **pool stats, recent winners, and upcoming pools**.
+- Subtle **animations & hover effects** for buttons and pool cards.
+- Use professional, readable typography and spacing.
+- Include **popup notifications** for ticket purchase and pool win.
+
+2. Business Model & Ticket Commission
+- Pool entry: **10 USD per ticket**.
+- Pool capacity configurable by admin.
+- App should calculate **total commission** for the platform automatically.
+  Example: If pool has 20 tickets at $10 → total pool = $200 → admin commission 100 USD → rest distributed as rewards.
+- Transaction and wallet logic should **reflect user deposits, pool contribution, and rewards** clearly.
+
+3. Pool Algorithm & Transparency
+- Pools open/close transparently.
+- Randomly select **3 winners** per pool based on purchased tickets.
+- Each winner receives predefined rewards (e.g., 1st → 100 USDT, 2nd → 50 USDT, 3rd → 30 USDT).
+- Admin can **override rewards** if needed.
+- Pool and winner selection logic must be **auditable**.
+
+4. Ticket Purchase Celebration
+- When a user buys a ticket:
+  - Show **popup or confetti animation** celebrating the purchase.
+  - Show updated **wallet balance immediately**.
+  - Indicate participation in pool with countdown timer.
+
+5. Payment Handling & Charge
+- Users can deposit via:
+  - Manual crypto deposit: add crypto address + upload screenshot → Pending → Admin approves → wallet updated
+  - Admin approves/rejects transactions with **wallet auto-updated**.
+- Withdrawal handled similarly: user requests → pending → admin approves → wallet deducted.
+- Popup notification for **successful deposit, withdrawal, or reward collection**.
+
+6. Admin Panel & Full Control
+- Pool management: create, edit, start, end, delete.
+- User management: view profiles, wallet balances, deposits, withdrawals, crypto addresses, transaction screenshots.
+- Transaction verification: approve/reject deposits and withdrawals.
+- Reward distribution: automatic/random or manual override.
+- Audit logs: all admin actions tracked.
+- Dashboard with filters/search for users, pools, and transactions.
+
+7. Backend Requirements
+- Node.js + Express REST API.
+- Routes for:
+  - /auth: signup, login, logout
+  - /users: get/update user info, crypto address, wallet balance
+  - /pools: get pools, join pool, distribute rewards
+  - /transactions: deposits, withdrawals, rewards
+  - /deposits: add crypto deposit, upload screenshot, approve/reject
+  - /admin: pool management, user management, transaction approvals, audit logs
+- Database: PostgreSQL (SQLite allowed for local dev)
+- Wallet logic: manual but **auto-updated after admin approval**
+- Security: validation, bcrypt password hashing
+
+8. Database Schema
+- Users: user_id, name, email, password_hash, wallet_balance, total_deposits, total_rewards, crypto_address, status (active/suspended), joined_at
+- Transactions: tx_id, user_id, tx_type (deposit, withdraw, reward), amount, status (pending, completed, rejected), screenshot_url, created_at
+- Pools: pool_id, entry_fee, max_users, start_time, end_time, reward_structure, status (open, closed, completed)
+- PoolParticipants: id, pool_id, user_id, ticket_count, joined_at
+- AdminActions: action_id, admin_id, target_type, target_id, action_type, description, timestamp
+
+9. Frontend Components
+- LandingPage → pool stats, upcoming pools, recent winners
+- Dashboard → wallet balance, active pools, countdown timers, participation status
+- PoolCard → ticket purchase with popup animation
+- DepositRequestCard → screenshot uploads, pending/approved status
+- TransactionTable → all deposits, withdrawals, rewards
+- WinnerCard → pool winners with celebration/confetti effect
+- AdminUserCard → full user profile with wallet, deposits, withdrawals, crypto addresses
+
+10. Deliverables AI Must Generate
+- Full folder structure
+- React + Tailwind frontend code
+- Node.js + Express backend code
+- PostgreSQL / SQLite database scripts
+- Sample API call examples
+- Admin panel with full user profile and transaction verification
+- Pool join + reward distribution logic
+- Manual deposit/withdraw logic + screenshot verification
+- Celebration effects for ticket purchase and pool winners
+- Audit logs for admin actions
+- Inline comments explaining code & structure
+- Instructions for full local testing
+- Optional notes for future USDT wallet automation (free tools/testnet)
