@@ -48,6 +48,14 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RedirectToWalletTab({ tab }: { tab: "deposit" | "withdraw" | "history" }) {
+  const [, navigate] = useLocation();
+  useEffect(() => {
+    navigate(`/wallet?tab=${tab}`);
+  }, [navigate, tab]);
+  return null;
+}
+
 function RequireGuest({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [, navigate] = useLocation();
@@ -95,6 +103,16 @@ function Router() {
         <Route path="/wallet">
           <RequireAuth>
             <WalletPage />
+          </RequireAuth>
+        </Route>
+        <Route path="/upload">
+          <RequireAuth>
+            <RedirectToWalletTab tab="deposit" />
+          </RequireAuth>
+        </Route>
+        <Route path="/deposit">
+          <RequireAuth>
+            <RedirectToWalletTab tab="deposit" />
           </RequireAuth>
         </Route>
         <Route path="/winners">

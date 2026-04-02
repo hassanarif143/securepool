@@ -15,6 +15,13 @@ export function apiUrl(path: string): string {
   return base ? `${base}${p}` : p;
 }
 
+/** Receipt images live on the API host (`/uploads/...`). Use this for img/src and links on Vercel. */
+export function apiAssetUrl(path: string | null | undefined): string {
+  if (path == null || path === "") return "";
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  return apiUrl(path.startsWith("/") ? path : `/${path}`);
+}
+
 /** Avoid `res.json()` on empty/HTML error bodies (proxies, wrong host). */
 export async function readApiErrorMessage(res: Response): Promise<string> {
   const text = await res.text();

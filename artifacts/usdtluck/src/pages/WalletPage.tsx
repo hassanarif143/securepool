@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useGetUserTransactions, getGetUserTransactionsQueryKey, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
+import { apiUrl, apiAssetUrl, readApiErrorMessage } from "@/lib/api-base";
 
 const PLATFORM_ADDRESS = "TQn9Y2khEsLJW1ChVWFMSMeRDow5kBDaVR";
 const NETWORK = "TRC-20 (Tron)";
@@ -62,6 +62,7 @@ const headerBar = "px-5 py-3 border-b border-[hsl(217,28%,16%)]";
 export default function WalletPage() {
   const { user, isLoading, setUser } = useAuth();
   const [, navigate] = useLocation();
+  const search = useSearch();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -84,6 +85,11 @@ export default function WalletPage() {
   useEffect(() => {
     if (!isLoading && !user) navigate("/login");
   }, [user, isLoading]);
+
+  useEffect(() => {
+    const q = new URLSearchParams(search).get("tab");
+    if (q === "deposit" || q === "withdraw" || q === "history") setTab(q);
+  }, [search]);
 
   useEffect(() => {
     if (user?.cryptoAddress && !withdrawWallet) {
@@ -569,7 +575,7 @@ export default function WalletPage() {
                             <span className="text-[9px] font-normal text-muted-foreground ml-0.5">USDT</span>
                           </p>
                           {tx.screenshotUrl && (
-                            <a href={tx.screenshotUrl} target="_blank" rel="noopener noreferrer"
+                            <a href={apiAssetUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer"
                               className="text-[10px] text-primary hover:underline block mt-0.5">
                               View receipt
                             </a>

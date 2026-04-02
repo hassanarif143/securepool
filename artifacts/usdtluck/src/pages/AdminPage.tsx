@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { MoreHorizontal } from "lucide-react";
+import { apiUrl, apiAssetUrl, readApiErrorMessage } from "@/lib/api-base";
 
 export default function AdminPage() {
   const { user, isLoading } = useAuth();
@@ -188,7 +189,7 @@ function PoolsTab() {
   async function saveEdit(poolId: number) {
     setSaving(true);
     try {
-      await fetch(`/api/pools/${poolId}`, {
+      await fetch(apiUrl(`/api/pools/${poolId}`), {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: editTitle, endTime: new Date(editEndTime).toISOString() }),
@@ -204,7 +205,7 @@ function PoolsTab() {
   async function deletePool(poolId: number) {
     setDeleting(true);
     try {
-      const res = await fetch(`/api/admin/pools/${poolId}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(apiUrl(`/api/admin/pools/${poolId}`), { method: "DELETE", credentials: "include" });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
       const data = await res.json();
       toast({ title: "Pool deleted", description: data.refundedCount > 0 ? `${data.refundedCount} participant(s) refunded.` : "No participants to refund." });
@@ -220,7 +221,7 @@ function PoolsTab() {
     setParticipantsPoolId(poolId);
     setParticipantsLoading(true);
     try {
-      const res = await fetch(`/api/admin/pools/${poolId}/participants`, { credentials: "include" });
+      const res = await fetch(apiUrl(`/api/admin/pools/${poolId}/participants`), { credentials: "include" });
       setParticipants(await res.json());
     } finally { setParticipantsLoading(false); }
   }
@@ -884,7 +885,7 @@ function UsersTab() {
 
   async function exportServerCsv() {
     try {
-      const res = await fetch("/api/admin/users/export", { credentials: "include" });
+      const res = await fetch(apiUrl("/api/admin/users/export"), { credentials: "include" });
       if (!res.ok) throw new Error("Export failed");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -904,7 +905,7 @@ function UsersTab() {
     if (isNaN(amt) || amt === 0) { toast({ title: "Enter a valid amount", variant: "destructive" }); return; }
     setAdjusting(true);
     try {
-      const res = await fetch(`/api/admin/users/${userId}/adjust-balance`, {
+      const res = await fetch(apiUrl(`/api/admin/users/${userId}/adjust-balance`), {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: amt, note: adjustNote || "Admin adjustment" }),
@@ -919,8 +920,8 @@ function UsersTab() {
     } finally { setAdjusting(false); }
   }
 
-  async function postJson(url: string, body?: object) {
-    const res = await fetch(url, {
+  async function postJson(path: string, body?: object) {
+    const res = await fetch(apiUrl(path), {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -982,7 +983,7 @@ function UsersTab() {
               if (!deleteTarget) return;
               setBusy(true);
               try {
-                const res = await fetch(`/api/admin/users/${deleteTarget.id}`, { method: "DELETE", credentials: "include" });
+                const res = await fetch(apiUrl(`/api/admin/users/${deleteTarget.id}`), { method: "DELETE", credentials: "include" });
                 const j = await res.json().catch(() => ({}));
                 if (!res.ok) throw new Error(j.error);
                 toast({ title: "User deleted" });
@@ -1082,7 +1083,7 @@ function UsersTab() {
             if (!tierTarget) return;
             setBusy(true);
             try {
-              const res = await fetch(`/api/admin/users/${tierTarget.id}/tier`, {
+              const res = await fetch(apiUrl(`/api/admin/users/${tierTarget.id}/tier`), {
                 method: "PATCH",
                 credentials: "include",
                 headers: { "Content-Type": "application/json" },
@@ -1230,19 +1231,19 @@ function UserProfileModal({ user, onClose }: { user: any; onClose: () => void })
   const { toast } = useToast();
 
   useEffect(() => {
-    fetch(`/api/admin/users/${user.id}/transactions`, { credentials: "include" })
+    fetch(apiUrl(`/api/admin/users/${user.id}/transactions`), { credentials: "include" })
       .then((r) => r.json())
-      .then((data) => setTxs(data))
+      .then((data) => setTxs(Array.isArray(data) ? data : []))
       .finally(() => setLoading(false));
   }, [user.id]);
 
   async function handleAction(txId: number, action: "approve" | "reject") {
     setActing(txId);
     try {
-      const res = await fetch(`/api/admin/transactions/${txId}/${action}`, { method: "POST", credentials: "include" });
+      const res = await fetch(apiUrl(`/api/admin/transactions/${txId}/${action}`), { method: "POST", credentials: "include" });
       if (!res.ok) throw new Error("Failed");
       toast({ title: action === "approve" ? "Approved ✓" : "Rejected", description: action === "approve" ? "Balance updated." : "Transaction rejected." });
-      const updated = await fetch(`/api/admin/users/${user.id}/transactions`, { credentials: "include" }).then((r) => r.json());
+      const updated = await fetch(apiUrl(`/api/admin/users/${user.id}/transactions`), { credentials: "include" }).then((r) => r.json());
       setTxs(updated);
     } catch {
       toast({ title: "Action failed", variant: "destructive" });
@@ -1309,8 +1310,8 @@ function UserProfileModal({ user, onClose }: { user: any; onClose: () => void })
                 )}
               </div>
               {tx.screenshotUrl && (
-                <a href={tx.screenshotUrl} target="_blank" rel="noopener noreferrer">
-                  <img src={tx.screenshotUrl} alt="Screenshot" className="w-full max-h-32 object-contain rounded border bg-muted cursor-pointer hover:opacity-90" />
+                <a href={apiAssetUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer">
+                  <img src={apiAssetUrl(tx.screenshotUrl)} alt="Screenshot" className="w-full max-h-32 object-contain rounded border bg-muted cursor-pointer hover:opacity-90" />
                 </a>
               )}
             </div>
@@ -1328,7 +1329,7 @@ function AuditLogsTab() {
   const [filterType, setFilterType] = useState("all");
 
   useEffect(() => {
-    fetch("/api/admin/audit-logs", { credentials: "include" })
+    fetch(apiUrl("/api/admin/audit-logs"), { credentials: "include" })
       .then((r) => r.json())
       .then(setLogs)
       .finally(() => setLoading(false));
@@ -1376,7 +1377,7 @@ function AuditLogsTab() {
         </select>
         <Button variant="outline" size="sm" onClick={() => {
           setLoading(true);
-          fetch("/api/admin/audit-logs", { credentials: "include" }).then((r) => r.json()).then(setLogs).finally(() => setLoading(false));
+          fetch(apiUrl("/api/admin/audit-logs"), { credentials: "include" }).then((r) => r.json()).then(setLogs).finally(() => setLoading(false));
         }}>Refresh</Button>
       </div>
       <p className="text-xs text-muted-foreground">{filtered.length} log entr{filtered.length !== 1 ? "ies" : "y"}</p>
@@ -1409,8 +1410,14 @@ function PendingTransactionsTab() {
   async function loadPending() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/transactions/pending", { credentials: "include" });
-      setPendingTxs(await res.json());
+      const res = await fetch(apiUrl("/api/admin/transactions/pending"), { credentials: "include" });
+      if (!res.ok) {
+        toast({ title: "Could not load pending requests", description: await readApiErrorMessage(res), variant: "destructive" });
+        setPendingTxs([]);
+        return;
+      }
+      const data = await res.json();
+      setPendingTxs(Array.isArray(data) ? data : []);
     } finally {
       setLoading(false);
     }
@@ -1421,15 +1428,15 @@ function PendingTransactionsTab() {
   async function handleAction(id: number, action: "approve" | "reject") {
     setActing(id);
     try {
-      const res = await fetch(`/api/admin/transactions/${id}/${action}`, {
+      const res = await fetch(apiUrl(`/api/admin/transactions/${id}/${action}`), {
         method: "POST",
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Action failed");
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
       toast({ title: action === "approve" ? "Deposit approved ✓" : "Deposit rejected", description: action === "approve" ? "Wallet balance has been updated." : "Transaction marked as failed." });
       loadPending();
-    } catch {
-      toast({ title: "Action failed", variant: "destructive" });
+    } catch (e: any) {
+      toast({ title: "Action failed", description: e?.message, variant: "destructive" });
     } finally {
       setActing(null);
     }
@@ -1483,9 +1490,9 @@ function PendingTransactionsTab() {
             </div>
             {tx.screenshotUrl && (
               <div className="rounded border overflow-hidden">
-                <a href={tx.screenshotUrl} target="_blank" rel="noopener noreferrer">
+                <a href={apiAssetUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer">
                   <img
-                    src={tx.screenshotUrl}
+                    src={apiAssetUrl(tx.screenshotUrl)}
                     alt="Payment screenshot"
                     className="max-h-64 w-full object-contain bg-muted"
                   />
@@ -1588,7 +1595,7 @@ function TransactionsTab() {
             <div className="text-right shrink-0">
               <p className={`font-bold ${txColor(tx.txType)}`}>{tx.amount} USDT</p>
               {tx.screenshotUrl && (
-                <a href={tx.screenshotUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline">
+                <a href={apiAssetUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline">
                   Receipt
                 </a>
               )}
@@ -1615,7 +1622,7 @@ function ReviewsTab() {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/reviews", { credentials: "include" });
+      const res = await fetch(apiUrl("/api/admin/reviews"), { credentials: "include" });
       const data = await res.json();
       setReviews(Array.isArray(data) ? data : []);
     } finally {
@@ -1628,7 +1635,7 @@ function ReviewsTab() {
   async function deleteReview(id: number) {
     setDeleting(true);
     try {
-      const res = await fetch(`/api/admin/reviews/${id}`, { method: "DELETE", credentials: "include" });
+      const res = await fetch(apiUrl(`/api/admin/reviews/${id}`), { method: "DELETE", credentials: "include" });
       if (!res.ok) throw new Error((await res.json()).error);
       toast({ title: "Review deleted" });
       setConfirmDeleteId(null);
@@ -1641,7 +1648,7 @@ function ReviewsTab() {
   async function toggleVisibility(id: number, visible: boolean) {
     setToggling(id);
     try {
-      const res = await fetch(`/api/admin/reviews/${id}/visibility`, {
+      const res = await fetch(apiUrl(`/api/admin/reviews/${id}/visibility`), {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ visible }),
@@ -1657,7 +1664,7 @@ function ReviewsTab() {
   async function toggleFeatured(id: number, featured: boolean) {
     setToggling(id);
     try {
-      const res = await fetch(`/api/admin/reviews/${id}/featured`, {
+      const res = await fetch(apiUrl(`/api/admin/reviews/${id}/featured`), {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ featured }),
