@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   useGetPool,
-  useJoinPool,
   useGetPoolParticipants,
   getGetPoolQueryKey,
   getGetPoolParticipantsQueryKey,
@@ -18,8 +17,31 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
 import confetti from "canvas-confetti";
 import { TierUpgradeModal } from "@/components/TierUpgradeModal";
+import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
+import { PoolStatusBar } from "@/components/PoolStatusBar";
 
-function JoinCelebrationModal({ poolTitle, entryFee, onClose }: { poolTitle: string; entryFee: number; onClose: () => void }) {
+type PoolDetailsApi = {
+  current_entries: number;
+  platform_fee: number;
+  platform_fee_percent: string;
+  total_pool_amount: number;
+  spots_remaining: number;
+  user_joined: boolean;
+  join_blocked: boolean;
+  participants: { name: string; joined_at: string }[];
+};
+
+function JoinCelebrationModal({
+  poolTitle,
+  entryFee,
+  usedFreeEntry,
+  onClose,
+}: {
+  poolTitle: string;
+  entryFee: number;
+  usedFreeEntry: boolean;
+  onClose: () => void;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -52,25 +74,29 @@ function JoinCelebrationModal({ poolTitle, entryFee, onClose }: { poolTitle: str
         style={{ boxShadow: "0 0 60px rgba(34,197,94,0.2), 0 25px 50px rgba(0,0,0,0.4)" }}
       >
         <div className="text-6xl mb-3">🎟️</div>
-        <h2 className="text-2xl font-bold mb-1">You're In!</h2>
+        <h2 className="text-2xl font-bold mb-1">You&apos;re in</h2>
         <p className="text-muted-foreground text-sm mb-4">
-          You joined <span className="text-foreground font-semibold">{poolTitle}</span> for{" "}
-          <span className="text-primary font-bold">{entryFee} USDT</span>
+          You joined <span className="text-foreground font-semibold">{poolTitle}</span>
+          {usedFreeEntry ? (
+            <> using a <span className="text-primary font-bold">free entry</span>.</>
+          ) : (
+            <> for <span className="text-primary font-bold">{entryFee} USDT</span>.</>
+          )}
         </p>
 
         <div className="bg-muted/40 rounded-xl p-4 mb-5 space-y-1.5">
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Entry paid</span>
-            <span className="text-red-400 font-medium">−{entryFee} USDT</span>
+            <span className="text-muted-foreground">{usedFreeEntry ? "Entry" : "Entry paid"}</span>
+            <span className="text-red-400 font-medium">{usedFreeEntry ? "Free entry" : `−${entryFee} USDT`}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Max you can win</span>
+            <span className="text-muted-foreground">Top prize</span>
             <span className="text-primary font-bold">100 USDT 🥇</span>
           </div>
         </div>
 
         <p className="text-xs text-muted-foreground mb-5">
-          3 winners will be drawn randomly when the pool closes. Good luck! 🍀
+          Three places are selected with cryptographic randomness when the pool closes. Equal opportunity for every entry.
         </p>
 
         <Button className="w-full bg-primary hover:bg-primary/90" onClick={onClose}>
@@ -89,10 +115,14 @@ export default function PoolDetailPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationUsedFree, setCelebrationUsedFree] = useState(false);
   const [tierUpgrade, setTierUpgrade] = useState<{
     previousTier: string; newTier: string; freeTicketGranted: boolean; tierPoints: number;
   } | null>(null);
   const [shareOk, setShareOk] = useState(false);
+  const [poolDetails, setPoolDetails] = useState<PoolDetailsApi | null>(null);
+  const [useFreeEntry, setUseFreeEntry] = useState(false);
+  const [joining, setJoining] = useState(false);
 
   const { data: pool, isLoading } = useGetPool(id, {
     query: { enabled: !!id, queryKey: getGetPoolQueryKey(id) },
@@ -102,50 +132,99 @@ export default function PoolDetailPage() {
     query: { enabled: !!id, queryKey: getGetPoolParticipantsQueryKey(id) },
   });
 
-  const joinMutation = useJoinPool();
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    async function loadDetails() {
+      try {
+        const r = await fetch(apiUrl(`/api/pools/details/${id}`), { credentials: "include" });
+        if (!r.ok) return;
+        const j = (await r.json()) as PoolDetailsApi;
+        if (!cancelled) setPoolDetails(j);
+      } catch {
+        /* ignore */
+      }
+    }
+    void loadDetails();
+    const t = setInterval(loadDetails, 15_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [id]);
 
-  function handleJoin() {
+  async function handleJoin() {
     if (!user) {
       navigate("/login");
       return;
     }
-    joinMutation.mutate(
-      { poolId: id },
-      {
-        onSuccess: (data: any) => {
-          queryClient.invalidateQueries({ queryKey: getGetPoolQueryKey(id) });
-          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-          setShowCelebration(true);
-          if (data?.tierUpdate?.tierChanged) {
-            const t = data.tierUpdate;
-            /* Short delay so celebration modal shows first */
-            setTimeout(() => {
-              setShowCelebration(false);
-              setTierUpgrade({
-                previousTier: t.previousTier,
-                newTier: t.tier,
-                freeTicketGranted: t.freeTicketGranted,
-                tierPoints: t.tierPoints,
-              });
-            }, 2200);
-          }
-        },
-        onError: (err: any) => {
-          toast({
-            title: "Could not join",
-            description: err?.message ?? "Unable to join pool",
-            variant: "destructive",
-          });
-        },
+    setJoining(true);
+    try {
+      const res = await fetch(apiUrl(`/api/pools/${id}/join`), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          useFreeEntry: useFreeEntry && (user.freeEntries ?? 0) > 0,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({
+          title: "Could not join",
+          description: await readApiErrorMessage(res),
+          variant: "destructive",
+        });
+        return;
       }
-    );
+      const usedFree = Boolean((data as { usedFreeEntry?: boolean }).usedFreeEntry);
+      queryClient.invalidateQueries({ queryKey: getGetPoolQueryKey(id) });
+      queryClient.invalidateQueries({ queryKey: getGetPoolParticipantsQueryKey(id) });
+      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      setCelebrationUsedFree(usedFree);
+      setShowCelebration(true);
+      void fetch(apiUrl(`/api/pools/details/${id}`), { credentials: "include" })
+        .then((r) => r.json())
+        .then((j) => setPoolDetails(j as PoolDetailsApi))
+        .catch(() => {});
+      if ((data as { tierUpdate?: { tierChanged?: boolean } }).tierUpdate?.tierChanged) {
+        const t = (data as { tierUpdate: any }).tierUpdate;
+        setTimeout(() => {
+          setShowCelebration(false);
+          setTierUpgrade({
+            previousTier: t.previousTier,
+            newTier: t.tier,
+            freeTicketGranted: t.freeTicketGranted,
+            tierPoints: t.tierPoints,
+          });
+        }, 2200);
+      }
+    } catch (e: unknown) {
+      toast({
+        title: "Could not join",
+        description: e instanceof Error ? e.message : "Network error",
+        variant: "destructive",
+      });
+    } finally {
+      setJoining(false);
+    }
   }
 
   if (isLoading) return <div className="space-y-4"><Skeleton className="h-48" /><Skeleton className="h-48" /></div>;
   if (!pool) return <p className="text-center text-muted-foreground py-12">Pool not found</p>;
 
-  const fillPercent = Math.round((pool.participantCount / pool.maxUsers) * 100);
+  const displayCount = poolDetails?.current_entries ?? pool.participantCount;
   const totalPrize = pool.prizeFirst + pool.prizeSecond + pool.prizeThird;
+  const userJoinedEffective = poolDetails?.user_joined ?? pool.userJoined;
+  const canPayJoin = Boolean(user && user.walletBalance >= pool.entryFee);
+  const canFreeJoin = Boolean(user && (user.freeEntries ?? 0) > 0);
+  const joinDisabled =
+    joining ||
+    userJoinedEffective ||
+    pool.status !== "open" ||
+    displayCount >= pool.maxUsers ||
+    (Boolean(user) && useFreeEntry && !canFreeJoin) ||
+    (Boolean(user) && !useFreeEntry && !canPayJoin && !canFreeJoin);
 
   return (
     <>
@@ -153,6 +232,7 @@ export default function PoolDetailPage() {
         <JoinCelebrationModal
           poolTitle={pool.title}
           entryFee={pool.entryFee}
+          usedFreeEntry={celebrationUsedFree}
           onClose={() => setShowCelebration(false)}
         />
       )}
@@ -203,29 +283,21 @@ export default function PoolDetailPage() {
               <PrizeTile place="3rd Place" amount={pool.prizeThird} color="text-orange-400" bg="bg-orange-500/10 border border-orange-500/20" />
             </div>
             <p className="text-sm text-center text-muted-foreground">
-              Total prize pool: <span className="font-semibold text-primary">{totalPrize} USDT</span>
+              Prize total (1st–3rd): <span className="font-semibold text-primary">{totalPrize} USDT</span>
             </p>
+            {poolDetails != null && poolDetails.platform_fee > 0 && (
+              <p className="text-xs text-center text-muted-foreground border-t border-border/40 pt-3 mt-3">
+                Transparent operations share:{" "}
+                <span className="font-medium text-foreground">{poolDetails.platform_fee.toFixed(2)} USDT</span>{" "}
+                ({poolDetails.platform_fee_percent} of collected entries at current fill)
+              </p>
+            )}
           </CardContent>
         </Card>
 
         <Card className="border-primary/20">
           <CardContent className="p-5 space-y-4">
-            <div className="rounded-xl p-4 border border-[hsl(217,28%,18%)] bg-[hsl(222,28%,11%)]">
-              <p className="text-xs text-muted-foreground mb-1 text-center uppercase tracking-wide">Spots filled</p>
-              <p className="text-2xl font-black text-center tabular-nums mb-2">
-                <span className="text-primary">{pool.participantCount}</span>
-                <span className="text-muted-foreground text-lg"> / {pool.maxUsers}</span>
-              </p>
-              <div className="h-3 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${fillPercent}%`,
-                    background: fillPercent >= 80 ? "#f59e0b" : "hsl(var(--primary))",
-                  }}
-                />
-              </div>
-            </div>
+            <PoolStatusBar current={displayCount} max={pool.maxUsers} status={pool.status} poolId={pool.id} />
 
             {pool.status === "open" && (
               <div className="rounded-xl py-4 px-3 border border-amber-500/20 bg-amber-500/5">
@@ -246,33 +318,50 @@ export default function PoolDetailPage() {
         {pool.status === "open" && (
           <Card className="border-primary/30" style={{ boxShadow: "0 0 20px rgba(34,197,94,0.05)" }}>
             <CardContent className="p-5">
-              {pool.userJoined ? (
+              {userJoinedEffective ? (
                 <div className="text-center space-y-2">
                   <div className="text-4xl">🎟️</div>
                   <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30">You have joined this pool</Badge>
-                  <p className="text-sm text-muted-foreground">Good luck! Winners will be drawn when the pool closes.</p>
+                  <p className="text-sm text-muted-foreground">The fair draw runs when the pool closes or fills.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
+                  {user && (user.freeEntries ?? 0) > 0 && (
+                    <label className="flex items-center gap-2 text-sm cursor-pointer rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={useFreeEntry}
+                        onChange={(e) => setUseFreeEntry(e.target.checked)}
+                        className="rounded border-border"
+                      />
+                      <span>
+                        Use free entry <span className="text-primary font-semibold">({user.freeEntries} available)</span>
+                      </span>
+                    </label>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Your balance</span>
-                    <span className={`font-medium ${user && user.walletBalance >= pool.entryFee ? "text-primary" : "text-red-400"}`}>
+                    <span className={`font-medium ${canPayJoin ? "text-primary" : "text-red-400"}`}>
                       {user?.walletBalance.toFixed(2) ?? "—"} USDT
                     </span>
                   </div>
-                  {user && user.walletBalance < pool.entryFee && (
+                  {user && !useFreeEntry && !canPayJoin && (
                     <p className="text-sm text-destructive">
                       Insufficient balance. You need {pool.entryFee} USDT.{" "}
-                      <a href="/wallet" className="underline text-primary">Deposit here</a>.
+                      <a href="/wallet" className="underline text-primary">Add funds</a>.
                     </p>
                   )}
                   <Button
                     className="w-full font-semibold"
                     style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 4px 15px rgba(22,163,74,0.3)" }}
-                    onClick={handleJoin}
-                    disabled={joinMutation.isPending || (!!user && user.walletBalance < pool.entryFee)}
+                    onClick={() => void handleJoin()}
+                    disabled={joinDisabled}
                   >
-                    {joinMutation.isPending ? "Joining..." : `🎟️ Join Pool — ${pool.entryFee} USDT`}
+                    {joining
+                      ? "Joining..."
+                      : useFreeEntry && canFreeJoin
+                        ? "Join with free entry"
+                        : `Join pool — ${pool.entryFee} USDT`}
                   </Button>
                   {!user && (
                     <p className="text-xs text-center text-muted-foreground">
@@ -285,20 +374,29 @@ export default function PoolDetailPage() {
           </Card>
         )}
 
-        {participants && participants.length > 0 && (
+        {((poolDetails?.participants?.length ?? 0) > 0 || (participants && participants.length > 0)) && (
           <div>
-            <h2 className="font-semibold mb-3">Participants ({participants.length})</h2>
+            <h2 className="font-semibold mb-3">
+              Participants ({poolDetails?.current_entries ?? participants?.length ?? 0})
+            </h2>
             <div className="space-y-2">
-              {participants.map((p) => (
-                <Card key={p.id}>
-                  <CardContent className="p-3 flex items-center justify-between">
-                    <p className="font-medium text-sm">{p.userName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(p.joinedAt).toLocaleDateString()}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+              {(poolDetails?.participants?.length
+                ? poolDetails.participants.map((p, i) => (
+                    <Card key={`${p.name}-${i}`}>
+                      <CardContent className="p-3 flex items-center justify-between">
+                        <p className="font-medium text-sm">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(p.joined_at).toLocaleDateString()}</p>
+                      </CardContent>
+                    </Card>
+                  ))
+                : participants?.map((p) => (
+                    <Card key={p.id}>
+                      <CardContent className="p-3 flex items-center justify-between">
+                        <p className="font-medium text-sm">{p.userName}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(p.joinedAt).toLocaleDateString()}</p>
+                      </CardContent>
+                    </Card>
+                  )))}
             </div>
           </div>
         )}

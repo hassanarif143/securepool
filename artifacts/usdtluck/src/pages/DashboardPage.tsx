@@ -6,6 +6,7 @@ import { useListPools, useGetUserTransactions, getGetUserTransactionsQueryKey } 
 import { Skeleton } from "@/components/ui/skeleton";
 import { TierBadge, TierProgressCard, getTier, getNextTier, computeProgress } from "@/components/TierBadge";
 import { TierUpgradeModal } from "@/components/TierUpgradeModal";
+import { ActivityFeed } from "@/components/ActivityFeed";
 
 interface TierInfo {
   tier: string; tierLabel: string; tierIcon: string;
@@ -142,6 +143,17 @@ export default function DashboardPage() {
           onClose={() => setTierUpgrade(null)}
         />
       )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ActivityFeed limit={16} />
+        <div className="rounded-xl border border-[hsl(217,28%,16%)] bg-[hsl(222,30%,9%)] p-4 text-sm text-muted-foreground">
+          <p className="font-semibold text-foreground mb-2">Transparent reward pools</p>
+          <p className="text-xs leading-relaxed">
+            Entry fees fund prizes and platform operations. Fair draws use cryptographic randomness when admins run the draw.
+            Platform share is shown on each pool details page — no hidden charges.
+          </p>
+        </div>
+      </div>
 
       {/* ─────────────────────────────────────────
           ROW 1  |  Balance card (left) + 3 stats (right)

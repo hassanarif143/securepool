@@ -36,6 +36,35 @@ const changeLimiter = rateLimit({
   keyGenerator: (req) => `wallet_change:${getAuthedUserId(req) || req.ip}`,
 });
 
+router.get("/loyalty", async (req, res): Promise<void> => {
+  const userId = getAuthedUserId(req);
+  const [u] = await db
+    .select({
+      poolJoinCount: usersTable.poolJoinCount,
+      freeEntries: usersTable.freeEntries,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  if (!u) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  const totalJoins = u.poolJoinCount ?? 0;
+  let nextMilestone: number;
+  if (totalJoins === 0) nextMilestone = 5;
+  else if (totalJoins % 5 === 0) nextMilestone = totalJoins + 5;
+  else nextMilestone = Math.ceil(totalJoins / 5) * 5;
+  const joinsRemaining = Math.max(0, nextMilestone - totalJoins);
+  res.json({
+    total_joins: totalJoins,
+    free_entries: u.freeEntries ?? 0,
+    next_free_at: nextMilestone,
+    joins_remaining: joinsRemaining,
+  });
+  return;
+});
+
 router.get("/wallet", async (req, res): Promise<void> => {
   const userId = getAuthedUserId(req);
   const [user] = await db

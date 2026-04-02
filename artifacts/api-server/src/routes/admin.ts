@@ -20,6 +20,8 @@ import { sanitizeText } from "../lib/sanitize";
 import { requireAdmin } from "../middleware/auth";
 import { getAuthedUserId } from "../middleware/auth";
 import { isValidTrc20Address } from "../lib/trc20";
+import { logActivity } from "../services/activity-service";
+import { privacyDisplayName } from "../lib/privacy-name";
 
 const router: IRouter = Router();
 
@@ -777,6 +779,15 @@ router.post("/transactions/:id/complete", async (req, res) => {
 
   if (txUser?.email) {
     void sendWithdrawalStatusEmail(txUser.email, tx.amount, "completed");
+  }
+
+  if (txUser) {
+    void logActivity({
+      type: "payout_sent",
+      message: `Reward transfer of ${tx.amount} USDT completed for ${privacyDisplayName(txUser.name)}.`,
+      userId: tx.userId,
+      metadata: { transactionId: txId },
+    });
   }
 
   res.json({ message: "Withdrawal marked as completed" });

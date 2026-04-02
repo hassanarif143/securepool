@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -40,6 +41,72 @@ function cooldownParts(untilIso: string): { h: number; m: number } | null {
   if (end <= now) return null;
   const ms = end - now;
   return { h: Math.floor(ms / 3_600_000), m: Math.floor((ms % 3_600_000) / 60_000) };
+}
+
+function PrizeHistoryCard() {
+  const { user, isLoading } = useAuth();
+  const [rows, setRows] = useState<
+    { id: number; poolName: string; position: number; prizeAmount: number; drawnAt: string; paymentStatus: string }[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    fetch(apiUrl("/api/winners/me/payouts"), { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((j) => {
+        if (!cancelled && Array.isArray(j)) setRows(j);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  if (isLoading || !user) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Prize & payout status</CardTitle>
+        <CardDescription>
+          Wallet credits from completed fair draws. On-chain reward transfers use your saved TRC20 address.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No prize records yet.</p>
+        ) : (
+          <ul className="space-y-3 text-sm">
+            {rows.map((r) => (
+              <li key={r.id} className="flex flex-wrap justify-between gap-2 border-b border-border/40 pb-3 last:border-0">
+                <div>
+                  <p className="font-medium">{r.poolName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Place {r.position} · {new Date(r.drawnAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold text-primary tabular-nums">{r.prizeAmount} USDT</p>
+                  <Badge variant={r.paymentStatus === "paid" ? "default" : "secondary"} className="mt-1 text-[10px]">
+                    {r.paymentStatus}
+                  </Badge>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 function useNarrowScreen() {
@@ -294,6 +361,31 @@ export default function ProfilePage() {
           )}
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Loyalty & free entries</CardTitle>
+          <CardDescription>Every 5 reward pool joins earn one free entry. Referral activity also builds points.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-muted-foreground">Total joins</p>
+              <p className="font-semibold tabular-nums">{currentUser.poolJoinCount ?? 0}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Free entries</p>
+              <p className="font-semibold text-primary tabular-nums">{currentUser.freeEntries ?? 0}</p>
+            </div>
+            <div className="col-span-2">
+              <p className="text-xs text-muted-foreground">Referral points toward free entry</p>
+              <p className="font-semibold tabular-nums">{currentUser.referralPoints ?? 0} pts (5 = 1 free entry)</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <PrizeHistoryCard />
 
       <Card>
         <CardHeader>

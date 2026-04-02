@@ -12,11 +12,13 @@ import tierRouter from "./tier";
 import notificationsRouter from "./notifications";
 import statsRouter from "./stats";
 import userWalletRouter from "./userWallet";
+import activityRouter from "./activity";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use("/stats", statsRouter);
+router.use("/activity", activityRouter);
 router.use("/auth", authRouter);
 router.use("/user", userWalletRouter);
 router.use("/users", usersRouter);

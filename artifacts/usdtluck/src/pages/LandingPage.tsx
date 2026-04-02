@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useListWinners, useListPools } from "@workspace/api-client-react";
 import { apiUrl } from "@/lib/api-base";
+import { ActivityFeed } from "@/components/ActivityFeed";
+import { RecentPayouts } from "@/components/RecentPayouts";
 
 function useAnimatedInt(target: number, duration = 1400) {
   const [v, setV] = useState(0);
@@ -109,16 +111,16 @@ export default function LandingPage() {
             🔒 Transparent USDT Reward Pools
           </div>
           <h1 className="text-5xl font-bold tracking-tight mb-6 leading-tight">
-            Win USDT Rewards<br />
+            Transparent reward pools<br />
             <span
               className="text-transparent bg-clip-text"
               style={{ backgroundImage: "linear-gradient(135deg, #4ade80, #22c55e, #16a34a)" }}
             >
-              Every Week
+              Fair draw · Equal chance
             </span>
           </h1>
           <p className="text-lg text-muted-foreground mb-10 max-w-xl mx-auto leading-relaxed">
-            Join reward pools for just <span className="text-primary font-semibold">10 USDT</span>. Three winners chosen at random receive{" "}
+            Join reward pools for just <span className="text-primary font-semibold">10 USDT</span>. Three places are drawn with verifiable randomness —{" "}
             <span className="text-yellow-400 font-semibold">100</span>,{" "}
             <span className="text-slate-300 font-semibold">50</span>, and{" "}
             <span className="text-orange-400 font-semibold">30 USDT</span>. Fully transparent, no hidden fees.
@@ -143,7 +145,7 @@ export default function LandingPage() {
             </Link>
             <Link href="/winners">
               <Button size="lg" variant="outline" className="px-8">
-                View Winners 🏆
+                Past results
               </Button>
             </Link>
           </div>
@@ -188,6 +190,11 @@ export default function LandingPage() {
           ))}
         </div>
         <p className="text-center text-[10px] text-muted-foreground mt-3">Figures update from the live platform.</p>
+      </motion.section>
+
+      <motion.section id="activity-feed" className="max-w-4xl mx-auto scroll-mt-24 grid md:grid-cols-2 gap-4" {...sectionReveal}>
+        <ActivityFeed limit={14} />
+        <RecentPayouts limit={8} />
       </motion.section>
 
       {/* Recent winners — horizontal ticker */}

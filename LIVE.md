@@ -29,11 +29,10 @@ PostgreSQL column for the message body is **`message`** (not `body`). All server
 
 ## Database migrations (wallet / demo flags)
 
-The API runs pending SQL migrations on startup (`runPendingSqlMigrations`). Ensure **`lib/db/migrations/0005_wallet_change_demo.sql`** has been applied on the target database so you have:
+The API runs pending SQL migrations on startup (`runPendingSqlMigrations`). Ensure these migrations have been applied on the target database:
 
-- `wallet_change_requests`
-- `users.is_demo`
-- `winners.payment_status`
+- **`0005_wallet_change_demo.sql`** — `wallet_change_requests`, `users.is_demo`, `winners.payment_status`
+- **`0006_activity_loyalty.sql`** — `activity_logs`, `users.referral_points`, `users.free_entries`, `users.pool_join_count` (and backfill join counts)
 
 If you change Drizzle schema under `lib/db`, run **`pnpm exec tsc -b lib/db`** (or root **`pnpm run typecheck:libs`**) so declaration files stay in sync. The **`@workspace/api-server`** `typecheck` script builds `lib/db` first, then typechecks the API.
 

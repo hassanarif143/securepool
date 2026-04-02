@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { db, usersTable, referralsTable, transactionsTable } from "@workspace/db";
 import { notifyUser } from "../lib/notify";
@@ -6,13 +7,11 @@ import { eq, desc } from "drizzle-orm";
 const router: IRouter = Router();
 
 /* Generate a unique 8-char referral code for a user */
-function generateCode(userId: number): string {
+function generateCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
-  // Mix user ID seed with randomness so codes are unique but reproducible
-  const seed = userId * 31337 + Date.now();
   for (let i = 0; i < 8; i++) {
-    code += chars[Math.floor((seed * (i + 1) * 6364136223846793) % chars.length + Math.random() * chars.length) % chars.length];
+    code += chars[randomInt(0, chars.length)]!;
   }
   return code;
 }
@@ -30,7 +29,7 @@ router.get("/me", async (req, res) => {
   if (!code) {
     let attempts = 0;
     do {
-      code = generateCode(userId + attempts);
+      code = generateCode();
       attempts++;
       const clash = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.referralCode, code)).limit(1);
       if (clash.length === 0) break;
@@ -66,6 +65,8 @@ router.get("/me", async (req, res) => {
 
   res.json({
     referralCode: code,
+    referralPoints: user.referralPoints ?? 0,
+    freeEntries: user.freeEntries ?? 0,
     referrals: referrals.map((r) => ({
       id: r.id,
       referredName: r.referredName,

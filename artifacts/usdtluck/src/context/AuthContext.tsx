@@ -22,6 +22,9 @@ interface UserType {
   joinedAt: string;
   tier: string;
   tierPoints: number;
+  referralPoints?: number;
+  freeEntries?: number;
+  poolJoinCount?: number;
 }
 
 interface AuthContextType {

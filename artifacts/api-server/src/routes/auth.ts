@@ -360,6 +360,25 @@ router.get("/me", async (req, res) => {
     return;
   }
 
+  let referralPoints = 0;
+  let freeEntries = 0;
+  let poolJoinCount = 0;
+  try {
+    const lr = await dbPool.query(
+      `SELECT COALESCE(referral_points, 0) AS rp, COALESCE(free_entries, 0) AS fe, COALESCE(pool_join_count, 0) AS pjc
+       FROM users WHERE id = $1 LIMIT 1`,
+      [userId],
+    );
+    const ex = lr.rows[0] as { rp?: string | number; fe?: string | number; pjc?: string | number } | undefined;
+    if (ex) {
+      referralPoints = parseInt(String(ex.rp ?? "0"), 10);
+      freeEntries = parseInt(String(ex.fe ?? "0"), 10);
+      poolJoinCount = parseInt(String(ex.pjc ?? "0"), 10);
+    }
+  } catch {
+    /* migration 0006 not applied yet */
+  }
+
   res.json({
     id: user.id,
     name: user.name,
@@ -370,6 +389,9 @@ router.get("/me", async (req, res) => {
     joinedAt: user.joined_at,
     tier: (user.tier as string) ?? "aurora",
     tierPoints: parseInt(String(user.tier_points ?? "0"), 10),
+    referralPoints,
+    freeEntries,
+    poolJoinCount,
   });
 });
 
