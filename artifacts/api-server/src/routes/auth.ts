@@ -24,8 +24,6 @@ const SignupSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(6),
-  phone: z.string().min(8).max(20).regex(/^[0-9+\-\s()]+$/, "Invalid phone number format"),
-  city: z.string().min(2).max(80),
   cryptoAddress: z.string().min(10).max(120).regex(/^T[a-zA-Z0-9]{25,}$/, "Invalid TRC20 wallet address"),
   referralCode: z.string().optional(),
 });
@@ -68,18 +66,12 @@ router.post("/signup", signupLimiter, async (req, res) => {
   }
 
   const cleanName = sanitizeText(parse.data.name, 80);
-  const cleanCity = sanitizeText(parse.data.city, 80);
-  const { email, password, phone, cryptoAddress } = parse.data;
+  const { email, password, cryptoAddress } = parse.data;
   const referralCode = parse.data.referralCode;
 
   const existing = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
   if (existing.length > 0) {
     res.status(409).json({ error: "Email already in use", message: "An account with this email already exists." });
-    return;
-  }
-  const existingPhone = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
-  if (existingPhone.length > 0) {
-    res.status(409).json({ error: "Phone already in use", message: "An account with this phone already exists." });
     return;
   }
   const existingWallet = await db.select().from(usersTable).where(eq(usersTable.cryptoAddress, cryptoAddress)).limit(1);
@@ -105,8 +97,6 @@ router.post("/signup", signupLimiter, async (req, res) => {
     .values({
       name: cleanName,
       email,
-      phone,
-      city: cleanCity,
       cryptoAddress,
       passwordHash,
       walletBalance: String(startBalance),

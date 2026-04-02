@@ -43,8 +43,6 @@ function PasswordStrength({ password }: { password: string }) {
 
 export default function SignupPage() {
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [city, setCity] = useState("");
   const [cryptoAddress, setCryptoAddress] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -78,8 +76,6 @@ export default function SignupPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          phone,
-          city,
           cryptoAddress,
           email,
           password,
@@ -271,40 +267,6 @@ export default function SignupPage() {
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none transition-all"
                     style={inputBase} onFocus={onFocus} onBlur={onBlur} />
                 </div>
-              </div>
-
-              {/* Phone */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="phone">Phone / WhatsApp</label>
-                <input
-                  id="phone"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+92 300 1234567"
-                  required
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
-                  style={inputBase}
-                  onFocus={onFocus}
-                  onBlur={onBlur}
-                />
-              </div>
-
-              {/* City */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="city">City</label>
-                <input
-                  id="city"
-                  type="text"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="Karachi"
-                  required
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
-                  style={inputBase}
-                  onFocus={onFocus}
-                  onBlur={onBlur}
-                />
               </div>
 
               {/* Binance TRC20 wallet */}
