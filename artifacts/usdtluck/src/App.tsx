@@ -21,6 +21,7 @@ import AdminPage from "@/pages/AdminPage";
 import ReferralPage from "@/pages/ReferralPage";
 import ReviewsPage from "@/pages/ReviewsPage";
 import LeaderboardPage from "@/pages/LeaderboardPage";
+import HowItWorksPage from "@/pages/HowItWorksPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -128,6 +129,7 @@ function Router() {
             <LeaderboardPage />
           </RequireAuth>
         </Route>
+        <Route path="/how-it-works" component={HowItWorksPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

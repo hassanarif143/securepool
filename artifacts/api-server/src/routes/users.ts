@@ -3,6 +3,7 @@ import { db, usersTable, transactionsTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { sanitizeText } from "../lib/sanitize";
+import { getAuthedUserId } from "../middleware/auth";
 
 const router: IRouter = Router();
 
@@ -37,7 +38,7 @@ router.patch("/:userId", async (req, res) => {
   const userId = parseInt(req.params.userId);
   if (isNaN(userId)) { res.status(400).json({ error: "Invalid user ID" }); return; }
 
-  const sessionUserId = (req as any).session?.userId;
+  const sessionUserId = getAuthedUserId(req);
   if (!sessionUserId || sessionUserId !== userId) {
     const [me] = await db.select().from(usersTable).where(eq(usersTable.id, sessionUserId)).limit(1);
     if (!me?.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }

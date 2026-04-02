@@ -10,7 +10,7 @@ import path from "path";
 import { pool } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { attachAuth } from "./middleware/auth";
+import { attachAuth, rejectIfBlocked } from "./middleware/auth";
 import { csrfProtection, issueCsrfToken } from "./middleware/csrf";
 
 const app: Express = express();
@@ -50,6 +50,30 @@ app.use(
 );
 
 app.use(cookieParser());
+
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) {
+  throw new Error("SESSION_SECRET environment variable is required");
+}
+
+app.use(
+  session({
+    store: new PgStore({
+      pool,
+    }),
+    proxy: process.env.NODE_ENV === "production",
+    secret: sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    },
+  }),
+);
+
 app.use(attachAuth);
 app.use(issueCsrfToken);
 
@@ -103,30 +127,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.use(csrfProtection);
 
-const sessionSecret = process.env.SESSION_SECRET;
-if (!sessionSecret) {
-  throw new Error("SESSION_SECRET environment variable is required");
-}
-
-app.use(
-  session({
-    store: new PgStore({
-      pool,
-    }),
-    proxy: process.env.NODE_ENV === "production",
-    secret: sessionSecret,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      // Cross-domain frontend/backend in production (Vercel <-> Railway)
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    },
-  }),
-);
-
+app.use("/api", rejectIfBlocked);
 app.use("/api", router);
 
 export default app;

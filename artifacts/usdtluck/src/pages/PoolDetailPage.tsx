@@ -92,6 +92,7 @@ export default function PoolDetailPage() {
   const [tierUpgrade, setTierUpgrade] = useState<{
     previousTier: string; newTier: string; freeTicketGranted: boolean; tierPoints: number;
   } | null>(null);
+  const [shareOk, setShareOk] = useState(false);
 
   const { data: pool, isLoading } = useGetPool(id, {
     query: { enabled: !!id, queryKey: getGetPoolQueryKey(id) },
@@ -165,11 +166,27 @@ export default function PoolDetailPage() {
         />
       )}
 
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-2xl mx-auto space-y-6 w-full">
         <div>
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex flex-wrap items-center gap-3 mb-2">
             <h1 className="text-2xl font-bold">{pool.title}</h1>
             <StatusBadge status={pool.status} />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+              onClick={() => {
+                const url = typeof window !== "undefined" ? window.location.href : "";
+                void navigator.clipboard.writeText(url).then(() => {
+                  setShareOk(true);
+                  toast({ title: "Link copied", description: "Share this pool with friends." });
+                  setTimeout(() => setShareOk(false), 2000);
+                });
+              }}
+            >
+              {shareOk ? "Copied ✓" : "Share this pool"}
+            </Button>
           </div>
           <p className="text-muted-foreground">Join for {pool.entryFee} USDT per ticket</p>
         </div>
@@ -191,26 +208,31 @@ export default function PoolDetailPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-primary/20">
           <CardContent className="p-5 space-y-4">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Participants</span>
-              <span className="font-medium">{pool.participantCount} / {pool.maxUsers}</span>
-            </div>
-            <div className="h-2 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${fillPercent}%`,
-                  background: fillPercent >= 80 ? "#f59e0b" : "hsl(var(--primary))",
-                }}
-              />
+            <div className="rounded-xl p-4 border border-[hsl(217,28%,18%)] bg-[hsl(222,28%,11%)]">
+              <p className="text-xs text-muted-foreground mb-1 text-center uppercase tracking-wide">Spots filled</p>
+              <p className="text-2xl font-black text-center tabular-nums mb-2">
+                <span className="text-primary">{pool.participantCount}</span>
+                <span className="text-muted-foreground text-lg"> / {pool.maxUsers}</span>
+              </p>
+              <div className="h-3 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${fillPercent}%`,
+                    background: fillPercent >= 80 ? "#f59e0b" : "hsl(var(--primary))",
+                  }}
+                />
+              </div>
             </div>
 
             {pool.status === "open" && (
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Closes in</span>
-                <CountdownTimer endTime={pool.endTime} />
+              <div className="text-center rounded-xl py-4 border border-amber-500/20 bg-amber-500/5">
+                <p className="text-xs text-amber-200/80 mb-2 uppercase tracking-wider font-semibold">Draw countdown</p>
+                <div className="text-2xl font-mono font-bold text-foreground">
+                  <CountdownTimer endTime={pool.endTime} />
+                </div>
               </div>
             )}
 

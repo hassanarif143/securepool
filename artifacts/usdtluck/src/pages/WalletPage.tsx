@@ -65,6 +65,7 @@ export default function WalletPage() {
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<"deposit" | "withdraw" | "history">("deposit");
+  const [txFilter, setTxFilter] = useState<"all" | "deposit" | "withdraw" | "reward">("all");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [withdrawWallet, setWithdrawWallet] = useState(user?.cryptoAddress ?? "");
@@ -95,6 +96,17 @@ export default function WalletPage() {
 
   const txArr = transactions as any[];
   const pendingDeposit = txArr.find((t) => t.txType === "deposit" && t.status === "pending");
+  const pendingAll = txArr.filter((t) => t.status === "pending" || t.status === "under_review");
+
+  function matchesFilter(t: any) {
+    if (txFilter === "all") return true;
+    if (txFilter === "deposit") return t.txType === "deposit";
+    if (txFilter === "withdraw") return t.txType === "withdraw" || t.txType === "withdrawal";
+    if (txFilter === "reward") return t.txType === "reward" || t.txType === "referral_bonus" || t.txType === "tier_free_ticket";
+    return true;
+  }
+
+  const filteredTx = txArr.filter(matchesFilter);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -482,6 +494,32 @@ export default function WalletPage() {
         {/* ── HISTORY TAB ── */}
         {tab === "history" && (
           <div>
+            {pendingAll.length > 0 && (
+              <div className="px-4 py-3 border-b border-[hsl(217,28%,14%)] space-y-2" style={{ background: "hsl(222,30%,10%)" }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-400/90">Pending</p>
+                {pendingAll.map((t) => (
+                  <div key={t.id} className="flex items-center justify-between gap-2 text-xs rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2">
+                    <span className="capitalize text-muted-foreground">{String(t.txType).replace("_", " ")}</span>
+                    <StatusChip status={t.status} />
+                    <span className="font-mono font-bold tabular-nums">{parseFloat(t.amount).toFixed(2)} USDT</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2 px-4 py-2.5 border-b border-[hsl(217,28%,14%)]" style={{ background: "hsl(222,30%,10%)" }}>
+              {(["all", "deposit", "withdraw", "reward"] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setTxFilter(f)}
+                  className={`text-[10px] font-bold px-2 py-1 rounded-md border transition-colors ${
+                    txFilter === f ? "border-primary text-primary bg-primary/10" : "border-transparent text-muted-foreground hover:bg-white/5"
+                  }`}
+                >
+                  {f === "all" ? "All" : f === "deposit" ? "Deposits" : f === "withdraw" ? "Withdrawals" : "Rewards"}
+                </button>
+              ))}
+            </div>
             {/* Legend */}
             <div className="flex gap-4 px-5 py-2.5 border-b border-[hsl(217,28%,14%)] text-[10px] text-muted-foreground"
               style={{ background: "hsl(222,30%,10%)" }}>
@@ -497,9 +535,11 @@ export default function WalletPage() {
                 <p className="text-sm font-medium">No transactions yet</p>
                 <p className="text-xs text-muted-foreground mt-0.5">Your history will appear here</p>
               </div>
+            ) : filteredTx.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">No transactions in this filter.</div>
             ) : (
               <div className="divide-y divide-[hsl(217,28%,13%)]">
-                {txArr.map((tx) => {
+                {filteredTx.map((tx) => {
                   const meta = txMeta(tx.txType);
                   return (
                     <div key={tx.id} className="flex items-center gap-0 hover:bg-white/[0.01] transition-colors">

@@ -487,6 +487,23 @@ components:
           type: number
         poolsJoined:
           type: integer
+        phone:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        tier:
+          type: string
+        isBlocked:
+          type: boolean
+        blockedAt:
+          type: string
+          format: date-time
+          nullable: true
+        blockedReason:
+          type: string
+          nullable: true
       required: [id, name, email, walletBalance, isAdmin, joinedAt, totalDeposited, totalWithdrawn, poolsJoined]
 
     SignupBody:

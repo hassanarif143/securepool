@@ -37,6 +37,12 @@ export interface AdminUser {
   totalDeposited: number;
   totalWithdrawn: number;
   poolsJoined: number;
+  phone?: string | null;
+  city?: string | null;
+  tier?: string;
+  isBlocked?: boolean;
+  blockedAt?: string | null;
+  blockedReason?: string | null;
 }
 
 export interface SignupBody {

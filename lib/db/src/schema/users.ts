@@ -14,9 +14,20 @@ export const usersTable = pgTable("users", {
   referralCode: text("referral_code").unique(),
   referredBy: integer("referred_by"),
   isAdmin: boolean("is_admin").notNull().default(false),
+  isBlocked: boolean("is_blocked").notNull().default(false),
+  blockedAt: timestamp("blocked_at", { withTimezone: true }),
+  blockedReason: text("blocked_reason"),
   joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const insertUserSchema = createInsertSchema(usersTable).omit({ id: true, joinedAt: true, isAdmin: true, walletBalance: true });
+export const insertUserSchema = createInsertSchema(usersTable).omit({
+  id: true,
+  joinedAt: true,
+  isAdmin: true,
+  walletBalance: true,
+  isBlocked: true,
+  blockedAt: true,
+  blockedReason: true,
+});
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof usersTable.$inferSelect;

@@ -85,8 +85,20 @@ export default function DashboardPage() {
   /* shared box style */
   const box = "border border-[hsl(217,28%,18%)] bg-[hsl(222,30%,9%)]";
 
+  const activeJoined = myEntries.filter((e) => e.status === "open");
+
   return (
     <div className="space-y-4 pb-10">
+      <div className="rounded-xl border border-[hsl(217,28%,16%)] px-4 py-3 bg-[hsl(222,30%,9%)]">
+        <p className="text-sm text-muted-foreground">Welcome back</p>
+        <p className="text-lg font-bold">{user.name}</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          You&apos;re on <span className="text-primary font-semibold capitalize">{user.tier ?? "aurora"}</span> tier
+          {tierNext && (
+            <> — {ptsToNext} pts to <span className="capitalize">{tierNext.id}</span></>
+          )}
+        </p>
+      </div>
       {tierUpgrade && (
         <TierUpgradeModal
           previousTier={tierUpgrade.previousTier}
@@ -393,21 +405,21 @@ export default function DashboardPage() {
       {/* ─────────────────────────────────────────
           ROW 3  |  My Pool Entries (if any)
       ───────────────────────────────────────── */}
-      {myEntries.length > 0 && (
+      {activeJoined.length > 0 && (
         <div className={`${box} rounded-xl overflow-hidden`}>
           <div className="flex items-center justify-between px-5 py-3 border-b border-[hsl(217,28%,16%)]"
             style={{ background: "hsl(222,30%,11%)" }}>
             <div className="flex items-center gap-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">My Pool Entries</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Active pools you&apos;ve joined</p>
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/12 text-emerald-400 border border-emerald-500/20">
-                {myEntries.length} total
+                {activeJoined.length} live
               </span>
             </div>
-            <p className="text-[11px] text-muted-foreground">🔒 Your funds are locked until the draw</p>
+            <Link href="/pools" className="text-[11px] text-primary hover:underline font-medium">Browse more →</Link>
           </div>
 
           <div className="divide-y divide-[hsl(217,28%,14%)]">
-            {myEntries.map((entry) => {
+            {activeJoined.map((entry) => {
               const msLeft = entry.endTime ? new Date(entry.endTime).getTime() - Date.now() : 0;
               const hoursLeft = Math.max(0, Math.floor(msLeft / 3_600_000));
               const isOpen = entry.status === "open";

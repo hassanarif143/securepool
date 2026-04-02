@@ -22,6 +22,23 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { CelebrationModal } from "@/components/CelebrationModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { MoreHorizontal } from "lucide-react";
 
 export default function AdminPage() {
   const { user, isLoading } = useAuth();
@@ -826,6 +843,7 @@ function CreatePoolTab() {
 }
 
 function UsersTab() {
+  const { user: me } = useAuth();
   const { data: users, refetch } = useListAdminUsers({ query: { queryKey: getListAdminUsersQueryKey() } });
   const [search, setSearch] = useState("");
   const [adjustingId, setAdjustingId] = useState<number | null>(null);
@@ -835,23 +853,50 @@ function UsersTab() {
   const [profileUser, setProfileUser] = useState<any | null>(null);
   const { toast } = useToast();
 
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [blockTarget, setBlockTarget] = useState<any | null>(null);
+  const [blockReason, setBlockReason] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetTarget, setResetTarget] = useState<any | null>(null);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [notifyTarget, setNotifyTarget] = useState<any | null>(null);
+  const [notifyTitle, setNotifyTitle] = useState("");
+  const [notifyBody, setNotifyBody] = useState("");
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [bcTitle, setBcTitle] = useState("");
+  const [bcBody, setBcBody] = useState("");
+  const [bcType, setBcType] = useState("info");
+  const [tierOpen, setTierOpen] = useState(false);
+  const [tierTarget, setTierTarget] = useState<any | null>(null);
+  const [tierTier, setTierTier] = useState("aurora");
+  const [tierPoints, setTierPoints] = useState("0");
+  const [busy, setBusy] = useState(false);
+
+  const isSuperAdmin = me?.id === 1;
   const filtered = (users as any[] ?? []).filter((u) =>
     u.name.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase())
+    u.email.toLowerCase().includes(search.toLowerCase()),
   );
 
-  function exportCSV() {
-    const rows = [
-      ["ID", "Name", "Email", "Wallet Balance", "Total Deposited", "Pools Joined", "Admin", "Joined At"],
-      ...(users as any[] ?? []).map((u) => [
-        u.id, u.name, u.email, u.walletBalance.toFixed(2), u.totalDeposited.toFixed(2), u.poolsJoined, u.isAdmin ? "Yes" : "No", new Date(u.joinedAt).toLocaleDateString(),
-      ]),
-    ];
-    const csv = rows.map((r) => r.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "users.csv"; a.click();
-    URL.revokeObjectURL(url);
+  async function exportServerCsv() {
+    try {
+      const res = await fetch("/api/admin/users/export", { credentials: "include" });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "users-export.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "CSV downloaded" });
+    } catch (e: any) {
+      toast({ title: "Export failed", description: e?.message, variant: "destructive" });
+    }
   }
 
   async function handleAdjust(userId: number) {
@@ -874,92 +919,305 @@ function UsersTab() {
     } finally { setAdjusting(false); }
   }
 
+  async function postJson(url: string, body?: object) {
+    const res = await fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error || res.statusText);
+    return j;
+  }
+
   return (
     <>
     {profileUser && (
       <UserProfileModal user={profileUser} onClose={() => { setProfileUser(null); refetch(); }} />
     )}
+
+    <Dialog open={blockOpen} onOpenChange={setBlockOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Block user</DialogTitle>
+          <DialogDescription>User will not be able to use the platform until unblocked.</DialogDescription>
+        </DialogHeader>
+        <Input placeholder="Reason (optional)" value={blockReason} onChange={(e) => setBlockReason(e.target.value)} />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setBlockOpen(false)}>Cancel</Button>
+          <Button
+            disabled={busy}
+            className="bg-red-600 hover:bg-red-700"
+            onClick={async () => {
+              if (!blockTarget) return;
+              setBusy(true);
+              try {
+                await postJson(`/api/admin/users/${blockTarget.id}/block`, { reason: blockReason || undefined });
+                toast({ title: "User blocked" });
+                setBlockOpen(false); setBlockReason(""); refetch();
+              } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
+              finally { setBusy(false); }
+            }}
+          >Block</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="text-red-500">Delete user permanently</DialogTitle>
+          <DialogDescription>
+            This will permanently delete this user and ALL their data. This cannot be undone. Type <span className="font-semibold text-foreground">{deleteTarget?.name}</span> to confirm.
+          </DialogDescription>
+        </DialogHeader>
+        <Input value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder="User name" />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+          <Button
+            disabled={busy || deleteConfirm !== deleteTarget?.name}
+            variant="destructive"
+            onClick={async () => {
+              if (!deleteTarget) return;
+              setBusy(true);
+              try {
+                const res = await fetch(`/api/admin/users/${deleteTarget.id}`, { method: "DELETE", credentials: "include" });
+                const j = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(j.error);
+                toast({ title: "User deleted" });
+                setDeleteOpen(false); setDeleteConfirm(""); refetch();
+              } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
+              finally { setBusy(false); }
+            }}
+          >Delete forever</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Temporary password</DialogTitle>
+          <DialogDescription>Share this with the user once, then ask them to change it after login.</DialogDescription>
+        </DialogHeader>
+        {tempPassword && (
+          <div className="rounded-lg border p-3 font-mono text-sm break-all bg-muted">{tempPassword}</div>
+        )}
+        <DialogFooter>
+          <Button onClick={() => { tempPassword && navigator.clipboard.writeText(tempPassword); toast({ title: "Copied" }); }}>Copy</Button>
+          <Button variant="outline" onClick={() => { setResetOpen(false); setTempPassword(null); }}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={notifyOpen} onOpenChange={setNotifyOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Send notification</DialogTitle>
+        </DialogHeader>
+        <Input placeholder="Title" value={notifyTitle} onChange={(e) => setNotifyTitle(e.target.value)} />
+        <textarea
+          className="w-full min-h-[100px] rounded-md border bg-background px-3 py-2 text-sm"
+          placeholder="Message"
+          value={notifyBody}
+          onChange={(e) => setNotifyBody(e.target.value)}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setNotifyOpen(false)}>Cancel</Button>
+          <Button disabled={busy} onClick={async () => {
+            if (!notifyTarget) return;
+            setBusy(true);
+            try {
+              await postJson(`/api/admin/users/${notifyTarget.id}/notify`, { title: notifyTitle, body: notifyBody, type: "info" });
+              toast({ title: "Sent" }); setNotifyOpen(false); setNotifyTitle(""); setNotifyBody("");
+            } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
+            finally { setBusy(false); }
+          }}>Send</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={broadcastOpen} onOpenChange={setBroadcastOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Broadcast to all users</DialogTitle>
+        </DialogHeader>
+        <Input placeholder="Title" value={bcTitle} onChange={(e) => setBcTitle(e.target.value)} />
+        <textarea className="w-full min-h-[100px] rounded-md border bg-background px-3 py-2 text-sm" placeholder="Message" value={bcBody} onChange={(e) => setBcBody(e.target.value)} />
+        <select className="w-full border rounded-md px-3 py-2 text-sm bg-background" value={bcType} onChange={(e) => setBcType(e.target.value)}>
+          <option value="info">info</option>
+          <option value="success">success</option>
+          <option value="warning">warning</option>
+          <option value="error">error</option>
+        </select>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setBroadcastOpen(false)}>Cancel</Button>
+          <Button disabled={busy} onClick={async () => {
+            setBusy(true);
+            try {
+              await postJson("/api/admin/broadcast", { title: bcTitle, body: bcBody, type: bcType });
+              toast({ title: "Broadcast sent" }); setBroadcastOpen(false); setBcTitle(""); setBcBody("");
+            } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
+            finally { setBusy(false); }
+          }}>Send to all</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={tierOpen} onOpenChange={setTierOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Change tier</DialogTitle>
+        </DialogHeader>
+        <select className="w-full border rounded-md px-3 py-2 text-sm bg-background" value={tierTier} onChange={(e) => setTierTier(e.target.value)}>
+          {["aurora", "lumen", "nova", "celestia", "orion"].map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+        <Input type="number" placeholder="Tier points" value={tierPoints} onChange={(e) => setTierPoints(e.target.value)} />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setTierOpen(false)}>Cancel</Button>
+          <Button disabled={busy} onClick={async () => {
+            if (!tierTarget) return;
+            setBusy(true);
+            try {
+              const res = await fetch(`/api/admin/users/${tierTarget.id}/tier`, {
+                method: "PATCH",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tier: tierTier, tierPoints: parseInt(tierPoints, 10) || 0 }),
+              });
+              const j = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(j.error);
+              toast({ title: "Tier updated" }); setTierOpen(false); refetch();
+            } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
+            finally { setBusy(false); }
+          }}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     <div className="space-y-3 mt-4">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Input
           placeholder="Search by name or email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1"
+          className="flex-1 min-w-[200px]"
         />
-        <Button variant="outline" size="sm" onClick={exportCSV}>Export CSV</Button>
+        <Button variant="outline" size="sm" onClick={exportServerCsv}>Export CSV</Button>
+        <Button size="sm" onClick={() => setBroadcastOpen(true)} style={{ background: "hsl(152,72%,36%)", color: "white" }}>Broadcast</Button>
       </div>
 
-      {filtered.length === 0 ? (
-        <p className="text-muted-foreground text-center py-8">No users found</p>
-      ) : filtered.map((u) => (
-        <Card key={u.id}>
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <p className="font-semibold">{u.name}</p>
-                  {u.isAdmin && <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">Admin</span>}
+      <div className="overflow-x-auto -mx-1">
+        {filtered.length === 0 ? (
+          <p className="text-muted-foreground text-center py-8">No users found</p>
+        ) : filtered.map((u) => (
+          <Card key={u.id} className="mb-3 min-w-[320px]">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="font-semibold">{u.name}</p>
+                    {u.isAdmin && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/15 text-amber-400">Admin</span>
+                    )}
+                    {u.isBlocked && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-red-500/40 bg-red-500/10 text-red-400 cursor-help">Blocked</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs">
+                          {u.blockedReason || "No reason recorded"}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{u.email}</p>
+                  <p className="text-[10px] text-muted-foreground capitalize">Tier: {u.tier ?? "aurora"} · Phone: {u.phone ?? "—"} · City: {u.city ?? "—"}</p>
+                  {u.cryptoAddress && <p className="text-xs font-mono text-muted-foreground truncate">Wallet: {u.cryptoAddress}</p>}
+                  <p className="text-xs text-muted-foreground">Joined: {new Date(u.joinedAt).toLocaleDateString()} · Pools: {u.poolsJoined} · Dep: {u.totalDeposited?.toFixed?.(2) ?? u.totalDeposited} · Wd: {u.totalWithdrawn?.toFixed?.(2) ?? u.totalWithdrawn}</p>
                 </div>
-                <p className="text-xs text-muted-foreground">{u.email}</p>
-                {u.cryptoAddress && <p className="text-xs font-mono text-muted-foreground truncate">Wallet: {u.cryptoAddress}</p>}
-                <p className="text-xs text-muted-foreground">Joined: {new Date(u.joinedAt).toLocaleDateString()} · Pools: {u.poolsJoined} · Deposited: {u.totalDeposited.toFixed(2)} USDT</p>
-              </div>
-              <div className="text-right shrink-0 space-y-1">
-                <p className="font-bold text-primary text-lg">{u.walletBalance.toFixed(2)} USDT</p>
-                <div className="flex gap-1 justify-end">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs h-7"
-                    onClick={() => setProfileUser(u)}
-                  >
-                    View Profile
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs h-7"
-                    onClick={() => setAdjustingId(adjustingId === u.id ? null : u.id)}
-                  >
-                    {adjustingId === u.id ? "Cancel" : "Adjust"}
-                  </Button>
+                <div className="text-right shrink-0 flex flex-col items-end gap-2">
+                  <p className="font-bold text-primary text-lg">{u.walletBalance.toFixed(2)} USDT</p>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52">
+                      <DropdownMenuItem onClick={() => setProfileUser(u)}>View transactions</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setAdjustingId(adjustingId === u.id ? null : u.id); }}>Adjust balance</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setTierTarget(u); setTierTier(u.tier ?? "aurora"); setTierPoints(String((u as any).tierPoints ?? 0)); setTierOpen(true); }}>Change tier</DropdownMenuItem>
+                      {!u.isBlocked ? (
+                        <DropdownMenuItem onClick={() => { setBlockTarget(u); setBlockOpen(true); }} disabled={u.isAdmin || u.id === me?.id}>Block user</DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem onClick={async () => {
+                          try {
+                            await postJson(`/api/admin/users/${u.id}/unblock`);
+                            toast({ title: "Unblocked" }); refetch();
+                          } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
+                        }}>Unblock user</DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => { setNotifyTarget(u); setNotifyOpen(true); }}>Send notification</DropdownMenuItem>
+                      <DropdownMenuItem onClick={async () => {
+                        setTempPassword(null);
+                        try {
+                          const j = await postJson(`/api/admin/users/${u.id}/reset-password`);
+                          setTempPassword(j.temporaryPassword); setResetOpen(true);
+                        } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
+                      }}>Reset password</DropdownMenuItem>
+                      {isSuperAdmin && (
+                        <>
+                          <DropdownMenuSeparator />
+                          {!u.isAdmin ? (
+                            <DropdownMenuItem disabled={u.isAdmin} onClick={async () => {
+                              try { await postJson(`/api/admin/users/${u.id}/make-admin`); toast({ title: "Now admin" }); refetch(); }
+                              catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
+                            }}>Make admin</DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem disabled={u.id === me?.id} onClick={async () => {
+                              try { await postJson(`/api/admin/users/${u.id}/remove-admin`); toast({ title: "Admin removed" }); refetch(); }
+                              catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
+                            }}>Remove admin</DropdownMenuItem>
+                          )}
+                        </>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-red-500 focus:text-red-500" disabled={u.isAdmin || u.id === me?.id} onClick={() => { setDeleteTarget(u); setDeleteConfirm(""); setDeleteOpen(true); }}>Delete user</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
-            </div>
 
-            {adjustingId === u.id && (
-              <div className="border rounded-lg p-3 bg-muted/30 space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Use positive amount to credit, negative to debit</p>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={adjustAmount}
-                    onChange={(e) => setAdjustAmount(e.target.value)}
-                    placeholder="e.g. 50 or -20"
-                    className="flex-1 h-8 text-sm"
-                  />
-                  <Input
-                    value={adjustNote}
-                    onChange={(e) => setAdjustNote(e.target.value)}
-                    placeholder="Reason (optional)"
-                    className="flex-1 h-8 text-sm"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={() => handleAdjust(u.id)}
-                    disabled={adjusting}
-                    className="h-8"
-                  >
-                    Apply
-                  </Button>
+              {adjustingId === u.id && (
+                <div className="border rounded-lg p-3 bg-muted/30 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Use positive amount to credit, negative to debit</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={adjustAmount}
+                      onChange={(e) => setAdjustAmount(e.target.value)}
+                      placeholder="e.g. 50 or -20"
+                      className="flex-1 min-w-[120px] h-8 text-sm"
+                    />
+                    <Input
+                      value={adjustNote}
+                      onChange={(e) => setAdjustNote(e.target.value)}
+                      placeholder="Reason (optional)"
+                      className="flex-1 min-w-[120px] h-8 text-sm"
+                    />
+                    <Button size="sm" onClick={() => handleAdjust(u.id)} disabled={adjusting} className="h-8">Apply</Button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
     </>
   );
@@ -1089,13 +1347,16 @@ function AuditLogsTab() {
     if (type === "reject") return "text-red-700 bg-red-50 border-red-200";
     if (type === "adjust_balance") return "text-blue-700 bg-blue-50 border-blue-200";
     if (type === "delete_pool") return "text-orange-700 bg-orange-50 border-orange-200";
+    if (type === "delete_user" || type === "block_user") return "text-red-800 bg-red-50 border-red-200";
+    if (type === "broadcast" || type === "notify_user") return "text-violet-800 bg-violet-50 border-violet-200";
+    if (type === "make_admin" || type === "remove_admin") return "text-amber-800 bg-amber-50 border-amber-200";
     return "text-gray-700 bg-gray-50 border-gray-200";
   }
 
   if (loading) return <p className="text-center text-muted-foreground py-8">Loading audit logs...</p>;
 
   return (
-    <div className="space-y-3 mt-4">
+    <div className="space-y-3 mt-4 overflow-x-auto">
       <div className="flex flex-wrap gap-2">
         <Input
           placeholder="Search description or admin name..."
@@ -1177,8 +1438,8 @@ function PendingTransactionsTab() {
   if (loading) return <p className="text-center text-muted-foreground py-8">Loading...</p>;
 
   return (
-    <div className="space-y-4 mt-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 mt-4 overflow-x-auto">
+      <div className="flex items-center justify-between min-w-[min(100%,520px)]">
         <h2 className="font-semibold">Pending Deposits & Withdrawals</h2>
         <Button size="sm" variant="outline" onClick={loadPending}>Refresh</Button>
       </div>
@@ -1276,8 +1537,8 @@ function TransactionsTab() {
   }
 
   return (
-    <div className="space-y-3 mt-4">
-      <div className="flex flex-wrap gap-2">
+    <div className="space-y-3 mt-4 overflow-x-auto">
+      <div className="flex flex-wrap gap-2 min-w-[min(100%,480px)]">
         <Input
           placeholder="Search user or note..."
           value={search}

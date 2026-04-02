@@ -1,10 +1,34 @@
+import { randomBytes } from "node:crypto";
+import bcrypt from "bcryptjs";
 import { Router, type IRouter } from "express";
-import { db, usersTable, poolsTable, poolParticipantsTable, transactionsTable, winnersTable, adminActionsTable } from "@workspace/db";
+import { z } from "zod";
+import {
+  db,
+  pool as pgPool,
+  usersTable,
+  poolsTable,
+  poolParticipantsTable,
+  transactionsTable,
+  winnersTable,
+  adminActionsTable,
+} from "@workspace/db";
 import { eq, count, sum, desc, and, sql } from "drizzle-orm";
 import { sendWithdrawalStatusEmail } from "../lib/email";
 import { sanitizeText } from "../lib/sanitize";
+import { requireAdmin } from "../middleware/auth";
+import { getAuthedUserId } from "../middleware/auth";
 
 const router: IRouter = Router();
+
+router.use(requireAdmin);
+
+function superAdminIds(): number[] {
+  const raw = process.env.SUPER_ADMIN_USER_IDS ?? "1";
+  return raw
+    .split(",")
+    .map((s) => parseInt(s.trim(), 10))
+    .filter((n) => !Number.isNaN(n) && n > 0);
+}
 
 async function logAction(adminId: number, targetType: string, targetId: number | null, actionType: string, description: string) {
   try {
@@ -13,7 +37,13 @@ async function logAction(adminId: number, targetType: string, targetId: number |
 }
 
 function getAdminId(req: any): number {
-  return req.session?.userId ?? 0;
+  return getAuthedUserId(req);
+}
+
+function csvEscape(val: unknown): string {
+  const s = val === null || val === undefined ? "" : String(val);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
 }
 
 router.get("/stats", async (req, res) => {
@@ -70,38 +100,50 @@ router.get("/stats", async (req, res) => {
 });
 
 router.get("/users", async (req, res) => {
-  const users = await db.select().from(usersTable).orderBy(desc(usersTable.joinedAt));
+  const { rows: userRows } = await pgPool.query(
+    `SELECT id, name, email, phone, city, wallet_balance, crypto_address, is_admin, joined_at,
+            COALESCE(tier, 'aurora') AS tier,
+            is_blocked, blocked_at, blocked_reason
+     FROM users ORDER BY joined_at DESC`,
+  );
 
   const result = await Promise.all(
-    users.map(async (user) => {
+    userRows.map(async (user: any) => {
+      const uid = user.id;
       const [depositTotal] = await db
         .select({ total: sum(transactionsTable.amount) })
         .from(transactionsTable)
-        .where(and(eq(transactionsTable.userId, user.id), eq(transactionsTable.txType, "deposit"), eq(transactionsTable.status, "completed")));
+        .where(and(eq(transactionsTable.userId, uid), eq(transactionsTable.txType, "deposit"), eq(transactionsTable.status, "completed")));
 
       const [withdrawTotal] = await db
         .select({ total: sum(transactionsTable.amount) })
         .from(transactionsTable)
-        .where(and(eq(transactionsTable.userId, user.id), eq(transactionsTable.txType, "withdraw")));
+        .where(and(eq(transactionsTable.userId, uid), eq(transactionsTable.txType, "withdraw")));
 
       const [poolsJoinedCount] = await db
         .select({ ct: count() })
         .from(poolParticipantsTable)
-        .where(eq(poolParticipantsTable.userId, user.id));
+        .where(eq(poolParticipantsTable.userId, uid));
 
       return {
-        id: user.id,
+        id: uid,
         name: user.name,
         email: user.email,
-        walletBalance: parseFloat(user.walletBalance),
-        cryptoAddress: user.cryptoAddress ?? null,
-        isAdmin: user.isAdmin,
-        joinedAt: user.joinedAt,
+        phone: user.phone ?? null,
+        city: user.city ?? null,
+        walletBalance: parseFloat(user.wallet_balance),
+        cryptoAddress: user.crypto_address ?? null,
+        isAdmin: user.is_admin,
+        tier: user.tier,
+        isBlocked: user.is_blocked === true,
+        blockedAt: user.blocked_at,
+        blockedReason: user.blocked_reason ?? null,
+        joinedAt: user.joined_at,
         totalDeposited: parseFloat(depositTotal?.total ?? "0"),
         totalWithdrawn: parseFloat(withdrawTotal?.total ?? "0"),
         poolsJoined: Number(poolsJoinedCount?.ct ?? 0),
       };
-    })
+    }),
   );
 
   res.json(result);
@@ -269,7 +311,7 @@ router.post("/transactions/:id/approve", async (req, res) => {
       ? `Your deposit of ${tx.amount} USDT has been approved ✓ Your wallet has been credited.`
       : `Your withdrawal of ${tx.amount} USDT is now under review and will be processed shortly.`;
     await db.execute(
-      sql`INSERT INTO notifications (user_id, title, body, type) VALUES (${tx.userId}, 'Payment Approved', ${notifMsg}, 'success')`
+      sql`INSERT INTO notifications (user_id, title, message, type) VALUES (${tx.userId}, 'Payment Approved', ${notifMsg}, 'success')`
     );
   } catch {}
 
@@ -295,7 +337,7 @@ router.post("/transactions/:id/complete", async (req, res) => {
 
   try {
     await db.execute(
-      sql`INSERT INTO notifications (user_id, title, body, type) VALUES (${tx.userId}, 'Withdrawal Completed', ${`Your withdrawal of ${tx.amount} USDT has been processed.`}, 'success')`
+      sql`INSERT INTO notifications (user_id, title, message, type) VALUES (${tx.userId}, 'Withdrawal Completed', ${`Your withdrawal of ${tx.amount} USDT has been processed.`}, 'success')`
     );
   } catch {}
 
@@ -362,7 +404,7 @@ router.post("/transactions/:id/reject", async (req, res) => {
       ? `Your deposit of ${tx.amount} USDT was rejected. Please check your screenshot and try again, or contact support.`
       : `Your withdrawal of ${tx.amount} USDT was rejected. ${reason ? `Reason: ${reason}. ` : ""}Your balance has been refunded.`;
     await db.execute(
-      sql`INSERT INTO notifications (user_id, title, body, type) VALUES (${tx.userId}, 'Payment Rejected', ${notifMsg}, 'error')`
+      sql`INSERT INTO notifications (user_id, title, message, type) VALUES (${tx.userId}, 'Payment Rejected', ${notifMsg}, 'error')`
     );
   } catch {}
 
@@ -489,6 +531,262 @@ router.patch("/reviews/:id/featured", async (req, res) => {
     console.error(err);
     return res.status(500).json({ error: "Failed to update featured status" });
   }
+});
+
+const BlockBody = z.object({ reason: z.string().min(1).max(2000).optional() });
+const NotifyBody = z.object({ title: z.string().min(1).max(120), body: z.string().min(1).max(4000), type: z.string().max(32).optional() });
+const BroadcastBody = z.object({ title: z.string().min(1).max(120), body: z.string().min(1).max(4000), type: z.string().max(32).optional() });
+
+router.post("/users/:id/block", async (req, res) => {
+  const targetId = parseInt(req.params.id);
+  if (isNaN(targetId)) return res.status(400).json({ error: "Invalid user ID" });
+  const adminId = getAdminId(req);
+  if (targetId === adminId) return res.status(400).json({ error: "Cannot block yourself" });
+
+  const parse = BlockBody.safeParse(req.body ?? {});
+  if (!parse.success) return res.status(400).json({ error: "Validation error" });
+
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+  if (!target) return res.status(404).json({ error: "User not found" });
+  if (target.isAdmin) return res.status(400).json({ error: "Cannot block an admin" });
+
+  const reason = parse.data.reason ? sanitizeText(parse.data.reason, 2000) : "";
+  await db
+    .update(usersTable)
+    .set({
+      isBlocked: true,
+      blockedAt: new Date(),
+      blockedReason: reason || null,
+    })
+    .where(eq(usersTable.id, targetId));
+
+  await logAction(adminId, "user", targetId, "block_user", `Blocked ${target.name} <${target.email}>${reason ? ` — ${reason}` : ""}`);
+  res.json({ message: "User blocked" });
+});
+
+router.post("/users/:id/unblock", async (req, res) => {
+  const targetId = parseInt(req.params.id);
+  if (isNaN(targetId)) return res.status(400).json({ error: "Invalid user ID" });
+
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+  if (!target) return res.status(404).json({ error: "User not found" });
+
+  await db
+    .update(usersTable)
+    .set({ isBlocked: false, blockedAt: null, blockedReason: null })
+    .where(eq(usersTable.id, targetId));
+
+  await logAction(getAdminId(req), "user", targetId, "unblock_user", `Unblocked ${target.name} <${target.email}>`);
+  res.json({ message: "User unblocked" });
+});
+
+router.delete("/users/:id", async (req, res) => {
+  const targetId = parseInt(req.params.id);
+  if (isNaN(targetId)) return res.status(400).json({ error: "Invalid user ID" });
+  const adminId = getAdminId(req);
+  if (targetId === adminId) return res.status(400).json({ error: "Cannot delete yourself" });
+
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+  if (!target) return res.status(404).json({ error: "User not found" });
+  if (target.isAdmin) return res.status(400).json({ error: "Cannot delete an admin" });
+
+  const snapshot = `${target.name} <${target.email}>`;
+  const client = await pgPool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows: parts } = await client.query(
+      `SELECT pp.pool_id, p.entry_fee, p.status, p.title
+       FROM pool_participants pp
+       JOIN pools p ON p.id = pp.pool_id
+       WHERE pp.user_id = $1`,
+      [targetId],
+    );
+
+    for (const row of parts) {
+      if (row.status !== "completed") {
+        const fee = parseFloat(row.entry_fee);
+        const urow = await client.query(`SELECT wallet_balance FROM users WHERE id = $1`, [targetId]);
+        const bal = parseFloat(urow.rows[0]?.wallet_balance ?? "0");
+        const newBal = bal + fee;
+        await client.query(`UPDATE users SET wallet_balance = $1 WHERE id = $2`, [String(newBal), targetId]);
+        await client.query(
+          `INSERT INTO transactions (user_id, tx_type, amount, status, note)
+           VALUES ($1, 'deposit', $2, 'completed', $3)`,
+          [targetId, String(fee), `[Admin] Refund before account deletion — pool "${row.title}"`],
+        );
+      }
+    }
+
+    await client.query(`DELETE FROM pool_participants WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM transactions WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM winners WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM notifications WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM referrals WHERE referrer_id = $1 OR referred_id = $1`, [targetId]);
+    await client.query(`DELETE FROM reviews WHERE user_id = $1`, [targetId]);
+    await client.query(`DELETE FROM admin_actions WHERE admin_id = $1 OR (target_type = 'user' AND target_id = $1)`, [targetId]);
+    await client.query(`UPDATE users SET referred_by = NULL WHERE referred_by = $1`, [targetId]);
+    await client.query(`DELETE FROM users WHERE id = $1`, [targetId]);
+
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error(err);
+    return res.status(500).json({ error: "Failed to delete user" });
+  } finally {
+    client.release();
+  }
+
+  await logAction(adminId, "user", targetId, "delete_user", `Permanently deleted user ${snapshot}`);
+  res.json({ message: "User deleted" });
+});
+
+router.post("/users/:id/make-admin", async (req, res) => {
+  const targetId = parseInt(req.params.id);
+  if (isNaN(targetId)) return res.status(400).json({ error: "Invalid user ID" });
+  const adminId = getAdminId(req);
+  if (!superAdminIds().includes(adminId)) return res.status(403).json({ error: "Only the super admin can grant admin" });
+
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+  if (!target) return res.status(404).json({ error: "User not found" });
+
+  await db.update(usersTable).set({ isAdmin: true }).where(eq(usersTable.id, targetId));
+  await logAction(adminId, "user", targetId, "make_admin", `Granted admin to ${target.name} <${target.email}>`);
+  res.json({ message: "User is now an admin" });
+});
+
+router.post("/users/:id/remove-admin", async (req, res) => {
+  const targetId = parseInt(req.params.id);
+  if (isNaN(targetId)) return res.status(400).json({ error: "Invalid user ID" });
+  const adminId = getAdminId(req);
+  if (targetId === adminId) return res.status(400).json({ error: "Cannot remove your own admin status" });
+  if (!superAdminIds().includes(adminId)) return res.status(403).json({ error: "Only the super admin can remove admin" });
+
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+  if (!target) return res.status(404).json({ error: "User not found" });
+
+  await db.update(usersTable).set({ isAdmin: false }).where(eq(usersTable.id, targetId));
+  await logAction(adminId, "user", targetId, "remove_admin", `Removed admin from ${target.name} <${target.email}>`);
+  res.json({ message: "Admin removed" });
+});
+
+router.post("/users/:id/reset-password", async (req, res) => {
+  const targetId = parseInt(req.params.id);
+  if (isNaN(targetId)) return res.status(400).json({ error: "Invalid user ID" });
+
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+  if (!target) return res.status(404).json({ error: "User not found" });
+
+  const tempPass = randomBytes(9).toString("base64url").slice(0, 14);
+  const hash = await bcrypt.hash(tempPass, 12);
+  await db.update(usersTable).set({ passwordHash: hash }).where(eq(usersTable.id, targetId));
+
+  await logAction(getAdminId(req), "user", targetId, "reset_password", `Reset password for ${target.name} <${target.email}>`);
+  res.json({ message: "Password reset", temporaryPassword: tempPass });
+});
+
+router.post("/users/:id/notify", async (req, res) => {
+  const targetId = parseInt(req.params.id);
+  if (isNaN(targetId)) return res.status(400).json({ error: "Invalid user ID" });
+  const parse = NotifyBody.safeParse(req.body ?? {});
+  if (!parse.success) return res.status(400).json({ error: "Validation error" });
+
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+  if (!target) return res.status(404).json({ error: "User not found" });
+
+  const title = sanitizeText(parse.data.title, 120);
+  const body = sanitizeText(parse.data.body, 4000);
+  const ntype = sanitizeText(parse.data.type ?? "info", 32) || "info";
+
+  await pgPool.query(`INSERT INTO notifications (user_id, title, message, type) VALUES ($1, $2, $3, $4)`, [
+    targetId,
+    title,
+    body,
+    ntype,
+  ]);
+
+  await logAction(getAdminId(req), "user", targetId, "notify_user", `Sent notification "${title}" to ${target.name}`);
+  res.json({ message: "Notification sent" });
+});
+
+router.post("/broadcast", async (req, res) => {
+  const parse = BroadcastBody.safeParse(req.body ?? {});
+  if (!parse.success) return res.status(400).json({ error: "Validation error" });
+
+  const title = sanitizeText(parse.data.title, 120);
+  const body = sanitizeText(parse.data.body, 4000);
+  const ntype = sanitizeText(parse.data.type ?? "info", 32) || "info";
+
+  await pgPool.query(
+    `INSERT INTO notifications (user_id, title, message, type)
+     SELECT id, $1, $2, $3 FROM users`,
+    [title, body, ntype],
+  );
+
+  await logAction(getAdminId(req), "user", null, "broadcast", `Broadcast notification "${title}" to all users`);
+  res.json({ message: "Broadcast sent" });
+});
+
+router.get("/users/export", async (req, res) => {
+  const { rows } = await pgPool.query(
+    `SELECT u.id, u.name, u.email, u.phone, u.wallet_balance, u.city,
+            COALESCE(u.tier, 'aurora') AS tier, u.joined_at, u.is_blocked,
+            COALESCE(d.dep, 0) AS total_deposited,
+            COALESCE(w.wd, 0) AS total_withdrawn,
+            COALESCE(p.pj, 0)::int AS pools_joined
+     FROM users u
+     LEFT JOIN (
+       SELECT user_id, SUM(amount::numeric) AS dep FROM transactions
+       WHERE tx_type = 'deposit' AND status = 'completed' GROUP BY user_id
+     ) d ON d.user_id = u.id
+     LEFT JOIN (
+       SELECT user_id, SUM(amount::numeric) AS wd FROM transactions
+       WHERE tx_type = 'withdraw' GROUP BY user_id
+     ) w ON w.user_id = u.id
+     LEFT JOIN (
+       SELECT user_id, COUNT(*) AS pj FROM pool_participants GROUP BY user_id
+     ) p ON p.user_id = u.id
+     ORDER BY u.id`,
+  );
+
+  const header = [
+    "id",
+    "name",
+    "email",
+    "phone",
+    "wallet_balance",
+    "city",
+    "tier",
+    "joined_at",
+    "is_blocked",
+    "total_deposited",
+    "total_withdrawn",
+    "pools_joined",
+  ];
+  const lines = [header.join(",")];
+  for (const r of rows as any[]) {
+    lines.push(
+      [
+        csvEscape(r.id),
+        csvEscape(r.name),
+        csvEscape(r.email),
+        csvEscape(r.phone),
+        csvEscape(r.wallet_balance),
+        csvEscape(r.city),
+        csvEscape(r.tier),
+        csvEscape(r.joined_at?.toISOString?.() ?? r.joined_at),
+        csvEscape(r.is_blocked),
+        csvEscape(r.total_deposited),
+        csvEscape(r.total_withdrawn),
+        csvEscape(r.pools_joined),
+      ].join(","),
+    );
+  }
+
+  const csv = lines.join("\n");
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="users-export.csv"');
+  res.send(csv);
 });
 
 export default router;

@@ -45,15 +45,29 @@ function NotificationBell() {
         .then((r) => r.ok ? r.json() : [])
         .then((d) => { setNotifs(d); setLoading(false); })
         .catch(() => setLoading(false));
-      /* Mark all read */
-      fetch("/api/notifications/read-all", { method: "PATCH", credentials: "include" })
-        .then(() => setUnread(0)).catch(() => {});
     }
+  }
+
+  function markOneRead(id: number) {
+    fetch(`/api/notifications/${id}/read`, { method: "PATCH", credentials: "include" })
+      .then(() => {
+        setNotifs((prev) => prev.map((n: any) => (n.id === id ? { ...n, read: true } : n)));
+        setUnread((u) => Math.max(0, u - 1));
+      })
+      .catch(() => {});
   }
 
   const typeIcon: Record<string, string> = {
     win: "🏆", refund: "💸", pool_update: "🎱", referral: "🔗", tier: "⭐", pool: "🎱",
+    success: "✓", error: "!", info: "ℹ", warning: "⚠",
   };
+
+  function typeStyle(t: string) {
+    if (t === "success") return { bg: "hsla(152,72%,44%,0.12)", border: "hsla(152,72%,44%,0.25)", fg: "hsl(152,72%,55%)" };
+    if (t === "error") return { bg: "hsla(0,72%,44%,0.12)", border: "hsla(0,72%,44%,0.25)", fg: "hsl(0,72%,60%)" };
+    if (t === "warning") return { bg: "hsla(38,100%,55%,0.1)", border: "hsla(38,100%,55%,0.25)", fg: "hsl(38,100%,60%)" };
+    return { bg: "hsla(210,80%,55%,0.1)", border: "hsla(210,80%,55%,0.2)", fg: "hsl(210,80%,65%)" };
+  }
   function timeAgo(d: string) {
     const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
     if (m < 1) return "just now";
@@ -98,10 +112,21 @@ function NotificationBell() {
               </div>
             ) : (
               notifs.map((n) => (
-                <div key={n.id} className="flex items-start gap-3 px-4 py-3 border-b transition-colors hover:bg-white/[0.02]"
-                  style={{ borderColor: "hsl(217,28%,13%)", background: n.read ? "transparent" : "hsla(152,72%,44%,0.03)" }}>
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm shrink-0 mt-0.5"
-                    style={{ background: "hsl(217,28%,13%)" }}>
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => markOneRead(n.id)}
+                  className="w-full text-left flex items-start gap-3 px-4 py-3 border-b transition-colors hover:bg-white/[0.02]"
+                  style={{ borderColor: "hsl(217,28%,13%)", background: n.read ? "transparent" : "hsla(152,72%,44%,0.03)" }}
+                >
+                  <div
+                    className="w-8 h-8 rounded-xl flex items-center justify-center text-sm shrink-0 mt-0.5 border"
+                    style={{
+                      background: typeStyle(n.type ?? "info").bg,
+                      borderColor: typeStyle(n.type ?? "info").border,
+                      color: typeStyle(n.type ?? "info").fg,
+                    }}
+                  >
                     {typeIcon[n.type] ?? "📢"}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -112,7 +137,7 @@ function NotificationBell() {
                     <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{n.message}</p>
                     <p className="text-[10px] text-muted-foreground/50 mt-1">{timeAgo(n.created_at)}</p>
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>
@@ -432,6 +457,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   /* Secondary links — tucked into "More" dropdown on desktop */
   const secondaryLinks = user ? [
+    { href: "/how-it-works", label: "How It Works", icon: "📘" },
     { href: "/reviews",    label: "Reviews",    icon: "💬" },
     { href: "/referral",   label: "Referral",   icon: "🔗" },
     ...(user.isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: "⚙️" }] : []),
@@ -524,6 +550,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
               {!isLoading && !user && (
                 <div className="flex items-center gap-2">
+                  <Link href="/how-it-works">
+                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm hidden sm:inline-flex">
+                      How It Works
+                    </Button>
+                  </Link>
                   <Link href="/login">
                     <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm">
                       Login
@@ -554,9 +585,41 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className={`flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 ${user ? "pb-24 md:pb-8" : ""}`}>
         {children}
       </main>
+
+      {user && (
+        <nav
+          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t flex justify-around items-center h-16 px-2 safe-area-pb"
+          style={{ background: "hsla(224,30%,7%,0.96)", backdropFilter: "blur(12px)", borderColor: "hsl(217,28%,14%)" }}
+        >
+          {[
+            { href: "/dashboard", label: "Home", icon: "🏠" },
+            { href: "/pools", label: "Pools", icon: "🎱" },
+            { href: "/wallet", label: "Wallet", icon: "💳" },
+            { href: "/winners", label: "Wins", icon: "🏆" },
+          ].map((item) => {
+            const active =
+              item.href === "/dashboard"
+                ? location === "/dashboard"
+                : location.startsWith(item.href);
+            return (
+              <Link key={item.href} href={item.href}>
+                <span
+                  className={`flex flex-col items-center justify-center text-[10px] font-medium min-w-[56px] py-1 rounded-lg transition-colors ${
+                    active ? "text-primary" : "text-muted-foreground"
+                  }`}
+                  style={active ? { background: "hsla(152,72%,44%,0.12)" } : {}}
+                >
+                  <span className="text-lg leading-none mb-0.5">{item.icon}</span>
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
+      )}
 
       <footer className="border-t mt-auto py-5" style={{ borderColor: "hsl(217,28%,14%)" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground">

@@ -27,7 +27,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
   const fillPercent = Math.round((pool.participantCount / pool.maxUsers) * 100);
 
   return (
-    <Card className="hover:shadow-lg hover:shadow-primary/10 transition-all duration-200 hover:-translate-y-0.5 overflow-hidden group">
+    <Card className="w-full hover:shadow-lg hover:shadow-primary/10 transition-all duration-200 hover:-translate-y-0.5 overflow-hidden group">
       <div className="h-0.5 bg-gradient-to-r from-primary/60 via-primary to-blue-500/60 opacity-60 group-hover:opacity-100 transition-opacity" />
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">

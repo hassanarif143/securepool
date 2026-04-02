@@ -10,10 +10,12 @@ import referralRouter from "./referral";
 import reviewsRouter from "./reviews";
 import tierRouter from "./tier";
 import notificationsRouter from "./notifications";
+import statsRouter from "./stats";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use("/stats", statsRouter);
 router.use("/auth", authRouter);
 router.use("/users", usersRouter);
 router.use("/pools", poolsRouter);

@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getJwtCookieName, signUserJwt } from "../lib/jwt";
 import type { AuthedRequest } from "../middleware/auth";
+import { getAuthedUserId } from "../middleware/auth";
 import { sendRegistrationEmail } from "../lib/email";
 import { sanitizeText } from "../lib/sanitize";
 import { logger } from "../lib/logger";
@@ -35,17 +36,22 @@ const LoginSchema = z.object({
 });
 
 const loginLimiter = rateLimit({
-  windowMs: 60_000,
-  limit: 5,
+  windowMs: 15 * 60_000,
+  limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => {
+    const email = typeof (req.body as any)?.email === "string" ? (req.body as any).email.toLowerCase().trim() : "";
+    return email || req.ip || "unknown";
+  },
 });
 
 const signupLimiter = rateLimit({
-  windowMs: 60_000,
+  windowMs: 60 * 60_000,
   limit: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => req.ip || "unknown",
 });
 
 function authCookieOptions() {
@@ -206,19 +212,31 @@ router.post("/login", loginLimiter, async (req, res) => {
   const { password } = parse.data;
 
   const { rows } = await dbPool.query(
-    `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at
+    `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at,
+            is_blocked, blocked_reason
      FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
     [email],
   );
   const user = rows[0];
   if (!user) {
+    logger.warn({ email, ip: req.ip }, "Failed login attempt — user not found");
     res.status(401).json({ error: "Invalid credentials", message: "Email or password is incorrect." });
     return;
   }
 
   const valid = await verifyAndUpgradePassword(user.id, user.password_hash, password);
   if (!valid) {
+    logger.warn({ email, userId: user.id, ip: req.ip }, "Failed login attempt — bad password");
     res.status(401).json({ error: "Invalid credentials", message: "Email or password is incorrect." });
+    return;
+  }
+
+  if (user.is_blocked === true) {
+    const reason = typeof user.blocked_reason === "string" && user.blocked_reason.trim() ? user.blocked_reason.trim() : "Policy violation";
+    res.status(403).json({
+      error: "Account suspended",
+      message: `Your account has been suspended. Reason: ${reason}. Contact support.`,
+    });
     return;
   }
 
@@ -248,7 +266,7 @@ router.post("/logout", (req, res) => {
 });
 
 router.get("/me", async (req, res) => {
-  const userId = (req as AuthedRequest).userId ?? (req.session as any).userId;
+  const userId = getAuthedUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Not authenticated", message: "Please login to continue." });
     return;

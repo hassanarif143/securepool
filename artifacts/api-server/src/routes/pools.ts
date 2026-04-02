@@ -4,6 +4,7 @@ import { eq, and, sql, desc, count } from "drizzle-orm";
 import { maybeCreditReferralBonus } from "./referral";
 import { CreatePoolBody, UpdatePoolBody } from "@workspace/api-zod";
 import { sendDrawResultEmail, sendTicketApprovedEmail } from "../lib/email";
+import { getAuthedUserId } from "../middleware/auth";
 
 const router: IRouter = Router();
 
@@ -69,7 +70,7 @@ router.post("/", async (req, res) => {
 
 /* GET /pools/my-entries — pools the current user has joined */
 router.get("/my-entries", async (req, res) => {
-  const userId = (req as any).session?.userId;
+  const userId = getAuthedUserId(req);
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const { pool: pgPool } = await import("@workspace/db");
@@ -117,7 +118,7 @@ router.get("/:poolId", async (req, res) => {
     .from(poolParticipantsTable)
     .where(eq(poolParticipantsTable.poolId, poolId));
 
-  const sessionUserId = (req as any).session?.userId;
+  const sessionUserId = getAuthedUserId(req);
   let userJoined = false;
   if (sessionUserId) {
     const existing = await db
@@ -170,7 +171,7 @@ router.post("/:poolId/join", async (req, res) => {
     return;
   }
 
-  const sessionUserId = (req as any).session?.userId;
+  const sessionUserId = getAuthedUserId(req);
   if (!sessionUserId) {
     res.status(401).json({ error: "Not authenticated" });
     return;

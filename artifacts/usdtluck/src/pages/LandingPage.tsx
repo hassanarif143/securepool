@@ -1,13 +1,48 @@
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useListWinners, useListPools } from "@workspace/api-client-react";
 
+function useAnimatedInt(target: number, duration = 1400) {
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    let start: number | null = null;
+    let raf = 0;
+    const tick = (t: number) => {
+      if (start === null) start = t;
+      const p = Math.min(1, (t - start) / duration);
+      setV(Math.round(target * (0.5 - Math.cos(p * Math.PI) / 2)));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return v;
+}
+
 export default function LandingPage() {
   const { data: winners } = useListWinners();
   const { data: pools } = useListPools();
+  const [summary, setSummary] = useState<{
+    totalUsers: number;
+    activePools: number;
+    totalRewardsDistributed: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const base = import.meta.env.VITE_API_URL?.replace(/\/$/, "") ?? "";
+    fetch(`${base}/api/stats/summary`, { credentials: "omit" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setSummary)
+      .catch(() => {});
+  }, []);
 
   const activePools = pools?.filter((p) => p.status === "open") ?? [];
+
+  const uAnim = useAnimatedInt(summary?.totalUsers ?? 0);
+  const rAnim = useAnimatedInt(Math.round(summary?.totalRewardsDistributed ?? 0));
+  const pAnim = useAnimatedInt(summary?.activePools ?? 0);
 
   return (
     <div className="space-y-20">
@@ -52,6 +87,11 @@ export default function LandingPage() {
                 Create Free Account
               </Button>
             </Link>
+            <Link href="/how-it-works">
+              <Button size="lg" variant="outline" className="px-8">
+                Learn How It Works
+              </Button>
+            </Link>
             <Link href="/winners">
               <Button size="lg" variant="outline" className="px-8">
                 View Winners 🏆
@@ -61,20 +101,20 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Stats row */}
+      {/* Live stats */}
       <section className="max-w-4xl mx-auto">
         <div className="grid grid-cols-3 gap-4 text-center">
           {[
-            { label: "Prize Pool", value: "180 USDT", sub: "per pool" },
-            { label: "Entry Fee", value: "10 USDT", sub: "per ticket" },
-            { label: "Winners", value: "3", sub: "chosen randomly" },
+            { label: "Community", value: summary ? `${uAnim}+` : "—", sub: "registered users" },
+            { label: "Rewards paid", value: summary ? `${rAnim} USDT` : "—", sub: "total distributed" },
+            { label: "Live pools", value: summary ? String(pAnim) : "—", sub: "open right now" },
           ].map((stat) => (
             <div
               key={stat.label}
-              className="bg-card border border-border/60 rounded-2xl py-5 px-4 hover:border-primary/30 transition-colors"
+              className="bg-card border border-border/60 rounded-2xl py-5 px-4 hover:border-primary/30 transition-colors motion-safe:transition-transform motion-safe:hover:-translate-y-0.5"
             >
               <p
-                className="text-2xl font-bold text-transparent bg-clip-text mb-0.5"
+                className="text-2xl font-bold text-transparent bg-clip-text mb-0.5 tabular-nums"
                 style={{ backgroundImage: "linear-gradient(135deg, #4ade80, #22c55e)" }}
               >
                 {stat.value}
@@ -84,6 +124,21 @@ export default function LandingPage() {
             </div>
           ))}
         </div>
+        <p className="text-center text-[10px] text-muted-foreground mt-3">Figures update from the live platform.</p>
+      </section>
+
+      {/* Trust strip */}
+      <section className="max-w-4xl mx-auto flex flex-wrap justify-center gap-4 text-sm text-muted-foreground">
+        {[
+          { icon: "🔍", t: "Transparent rules & prize breakdown" },
+          { icon: "🔐", t: "Verified deposits & withdrawals" },
+          { icon: "✅", t: "Admin-reviewed transactions" },
+        ].map((x) => (
+          <div key={x.t} className="flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 bg-card/50">
+            <span>{x.icon}</span>
+            <span>{x.t}</span>
+          </div>
+        ))}
       </section>
 
       {/* How it works */}
