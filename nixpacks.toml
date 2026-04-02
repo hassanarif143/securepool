@@ -1,10 +1,10 @@
-providers = []
+providers = ["node"]
 
 [phases.setup]
-cmds = ["corepack enable"]
+nixPkgs = ["nodejs_22"]
 
 [phases.install]
-cmds = ["pnpm install --no-frozen-lockfile"]
+cmds = ["npm i -g corepack && corepack enable && pnpm install --no-frozen-lockfile"]
 
 [phases.build]
 cmds = ["pnpm run build"]
