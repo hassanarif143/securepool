@@ -1,1 +1,1 @@
-{"build":{"buildCommand":"corepack enable && pnpm install && pnpm run build"},"deploy":{"startCommand":"node artifacts/api-server/dist/index.js"}}
+{"build":{"buildCommand":"corepack enable && pnpm install --no-frozen-lockfile && pnpm run build"},"deploy":{"startCommand":"node artifacts/api-server/dist/index.js"}}
