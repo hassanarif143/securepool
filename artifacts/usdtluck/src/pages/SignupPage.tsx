@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
 import { setCsrfToken } from "@/lib/csrf";
+import { getApiBaseUrl } from "@/lib/api-base";
 
 function PasswordStrength({ password }: { password: string }) {
   const checks = [
@@ -43,14 +44,7 @@ function PasswordStrength({ password }: { password: string }) {
 }
 
 export default function SignupPage() {
-  const apiBase = (() => {
-    const explicit = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "");
-    if (explicit) return explicit;
-    if (typeof window !== "undefined" && window.location.hostname === "securepool-usdtluck.vercel.app") {
-      return "https://securepool-production.up.railway.app";
-    }
-    return "";
-  })();
+  const apiBase = getApiBaseUrl();
   const [name, setName] = useState("");
   const [cryptoAddress, setCryptoAddress] = useState("");
   const [email, setEmail] = useState("");

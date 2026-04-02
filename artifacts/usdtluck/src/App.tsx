@@ -49,16 +49,14 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 }
 
 function RequireGuest({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  const { user } = useAuth();
   const [, navigate] = useLocation();
 
   useEffect(() => {
-    if (!isLoading && user) {
-      navigate("/dashboard");
-    }
-  }, [user, isLoading, navigate]);
+    if (user) navigate("/dashboard");
+  }, [user, navigate]);
 
-  if (isLoading) return null;
+  // Do not gate on isLoading: cross-origin /me can leave the login route blank while pending.
   if (user) return null;
   return <>{children}</>;
 }

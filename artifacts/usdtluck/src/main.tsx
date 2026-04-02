@@ -2,7 +2,8 @@ import { createRoot } from "react-dom/client";
 import { setBaseUrl } from "@workspace/api-client-react";
 import App from "./App";
 import "./index.css";
-import { getCsrfToken } from "./lib/csrf";
+import { getApiBaseUrl } from "./lib/api-base";
+import { getCsrfToken, setCsrfToken } from "./lib/csrf";
 
 function getCookie(name: string): string | null {
   const value = `; ${document.cookie}`;
@@ -30,8 +31,24 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
   });
 };
 
-if (import.meta.env.VITE_API_URL) {
-  setBaseUrl(import.meta.env.VITE_API_URL);
+async function bootstrapCsrf(): Promise<void> {
+  const base = getApiBaseUrl();
+  if (!base) return;
+  try {
+    const res = await fetch(`${base}/api/auth/csrf-token`, { credentials: "include" });
+    if (!res.ok) return;
+    const data = (await res.json()) as { csrfToken?: string };
+    if (typeof data.csrfToken === "string") setCsrfToken(data.csrfToken);
+  } catch {
+    // Non-fatal: login/signup still fetch CSRF before POST
+  }
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+const apiBase = getApiBaseUrl();
+if (apiBase) {
+  setBaseUrl(apiBase);
+}
+
+void bootstrapCsrf().then(() => {
+  createRoot(document.getElementById("root")!).render(<App />);
+});

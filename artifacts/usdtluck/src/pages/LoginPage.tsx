@@ -4,16 +4,10 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
 import { setCsrfToken } from "@/lib/csrf";
+import { getApiBaseUrl } from "@/lib/api-base";
 
 export default function LoginPage() {
-  const apiBase = (() => {
-    const explicit = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "");
-    if (explicit) return explicit;
-    if (typeof window !== "undefined" && window.location.hostname === "securepool-usdtluck.vercel.app") {
-      return "https://securepool-production.up.railway.app";
-    }
-    return "";
-  })();
+  const apiBase = getApiBaseUrl();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
