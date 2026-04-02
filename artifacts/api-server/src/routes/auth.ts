@@ -9,6 +9,7 @@ import type { AuthedRequest } from "../middleware/auth";
 import { sendRegistrationEmail } from "../lib/email";
 import { sanitizeText } from "../lib/sanitize";
 import { logger } from "../lib/logger";
+import { getOrCreateCsrfToken } from "../middleware/csrf";
 
 declare module "express-session" {
   interface SessionData {
@@ -93,7 +94,7 @@ async function verifyAndUpgradePassword(userId: number, storedHash: string, inpu
 }
 
 router.get("/csrf-token", (req, res) => {
-  const token = (req as any).cookies?.sp_csrf ?? null;
+  const token = getOrCreateCsrfToken(req, res);
   res.json({ csrfToken: token });
 });
 

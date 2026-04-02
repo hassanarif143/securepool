@@ -3,6 +3,7 @@ import { Link, useLocation, useSearch } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
+import { setCsrfToken } from "@/lib/csrf";
 
 export default function LoginPage() {
   const apiBase = (() => {
@@ -29,7 +30,12 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await fetch(`${apiBase}/api/auth/csrf-token`, { method: "GET", credentials: "include" });
+      const csrfRes = await fetch(`${apiBase}/api/auth/csrf-token`, { method: "GET", credentials: "include" });
+      const csrfRaw = await csrfRes.text();
+      const csrfData = csrfRaw ? (() => {
+        try { return JSON.parse(csrfRaw); } catch { return {}; }
+      })() : {};
+      setCsrfToken((csrfData as any).csrfToken ?? null);
 
       const res = await fetch(`${apiBase}/api/auth/login`, {
         method: "POST",

@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { setBaseUrl } from "@workspace/api-client-react";
 import App from "./App";
 import "./index.css";
+import { getCsrfToken } from "./lib/csrf";
 
 function getCookie(name: string): string | null {
   const value = `; ${document.cookie}`;
@@ -17,7 +18,7 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
     return nativeFetch(input, init);
   }
 
-  const csrf = getCookie("sp_csrf");
+  const csrf = getCsrfToken() ?? getCookie("sp_csrf");
   if (!csrf) return nativeFetch(input, init);
 
   const headers = new Headers(init?.headers ?? {});

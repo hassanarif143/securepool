@@ -23,6 +23,10 @@ function ensureCsrfCookie(req: Request, res: Response) {
   return newToken;
 }
 
+export function getOrCreateCsrfToken(req: Request, res: Response): string {
+  return ensureCsrfCookie(req, res);
+}
+
 export function issueCsrfToken(req: Request, res: Response, next: NextFunction) {
   ensureCsrfCookie(req, res);
   next();
