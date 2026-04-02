@@ -82,13 +82,20 @@ export default function SignupPage() {
           referralCode: referralCode || undefined,
         }),
       });
-      const data = await res.json();
+      const raw = await res.text();
+      const data = raw ? (() => {
+        try { return JSON.parse(raw); } catch { return { message: raw }; }
+      })() : {};
       if (!res.ok) {
-        toast({ title: "Signup failed", description: data.message ?? data.error ?? "Could not create account", variant: "destructive" });
+        toast({
+          title: "Signup failed",
+          description: (data as any).message ?? (data as any).error ?? "Could not create account",
+          variant: "destructive",
+        });
         return;
       }
-      setUser(data.user as any);
-      const bonus = data.referralBonus;
+      setUser((data as any).user as any);
+      const bonus = (data as any).referralBonus;
       toast({
         title: "Account created!",
         description: bonus
