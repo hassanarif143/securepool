@@ -9,6 +9,7 @@ import { getJwtCookieName, signUserJwt } from "../lib/jwt";
 import type { AuthedRequest } from "../middleware/auth";
 import { sendRegistrationEmail } from "../lib/email";
 import { sanitizeText } from "../lib/sanitize";
+import { logger } from "../lib/logger";
 
 declare module "express-session" {
   interface SessionData {
@@ -51,6 +52,16 @@ function authCookieOptions() {
     maxAge: 2 * 60 * 60 * 1000, // 2 hours
     path: "/",
   };
+}
+
+function trySetJwtCookie(res: any, userId: number, isAdmin: boolean) {
+  try {
+    const token = signUserJwt({ userId, isAdmin });
+    res.cookie(getJwtCookieName(), token, authCookieOptions());
+  } catch (err) {
+    // Keep session login functional even if JWT env is misconfigured.
+    logger.warn({ err, userId }, "JWT cookie not set; using session auth fallback");
+  }
 }
 
 router.get("/csrf-token", (req, res) => {
@@ -130,8 +141,7 @@ router.post("/signup", signupLimiter, async (req, res) => {
 
   // Back-compat session + new JWT cookie
   req.session.userId = user.id;
-  const token = signUserJwt({ userId: user.id, isAdmin: user.isAdmin });
-  res.cookie(getJwtCookieName(), token, authCookieOptions());
+  trySetJwtCookie(res, user.id, user.isAdmin);
 
   res.status(201).json({
     user: {
@@ -161,13 +171,18 @@ router.post("/login", loginLimiter, async (req, res) => {
 
   const { email, password } = parse.data;
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+  const { rows } = await dbPool.query(
+    `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at
+     FROM users WHERE email = $1 LIMIT 1`,
+    [email],
+  );
+  const user = rows[0];
   if (!user) {
     res.status(401).json({ error: "Invalid credentials", message: "Email or password is incorrect." });
     return;
   }
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
+  const valid = await bcrypt.compare(password, user.password_hash);
   if (!valid) {
     res.status(401).json({ error: "Invalid credentials", message: "Email or password is incorrect." });
     return;
@@ -175,20 +190,17 @@ router.post("/login", loginLimiter, async (req, res) => {
 
   // Back-compat session + new JWT cookie
   req.session.userId = user.id;
-  const token = signUserJwt({ userId: user.id, isAdmin: user.isAdmin });
-  res.cookie(getJwtCookieName(), token, authCookieOptions());
+  trySetJwtCookie(res, user.id, Boolean(user.is_admin));
 
   res.json({
     user: {
       id: user.id,
       name: user.name,
       email: user.email,
-      phone: user.phone ?? null,
-      city: user.city ?? null,
-      walletBalance: parseFloat(user.walletBalance),
-      cryptoAddress: user.cryptoAddress ?? null,
-      isAdmin: user.isAdmin,
-      joinedAt: user.joinedAt,
+      walletBalance: parseFloat(user.wallet_balance),
+      cryptoAddress: user.crypto_address ?? null,
+      isAdmin: user.is_admin,
+      joinedAt: user.joined_at,
     },
     message: "Login successful",
   });
@@ -209,7 +221,8 @@ router.get("/me", async (req, res) => {
   }
 
   const { rows } = await dbPool.query(
-    `SELECT id, name, email, phone, city, wallet_balance, crypto_address, is_admin, joined_at, tier, tier_points
+    `SELECT id, name, email, wallet_balance, crypto_address, is_admin, joined_at,
+            COALESCE(tier, 'aurora') AS tier, COALESCE(tier_points, 0) AS tier_points
      FROM users WHERE id = $1 LIMIT 1`,
     [userId]
   );
@@ -223,8 +236,6 @@ router.get("/me", async (req, res) => {
     id: user.id,
     name: user.name,
     email: user.email,
-    phone: user.phone ?? null,
-    city: user.city ?? null,
     walletBalance: parseFloat(user.wallet_balance),
     cryptoAddress: user.crypto_address ?? null,
     isAdmin: user.is_admin,
