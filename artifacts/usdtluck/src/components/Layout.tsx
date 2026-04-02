@@ -641,19 +641,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
-      <main className={`flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 ${user ? "pb-24 md:pb-8" : ""}`}>
+      <main className={`flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 ${user ? "pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-8" : ""}`}>
         {children}
       </main>
 
       {user && (
         <nav
-          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t flex justify-around items-center h-16 px-2 safe-area-pb"
+          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t flex justify-around items-center min-h-16 py-1.5 px-1 safe-area-pb touch-manipulation"
           style={{ background: "hsla(224,30%,7%,0.96)", backdropFilter: "blur(12px)", borderColor: "hsl(217,28%,14%)" }}
         >
           {[
             { href: "/dashboard", label: "Home", icon: "🏠" },
             { href: "/pools", label: "Pools", icon: "🎱" },
             { href: "/wallet", label: "Wallet", icon: "💳" },
+            ...(user.isAdmin ? [{ href: "/admin", label: "Admin", icon: "⚙️" }] as const : []),
             { href: "/winners", label: "Wins", icon: "🏆" },
           ].map((item) => {
             const active =
@@ -663,13 +664,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
             return (
               <Link key={item.href} href={item.href}>
                 <span
-                  className={`flex flex-col items-center justify-center text-[10px] font-medium min-w-[56px] py-1 rounded-lg transition-colors ${
+                  className={`flex flex-col items-center justify-center text-[9px] font-medium min-w-[48px] max-w-[72px] py-1.5 px-0.5 rounded-lg transition-colors active:scale-95 ${
                     active ? "text-primary" : "text-muted-foreground"
                   }`}
                   style={active ? { background: "hsla(152,72%,44%,0.12)" } : {}}
                 >
-                  <span className="text-lg leading-none mb-0.5">{item.icon}</span>
-                  {item.label}
+                  <span className="text-base leading-none mb-0.5">{item.icon}</span>
+                  <span className="leading-tight text-center">{item.label}</span>
                 </span>
               </Link>
             );

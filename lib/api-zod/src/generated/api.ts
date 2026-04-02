@@ -336,5 +336,12 @@ export const ListAdminUsersResponseItem = zod.object({
   totalDeposited: zod.number(),
   totalWithdrawn: zod.number(),
   poolsJoined: zod.number(),
+  phone: zod.string().nullish(),
+  city: zod.string().nullish(),
+  tier: zod.string().optional(),
+  isBlocked: zod.boolean().optional(),
+  blockedAt: zod.coerce.date().nullish(),
+  blockedReason: zod.string().nullish(),
+  cryptoAddress: zod.string().nullish().describe("USDT wallet on file"),
 });
 export const ListAdminUsersResponse = zod.array(ListAdminUsersResponseItem);

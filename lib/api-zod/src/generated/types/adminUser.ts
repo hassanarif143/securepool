@@ -16,4 +16,12 @@ export interface AdminUser {
   totalDeposited: number;
   totalWithdrawn: number;
   poolsJoined: number;
+  phone?: string | null;
+  city?: string | null;
+  tier?: string;
+  isBlocked?: boolean;
+  blockedAt?: Date | null;
+  blockedReason?: string | null;
+  /** USDT wallet on file */
+  cryptoAddress?: string | null;
 }

@@ -101,53 +101,71 @@ router.get("/stats", async (req, res) => {
 });
 
 router.get("/users", async (req, res) => {
-  const { rows: userRows } = await pgPool.query(
-    `SELECT id, name, email, phone, city, wallet_balance, crypto_address, is_admin, joined_at,
-            COALESCE(tier, 'aurora') AS tier,
-            is_blocked, blocked_at, blocked_reason
-     FROM users ORDER BY joined_at DESC`,
-  );
+  try {
+    /* Single round-trip: N+1 per user was slow and could time out on Railway with many users. */
+    const { rows } = await pgPool.query(`
+      SELECT
+        u.id,
+        u.name,
+        u.email,
+        u.phone,
+        u.city,
+        u.wallet_balance,
+        u.crypto_address,
+        u.is_admin,
+        u.joined_at,
+        COALESCE(u.tier, 'aurora') AS tier,
+        u.is_blocked,
+        u.blocked_at,
+        u.blocked_reason,
+        COALESCE(dep.total_dep, 0) AS total_deposited,
+        COALESCE(wd.total_wd, 0) AS total_withdrawn,
+        COALESCE(pp.cnt, 0)::int AS pools_joined
+      FROM users u
+      LEFT JOIN (
+        SELECT user_id, SUM(amount) AS total_dep
+        FROM transactions
+        WHERE tx_type = 'deposit' AND status = 'completed'
+        GROUP BY user_id
+      ) dep ON dep.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, SUM(amount) AS total_wd
+        FROM transactions
+        WHERE tx_type = 'withdraw'
+        GROUP BY user_id
+      ) wd ON wd.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, COUNT(*)::int AS cnt
+        FROM pool_participants
+        GROUP BY user_id
+      ) pp ON pp.user_id = u.id
+      ORDER BY u.joined_at DESC
+    `);
 
-  const result = await Promise.all(
-    userRows.map(async (user: any) => {
-      const uid = user.id;
-      const [depositTotal] = await db
-        .select({ total: sum(transactionsTable.amount) })
-        .from(transactionsTable)
-        .where(and(eq(transactionsTable.userId, uid), eq(transactionsTable.txType, "deposit"), eq(transactionsTable.status, "completed")));
+    const result = (rows as any[]).map((user) => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone ?? null,
+      city: user.city ?? null,
+      walletBalance: parseFloat(String(user.wallet_balance ?? "0")),
+      cryptoAddress: user.crypto_address ?? null,
+      isAdmin: user.is_admin,
+      tier: user.tier,
+      isBlocked: user.is_blocked === true,
+      blockedAt: user.blocked_at,
+      blockedReason: user.blocked_reason ?? null,
+      joinedAt: user.joined_at,
+      totalDeposited: parseFloat(String(user.total_deposited ?? "0")),
+      totalWithdrawn: parseFloat(String(user.total_withdrawn ?? "0")),
+      poolsJoined: Number(user.pools_joined ?? 0),
+    }));
 
-      const [withdrawTotal] = await db
-        .select({ total: sum(transactionsTable.amount) })
-        .from(transactionsTable)
-        .where(and(eq(transactionsTable.userId, uid), eq(transactionsTable.txType, "withdraw")));
-
-      const [poolsJoinedCount] = await db
-        .select({ ct: count() })
-        .from(poolParticipantsTable)
-        .where(eq(poolParticipantsTable.userId, uid));
-
-      return {
-        id: uid,
-        name: user.name,
-        email: user.email,
-        phone: user.phone ?? null,
-        city: user.city ?? null,
-        walletBalance: parseFloat(user.wallet_balance),
-        cryptoAddress: user.crypto_address ?? null,
-        isAdmin: user.is_admin,
-        tier: user.tier,
-        isBlocked: user.is_blocked === true,
-        blockedAt: user.blocked_at,
-        blockedReason: user.blocked_reason ?? null,
-        joinedAt: user.joined_at,
-        totalDeposited: parseFloat(depositTotal?.total ?? "0"),
-        totalWithdrawn: parseFloat(withdrawTotal?.total ?? "0"),
-        poolsJoined: Number(poolsJoinedCount?.ct ?? 0),
-      };
-    }),
-  );
-
-  res.json(result);
+    res.json(result);
+  } catch (err) {
+    console.error("[admin] GET /users failed:", err);
+    res.status(500).json({ error: "Failed to load users", message: process.env.NODE_ENV === "production" ? "Could not load user list." : String(err) });
+  }
 });
 
 router.get("/users/:id/transactions", async (req, res) => {

@@ -504,6 +504,10 @@ components:
         blockedReason:
           type: string
           nullable: true
+        cryptoAddress:
+          type: string
+          nullable: true
+          description: USDT wallet on file
       required: [id, name, email, walletBalance, isAdmin, joinedAt, totalDeposited, totalWithdrawn, poolsJoined]
 
     SignupBody:

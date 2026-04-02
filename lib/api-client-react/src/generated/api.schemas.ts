@@ -43,6 +43,8 @@ export interface AdminUser {
   isBlocked?: boolean;
   blockedAt?: string | null;
   blockedReason?: string | null;
+  /** USDT wallet on file */
+  cryptoAddress?: string | null;
 }
 
 export interface SignupBody {

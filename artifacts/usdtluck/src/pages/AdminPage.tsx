@@ -38,6 +38,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
 import { MoreHorizontal } from "lucide-react";
 import { apiUrl, apiAssetUrl, getFullImageUrl, readApiErrorMessage } from "@/lib/api-base";
 
@@ -54,22 +55,22 @@ export default function AdminPage() {
   if (isLoading || !user) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 pb-8 md:pb-10 -mx-1 px-1 sm:mx-0 sm:px-0">
       <div>
-        <h1 className="text-2xl font-bold">Admin Panel</h1>
-        <p className="text-muted-foreground mt-1">Manage pools, users, and rewards</p>
+        <h1 className="text-xl sm:text-2xl font-bold">Admin Panel</h1>
+        <p className="text-sm text-muted-foreground mt-1">Manage pools, users, and rewards</p>
       </div>
 
       <Tabs defaultValue="pending">
-        <TabsList className="flex-wrap h-auto">
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="stats">Stats</TabsTrigger>
-          <TabsTrigger value="pools">Pools</TabsTrigger>
-          <TabsTrigger value="create">Create Pool</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          <TabsTrigger value="reviews">Reviews</TabsTrigger>
-          <TabsTrigger value="audit">Audit Logs</TabsTrigger>
+        <TabsList className="flex h-auto min-h-10 w-full flex-wrap sm:flex-nowrap gap-1 overflow-x-auto p-1 justify-start rounded-lg bg-muted/40 border border-border/50">
+          <TabsTrigger value="pending" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Pending</TabsTrigger>
+          <TabsTrigger value="stats" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Stats</TabsTrigger>
+          <TabsTrigger value="pools" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Pools</TabsTrigger>
+          <TabsTrigger value="create" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Create</TabsTrigger>
+          <TabsTrigger value="users" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Users</TabsTrigger>
+          <TabsTrigger value="transactions" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Txns</TabsTrigger>
+          <TabsTrigger value="reviews" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Reviews</TabsTrigger>
+          <TabsTrigger value="audit" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Audit</TabsTrigger>
         </TabsList>
         <TabsContent value="pending"><PendingTransactionsTab /></TabsContent>
         <TabsContent value="stats"><StatsTab /></TabsContent>
@@ -845,7 +846,20 @@ function CreatePoolTab() {
 
 function UsersTab() {
   const { user: me } = useAuth();
-  const { data: users, refetch } = useListAdminUsers({ query: { queryKey: getListAdminUsersQueryKey() } });
+  const {
+    data: users,
+    refetch,
+    isPending,
+    isError,
+    error,
+    isFetching,
+  } = useListAdminUsers({
+    query: {
+      queryKey: getListAdminUsersQueryKey(),
+      staleTime: 15_000,
+      retry: 1,
+    },
+  });
   const [search, setSearch] = useState("");
   const [adjustingId, setAdjustingId] = useState<number | null>(null);
   const [adjustAmount, setAdjustAmount] = useState("");
@@ -878,7 +892,8 @@ function UsersTab() {
   const [busy, setBusy] = useState(false);
 
   const isSuperAdmin = me?.id === 1;
-  const filtered = (users as any[] ?? []).filter((u) =>
+  const list = Array.isArray(users) ? users : [];
+  const filtered = list.filter((u) =>
     u.name.toLowerCase().includes(search.toLowerCase()) ||
     u.email.toLowerCase().includes(search.toLowerCase()),
   );
@@ -1100,24 +1115,46 @@ function UsersTab() {
     </Dialog>
 
     <div className="space-y-3 mt-4">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-2">
         <Input
           placeholder="Search by name or email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-[200px]"
+          className="flex-1 min-w-0 w-full sm:min-w-[200px]"
         />
-        <Button variant="outline" size="sm" onClick={exportServerCsv}>Export CSV</Button>
-        <Button size="sm" onClick={() => setBroadcastOpen(true)} style={{ background: "hsl(152,72%,36%)", color: "white" }}>Broadcast</Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={exportServerCsv}>Export CSV</Button>
+          <Button size="sm" className="flex-1 sm:flex-none" onClick={() => setBroadcastOpen(true)} style={{ background: "hsl(152,72%,36%)", color: "white" }}>Broadcast</Button>
+        </div>
       </div>
 
-      <div className="overflow-x-auto -mx-1">
+      {isPending && (
+        <div className="space-y-3 py-2">
+          <p className="text-sm text-muted-foreground">Loading users…</p>
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-28 w-full rounded-lg" />
+          ))}
+        </div>
+      )}
+
+      {isError && !isPending && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 space-y-2">
+          <p className="text-sm font-medium text-destructive">Could not load users</p>
+          <p className="text-xs text-muted-foreground break-words">{(error as Error)?.message ?? "Request failed"}</p>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>Retry</Button>
+        </div>
+      )}
+
+      {!isPending && !isError && (
+      <div className="overflow-x-auto -mx-1 px-1 sm:px-0">
         {filtered.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">No users found</p>
+          <p className="text-muted-foreground text-center py-8">
+            {list.length === 0 ? "No users in database yet." : "No users match your search."}
+          </p>
         ) : filtered.map((u) => (
-          <Card key={u.id} className="mb-3 min-w-[320px]">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-start justify-between gap-3">
+          <Card key={u.id} className="mb-3 w-full max-w-full">
+            <CardContent className="p-3 sm:p-4 space-y-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <p className="font-semibold">{u.name}</p>
@@ -1138,17 +1175,19 @@ function UsersTab() {
                   <p className="text-xs text-muted-foreground">{u.email}</p>
                   <p className="text-[10px] text-muted-foreground capitalize">Tier: {u.tier ?? "aurora"} · Phone: {u.phone ?? "—"} · City: {u.city ?? "—"}</p>
                   {u.cryptoAddress && <p className="text-xs font-mono text-muted-foreground truncate">Wallet: {u.cryptoAddress}</p>}
-                  <p className="text-xs text-muted-foreground">Joined: {new Date(u.joinedAt).toLocaleDateString()} · Pools: {u.poolsJoined} · Dep: {u.totalDeposited?.toFixed?.(2) ?? u.totalDeposited} · Wd: {u.totalWithdrawn?.toFixed?.(2) ?? u.totalWithdrawn}</p>
+                  <p className="text-[11px] sm:text-xs text-muted-foreground leading-snug">
+                    Joined: {new Date(u.joinedAt).toLocaleDateString()} · Pools: {u.poolsJoined} · Dep: {u.totalDeposited?.toFixed?.(2) ?? u.totalDeposited} · Wd: {u.totalWithdrawn?.toFixed?.(2) ?? u.totalWithdrawn}
+                  </p>
                 </div>
-                <div className="text-right shrink-0 flex flex-col items-end gap-2">
-                  <p className="font-bold text-primary text-lg">{u.walletBalance.toFixed(2)} USDT</p>
+                <div className="flex flex-row sm:flex-col justify-between sm:items-end gap-2 shrink-0 border-t border-border/50 pt-3 sm:border-t-0 sm:pt-0">
+                  <p className="font-bold text-primary text-base sm:text-lg tabular-nums">{u.walletBalance.toFixed(2)} USDT</p>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                      <Button size="sm" variant="outline" className="h-9 w-9 sm:h-8 sm:w-8 p-0" aria-label="User actions">
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-52">
+                    <DropdownMenuContent align="end" className="w-[min(100vw-2rem,16rem)] sm:w-52">
                       <DropdownMenuItem onClick={() => setProfileUser(u)}>View transactions</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setAdjustingId(adjustingId === u.id ? null : u.id); }}>Adjust balance</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setTierTarget(u); setTierTier(u.tier ?? "aurora"); setTierPoints(String((u as any).tierPoints ?? 0)); setTierOpen(true); }}>Change tier</DropdownMenuItem>
@@ -1219,6 +1258,11 @@ function UsersTab() {
           </Card>
         ))}
       </div>
+      )}
+
+      {!isPending && !isError && isFetching && (
+        <p className="text-[11px] text-muted-foreground text-center">Refreshing…</p>
+      )}
     </div>
     </>
   );
