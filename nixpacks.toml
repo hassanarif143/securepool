@@ -4,10 +4,10 @@ providers = ["node"]
 nixPkgs = ["nodejs_22"]
 
 [phases.install]
-cmds = ["npm i -g corepack && corepack enable && pnpm install --no-frozen-lockfile"]
+cmds = ["npm i -g corepack && corepack enable && pnpm install --no-frozen-lockfile && pnpm approve-builds"]
 
 [phases.build]
-cmds = ["pnpm -r --if-present run build"]
+cmds = ["pnpm --filter @workspace/api-server run build"]
 
 [start]
 cmd = "node artifacts/api-server/dist/index.js"
