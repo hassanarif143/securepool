@@ -47,6 +47,203 @@ function csvEscape(val: unknown): string {
   return s;
 }
 
+/** Needs tier/block columns + `winners` table (migrations 0003–0004). */
+const SQL_ADMIN_USERS_LIST_FULL = `
+      SELECT
+        u.id,
+        u.name,
+        u.email,
+        u.phone,
+        u.city,
+        u.wallet_balance,
+        u.crypto_address,
+        u.is_admin,
+        u.joined_at,
+        COALESCE(u.tier, 'aurora') AS tier,
+        COALESCE(u.tier_points, 0)::int AS tier_points,
+        u.referral_code,
+        u.referred_by,
+        u.is_blocked,
+        u.blocked_at,
+        u.blocked_reason,
+        COALESCE(dep.total_dep, 0) AS total_deposited,
+        COALESCE(wd.total_wd, 0) AS total_withdrawn,
+        COALESCE(pp.cnt, 0)::int AS pools_joined,
+        COALESCE(wins.cnt, 0)::int AS wins
+      FROM users u
+      LEFT JOIN (
+        SELECT user_id, SUM(amount) AS total_dep
+        FROM transactions
+        WHERE tx_type = 'deposit' AND status = 'completed'
+        GROUP BY user_id
+      ) dep ON dep.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, SUM(amount) AS total_wd
+        FROM transactions
+        WHERE tx_type = 'withdraw'
+        GROUP BY user_id
+      ) wd ON wd.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, COUNT(*)::int AS cnt
+        FROM pool_participants
+        GROUP BY user_id
+      ) pp ON pp.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, COUNT(*)::int AS cnt
+        FROM winners
+        GROUP BY user_id
+      ) wins ON wins.user_id = u.id
+      ORDER BY u.joined_at DESC
+    `;
+
+/** Fallback when optional columns/tables are missing (older DB). Tier/block/referral/wins are defaulted. */
+const SQL_ADMIN_USERS_LIST_COMPAT = `
+      SELECT
+        u.id,
+        u.name,
+        u.email,
+        u.phone,
+        u.city,
+        u.wallet_balance,
+        u.crypto_address,
+        u.is_admin,
+        u.joined_at,
+        'aurora'::text AS tier,
+        0::int AS tier_points,
+        NULL::text AS referral_code,
+        NULL::integer AS referred_by,
+        false AS is_blocked,
+        NULL::timestamptz AS blocked_at,
+        NULL::text AS blocked_reason,
+        COALESCE(dep.total_dep, 0) AS total_deposited,
+        COALESCE(wd.total_wd, 0) AS total_withdrawn,
+        COALESCE(pp.cnt, 0)::int AS pools_joined,
+        0::int AS wins
+      FROM users u
+      LEFT JOIN (
+        SELECT user_id, SUM(amount) AS total_dep
+        FROM transactions
+        WHERE tx_type = 'deposit' AND status = 'completed'
+        GROUP BY user_id
+      ) dep ON dep.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, SUM(amount) AS total_wd
+        FROM transactions
+        WHERE tx_type = 'withdraw'
+        GROUP BY user_id
+      ) wd ON wd.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, COUNT(*)::int AS cnt
+        FROM pool_participants
+        GROUP BY user_id
+      ) pp ON pp.user_id = u.id
+      ORDER BY u.joined_at DESC
+    `;
+
+const SQL_ADMIN_USER_DETAIL_FULL = `
+      SELECT
+        u.id,
+        u.name,
+        u.email,
+        u.phone,
+        u.city,
+        u.wallet_balance,
+        u.crypto_address,
+        u.is_admin,
+        u.joined_at,
+        COALESCE(u.tier, 'aurora') AS tier,
+        COALESCE(u.tier_points, 0)::int AS tier_points,
+        u.referral_code,
+        u.referred_by,
+        u.is_blocked,
+        u.blocked_at,
+        u.blocked_reason,
+        COALESCE(dep.total_dep, 0) AS total_deposited,
+        COALESCE(wd.total_wd, 0) AS total_withdrawn,
+        COALESCE(pp.cnt, 0)::int AS pools_joined,
+        COALESCE(wins.cnt, 0)::int AS wins
+      FROM users u
+      LEFT JOIN (
+        SELECT user_id, SUM(amount) AS total_dep
+        FROM transactions
+        WHERE tx_type = 'deposit' AND status = 'completed'
+        GROUP BY user_id
+      ) dep ON dep.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, SUM(amount) AS total_wd
+        FROM transactions
+        WHERE tx_type = 'withdraw'
+        GROUP BY user_id
+      ) wd ON wd.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, COUNT(*)::int AS cnt
+        FROM pool_participants
+        GROUP BY user_id
+      ) pp ON pp.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, COUNT(*)::int AS cnt
+        FROM winners
+        GROUP BY user_id
+      ) wins ON wins.user_id = u.id
+      WHERE u.id = $1
+      LIMIT 1
+    `;
+
+const SQL_ADMIN_USER_DETAIL_COMPAT = `
+      SELECT
+        u.id,
+        u.name,
+        u.email,
+        u.phone,
+        u.city,
+        u.wallet_balance,
+        u.crypto_address,
+        u.is_admin,
+        u.joined_at,
+        'aurora'::text AS tier,
+        0::int AS tier_points,
+        NULL::text AS referral_code,
+        NULL::integer AS referred_by,
+        false AS is_blocked,
+        NULL::timestamptz AS blocked_at,
+        NULL::text AS blocked_reason,
+        COALESCE(dep.total_dep, 0) AS total_deposited,
+        COALESCE(wd.total_wd, 0) AS total_withdrawn,
+        COALESCE(pp.cnt, 0)::int AS pools_joined,
+        0::int AS wins
+      FROM users u
+      LEFT JOIN (
+        SELECT user_id, SUM(amount) AS total_dep
+        FROM transactions
+        WHERE tx_type = 'deposit' AND status = 'completed'
+        GROUP BY user_id
+      ) dep ON dep.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, SUM(amount) AS total_wd
+        FROM transactions
+        WHERE tx_type = 'withdraw'
+        GROUP BY user_id
+      ) wd ON wd.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, COUNT(*)::int AS cnt
+        FROM pool_participants
+        GROUP BY user_id
+      ) pp ON pp.user_id = u.id
+      WHERE u.id = $1
+      LIMIT 1
+    `;
+
+async function queryAdminUsersListRows(): Promise<any[]> {
+  try {
+    const { rows } = await pgPool.query(SQL_ADMIN_USERS_LIST_FULL);
+    return rows as any[];
+  } catch (firstErr) {
+    console.warn("[admin] GET /users full SQL failed, retrying compat:", firstErr);
+    const { rows } = await pgPool.query(SQL_ADMIN_USERS_LIST_COMPAT);
+    return rows as any[];
+  }
+}
+
 router.get("/stats", async (req, res) => {
   const [{ totalUsers }] = await db.select({ totalUsers: count() }).from(usersTable);
 
@@ -102,54 +299,8 @@ router.get("/stats", async (req, res) => {
 
 router.get("/users", async (req, res) => {
   try {
-    /* Single round-trip: N+1 per user was slow and could time out on Railway with many users. */
-    const { rows } = await pgPool.query(`
-      SELECT
-        u.id,
-        u.name,
-        u.email,
-        u.phone,
-        u.city,
-        u.wallet_balance,
-        u.crypto_address,
-        u.is_admin,
-        u.joined_at,
-        COALESCE(u.tier, 'aurora') AS tier,
-        COALESCE(u.tier_points, 0)::int AS tier_points,
-        u.referral_code,
-        u.referred_by,
-        u.is_blocked,
-        u.blocked_at,
-        u.blocked_reason,
-        COALESCE(dep.total_dep, 0) AS total_deposited,
-        COALESCE(wd.total_wd, 0) AS total_withdrawn,
-        COALESCE(pp.cnt, 0)::int AS pools_joined,
-        COALESCE(wins.cnt, 0)::int AS wins
-      FROM users u
-      LEFT JOIN (
-        SELECT user_id, SUM(amount) AS total_dep
-        FROM transactions
-        WHERE tx_type = 'deposit' AND status = 'completed'
-        GROUP BY user_id
-      ) dep ON dep.user_id = u.id
-      LEFT JOIN (
-        SELECT user_id, SUM(amount) AS total_wd
-        FROM transactions
-        WHERE tx_type = 'withdraw'
-        GROUP BY user_id
-      ) wd ON wd.user_id = u.id
-      LEFT JOIN (
-        SELECT user_id, COUNT(*)::int AS cnt
-        FROM pool_participants
-        GROUP BY user_id
-      ) pp ON pp.user_id = u.id
-      LEFT JOIN (
-        SELECT user_id, COUNT(*)::int AS cnt
-        FROM winners
-        GROUP BY user_id
-      ) wins ON wins.user_id = u.id
-      ORDER BY u.joined_at DESC
-    `);
+    /* Single round-trip; compat SQL if tier/block/winners migrations not applied. */
+    const rows = await queryAdminUsersListRows();
 
     const result = (rows as any[]).map((user) => ({
       id: user.id,
@@ -251,57 +402,15 @@ router.get("/users/:id", async (req, res) => {
   }
 
   try {
-    const { rows } = await pgPool.query(
-      `
-      SELECT
-        u.id,
-        u.name,
-        u.email,
-        u.phone,
-        u.city,
-        u.wallet_balance,
-        u.crypto_address,
-        u.is_admin,
-        u.joined_at,
-        COALESCE(u.tier, 'aurora') AS tier,
-        COALESCE(u.tier_points, 0)::int AS tier_points,
-        u.referral_code,
-        u.referred_by,
-        u.is_blocked,
-        u.blocked_at,
-        u.blocked_reason,
-        COALESCE(dep.total_dep, 0) AS total_deposited,
-        COALESCE(wd.total_wd, 0) AS total_withdrawn,
-        COALESCE(pp.cnt, 0)::int AS pools_joined,
-        COALESCE(wins.cnt, 0)::int AS wins
-      FROM users u
-      LEFT JOIN (
-        SELECT user_id, SUM(amount) AS total_dep
-        FROM transactions
-        WHERE tx_type = 'deposit' AND status = 'completed'
-        GROUP BY user_id
-      ) dep ON dep.user_id = u.id
-      LEFT JOIN (
-        SELECT user_id, SUM(amount) AS total_wd
-        FROM transactions
-        WHERE tx_type = 'withdraw'
-        GROUP BY user_id
-      ) wd ON wd.user_id = u.id
-      LEFT JOIN (
-        SELECT user_id, COUNT(*)::int AS cnt
-        FROM pool_participants
-        GROUP BY user_id
-      ) pp ON pp.user_id = u.id
-      LEFT JOIN (
-        SELECT user_id, COUNT(*)::int AS cnt
-        FROM winners
-        GROUP BY user_id
-      ) wins ON wins.user_id = u.id
-      WHERE u.id = $1
-      LIMIT 1
-    `,
-      [userId],
-    );
+    let rows: any[];
+    try {
+      const r = await pgPool.query(SQL_ADMIN_USER_DETAIL_FULL, [userId]);
+      rows = r.rows as any[];
+    } catch (firstErr) {
+      console.warn("[admin] GET /users/:id full SQL failed, retrying compat:", firstErr);
+      const r = await pgPool.query(SQL_ADMIN_USER_DETAIL_COMPAT, [userId]);
+      rows = r.rows as any[];
+    }
     const user = rows[0] as any;
     if (!user) {
       res.status(404).json({ error: "User not found" });
