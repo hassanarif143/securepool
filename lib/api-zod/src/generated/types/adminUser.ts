@@ -24,4 +24,8 @@ export interface AdminUser {
   blockedReason?: string | null;
   /** USDT wallet on file */
   cryptoAddress?: string | null;
+  tierPoints?: number;
+  referralCode?: string | null;
+  referredBy?: number | null;
+  wins?: number;
 }

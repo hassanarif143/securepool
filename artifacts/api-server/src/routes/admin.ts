@@ -12,7 +12,7 @@ import {
   winnersTable,
   adminActionsTable,
 } from "@workspace/db";
-import { eq, count, sum, desc, and, sql } from "drizzle-orm";
+import { eq, ne, count, sum, desc, and, sql } from "drizzle-orm";
 import { sendWithdrawalStatusEmail } from "../lib/email";
 import { notifyUser } from "../lib/notify";
 import { sanitizeText } from "../lib/sanitize";
@@ -115,12 +115,16 @@ router.get("/users", async (req, res) => {
         u.is_admin,
         u.joined_at,
         COALESCE(u.tier, 'aurora') AS tier,
+        COALESCE(u.tier_points, 0)::int AS tier_points,
+        u.referral_code,
+        u.referred_by,
         u.is_blocked,
         u.blocked_at,
         u.blocked_reason,
         COALESCE(dep.total_dep, 0) AS total_deposited,
         COALESCE(wd.total_wd, 0) AS total_withdrawn,
-        COALESCE(pp.cnt, 0)::int AS pools_joined
+        COALESCE(pp.cnt, 0)::int AS pools_joined,
+        COALESCE(wins.cnt, 0)::int AS wins
       FROM users u
       LEFT JOIN (
         SELECT user_id, SUM(amount) AS total_dep
@@ -139,6 +143,11 @@ router.get("/users", async (req, res) => {
         FROM pool_participants
         GROUP BY user_id
       ) pp ON pp.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, COUNT(*)::int AS cnt
+        FROM winners
+        GROUP BY user_id
+      ) wins ON wins.user_id = u.id
       ORDER BY u.joined_at DESC
     `);
 
@@ -152,6 +161,9 @@ router.get("/users", async (req, res) => {
       cryptoAddress: user.crypto_address ?? null,
       isAdmin: user.is_admin,
       tier: user.tier,
+      tierPoints: Number(user.tier_points ?? 0),
+      referralCode: user.referral_code ?? null,
+      referredBy: user.referred_by ?? null,
       isBlocked: user.is_blocked === true,
       blockedAt: user.blocked_at,
       blockedReason: user.blocked_reason ?? null,
@@ -159,6 +171,7 @@ router.get("/users", async (req, res) => {
       totalDeposited: parseFloat(String(user.total_deposited ?? "0")),
       totalWithdrawn: parseFloat(String(user.total_withdrawn ?? "0")),
       poolsJoined: Number(user.pools_joined ?? 0),
+      wins: Number(user.wins ?? 0),
     }));
 
     res.json(result);
@@ -166,6 +179,233 @@ router.get("/users", async (req, res) => {
     console.error("[admin] GET /users failed:", err);
     res.status(500).json({ error: "Failed to load users", message: process.env.NODE_ENV === "production" ? "Could not load user list." : String(err) });
   }
+});
+
+router.get("/users/export", async (req, res) => {
+  const { rows } = await pgPool.query(
+    `SELECT u.id, u.name, u.email, u.phone, u.wallet_balance, u.city,
+            COALESCE(u.tier, 'aurora') AS tier, u.joined_at, u.is_blocked,
+            COALESCE(d.dep, 0) AS total_deposited,
+            COALESCE(w.wd, 0) AS total_withdrawn,
+            COALESCE(p.pj, 0)::int AS pools_joined
+     FROM users u
+     LEFT JOIN (
+       SELECT user_id, SUM(amount::numeric) AS dep FROM transactions
+       WHERE tx_type = 'deposit' AND status = 'completed' GROUP BY user_id
+     ) d ON d.user_id = u.id
+     LEFT JOIN (
+       SELECT user_id, SUM(amount::numeric) AS wd FROM transactions
+       WHERE tx_type = 'withdraw' GROUP BY user_id
+     ) w ON w.user_id = u.id
+     LEFT JOIN (
+       SELECT user_id, COUNT(*) AS pj FROM pool_participants GROUP BY user_id
+     ) p ON p.user_id = u.id
+     ORDER BY u.id`,
+  );
+
+  const header = [
+    "id",
+    "name",
+    "email",
+    "phone",
+    "wallet_balance",
+    "city",
+    "tier",
+    "joined_at",
+    "is_blocked",
+    "total_deposited",
+    "total_withdrawn",
+    "pools_joined",
+  ];
+  const lines = [header.join(",")];
+  for (const r of rows as any[]) {
+    lines.push(
+      [
+        csvEscape(r.id),
+        csvEscape(r.name),
+        csvEscape(r.email),
+        csvEscape(r.phone),
+        csvEscape(r.wallet_balance),
+        csvEscape(r.city),
+        csvEscape(r.tier),
+        csvEscape(r.joined_at?.toISOString?.() ?? r.joined_at),
+        csvEscape(r.is_blocked),
+        csvEscape(r.total_deposited),
+        csvEscape(r.total_withdrawn),
+        csvEscape(r.pools_joined),
+      ].join(","),
+    );
+  }
+
+  const csv = lines.join("\n");
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="users-export.csv"');
+  res.send(csv);
+});
+
+router.get("/users/:id", async (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) {
+    res.status(400).json({ error: "Invalid user ID" });
+    return;
+  }
+
+  try {
+    const { rows } = await pgPool.query(
+      `
+      SELECT
+        u.id,
+        u.name,
+        u.email,
+        u.phone,
+        u.city,
+        u.wallet_balance,
+        u.crypto_address,
+        u.is_admin,
+        u.joined_at,
+        COALESCE(u.tier, 'aurora') AS tier,
+        COALESCE(u.tier_points, 0)::int AS tier_points,
+        u.referral_code,
+        u.referred_by,
+        u.is_blocked,
+        u.blocked_at,
+        u.blocked_reason,
+        COALESCE(dep.total_dep, 0) AS total_deposited,
+        COALESCE(wd.total_wd, 0) AS total_withdrawn,
+        COALESCE(pp.cnt, 0)::int AS pools_joined,
+        COALESCE(wins.cnt, 0)::int AS wins
+      FROM users u
+      LEFT JOIN (
+        SELECT user_id, SUM(amount) AS total_dep
+        FROM transactions
+        WHERE tx_type = 'deposit' AND status = 'completed'
+        GROUP BY user_id
+      ) dep ON dep.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, SUM(amount) AS total_wd
+        FROM transactions
+        WHERE tx_type = 'withdraw'
+        GROUP BY user_id
+      ) wd ON wd.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, COUNT(*)::int AS cnt
+        FROM pool_participants
+        GROUP BY user_id
+      ) pp ON pp.user_id = u.id
+      LEFT JOIN (
+        SELECT user_id, COUNT(*)::int AS cnt
+        FROM winners
+        GROUP BY user_id
+      ) wins ON wins.user_id = u.id
+      WHERE u.id = $1
+      LIMIT 1
+    `,
+      [userId],
+    );
+    const user = rows[0] as any;
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone ?? null,
+      city: user.city ?? null,
+      walletBalance: parseFloat(String(user.wallet_balance ?? "0")),
+      cryptoAddress: user.crypto_address ?? null,
+      isAdmin: user.is_admin,
+      tier: user.tier,
+      tierPoints: Number(user.tier_points ?? 0),
+      referralCode: user.referral_code ?? null,
+      referredBy: user.referred_by ?? null,
+      isBlocked: user.is_blocked === true,
+      blockedAt: user.blocked_at,
+      blockedReason: user.blocked_reason ?? null,
+      joinedAt: user.joined_at,
+      totalDeposited: parseFloat(String(user.total_deposited ?? "0")),
+      totalWithdrawn: parseFloat(String(user.total_withdrawn ?? "0")),
+      poolsJoined: Number(user.pools_joined ?? 0),
+      wins: Number(user.wins ?? 0),
+    });
+  } catch (err) {
+    console.error("[admin] GET /users/:id failed:", err);
+    res.status(500).json({ error: "Failed to load user" });
+  }
+});
+
+const AdminPatchUserBody = z.object({
+  name: z.string().min(2).max(120).optional(),
+  email: z.string().trim().email().optional(),
+  phone: z.string().max(40).nullable().optional(),
+  city: z.string().max(120).nullable().optional(),
+  cryptoAddress: z.string().max(200).nullable().optional(),
+});
+
+router.patch("/users/:id", async (req, res) => {
+  const targetId = parseInt(req.params.id, 10);
+  if (isNaN(targetId)) {
+    res.status(400).json({ error: "Invalid user ID" });
+    return;
+  }
+
+  const parse = AdminPatchUserBody.safeParse(req.body ?? {});
+  if (!parse.success) {
+    res.status(400).json({ error: "Validation error" });
+    return;
+  }
+  if (Object.keys(parse.data).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+  if (!target) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  if (parse.data.email !== undefined) {
+    const email = parse.data.email.toLowerCase();
+    const [other] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(and(eq(usersTable.email, email), ne(usersTable.id, targetId)))
+      .limit(1);
+    if (other) {
+      res.status(400).json({ error: "Email already in use" });
+      return;
+    }
+  }
+
+  const updates: Partial<typeof usersTable.$inferInsert> = {};
+  if (parse.data.name !== undefined) updates.name = sanitizeText(parse.data.name, 120);
+  if (parse.data.email !== undefined) updates.email = parse.data.email.toLowerCase().trim();
+  if (parse.data.phone !== undefined) updates.phone = parse.data.phone === null || parse.data.phone === "" ? null : sanitizeText(parse.data.phone, 40);
+  if (parse.data.city !== undefined) updates.city = parse.data.city === null || parse.data.city === "" ? null : sanitizeText(parse.data.city, 120);
+  if (parse.data.cryptoAddress !== undefined)
+    updates.cryptoAddress = parse.data.cryptoAddress === null || parse.data.cryptoAddress === "" ? null : parse.data.cryptoAddress.trim();
+
+  await db.update(usersTable).set(updates).where(eq(usersTable.id, targetId));
+
+  const summary = Object.keys(parse.data).join(", ");
+  await logAction(getAdminId(req), "user", targetId, "edit_user", `Updated ${target.name} <${target.email}>: ${summary}`);
+
+  const [updated] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+  if (!updated) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  res.json({
+    id: updated.id,
+    name: updated.name,
+    email: updated.email,
+    phone: updated.phone ?? null,
+    city: updated.city ?? null,
+    cryptoAddress: updated.cryptoAddress ?? null,
+  });
 });
 
 router.get("/users/:id/transactions", async (req, res) => {
@@ -386,7 +626,7 @@ router.post("/transactions/:id/complete", async (req, res) => {
   const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txId)).limit(1);
   if (!tx) { res.status(404).json({ error: "Transaction not found" }); return; }
   if (tx.txType !== "withdraw") { res.status(400).json({ error: "Only withdrawals can be completed here" }); return; }
-  if (tx.status !== "under_review" && tx.status !== "pending") { res.status(400).json({ error: "Withdrawal is not in a completable state" }); return; }
+  if (tx.status !== "under_review") { res.status(400).json({ error: "Mark complete only after approval (under review)" }); return; }
 
   await db.update(transactionsTable).set({ status: "completed" }).where(eq(transactionsTable.id, txId));
   const [txUser] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
@@ -603,9 +843,23 @@ router.patch("/reviews/:id/featured", async (req, res) => {
   }
 });
 
-const BlockBody = z.object({ reason: z.string().min(1).max(2000).optional() });
-const NotifyBody = z.object({ title: z.string().min(1).max(120), body: z.string().min(1).max(4000), type: z.string().max(32).optional() });
-const BroadcastBody = z.object({ title: z.string().min(1).max(120), body: z.string().min(1).max(4000), type: z.string().max(32).optional() });
+const BlockBody = z.object({ reason: z.string().min(1).max(2000) });
+const NotifyBody = z
+  .object({
+    title: z.string().min(1).max(120),
+    body: z.string().min(1).max(4000).optional(),
+    message: z.string().min(1).max(4000).optional(),
+    type: z.string().max(32).optional(),
+  })
+  .refine((d) => d.body != null || d.message != null, { message: "body or message required" });
+const BroadcastBody = z
+  .object({
+    title: z.string().min(1).max(120),
+    body: z.string().min(1).max(4000).optional(),
+    message: z.string().min(1).max(4000).optional(),
+    type: z.string().max(32).optional(),
+  })
+  .refine((d) => d.body != null || d.message != null, { message: "body or message required" });
 
 router.post("/users/:id/block", async (req, res) => {
   const targetId = parseInt(req.params.id);
@@ -619,18 +873,19 @@ router.post("/users/:id/block", async (req, res) => {
   const [target] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
   if (!target) return res.status(404).json({ error: "User not found" });
   if (target.isAdmin) return res.status(400).json({ error: "Cannot block an admin" });
+  if (target.isBlocked) return res.status(400).json({ error: "User is already blocked" });
 
-  const reason = parse.data.reason ? sanitizeText(parse.data.reason, 2000) : "";
+  const reason = sanitizeText(parse.data.reason, 2000);
   await db
     .update(usersTable)
     .set({
       isBlocked: true,
       blockedAt: new Date(),
-      blockedReason: reason || null,
+      blockedReason: reason,
     })
     .where(eq(usersTable.id, targetId));
 
-  await logAction(adminId, "user", targetId, "block_user", `Blocked ${target.name} <${target.email}>${reason ? ` — ${reason}` : ""}`);
+  await logAction(adminId, "user", targetId, "block_user", `Blocked ${target.name} <${target.email}> — ${reason}`);
   return res.json({ message: "User blocked" });
 });
 
@@ -662,6 +917,7 @@ router.delete("/users/:id", async (req, res) => {
 
   const snapshot = `${target.name} <${target.email}>`;
   const client = await pgPool.connect();
+  let refundedPools = 0;
   try {
     await client.query("BEGIN");
 
@@ -675,6 +931,7 @@ router.delete("/users/:id", async (req, res) => {
 
     for (const row of parts) {
       if (row.status !== "completed") {
+        refundedPools += 1;
         const fee = parseFloat(row.entry_fee);
         const urow = await client.query(`SELECT wallet_balance FROM users WHERE id = $1`, [targetId]);
         const bal = parseFloat(urow.rows[0]?.wallet_balance ?? "0");
@@ -700,15 +957,25 @@ router.delete("/users/:id", async (req, res) => {
 
     await client.query("COMMIT");
   } catch (err) {
-    await client.query("ROLLBACK");
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      /* ignore */
+    }
     console.error(err);
     return res.status(500).json({ error: "Failed to delete user" });
   } finally {
     client.release();
   }
 
-  await logAction(adminId, "user", targetId, "delete_user", `Permanently deleted user ${snapshot}`);
-  return res.json({ message: "User deleted" });
+  await logAction(
+    adminId,
+    "user",
+    targetId,
+    "delete_user",
+    `Permanently deleted user ${snapshot} (refunded ${refundedPools} active pool entr${refundedPools === 1 ? "y" : "ies"})`,
+  );
+  return res.json({ message: "User deleted", refundedPools });
 });
 
 router.post("/users/:id/make-admin", async (req, res) => {
@@ -747,12 +1014,12 @@ router.post("/users/:id/reset-password", async (req, res) => {
   const [target] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
   if (!target) return res.status(404).json({ error: "User not found" });
 
-  const tempPass = randomBytes(9).toString("base64url").slice(0, 14);
-  const hash = await bcrypt.hash(tempPass, 12);
+  const tempPassword = randomBytes(6).toString("hex");
+  const hash = await bcrypt.hash(tempPassword, 12);
   await db.update(usersTable).set({ passwordHash: hash }).where(eq(usersTable.id, targetId));
 
   await logAction(getAdminId(req), "user", targetId, "reset_password", `Reset password for ${target.name} <${target.email}>`);
-  return res.json({ message: "Password reset", temporaryPassword: tempPass });
+  return res.json({ message: "Password reset", tempPassword, temporaryPassword: tempPassword });
 });
 
 router.post("/users/:id/notify", async (req, res) => {
@@ -765,7 +1032,8 @@ router.post("/users/:id/notify", async (req, res) => {
   if (!target) return res.status(404).json({ error: "User not found" });
 
   const title = sanitizeText(parse.data.title, 120);
-  const body = sanitizeText(parse.data.body, 4000);
+  const raw = parse.data.body ?? parse.data.message!;
+  const body = sanitizeText(raw, 4000);
   const ntype = sanitizeText(parse.data.type ?? "info", 32) || "info";
 
   await pgPool.query(`INSERT INTO notifications (user_id, title, message, type) VALUES ($1, $2, $3, $4)`, [
@@ -784,7 +1052,8 @@ router.post("/broadcast", async (req, res) => {
   if (!parse.success) return res.status(400).json({ error: "Validation error" });
 
   const title = sanitizeText(parse.data.title, 120);
-  const body = sanitizeText(parse.data.body, 4000);
+  const raw = parse.data.body ?? parse.data.message!;
+  const body = sanitizeText(raw, 4000);
   const ntype = sanitizeText(parse.data.type ?? "info", 32) || "info";
 
   await pgPool.query(
@@ -795,68 +1064,6 @@ router.post("/broadcast", async (req, res) => {
 
   await logAction(getAdminId(req), "user", null, "broadcast", `Broadcast notification "${title}" to all users`);
   return res.json({ message: "Broadcast sent" });
-});
-
-router.get("/users/export", async (req, res) => {
-  const { rows } = await pgPool.query(
-    `SELECT u.id, u.name, u.email, u.phone, u.wallet_balance, u.city,
-            COALESCE(u.tier, 'aurora') AS tier, u.joined_at, u.is_blocked,
-            COALESCE(d.dep, 0) AS total_deposited,
-            COALESCE(w.wd, 0) AS total_withdrawn,
-            COALESCE(p.pj, 0)::int AS pools_joined
-     FROM users u
-     LEFT JOIN (
-       SELECT user_id, SUM(amount::numeric) AS dep FROM transactions
-       WHERE tx_type = 'deposit' AND status = 'completed' GROUP BY user_id
-     ) d ON d.user_id = u.id
-     LEFT JOIN (
-       SELECT user_id, SUM(amount::numeric) AS wd FROM transactions
-       WHERE tx_type = 'withdraw' GROUP BY user_id
-     ) w ON w.user_id = u.id
-     LEFT JOIN (
-       SELECT user_id, COUNT(*) AS pj FROM pool_participants GROUP BY user_id
-     ) p ON p.user_id = u.id
-     ORDER BY u.id`,
-  );
-
-  const header = [
-    "id",
-    "name",
-    "email",
-    "phone",
-    "wallet_balance",
-    "city",
-    "tier",
-    "joined_at",
-    "is_blocked",
-    "total_deposited",
-    "total_withdrawn",
-    "pools_joined",
-  ];
-  const lines = [header.join(",")];
-  for (const r of rows as any[]) {
-    lines.push(
-      [
-        csvEscape(r.id),
-        csvEscape(r.name),
-        csvEscape(r.email),
-        csvEscape(r.phone),
-        csvEscape(r.wallet_balance),
-        csvEscape(r.city),
-        csvEscape(r.tier),
-        csvEscape(r.joined_at?.toISOString?.() ?? r.joined_at),
-        csvEscape(r.is_blocked),
-        csvEscape(r.total_deposited),
-        csvEscape(r.total_withdrawn),
-        csvEscape(r.pools_joined),
-      ].join(","),
-    );
-  }
-
-  const csv = lines.join("\n");
-  res.setHeader("Content-Type", "text/csv; charset=utf-8");
-  res.setHeader("Content-Disposition", 'attachment; filename="users-export.csv"');
-  res.send(csv);
 });
 
 export default router;

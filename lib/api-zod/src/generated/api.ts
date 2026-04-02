@@ -343,5 +343,9 @@ export const ListAdminUsersResponseItem = zod.object({
   blockedAt: zod.coerce.date().nullish(),
   blockedReason: zod.string().nullish(),
   cryptoAddress: zod.string().nullish().describe("USDT wallet on file"),
+  tierPoints: zod.number().optional(),
+  referralCode: zod.string().nullish(),
+  referredBy: zod.number().nullish(),
+  wins: zod.number().optional(),
 });
 export const ListAdminUsersResponse = zod.array(ListAdminUsersResponseItem);

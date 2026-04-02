@@ -41,19 +41,29 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
   return next();
 }
 
-/** Reject authenticated users who are suspended (403). Skips login/signup. */
+/** Reject authenticated users who are suspended (403). Skips login/signup/logout. */
 export async function rejectIfBlocked(req: AuthedRequest, res: Response, next: NextFunction) {
   const path = req.originalUrl.split("?")[0];
   if (path.endsWith("/auth/login") && req.method === "POST") return next();
   if (path.endsWith("/auth/signup") && req.method === "POST") return next();
+  if (path.endsWith("/auth/logout") && req.method === "POST") return next();
 
   const userId = getAuthedUserId(req);
   if (!userId) return next();
 
   try {
-    const { rows } = await pool.query(`SELECT is_blocked FROM users WHERE id = $1 LIMIT 1`, [userId]);
+    const { rows } = await pool.query<{ is_blocked: boolean; blocked_reason: string | null }>(
+      `SELECT is_blocked, blocked_reason FROM users WHERE id = $1 LIMIT 1`,
+      [userId],
+    );
     if (rows[0]?.is_blocked === true) {
-      return res.status(403).json({ error: "Your account has been suspended. Contact support." });
+      const reason = rows[0].blocked_reason?.trim();
+      return res.status(403).json({
+        error: "Account suspended",
+        message: reason
+          ? `Your account has been suspended. Reason: ${reason}`
+          : "Your account has been suspended. Contact support.",
+      });
     }
   } catch {
     /* Column missing or DB glitch — do not block the request */

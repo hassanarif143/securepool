@@ -39,8 +39,20 @@ import {
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { MoreHorizontal } from "lucide-react";
-import { apiUrl, apiAssetUrl, getFullImageUrl, readApiErrorMessage } from "@/lib/api-base";
+import { apiUrl, getFullImageUrl, readApiErrorMessage } from "@/lib/api-base";
+
+function parseSuperAdminIds(): number[] {
+  const raw = import.meta.env.VITE_SUPER_ADMIN_IDS as string | undefined;
+  if (raw && raw.trim()) {
+    return raw
+      .split(",")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !Number.isNaN(n) && n > 0);
+  }
+  return [1];
+}
 
 export default function AdminPage() {
   const { user, isLoading } = useAuth();
@@ -890,13 +902,29 @@ function UsersTab() {
   const [tierTier, setTierTier] = useState("aurora");
   const [tierPoints, setTierPoints] = useState("0");
   const [busy, setBusy] = useState(false);
+  const [userFilter, setUserFilter] = useState<"all" | "active" | "blocked" | "admins">("all");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", city: "", cryptoAddress: "" });
+  const [editSaving, setEditSaving] = useState(false);
 
-  const isSuperAdmin = me?.id === 1;
+  const superAdminIds = parseSuperAdminIds();
+  const isSuperAdmin = me?.id != null && superAdminIds.includes(me.id);
   const list = Array.isArray(users) ? users : [];
-  const filtered = list.filter((u) =>
-    u.name.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase()),
-  );
+  const blockedCount = list.filter((u) => u.isBlocked).length;
+  const adminCount = list.filter((u) => u.isAdmin).length;
+
+  const filtered = list
+    .filter((u) =>
+      u.name.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase()),
+    )
+    .filter((u) => {
+      if (userFilter === "active") return !u.isBlocked;
+      if (userFilter === "blocked") return u.isBlocked;
+      if (userFilter === "admins") return u.isAdmin;
+      return true;
+    });
 
   async function exportServerCsv() {
     try {
@@ -956,26 +984,95 @@ function UsersTab() {
     <Dialog open={blockOpen} onOpenChange={setBlockOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Block user</DialogTitle>
-          <DialogDescription>User will not be able to use the platform until unblocked.</DialogDescription>
+          <DialogTitle>Block {blockTarget?.name ?? "user"}</DialogTitle>
+          <DialogDescription>They will not be able to use the platform until unblocked. A reason is required.</DialogDescription>
         </DialogHeader>
-        <Input placeholder="Reason (optional)" value={blockReason} onChange={(e) => setBlockReason(e.target.value)} />
+        <Textarea
+          placeholder="Reason for blocking (required)"
+          value={blockReason}
+          onChange={(e) => setBlockReason(e.target.value)}
+          className="min-h-[100px]"
+        />
         <DialogFooter>
           <Button variant="outline" onClick={() => setBlockOpen(false)}>Cancel</Button>
           <Button
-            disabled={busy}
+            disabled={busy || !blockReason.trim()}
             className="bg-red-600 hover:bg-red-700"
             onClick={async () => {
               if (!blockTarget) return;
               setBusy(true);
               try {
-                await postJson(`/api/admin/users/${blockTarget.id}/block`, { reason: blockReason || undefined });
+                await postJson(`/api/admin/users/${blockTarget.id}/block`, { reason: blockReason.trim() });
                 toast({ title: "User blocked" });
                 setBlockOpen(false); setBlockReason(""); refetch();
               } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
               finally { setBusy(false); }
             }}
-          >Block</Button>
+          >Block user</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit user</DialogTitle>
+          <DialogDescription>Update profile fields. Leave unchanged fields as-is.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="edit-name">Name</Label>
+            <Input id="edit-name" value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
+          </div>
+          <div>
+            <Label htmlFor="edit-email">Email</Label>
+            <Input id="edit-email" type="email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} />
+          </div>
+          <div>
+            <Label htmlFor="edit-phone">Phone</Label>
+            <Input id="edit-phone" value={editForm.phone} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} />
+          </div>
+          <div>
+            <Label htmlFor="edit-city">City</Label>
+            <Input id="edit-city" value={editForm.city} onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} />
+          </div>
+          <div>
+            <Label htmlFor="edit-crypto">Crypto address</Label>
+            <Input id="edit-crypto" value={editForm.cryptoAddress} onChange={(e) => setEditForm((f) => ({ ...f, cryptoAddress: e.target.value }))} className="font-mono text-xs" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+          <Button
+            disabled={editSaving}
+            onClick={async () => {
+              if (!editTarget) return;
+              setEditSaving(true);
+              try {
+                const res = await fetch(apiUrl(`/api/admin/users/${editTarget.id}`), {
+                  method: "PATCH",
+                  credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    name: editForm.name.trim() || undefined,
+                    email: editForm.email.trim() || undefined,
+                    phone: editForm.phone.trim() === "" ? null : editForm.phone.trim(),
+                    city: editForm.city.trim() === "" ? null : editForm.city.trim(),
+                    cryptoAddress: editForm.cryptoAddress.trim() === "" ? null : editForm.cryptoAddress.trim(),
+                  }),
+                });
+                const j = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(j.error || "Update failed");
+                toast({ title: "User updated" });
+                setEditOpen(false);
+                refetch();
+              } catch (e: any) {
+                toast({ title: "Failed", description: e.message, variant: "destructive" });
+              } finally {
+                setEditSaving(false);
+              }
+            }}
+          >Save</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1001,7 +1098,13 @@ function UsersTab() {
                 const res = await fetch(apiUrl(`/api/admin/users/${deleteTarget.id}`), { method: "DELETE", credentials: "include" });
                 const j = await res.json().catch(() => ({}));
                 if (!res.ok) throw new Error(j.error);
-                toast({ title: "User deleted" });
+                toast({
+                  title: "User deleted",
+                  description:
+                    typeof j.refundedPools === "number" && j.refundedPools > 0
+                      ? `${j.refundedPools} active pool entr${j.refundedPools === 1 ? "y" : "ies"} refunded before removal.`
+                      : undefined,
+                });
                 setDeleteOpen(false); setDeleteConfirm(""); refetch();
               } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
               finally { setBusy(false); }
@@ -1115,16 +1218,47 @@ function UsersTab() {
     </Dialog>
 
     <div className="space-y-3 mt-4">
-      <div className="flex flex-col sm:flex-row flex-wrap gap-2">
-        <Input
-          placeholder="Search by name or email..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-0 w-full sm:min-w-[200px]"
-        />
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={exportServerCsv}>Export CSV</Button>
-          <Button size="sm" className="flex-1 sm:flex-none" onClick={() => setBroadcastOpen(true)} style={{ background: "hsl(152,72%,36%)", color: "white" }}>Broadcast</Button>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span className="rounded-full border border-border px-2 py-0.5 bg-muted/40">
+            Showing <strong className="text-foreground">{filtered.length}</strong> of {list.length}
+          </span>
+          {blockedCount > 0 && (
+            <span className="rounded-full border border-red-500/30 px-2 py-0.5 text-red-400">
+              {blockedCount} blocked
+            </span>
+          )}
+          {adminCount > 0 && (
+            <span className="rounded-full border border-amber-500/30 px-2 py-0.5 text-amber-400">
+              {adminCount} admin{adminCount !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {(["all", "active", "blocked", "admins"] as const).map((f) => (
+            <Button
+              key={f}
+              type="button"
+              size="sm"
+              variant={userFilter === f ? "default" : "outline"}
+              className="h-8 text-xs capitalize"
+              onClick={() => setUserFilter(f)}
+            >
+              {f === "all" ? "All" : f === "active" ? "Active" : f === "blocked" ? "Blocked" : "Admins"}
+            </Button>
+          ))}
+        </div>
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+          <Input
+            placeholder="Search by name or email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 min-w-0 w-full sm:min-w-[200px]"
+          />
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={exportServerCsv}>Export CSV</Button>
+            <Button size="sm" className="flex-1 sm:flex-none" onClick={() => setBroadcastOpen(true)} style={{ background: "hsl(152,72%,36%)", color: "white" }}>Broadcast</Button>
+          </div>
         </div>
       </div>
 
@@ -1152,19 +1286,25 @@ function UsersTab() {
             {list.length === 0 ? "No users in database yet." : "No users match your search."}
           </p>
         ) : filtered.map((u) => (
-          <Card key={u.id} className="mb-3 w-full max-w-full">
+          <Card
+            key={u.id}
+            className={`mb-3 w-full max-w-full ${u.isBlocked ? "border-red-500/35 bg-red-500/[0.03]" : ""}`}
+          >
             <CardContent className="p-3 sm:p-4 space-y-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <p className="font-semibold">{u.name}</p>
+                    {!u.isBlocked && !u.isAdmin && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-emerald-500/35 bg-emerald-500/10 text-emerald-400">🟢 Active</span>
+                    )}
                     {u.isAdmin && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/15 text-amber-400">Admin</span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/15 text-amber-400">🟡 Admin</span>
                     )}
                     {u.isBlocked && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-red-500/40 bg-red-500/10 text-red-400 cursor-help">Blocked</span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-red-500/40 bg-red-500/10 text-red-400 cursor-help">🔴 Blocked</span>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs">
                           {u.blockedReason || "No reason recorded"}
@@ -1173,8 +1313,14 @@ function UsersTab() {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">{u.email}</p>
-                  <p className="text-[10px] text-muted-foreground capitalize">Tier: {u.tier ?? "aurora"} · Phone: {u.phone ?? "—"} · City: {u.city ?? "—"}</p>
+                  <p className="text-[10px] text-muted-foreground capitalize">
+                    Tier: {u.tier ?? "aurora"} ({(u as { tierPoints?: number }).tierPoints ?? 0} pts) · Wins: {(u as { wins?: number }).wins ?? 0}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">Phone: {u.phone ?? "—"} · City: {u.city ?? "—"}</p>
                   {u.cryptoAddress && <p className="text-xs font-mono text-muted-foreground truncate">Wallet: {u.cryptoAddress}</p>}
+                  {u.isBlocked && u.blockedReason && (
+                    <p className="text-[10px] text-muted-foreground italic border-l-2 border-red-500/40 pl-2 mt-1">{u.blockedReason}</p>
+                  )}
                   <p className="text-[11px] sm:text-xs text-muted-foreground leading-snug">
                     Joined: {new Date(u.joinedAt).toLocaleDateString()} · Pools: {u.poolsJoined} · Dep: {u.totalDeposited?.toFixed?.(2) ?? u.totalDeposited} · Wd: {u.totalWithdrawn?.toFixed?.(2) ?? u.totalWithdrawn}
                   </p>
@@ -1188,27 +1334,42 @@ function UsersTab() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-[min(100vw-2rem,16rem)] sm:w-52">
-                      <DropdownMenuItem onClick={() => setProfileUser(u)}>View transactions</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setAdjustingId(adjustingId === u.id ? null : u.id); }}>Adjust balance</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setTierTarget(u); setTierTier(u.tier ?? "aurora"); setTierPoints(String((u as any).tierPoints ?? 0)); setTierOpen(true); }}>Change tier</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setProfileUser(u)}>👁️ View full profile</DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setEditTarget(u);
+                          setEditForm({
+                            name: u.name,
+                            email: u.email,
+                            phone: u.phone ?? "",
+                            city: u.city ?? "",
+                            cryptoAddress: u.cryptoAddress ?? "",
+                          });
+                          setEditOpen(true);
+                        }}
+                      >
+                        ✏️ Edit user
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setAdjustingId(adjustingId === u.id ? null : u.id); }}>💰 Adjust balance</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setTierTarget(u); setTierTier(u.tier ?? "aurora"); setTierPoints(String((u as { tierPoints?: number }).tierPoints ?? 0)); setTierOpen(true); }}>⭐ Change tier</DropdownMenuItem>
                       {!u.isBlocked ? (
-                        <DropdownMenuItem onClick={() => { setBlockTarget(u); setBlockOpen(true); }} disabled={u.isAdmin || u.id === me?.id}>Block user</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setBlockTarget(u); setBlockReason(""); setBlockOpen(true); }} disabled={u.isAdmin || u.id === me?.id}>🔒 Block user</DropdownMenuItem>
                       ) : (
                         <DropdownMenuItem onClick={async () => {
                           try {
                             await postJson(`/api/admin/users/${u.id}/unblock`);
                             toast({ title: "Unblocked" }); refetch();
                           } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
-                        }}>Unblock user</DropdownMenuItem>
+                        }}>🔓 Unblock user</DropdownMenuItem>
                       )}
-                      <DropdownMenuItem onClick={() => { setNotifyTarget(u); setNotifyOpen(true); }}>Send notification</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setNotifyTarget(u); setNotifyOpen(true); }}>📩 Send notification</DropdownMenuItem>
                       <DropdownMenuItem onClick={async () => {
                         setTempPassword(null);
                         try {
                           const j = await postJson(`/api/admin/users/${u.id}/reset-password`);
-                          setTempPassword(j.temporaryPassword); setResetOpen(true);
+                          setTempPassword(j.tempPassword ?? j.temporaryPassword); setResetOpen(true);
                         } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
-                      }}>Reset password</DropdownMenuItem>
+                      }}>🔑 Reset password</DropdownMenuItem>
                       {isSuperAdmin && (
                         <>
                           <DropdownMenuSeparator />
@@ -1216,7 +1377,7 @@ function UsersTab() {
                             <DropdownMenuItem disabled={u.isAdmin} onClick={async () => {
                               try { await postJson(`/api/admin/users/${u.id}/make-admin`); toast({ title: "Now admin" }); refetch(); }
                               catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
-                            }}>Make admin</DropdownMenuItem>
+                            }}>👑 Make admin</DropdownMenuItem>
                           ) : (
                             <DropdownMenuItem disabled={u.id === me?.id} onClick={async () => {
                               try { await postJson(`/api/admin/users/${u.id}/remove-admin`); toast({ title: "Admin removed" }); refetch(); }
@@ -1226,7 +1387,7 @@ function UsersTab() {
                         </>
                       )}
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-red-500 focus:text-red-500" disabled={u.isAdmin || u.id === me?.id} onClick={() => { setDeleteTarget(u); setDeleteConfirm(""); setDeleteOpen(true); }}>Delete user</DropdownMenuItem>
+                      <DropdownMenuItem className="text-red-500 focus:text-red-500" disabled={u.isAdmin || u.id === me?.id} onClick={() => { setDeleteTarget(u); setDeleteConfirm(""); setDeleteOpen(true); }}>🗑️ Delete user</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

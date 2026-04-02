@@ -508,6 +508,16 @@ components:
           type: string
           nullable: true
           description: USDT wallet on file
+        tierPoints:
+          type: integer
+        referralCode:
+          type: string
+          nullable: true
+        referredBy:
+          type: integer
+          nullable: true
+        wins:
+          type: integer
       required: [id, name, email, walletBalance, isAdmin, joinedAt, totalDeposited, totalWithdrawn, poolsJoined]
 
     SignupBody:
