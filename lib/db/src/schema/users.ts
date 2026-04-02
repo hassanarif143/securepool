@@ -18,6 +18,7 @@ export const usersTable = pgTable("users", {
   blockedAt: timestamp("blocked_at", { withTimezone: true }),
   blockedReason: text("blocked_reason"),
   joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+  isDemo: boolean("is_demo").notNull().default(false),
 });
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({
@@ -28,6 +29,7 @@ export const insertUserSchema = createInsertSchema(usersTable).omit({
   isBlocked: true,
   blockedAt: true,
   blockedReason: true,
+  isDemo: true,
 });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof usersTable.$inferSelect;

@@ -11,6 +11,7 @@ import {
   transactionsTable,
   winnersTable,
   adminActionsTable,
+  walletChangeRequestsTable,
 } from "@workspace/db";
 import { eq, ne, count, sum, desc, and, sql } from "drizzle-orm";
 import { sendWithdrawalStatusEmail } from "../lib/email";
@@ -18,6 +19,7 @@ import { notifyUser } from "../lib/notify";
 import { sanitizeText } from "../lib/sanitize";
 import { requireAdmin } from "../middleware/auth";
 import { getAuthedUserId } from "../middleware/auth";
+import { isValidTrc20Address } from "../lib/trc20";
 
 const router: IRouter = Router();
 
@@ -493,8 +495,31 @@ router.patch("/users/:id", async (req, res) => {
   if (parse.data.email !== undefined) updates.email = parse.data.email.toLowerCase().trim();
   if (parse.data.phone !== undefined) updates.phone = parse.data.phone === null || parse.data.phone === "" ? null : sanitizeText(parse.data.phone, 40);
   if (parse.data.city !== undefined) updates.city = parse.data.city === null || parse.data.city === "" ? null : sanitizeText(parse.data.city, 120);
-  if (parse.data.cryptoAddress !== undefined)
-    updates.cryptoAddress = parse.data.cryptoAddress === null || parse.data.cryptoAddress === "" ? null : parse.data.cryptoAddress.trim();
+  if (parse.data.cryptoAddress !== undefined) {
+    const ca =
+      parse.data.cryptoAddress === null || parse.data.cryptoAddress === ""
+        ? null
+        : parse.data.cryptoAddress.trim();
+    if (ca && !isValidTrc20Address(ca)) {
+      res.status(400).json({ error: "Invalid TRC20 wallet address format" });
+      return;
+    }
+    if (ca) {
+      const [dup] = await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(and(eq(usersTable.cryptoAddress, ca), ne(usersTable.id, targetId)))
+        .limit(1);
+      if (dup) {
+        res.status(409).json({
+          error: "Duplicate wallet",
+          message: "This wallet address is already registered to another account.",
+        });
+        return;
+      }
+    }
+    updates.cryptoAddress = ca;
+  }
 
   await db.update(usersTable).set(updates).where(eq(usersTable.id, targetId));
 
@@ -1173,6 +1198,124 @@ router.post("/broadcast", async (req, res) => {
 
   await logAction(getAdminId(req), "user", null, "broadcast", `Broadcast notification "${title}" to all users`);
   return res.json({ message: "Broadcast sent" });
+});
+
+/* ── Wallet change requests ── */
+router.get("/wallet-requests", async (_req, res) => {
+  const rows = await db
+    .select({
+      id: walletChangeRequestsTable.id,
+      userId: walletChangeRequestsTable.userId,
+      userName: usersTable.name,
+      userEmail: usersTable.email,
+      currentAddress: walletChangeRequestsTable.currentAddress,
+      newAddress: walletChangeRequestsTable.newAddress,
+      reason: walletChangeRequestsTable.reason,
+      status: walletChangeRequestsTable.status,
+      requestedAt: walletChangeRequestsTable.requestedAt,
+    })
+    .from(walletChangeRequestsTable)
+    .innerJoin(usersTable, eq(walletChangeRequestsTable.userId, usersTable.id))
+    .where(eq(walletChangeRequestsTable.status, "pending"))
+    .orderBy(desc(walletChangeRequestsTable.requestedAt));
+  res.json(rows);
+});
+
+router.post("/wallet-requests/:id/approve", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid request ID" });
+  const adminId = getAdminId(req);
+
+  const [row] = await db.select().from(walletChangeRequestsTable).where(eq(walletChangeRequestsTable.id, id)).limit(1);
+  if (!row) return res.status(404).json({ error: "Request not found" });
+  if (row.status !== "pending") return res.status(400).json({ error: "Request is not pending" });
+
+  const [dup] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(and(eq(usersTable.cryptoAddress, row.newAddress), ne(usersTable.id, row.userId)))
+    .limit(1);
+  if (dup) {
+    return res.status(409).json({
+      error: "Duplicate wallet",
+      message: "Another account already uses this address. Reject this request.",
+    });
+  }
+
+  const oldAddr = row.currentAddress;
+  await db.update(usersTable).set({ cryptoAddress: row.newAddress }).where(eq(usersTable.id, row.userId));
+  await db
+    .update(walletChangeRequestsTable)
+    .set({
+      status: "approved",
+      reviewedAt: new Date(),
+      reviewedBy: adminId,
+    })
+    .where(eq(walletChangeRequestsTable.id, id));
+
+  await logAction(
+    adminId,
+    "user",
+    row.userId,
+    "wallet_change_approved",
+    `Approved wallet change ${oldAddr} → ${row.newAddress} (request #${id})`,
+  );
+
+  try {
+    await notifyUser(row.userId, "Wallet address updated", `Your TRC20 wallet was updated to ${row.newAddress}.`, "success");
+  } catch {
+    /* ignore */
+  }
+
+  return res.json({ message: "Request approved; user wallet updated" });
+});
+
+const RejectWalletBody = z.object({ adminNote: z.string().max(500).optional() });
+
+router.post("/wallet-requests/:id/reject", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid request ID" });
+  const adminId = getAdminId(req);
+  const parse = RejectWalletBody.safeParse(req.body ?? {});
+  if (!parse.success) return res.status(400).json({ error: "Validation error" });
+
+  const [row] = await db.select().from(walletChangeRequestsTable).where(eq(walletChangeRequestsTable.id, id)).limit(1);
+  if (!row) return res.status(404).json({ error: "Request not found" });
+  if (row.status !== "pending") return res.status(400).json({ error: "Request is not pending" });
+
+  const note = parse.data.adminNote ? sanitizeText(parse.data.adminNote, 500) : null;
+  await db
+    .update(walletChangeRequestsTable)
+    .set({
+      status: "rejected",
+      reviewedAt: new Date(),
+      reviewedBy: adminId,
+      adminNote: note,
+    })
+    .where(eq(walletChangeRequestsTable.id, id));
+
+  await logAction(
+    adminId,
+    "user",
+    row.userId,
+    "wallet_change_rejected",
+    `Rejected wallet change request #${id}${note ? ` — ${note}` : ""}`,
+  );
+
+  try {
+    await notifyUser(
+      row.userId,
+      "Wallet change request declined",
+      note
+        ? `Your request was rejected. Note from admin: ${note}`
+        : "Your wallet address change request was not approved.",
+      "info",
+    );
+  } catch {
+    /* ignore */
+  }
+
+  return res.json({ message: "Request rejected" });
 });
 
 export default router;

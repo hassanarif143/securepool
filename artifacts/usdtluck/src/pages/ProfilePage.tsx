@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,52 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiUrl } from "@/lib/api-base";
+import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
+import { Lock, Copy, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { trc20ValidationMessage, TRC20_ADDRESS_REGEX } from "@/lib/trc20";
+
+type WalletApi = {
+  address: string | null;
+  pendingRequest: { id: number; newAddress: string; reason: string; requestedAt: string } | null;
+  lastRejected: { adminNote: string | null; reviewedAt: string | null } | null;
+  cooldownUntil: string | null;
+};
+
+function truncateAddr(addr: string): { short: string; full: string } {
+  const full = addr.trim();
+  if (full.length <= 18) return { short: full, full };
+  return { short: `${full.slice(0, 8)}…${full.slice(-8)}`, full };
+}
+
+function cooldownParts(untilIso: string): { h: number; m: number } | null {
+  const end = new Date(untilIso).getTime();
+  const now = Date.now();
+  if (end <= now) return null;
+  const ms = end - now;
+  return { h: Math.floor(ms / 3_600_000), m: Math.floor((ms % 3_600_000) / 60_000) };
+}
+
+function useNarrowScreen() {
+  const [narrow, setNarrow] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)").matches : false,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const fn = () => setNarrow(mq.matches);
+    mq.addEventListener("change", fn);
+    return () => mq.removeEventListener("change", fn);
+  }, []);
+  return narrow;
+}
 
 export default function ProfilePage() {
   const { user, isLoading, setUser } = useAuth();
@@ -17,16 +62,67 @@ export default function ProfilePage() {
   const queryClient = useQueryClient();
 
   const [name, setName] = useState(user?.name ?? "");
-  const [cryptoAddress, setCryptoAddress] = useState(user?.cryptoAddress ?? "");
   const [saving, setSaving] = useState(false);
+  const [walletInfo, setWalletInfo] = useState<WalletApi | null>(null);
+  const [walletLoading, setWalletLoading] = useState(true);
+  const [changeOpen, setChangeOpen] = useState(false);
+  const [newAddr, setNewAddr] = useState("");
+  const [newAddrConfirm, setNewAddrConfirm] = useState("");
+  const [reason, setReason] = useState("");
+  const [submittingChange, setSubmittingChange] = useState(false);
+  const [cooldownTick, setCooldownTick] = useState(0);
+  const narrow = useNarrowScreen();
+
+  const loadWallet = useCallback(async () => {
+    setWalletLoading(true);
+    try {
+      const res = await fetch(apiUrl("/api/user/wallet"), { credentials: "include" });
+      if (!res.ok) {
+        setWalletInfo(null);
+        return;
+      }
+      const data = (await res.json()) as WalletApi;
+      setWalletInfo(data);
+    } catch {
+      setWalletInfo(null);
+    } finally {
+      setWalletLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isLoading && !user) navigate("/login");
-  }, [user, isLoading]);
+  }, [user, isLoading, navigate]);
+
+  useEffect(() => {
+    if (user) void loadWallet();
+  }, [user, loadWallet]);
+
+  useEffect(() => {
+    if (!walletInfo?.cooldownUntil) return;
+    const id = setInterval(() => setCooldownTick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, [walletInfo?.cooldownUntil]);
+
+  useEffect(() => {
+    if (user) setName(user.name);
+  }, [user]);
 
   if (isLoading || !user) return null;
 
   const currentUser = user;
+  const displayAddr = (walletInfo?.address ?? currentUser.cryptoAddress ?? "").trim();
+  const { short: shortAddr, full: fullAddr } = displayAddr ? truncateAddr(displayAddr) : { short: "", full: "" };
+
+  const cooldown = walletInfo?.cooldownUntil ? cooldownParts(walletInfo.cooldownUntil) : null;
+  void cooldownTick;
+
+  const addrPhase = trc20ValidationMessage(newAddr);
+  const addressesMatch = newAddr.trim() === newAddrConfirm.trim() && newAddr.trim().length > 0;
+  const modalCanSubmit =
+    TRC20_ADDRESS_REGEX.test(newAddr.trim()) &&
+    newAddr.trim() === newAddrConfirm.trim() &&
+    reason.trim().length >= 10;
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -36,19 +132,81 @@ export default function ProfilePage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name, cryptoAddress: cryptoAddress || null }),
+        body: JSON.stringify({ name }),
       });
-      if (!res.ok) throw new Error("Update failed");
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
       const updated = await res.json();
       setUser({ ...currentUser, name: updated.name, cryptoAddress: updated.cryptoAddress });
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       toast({ title: "Profile updated", description: "Your details have been saved." });
-    } catch {
-      toast({ title: "Update failed", variant: "destructive" });
+    } catch (e: unknown) {
+      toast({
+        title: "Update failed",
+        description: e instanceof Error ? e.message : "Could not save",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
   }
+
+  async function copyAddress() {
+    if (!fullAddr) return;
+    try {
+      await navigator.clipboard.writeText(fullAddr);
+      toast({ title: "Copied", description: "Wallet address copied to clipboard." });
+    } catch {
+      toast({ title: "Copy failed", variant: "destructive" });
+    }
+  }
+
+  async function submitChangeRequest() {
+    if (!modalCanSubmit) return;
+    setSubmittingChange(true);
+    try {
+      const res = await fetch(apiUrl("/api/user/wallet/change-request"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          newAddress: newAddr.trim(),
+          newAddressConfirm: newAddrConfirm.trim(),
+          reason: reason.trim(),
+        }),
+      });
+      if (!res.ok) {
+        toast({
+          title: "Request failed",
+          description: await readApiErrorMessage(res),
+          variant: "destructive",
+        });
+        return;
+      }
+      const j = (await res.json()) as { message?: string };
+      toast({
+        title: "Request submitted",
+        description: j.message ?? "Your address change request has been submitted. Admin will review and approve it.",
+      });
+      setChangeOpen(false);
+      setNewAddr("");
+      setNewAddrConfirm("");
+      setReason("");
+      await loadWallet();
+      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+    } catch (e: unknown) {
+      toast({
+        title: "Request failed",
+        description: e instanceof Error ? e.message : "Network error",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingChange(false);
+    }
+  }
+
+  const pending = walletInfo?.pendingRequest;
+  const rejected = walletInfo?.lastRejected;
+  const cooldownActive = Boolean(walletInfo?.cooldownUntil && cooldown);
 
   return (
     <div className="max-w-lg mx-auto space-y-6">
@@ -56,8 +214,91 @@ export default function ProfilePage() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">TRC20 wallet (USDT prizes)</CardTitle>
+          <CardDescription>
+            Your prize payouts are sent manually to this address. It is locked for your protection.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {walletLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading wallet…
+            </div>
+          ) : (
+            <>
+              {pending && (
+                <div
+                  className="rounded-md border px-3 py-2 text-sm"
+                  style={{ borderColor: "hsla(38,92%,50%,0.35)", background: "hsla(38,92%,50%,0.08)" }}
+                >
+                  <span className="font-medium text-amber-600 dark:text-amber-400">Address change pending review</span>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    You requested a change to{" "}
+                    <span className="font-mono">{truncateAddr(pending.newAddress).short}</span>
+                  </p>
+                </div>
+              )}
+              {rejected && !pending && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm">
+                  <p className="font-medium text-destructive">Your last address change request was rejected</p>
+                  {rejected.adminNote && (
+                    <p className="text-xs text-muted-foreground mt-1">Admin note: {rejected.adminNote}</p>
+                  )}
+                </div>
+              )}
+              <div className="relative">
+                <Label className="flex items-center gap-1.5 text-muted-foreground">
+                  <Lock className="h-3.5 w-3.5" />
+                  Your TRC20 Wallet Address (for receiving USDT prizes)
+                </Label>
+                <div className="flex gap-2 mt-1.5">
+                  <Input
+                    readOnly
+                    disabled
+                    value={fullAddr ? (narrow ? shortAddr : fullAddr) : "—"}
+                    title={fullAddr || undefined}
+                    className="font-mono text-sm opacity-80 pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    disabled={!fullAddr}
+                    onClick={() => void copyAddress()}
+                    aria-label="Copy wallet address"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs font-mono text-muted-foreground mt-1 break-all hidden md:block">{fullAddr}</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Wallet address is locked for security. To change it, submit a change request.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                disabled={cooldownActive || Boolean(pending) || !fullAddr}
+                onClick={() => setChangeOpen(true)}
+              >
+                Request Address Change
+              </Button>
+              {cooldownActive && cooldown && (
+                <p className="text-xs text-muted-foreground text-center">
+                  You can request another address change in {cooldown.h} hours {cooldown.m} minutes
+                </p>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">Account Information</CardTitle>
-          <CardDescription>Update your name and crypto address below</CardDescription>
+          <CardDescription>Update your display name</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSave} className="space-y-4">
@@ -76,19 +317,6 @@ export default function ProfilePage() {
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
               <Input id="email" value={currentUser.email} disabled className="opacity-60" />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="cryptoAddress">Your USDT Wallet Address (TRC-20)</Label>
-              <Input
-                id="cryptoAddress"
-                value={cryptoAddress}
-                onChange={(e) => setCryptoAddress(e.target.value)}
-                placeholder="e.g. TQn9Y2khEsLJW1ChVWFMSMeRDow5k..."
-              />
-              <p className="text-xs text-muted-foreground">
-                This is where we identify your incoming payments. Make sure it matches the wallet you send from.
-              </p>
             </div>
 
             <Button type="submit" disabled={saving} className="w-full">
@@ -113,6 +341,87 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={changeOpen} onOpenChange={setChangeOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Request wallet address change</DialogTitle>
+            <DialogDescription>
+              Enter your new TRC20 address twice and a short reason. An admin will review before it is applied.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+            ⚠️ Double-check the new address. USDT sent to the wrong address cannot be recovered.
+          </div>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="new-addr">New TRC20 wallet address</Label>
+              <Input
+                id="new-addr"
+                className="font-mono text-sm"
+                value={newAddr}
+                onChange={(e) => setNewAddr(e.target.value)}
+                placeholder="T..."
+                maxLength={64}
+                spellCheck={false}
+              />
+              {addrPhase === "erc20_hint" && (
+                <p className="text-xs text-destructive">
+                  This looks like an ERC20 (Ethereum) address. Use a TRON address starting with T.
+                </p>
+              )}
+              {newAddr.trim() && addrPhase === "invalid" && (
+                <p className="text-xs text-destructive">Invalid TRC20 address format</p>
+              )}
+              {addrPhase === "valid" && <p className="text-xs text-emerald-600">Valid TRC20 address</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-addr-c">Confirm new TRC20 wallet address</Label>
+              <Input
+                id="new-addr-c"
+                className="font-mono text-sm"
+                value={newAddrConfirm}
+                onChange={(e) => setNewAddrConfirm(e.target.value)}
+                placeholder="T..."
+                maxLength={64}
+                spellCheck={false}
+              />
+              {newAddrConfirm.trim() &&
+                TRC20_ADDRESS_REGEX.test(newAddrConfirm.trim()) &&
+                !addressesMatch && (
+                <p className="text-xs text-destructive">Wallet addresses do not match</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="reason">Reason for change</Label>
+              <Textarea
+                id="reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="At least 10 characters"
+                rows={3}
+                minLength={10}
+              />
+              <p className="text-[11px] text-muted-foreground">{reason.trim().length}/10+ characters</p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setChangeOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" disabled={!modalCanSubmit || submittingChange} onClick={() => void submitChangeRequest()}>
+              {submittingChange ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Submitting…
+                </>
+              ) : (
+                "Submit Change Request"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

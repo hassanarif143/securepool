@@ -5,3 +5,4 @@ export * from "./transactions";
 export * from "./winners";
 export * from "./adminActions";
 export * from "./referrals";
+export * from "./walletChangeRequests";

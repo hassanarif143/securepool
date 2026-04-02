@@ -11,12 +11,14 @@ import reviewsRouter from "./reviews";
 import tierRouter from "./tier";
 import notificationsRouter from "./notifications";
 import statsRouter from "./stats";
+import userWalletRouter from "./userWallet";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use("/stats", statsRouter);
 router.use("/auth", authRouter);
+router.use("/user", userWalletRouter);
 router.use("/users", usersRouter);
 router.use("/pools", poolsRouter);
 router.use("/transactions", transactionsRouter);

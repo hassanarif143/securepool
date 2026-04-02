@@ -12,6 +12,7 @@ import { notifyUser } from "../lib/notify";
 import { sanitizeText } from "../lib/sanitize";
 import { logger } from "../lib/logger";
 import { getOrCreateCsrfToken } from "../middleware/csrf";
+import { trc20AddressZod } from "../lib/trc20";
 
 declare module "express-session" {
   interface SessionData {
@@ -23,13 +24,19 @@ const SIGNUP_BONUS_USDT = 1; // bonus credited to new user when they sign up via
 
 const router: IRouter = Router();
 
-const SignupSchema = z.object({
-  name: z.string().min(2),
-  email: z.string().trim().email(),
-  password: z.string().min(6),
-  cryptoAddress: z.string().min(10).max(120).regex(/^T[a-zA-Z0-9]{25,}$/, "Invalid TRC20 wallet address"),
-  referralCode: z.string().optional(),
-});
+const SignupSchema = z
+  .object({
+    name: z.string().min(2),
+    email: z.string().trim().email(),
+    password: z.string().min(6),
+    cryptoAddress: trc20AddressZod(),
+    cryptoAddressConfirm: trc20AddressZod(),
+    referralCode: z.string().optional(),
+  })
+  .refine((d) => d.cryptoAddress === d.cryptoAddressConfirm, {
+    message: "Wallet addresses do not match",
+    path: ["cryptoAddressConfirm"],
+  });
 
 const LoginSchema = z.object({
   email: z.string().trim().email(),
@@ -119,7 +126,9 @@ router.get("/csrf-token", (req, res) => {
 router.post("/signup", signupLimiter, async (req, res) => {
   const parse = SignupSchema.safeParse(req.body);
   if (!parse.success) {
-    res.status(400).json({ error: "Validation error", message: parse.error.message });
+    const flat = parse.error.flatten();
+    const msg = Object.values(flat.fieldErrors).flat()[0] ?? parse.error.message;
+    res.status(400).json({ error: "Validation error", message: msg });
     return;
   }
 
@@ -138,7 +147,11 @@ router.post("/signup", signupLimiter, async (req, res) => {
   }
   const existingWallet = await db.select().from(usersTable).where(eq(usersTable.cryptoAddress, cryptoAddress)).limit(1);
   if (existingWallet.length > 0) {
-    res.status(409).json({ error: "Wallet already in use", message: "An account with this wallet already exists." });
+    res.status(409).json({
+      error: "Duplicate wallet",
+      message:
+        "This wallet address is already registered to another account. Each account must use a unique wallet address.",
+    });
     return;
   }
 
@@ -200,6 +213,7 @@ router.post("/signup", signupLimiter, async (req, res) => {
       name: user.name,
       email: user.email,
       walletBalance: parseFloat(user.walletBalance),
+      cryptoAddress: user.cryptoAddress ?? null,
       isAdmin: user.isAdmin,
       joinedAt: user.joinedAt,
     },
@@ -231,11 +245,12 @@ router.post("/login", loginLimiter, async (req, res) => {
   const { password } = parse.data;
 
   const { rows } = await dbPool.query(
-    `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at
+    `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at,
+            COALESCE(is_demo, false) AS is_demo
      FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
     [email],
   );
-  const user = rows[0];
+  const user = rows[0] as typeof rows[0] & { is_demo?: boolean };
   if (!user) {
     logger.warn({ email, ip: req.ip }, "Failed login attempt — user not found");
     res.status(401).json({ error: "Invalid credentials", message: "Email or password is incorrect." });
@@ -246,6 +261,14 @@ router.post("/login", loginLimiter, async (req, res) => {
   if (!valid) {
     logger.warn({ email, userId: user.id, ip: req.ip }, "Failed login attempt — bad password");
     res.status(401).json({ error: "Invalid credentials", message: "Email or password is incorrect." });
+    return;
+  }
+
+  if (user.is_demo === true) {
+    res.status(403).json({
+      error: "Demo account",
+      message: "Demo accounts cannot sign in. This account is for display only.",
+    });
     return;
   }
 

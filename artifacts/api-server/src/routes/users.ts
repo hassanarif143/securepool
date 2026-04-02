@@ -7,9 +7,9 @@ import { getAuthedUserId } from "../middleware/auth";
 
 const router: IRouter = Router();
 
+/* Wallet address changes go through POST /api/user/wallet/change-request — not here. */
 const UpdateUserBodySchema = z.object({
   name: z.string().min(2).optional(),
-  cryptoAddress: z.string().regex(/^T[a-zA-Z0-9]{25,}$/).optional(),
   phone: z.string().min(8).max(20).regex(/^[0-9+\-\s()]+$/).optional(),
   city: z.string().min(2).max(80).optional(),
 });
@@ -65,7 +65,6 @@ router.patch("/:userId", async (req, res) => {
 
   const updates: Partial<typeof usersTable.$inferInsert> = {};
   if (parse.data.name !== undefined) updates.name = sanitizeText(parse.data.name, 80);
-  if (parse.data.cryptoAddress !== undefined) updates.cryptoAddress = parse.data.cryptoAddress.trim();
   if (parse.data.phone !== undefined) updates.phone = sanitizeText(parse.data.phone, 20);
   if (parse.data.city !== undefined) updates.city = sanitizeText(parse.data.city, 80);
 

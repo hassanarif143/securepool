@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { apiUrl } from "@/lib/api-base";
+import { trc20ValidationMessage, TRC20_ADDRESS_REGEX } from "@/lib/trc20";
 
 function PasswordStrength({ password }: { password: string }) {
   const checks = [
@@ -46,6 +47,7 @@ function PasswordStrength({ password }: { password: string }) {
 export default function SignupPage() {
   const [name, setName] = useState("");
   const [cryptoAddress, setCryptoAddress] = useState("");
+  const [cryptoAddressConfirm, setCryptoAddressConfirm] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -65,8 +67,28 @@ export default function SignupPage() {
     if (ref) setReferralCode(ref.toUpperCase());
   }, [search]);
 
+  const addrPhase = trc20ValidationMessage(cryptoAddress);
+  const addressesMatch =
+    cryptoAddress.trim() === cryptoAddressConfirm.trim() && cryptoAddress.trim().length > 0;
+  const canSubmit = useMemo(() => {
+    if (name.trim().length < 2 || !email.trim() || password.length < 6) return false;
+    if (!TRC20_ADDRESS_REGEX.test(cryptoAddress.trim())) return false;
+    if (cryptoAddress.trim() !== cryptoAddressConfirm.trim()) return false;
+    return true;
+  }, [name, email, password, cryptoAddress, cryptoAddressConfirm]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!canSubmit) {
+      toast({
+        title: "Check wallet fields",
+        description: !TRC20_ADDRESS_REGEX.test(cryptoAddress.trim())
+          ? "Enter a valid TRC20 address (T + 33 letters/numbers)."
+          : "Both wallet fields must match exactly.",
+        variant: "destructive",
+      });
+      return;
+    }
     setLoading(true);
     try {
       // Ensure CSRF cookie exists before first state-changing request.
@@ -88,7 +110,8 @@ export default function SignupPage() {
         },
         body: JSON.stringify({
           name,
-          cryptoAddress,
+          cryptoAddress: cryptoAddress.trim(),
+          cryptoAddressConfirm: cryptoAddressConfirm.trim(),
           email,
           password,
           referralCode: referralCode || undefined,
@@ -143,6 +166,18 @@ export default function SignupPage() {
       ? "hsla(152,72%,44%,0.4)"
       : "hsl(217,28%,20%)";
     e.target.style.boxShadow = "none";
+  }
+
+  function walletInputStyle(phase: ReturnType<typeof trc20ValidationMessage>): React.CSSProperties {
+    const b: React.CSSProperties = { ...inputBase };
+    if (phase === "valid") {
+      b.borderColor = "hsl(152,72%,44%)";
+      b.boxShadow = "0 0 0 1px hsla(152,72%,44%,0.35)";
+    } else if (phase === "invalid" || phase === "erc20_hint") {
+      b.borderColor = "hsl(0,65%,45%)";
+      b.boxShadow = "0 0 0 1px hsla(0,65%,45%,0.25)";
+    }
+    return b;
   }
 
   return (
@@ -288,21 +323,90 @@ export default function SignupPage() {
                 </div>
               </div>
 
-              {/* Binance TRC20 wallet */}
+              {/* TRC20 wallet — required, double entry */}
+              <div className="rounded-xl px-3 py-2.5 mb-1"
+                style={{ background: "hsla(38,92%,50%,0.08)", border: "1px solid hsla(38,92%,50%,0.25)" }}>
+                <p className="text-xs leading-relaxed" style={{ color: "hsl(38,90%,62%)" }}>
+                  ⚠️ Please double-check your wallet address carefully. USDT sent to a wrong address cannot be recovered.
+                </p>
+              </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="cryptoAddress">Binance USDT Wallet (TRC-20)</label>
+                <label className="text-sm font-medium" htmlFor="cryptoAddress">
+                  Your TRC20 Wallet Address (for receiving USDT prizes)
+                </label>
                 <input
                   id="cryptoAddress"
                   type="text"
+                  autoComplete="off"
+                  spellCheck={false}
                   value={cryptoAddress}
                   onChange={(e) => setCryptoAddress(e.target.value)}
                   placeholder="T..."
                   required
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
-                  style={inputBase}
+                  maxLength={64}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all font-mono"
+                  style={walletInputStyle(addrPhase)}
                   onFocus={onFocus}
                   onBlur={onBlur}
                 />
+                <p className="text-[11px] text-muted-foreground">
+                  Your TRON wallet address starts with &apos;T&apos; and is 34 characters long.
+                </p>
+                {addrPhase === "erc20_hint" && (
+                  <p className="text-xs" style={{ color: "hsl(0,72%,55%)" }}>
+                    This looks like an ERC20 (Ethereum) address. Please enter a TRC20 (TRON) address starting with &apos;T&apos;.
+                  </p>
+                )}
+                {cryptoAddress.trim() && addrPhase === "invalid" && (
+                  <p className="text-xs flex items-center gap-1" style={{ color: "hsl(0,72%,55%)" }}>
+                    <span aria-hidden>✕</span> Invalid TRC20 address format
+                  </p>
+                )}
+                {addrPhase === "valid" && (
+                  <p className="text-xs flex items-center gap-1" style={{ color: "hsl(152,72%,55%)" }}>
+                    <span aria-hidden>✓</span> Valid TRC20 address
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium" htmlFor="cryptoAddressConfirm">Confirm your TRC20 Wallet Address</label>
+                <input
+                  id="cryptoAddressConfirm"
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={cryptoAddressConfirm}
+                  onChange={(e) => setCryptoAddressConfirm(e.target.value)}
+                  placeholder="T..."
+                  required
+                  maxLength={64}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all font-mono"
+                  style={walletInputStyle(
+                    cryptoAddressConfirm.trim() === ""
+                      ? "empty"
+                      : trc20ValidationMessage(cryptoAddressConfirm) === "erc20_hint"
+                        ? "erc20_hint"
+                        : !TRC20_ADDRESS_REGEX.test(cryptoAddressConfirm.trim())
+                          ? "invalid"
+                          : addressesMatch
+                            ? "valid"
+                            : "invalid",
+                  )}
+                  onFocus={onFocus}
+                  onBlur={onBlur}
+                />
+                {cryptoAddressConfirm.trim() &&
+                  TRC20_ADDRESS_REGEX.test(cryptoAddressConfirm.trim()) &&
+                  !addressesMatch && (
+                  <p className="text-xs" style={{ color: "hsl(0,72%,55%)" }}>Wallet addresses do not match</p>
+                )}
+                {cryptoAddressConfirm.trim() &&
+                  addressesMatch &&
+                  TRC20_ADDRESS_REGEX.test(cryptoAddress.trim()) && (
+                  <p className="text-xs flex items-center gap-1" style={{ color: "hsl(152,72%,55%)" }}>
+                    <span aria-hidden>✓</span> Addresses match
+                  </p>
+                )}
               </div>
 
               {/* Password */}
@@ -372,7 +476,7 @@ export default function SignupPage() {
               </div>
 
               {/* Submit */}
-              <button type="submit" disabled={loading}
+              <button type="submit" disabled={loading || !canSubmit}
                 className="w-full py-2.5 rounded-xl font-semibold text-sm text-white transition-all mt-1 disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{
                   background: loading ? "hsl(152,50%,35%)" : "linear-gradient(135deg,#16a34a,#15803d)",

@@ -82,6 +82,7 @@ export default function AdminPage() {
           <TabsTrigger value="users" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Users</TabsTrigger>
           <TabsTrigger value="transactions" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Txns</TabsTrigger>
           <TabsTrigger value="reviews" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Reviews</TabsTrigger>
+          <TabsTrigger value="wallets" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Wallets</TabsTrigger>
           <TabsTrigger value="audit" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Audit</TabsTrigger>
         </TabsList>
         <TabsContent value="pending"><PendingTransactionsTab /></TabsContent>
@@ -91,6 +92,7 @@ export default function AdminPage() {
         <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="transactions"><TransactionsTab /></TabsContent>
         <TabsContent value="reviews"><ReviewsTab /></TabsContent>
+        <TabsContent value="wallets"><WalletRequestsTab /></TabsContent>
         <TabsContent value="audit"><AuditLogsTab /></TabsContent>
       </Tabs>
     </div>
@@ -1555,6 +1557,205 @@ function UserProfileModal({ user, onClose }: { user: any; onClose: () => void })
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+type WalletReqRow = {
+  id: number;
+  userId: number;
+  userName: string;
+  userEmail: string;
+  currentAddress: string;
+  newAddress: string;
+  reason: string;
+  status: string;
+  requestedAt: string;
+};
+
+function WalletRequestsTab() {
+  const { toast } = useToast();
+  const [rows, setRows] = useState<WalletReqRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [detail, setDetail] = useState<WalletReqRow | null>(null);
+  const [rejectNote, setRejectNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const r = await fetch(apiUrl("/api/admin/wallet-requests"), { credentials: "include" });
+      if (!r.ok) throw new Error(await readApiErrorMessage(r));
+      setRows((await r.json()) as WalletReqRow[]);
+    } catch (e: unknown) {
+      toast({
+        title: "Failed to load wallet requests",
+        description: e instanceof Error ? e.message : "Error",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function approve(id: number) {
+    setBusy(true);
+    try {
+      const r = await fetch(apiUrl(`/api/admin/wallet-requests/${id}/approve`), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      if (!r.ok) throw new Error(await readApiErrorMessage(r));
+      toast({ title: "Approved", description: "User wallet address updated." });
+      setDetail(null);
+      await load();
+    } catch (e: unknown) {
+      toast({
+        title: "Approve failed",
+        description: e instanceof Error ? e.message : "Error",
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reject(id: number) {
+    setBusy(true);
+    try {
+      const r = await fetch(apiUrl(`/api/admin/wallet-requests/${id}/reject`), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminNote: rejectNote.trim() || undefined }),
+      });
+      if (!r.ok) throw new Error(await readApiErrorMessage(r));
+      toast({ title: "Rejected", description: "User has been notified." });
+      setDetail(null);
+      setRejectNote("");
+      await load();
+    } catch (e: unknown) {
+      toast({
+        title: "Reject failed",
+        description: e instanceof Error ? e.message : "Error",
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loading) return <p className="text-center text-muted-foreground py-8">Loading wallet requests…</p>;
+
+  return (
+    <div className="space-y-4 mt-4">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={() => void load()}>
+          Refresh
+        </Button>
+      </div>
+      {rows.length === 0 ? (
+        <p className="text-muted-foreground text-center py-8">No pending address change requests.</p>
+      ) : (
+        <div className="border rounded-lg overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/40 text-left">
+                <th className="p-2 font-medium">User</th>
+                <th className="p-2 font-medium hidden sm:table-cell">Current</th>
+                <th className="p-2 font-medium">New</th>
+                <th className="p-2 font-medium hidden md:table-cell">Submitted</th>
+                <th className="p-2 font-medium w-24"> </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className="border-b border-border/60">
+                  <td className="p-2">
+                    <p className="font-medium">{row.userName}</p>
+                    <p className="text-xs text-muted-foreground">{row.userEmail}</p>
+                  </td>
+                  <td className="p-2 font-mono text-xs hidden sm:table-cell max-w-[140px] truncate" title={row.currentAddress}>
+                    {row.currentAddress}
+                  </td>
+                  <td className="p-2 font-mono text-xs max-w-[140px] truncate" title={row.newAddress}>
+                    {row.newAddress}
+                  </td>
+                  <td className="p-2 text-xs text-muted-foreground hidden md:table-cell whitespace-nowrap">
+                    {new Date(row.requestedAt).toLocaleString()}
+                  </td>
+                  <td className="p-2">
+                    <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={() => setDetail(row)}>
+                      Open
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Dialog open={detail !== null} onOpenChange={(o) => !o && setDetail(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Wallet change request #{detail?.id}</DialogTitle>
+            <DialogDescription>
+              {detail?.userName} · {detail?.userEmail}
+            </DialogDescription>
+          </DialogHeader>
+          {detail && (
+            <div className="space-y-3 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground">Current address</p>
+                <p className="font-mono text-xs break-all">{detail.currentAddress}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Requested new address</p>
+                <p className="font-mono text-xs break-all">{detail.newAddress}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Reason</p>
+                <p className="whitespace-pre-wrap">{detail.reason}</p>
+              </div>
+              <div>
+                <Label htmlFor="wr-reject">Admin note (optional, shown on reject)</Label>
+                <Textarea
+                  id="wr-reject"
+                  value={rejectNote}
+                  onChange={(e) => setRejectNote(e.target.value)}
+                  placeholder="Reason for rejection…"
+                  rows={2}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
+            <Button variant="outline" onClick={() => setDetail(null)} disabled={busy}>
+              Close
+            </Button>
+            <div className="flex gap-2 flex-1 justify-end">
+              <Button
+                variant="destructive"
+                disabled={busy || !detail}
+                onClick={() => detail && void reject(detail.id)}
+              >
+                Reject
+              </Button>
+              <Button disabled={busy || !detail} onClick={() => detail && void approve(detail.id)}>
+                Approve
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
