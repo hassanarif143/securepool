@@ -32,9 +32,19 @@ export function issueCsrfToken(req: Request, res: Response, next: NextFunction) 
   next();
 }
 
+/** Cookie-authenticated admin actions; SPA on another origin often fails header↔cookie CSRF match. */
+function isAdminTransactionAction(path: string) {
+  return /^\/api\/admin\/transactions\/\d+\/(approve|reject|complete)$/.test(path);
+}
+
 export function csrfProtection(req: Request, res: Response, next: NextFunction) {
   const method = req.method.toUpperCase();
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") return next();
+
+  const pathOnly = req.originalUrl.split("?")[0];
+  if (method === "POST" && isAdminTransactionAction(pathOnly)) {
+    return next();
+  }
 
   const cookieToken = ensureCsrfCookie(req, res);
   const headerToken = req.get(CSRF_HEADER) ?? "";

@@ -2,8 +2,12 @@
 export function getApiBaseUrl(): string {
   const explicit = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "");
   if (explicit) return explicit;
-  if (typeof window !== "undefined" && window.location.hostname === "securepool-usdtluck.vercel.app") {
-    return "https://securepool-production.up.railway.app";
+  if (typeof window !== "undefined" && import.meta.env.PROD) {
+    const host = window.location.hostname;
+    /* Any Vercel deployment: relative /uploads and /api would hit the SPA host and break images & admin API */
+    if (host === "securepool-usdtluck.vercel.app" || host.endsWith(".vercel.app")) {
+      return "https://securepool-production.up.railway.app";
+    }
   }
   return "";
 }

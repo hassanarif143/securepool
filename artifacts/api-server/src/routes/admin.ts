@@ -290,7 +290,15 @@ router.post("/transactions/:id/approve", async (req, res) => {
   await db.update(transactionsTable).set({ status: nextStatus }).where(eq(transactionsTable.id, txId));
 
   if (tx.txType === "deposit") {
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
+    const [user] = await db
+      .select({ walletBalance: usersTable.walletBalance })
+      .from(usersTable)
+      .where(eq(usersTable.id, tx.userId))
+      .limit(1);
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
     const newBalance = parseFloat(user.walletBalance) + parseFloat(tx.amount);
     await db.update(usersTable).set({ walletBalance: String(newBalance) }).where(eq(usersTable.id, tx.userId));
 
@@ -302,7 +310,11 @@ router.post("/transactions/:id/approve", async (req, res) => {
     } catch {}
   }
 
-  const [txUser] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
+  const [txUser] = await db
+    .select({ name: usersTable.name, email: usersTable.email })
+    .from(usersTable)
+    .where(eq(usersTable.id, tx.userId))
+    .limit(1);
   await logAction(getAdminId(req), "transaction", txId, "approve", `Approved ${tx.txType} of ${tx.amount} USDT for ${txUser?.name ?? "user"} (tx #${txId})`);
 
   /* Notify user */
@@ -390,12 +402,22 @@ router.post("/transactions/:id/reject", async (req, res) => {
   await db.update(transactionsTable).set({ status: "rejected", note: reason ? `${tx.note ?? ""} [reject_reason:${reason}]`.trim() : tx.note }).where(eq(transactionsTable.id, txId));
 
   if (tx.txType === "withdraw") {
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
-    const restored = parseFloat(user.walletBalance) + parseFloat(tx.amount);
-    await db.update(usersTable).set({ walletBalance: String(restored) }).where(eq(usersTable.id, tx.userId));
+    const [user] = await db
+      .select({ walletBalance: usersTable.walletBalance })
+      .from(usersTable)
+      .where(eq(usersTable.id, tx.userId))
+      .limit(1);
+    if (user) {
+      const restored = parseFloat(user.walletBalance) + parseFloat(tx.amount);
+      await db.update(usersTable).set({ walletBalance: String(restored) }).where(eq(usersTable.id, tx.userId));
+    }
   }
 
-  const [txUser] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
+  const [txUser] = await db
+    .select({ name: usersTable.name, email: usersTable.email })
+    .from(usersTable)
+    .where(eq(usersTable.id, tx.userId))
+    .limit(1);
   await logAction(getAdminId(req), "transaction", txId, "reject", `Rejected ${tx.txType} of ${tx.amount} USDT for ${txUser?.name ?? "user"} (tx #${txId})${tx.txType === "withdraw" ? " — balance refunded" : ""}`);
 
   /* Notify user */
