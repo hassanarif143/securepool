@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request } from "express";
+import { Router, type IRouter, type NextFunction, type Request, type Response } from "express";
 import { db, transactionsTable, usersTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import multer from "multer";
@@ -6,6 +6,7 @@ import path from "path";
 import fs from "fs";
 import { z } from "zod";
 import { sanitizeText } from "../lib/sanitize";
+import { getAuthedUserId } from "../middleware/auth";
 
 const router: IRouter = Router();
 
@@ -28,6 +29,17 @@ const upload = multer({
     else cb(new Error("Only image files are allowed"));
   },
 });
+
+function uploadScreenshot(req: Request, res: Response, next: NextFunction) {
+  upload.single("screenshot")(req, res, (err: unknown) => {
+    if (err) {
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      res.status(400).json({ error: msg });
+      return;
+    }
+    next();
+  });
+}
 
 function formatTx(t: any) {
   return {
@@ -64,9 +76,9 @@ router.get("/", async (req, res) => {
   res.json(txs.map(formatTx));
 });
 
-router.post("/deposit", upload.single("screenshot"), async (req: Request, res: any) => {
-  const sessionUserId = (req as any).session?.userId;
-  if (!sessionUserId) {
+router.post("/deposit", uploadScreenshot, async (req: Request, res: Response) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
@@ -87,7 +99,7 @@ router.post("/deposit", upload.single("screenshot"), async (req: Request, res: a
     .select({ id: transactionsTable.id })
     .from(transactionsTable)
     .where(and(
-      eq(transactionsTable.userId, sessionUserId),
+      eq(transactionsTable.userId, userId),
       eq(transactionsTable.txType, "deposit"),
       eq(transactionsTable.status, "pending"),
     ))
@@ -101,12 +113,12 @@ router.post("/deposit", upload.single("screenshot"), async (req: Request, res: a
   const screenshotUrl = `/uploads/${req.file.filename}`;
   const note = req.body?.note ? sanitizeText(req.body.note, 200) : null;
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, sessionUserId)).limit(1);
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
 
   const [tx] = await db
     .insert(transactionsTable)
     .values({
-      userId: sessionUserId,
+      userId,
       txType: "deposit",
       amount: String(amount),
       status: "pending",
@@ -119,8 +131,8 @@ router.post("/deposit", upload.single("screenshot"), async (req: Request, res: a
 });
 
 router.post("/withdraw", async (req, res) => {
-  const sessionUserId = (req as any).session?.userId;
-  if (!sessionUserId) {
+  const userId = getAuthedUserId(req);
+  if (!userId) {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
@@ -143,7 +155,7 @@ router.post("/withdraw", async (req, res) => {
     return;
   }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, sessionUserId)).limit(1);
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   const currentBalance = parseFloat(user.walletBalance);
 
   if (currentBalance < amount) {
@@ -154,12 +166,12 @@ router.post("/withdraw", async (req, res) => {
   await db
     .update(usersTable)
     .set({ walletBalance: String(currentBalance - amount) })
-    .where(eq(usersTable.id, sessionUserId));
+    .where(eq(usersTable.id, userId));
 
   const [tx] = await db
     .insert(transactionsTable)
     .values({
-      userId: sessionUserId,
+      userId,
       txType: "withdraw",
       amount: String(amount),
       status: "pending",

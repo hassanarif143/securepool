@@ -4,6 +4,7 @@ import { useGetUserTransactions, getGetUserTransactionsQueryKey, getGetMeQueryKe
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
 
 const PLATFORM_ADDRESS = "TQn9Y2khEsLJW1ChVWFMSMeRDow5kBDaVR";
 const NETWORK = "TRC-20 (Tron)";
@@ -130,8 +131,8 @@ export default function WalletPage() {
       formData.append("screenshot", screenshotFile);
       if (note) formData.append("note", note);
 
-      const res = await fetch("/api/transactions/deposit", { method: "POST", credentials: "include", body: formData });
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error ?? "Deposit failed"); }
+      const res = await fetch(apiUrl("/api/transactions/deposit"), { method: "POST", credentials: "include", body: formData });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
 
       setAmount(""); setNote(""); setScreenshotFile(null); setScreenshotPreview(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -152,12 +153,12 @@ export default function WalletPage() {
 
     setWithdrawLoading(true);
     try {
-      const res = await fetch("/api/transactions/withdraw", {
+      const res = await fetch(apiUrl("/api/transactions/withdraw"), {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: val, walletAddress: withdrawWallet, note }),
       });
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error ?? "Withdrawal failed"); }
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
 
       setUser({ ...currentUser, walletBalance: currentUser.walletBalance - val });
       setAmount(""); setNote("");

@@ -7,3 +7,23 @@ export function getApiBaseUrl(): string {
   }
   return "";
 }
+
+/** Full URL for API paths like `/api/transactions/deposit` (uses origin in prod cross-host setups). */
+export function apiUrl(path: string): string {
+  const base = getApiBaseUrl().replace(/\/+$/, "");
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return base ? `${base}${p}` : p;
+}
+
+/** Avoid `res.json()` on empty/HTML error bodies (proxies, wrong host). */
+export async function readApiErrorMessage(res: Response): Promise<string> {
+  const text = await res.text();
+  const trimmed = text.trim();
+  if (!trimmed) return `Request failed (${res.status})`;
+  try {
+    const j = JSON.parse(trimmed) as { error?: string; message?: string };
+    return j.error ?? j.message ?? trimmed.slice(0, 200);
+  } catch {
+    return trimmed.slice(0, 200);
+  }
+}
