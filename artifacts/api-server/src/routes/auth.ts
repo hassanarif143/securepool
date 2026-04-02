@@ -68,6 +68,30 @@ function trySetJwtCookie(res: any, userId: number, isAdmin: boolean) {
   }
 }
 
+async function verifyAndUpgradePassword(userId: number, storedHash: string, inputPassword: string): Promise<boolean> {
+  // Normal path: bcrypt hash compare
+  try {
+    const ok = await bcrypt.compare(inputPassword, storedHash);
+    if (ok) return true;
+  } catch {
+    // fall through to legacy check
+  }
+
+  // Legacy fallback: some old seeds may have stored plain-text in password_hash.
+  // If it matches, immediately upgrade to a bcrypt hash.
+  if (storedHash === inputPassword) {
+    const upgradedHash = await bcrypt.hash(inputPassword, 12);
+    await dbPool.query(
+      `UPDATE users SET password_hash = $1 WHERE id = $2`,
+      [upgradedHash, userId],
+    );
+    logger.warn({ userId }, "Upgraded legacy plain-text password hash during login");
+    return true;
+  }
+
+  return false;
+}
+
 router.get("/csrf-token", (req, res) => {
   const token = (req as any).cookies?.sp_csrf ?? null;
   res.json({ csrfToken: token });
@@ -191,7 +215,7 @@ router.post("/login", loginLimiter, async (req, res) => {
     return;
   }
 
-  const valid = await bcrypt.compare(password, user.password_hash);
+  const valid = await verifyAndUpgradePassword(user.id, user.password_hash, password);
   if (!valid) {
     res.status(401).json({ error: "Invalid credentials", message: "Email or password is incorrect." });
     return;
