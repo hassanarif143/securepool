@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { useLogin } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
@@ -12,31 +11,51 @@ export default function LoginPage() {
   const [, navigate] = useLocation();
   const search = useSearch();
   const { setUser } = useAuth();
-  const loginMutation = useLogin();
   const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
 
   const nextParam = new URLSearchParams(search).get("next");
   const nextPath = nextParam && nextParam.startsWith("/") ? nextParam : "/dashboard";
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    loginMutation.mutate(
-      { data: { email, password } },
-      {
-        onSuccess: (data) => {
-          setUser(data.user as any);
-          toast({ title: "Welcome back!", description: `Logged in as ${data.user.name}` });
-          navigate(nextPath);
-        },
-        onError: (err: any) => {
-          toast({
-            title: "Login failed",
-            description: err?.message ?? "Invalid email or password",
-            variant: "destructive",
-          });
-        },
+    setLoading(true);
+    try {
+      await fetch("/api/auth/csrf-token", { method: "GET", credentials: "include" });
+
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const raw = await res.text();
+      const data = raw ? (() => {
+        try { return JSON.parse(raw); } catch { return { message: raw }; }
+      })() : {};
+
+      if (!res.ok) {
+        toast({
+          title: "Login failed",
+          description: (data as any).message ?? (data as any).error ?? "Invalid email or password",
+          variant: "destructive",
+        });
+        return;
       }
-    );
+
+      setUser((data as any).user as any);
+      toast({ title: "Welcome back!", description: `Logged in as ${(data as any).user?.name ?? "user"}` });
+      navigate(nextPath);
+    } catch (err: any) {
+      toast({
+        title: "Login failed",
+        description: err?.message ?? "Network error",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -208,16 +227,16 @@ export default function LoginPage() {
               {/* Sign in button */}
               <button
                 type="submit"
-                disabled={loginMutation.isPending}
+                disabled={loading}
                 className="w-full py-2.5 rounded-xl font-semibold text-sm text-white transition-all mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{
-                  background: loginMutation.isPending
+                  background: loading
                     ? "hsl(152,50%,35%)"
                     : "linear-gradient(135deg, #16a34a, #15803d)",
-                  boxShadow: loginMutation.isPending ? "none" : "0 4px 16px rgba(22,163,74,0.35)",
+                  boxShadow: loading ? "none" : "0 4px 16px rgba(22,163,74,0.35)",
                 }}
               >
-                {loginMutation.isPending ? (
+                {loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
