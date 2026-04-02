@@ -173,8 +173,8 @@ function WriteReviewForm({ onSuccess }: { onSuccess: () => void }) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!rating) return toast({ title: "Please select a star rating", variant: "destructive" });
-    if (message.trim().length < 10) return toast({ title: "Message must be at least 10 characters", variant: "destructive" });
+    if (!rating) { toast({ title: "Please select a star rating", variant: "destructive" }); return; }
+    if (message.trim().length < 10) { toast({ title: "Message must be at least 10 characters", variant: "destructive" }); return; }
 
     setLoading(true);
     try {

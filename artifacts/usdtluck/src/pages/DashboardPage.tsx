@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
-import { useListPools, useGetUserTransactions } from "@workspace/api-client-react";
+import { useListPools, useGetUserTransactions, getGetUserTransactionsQueryKey } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TierBadge, TierProgressCard, getTier, getNextTier, computeProgress } from "@/components/TierBadge";
 import { TierUpgradeModal } from "@/components/TierUpgradeModal";
@@ -55,7 +55,7 @@ export default function DashboardPage() {
 
   const { data: pools, isLoading: poolsLoading } = useListPools();
   const { data: transactions } = useGetUserTransactions(user?.id ?? 0, {
-    query: { enabled: !!user?.id },
+    query: { enabled: !!user?.id, queryKey: getGetUserTransactionsQueryKey(user?.id ?? 0) },
   });
 
   useEffect(() => {

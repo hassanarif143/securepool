@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useLogin } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -10,9 +10,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [, navigate] = useLocation();
+  const search = useSearch();
   const { setUser } = useAuth();
   const loginMutation = useLogin();
   const { toast } = useToast();
+
+  const nextParam = new URLSearchParams(search).get("next");
+  const nextPath = nextParam && nextParam.startsWith("/") ? nextParam : "/dashboard";
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,7 +26,7 @@ export default function LoginPage() {
         onSuccess: (data) => {
           setUser(data.user as any);
           toast({ title: "Welcome back!", description: `Logged in as ${data.user.name}` });
-          navigate("/dashboard");
+          navigate(nextPath);
         },
         onError: (err: any) => {
           toast({

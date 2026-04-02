@@ -79,6 +79,8 @@ export default function WalletPage() {
 
   if (isLoading || !user) return null;
 
+  const currentUser = user;
+
   const txArr = transactions as any[];
   const pendingDeposit = txArr.find((t) => t.txType === "deposit" && t.status === "pending");
 
@@ -109,7 +111,7 @@ export default function WalletPage() {
 
       setAmount(""); setNote(""); setScreenshotFile(null); setScreenshotPreview(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
-      queryClient.invalidateQueries({ queryKey: getGetUserTransactionsQueryKey(user.id) });
+      queryClient.invalidateQueries({ queryKey: getGetUserTransactionsQueryKey(currentUser.id) });
       toast({ title: "Deposit submitted ✓", description: "Your payment is under review. You'll be notified once it's approved." });
     } catch (err: any) {
       toast({ title: "Deposit failed", description: err.message, variant: "destructive" });
@@ -132,9 +134,9 @@ export default function WalletPage() {
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.error ?? "Withdrawal failed"); }
 
-      setUser({ ...user, walletBalance: user.walletBalance - val });
+      setUser({ ...currentUser, walletBalance: currentUser.walletBalance - val });
       setAmount(""); setNote("");
-      queryClient.invalidateQueries({ queryKey: getGetUserTransactionsQueryKey(user.id) });
+      queryClient.invalidateQueries({ queryKey: getGetUserTransactionsQueryKey(currentUser.id) });
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       toast({ title: "Withdrawal submitted", description: "Your request is pending admin review." });
     } catch (err: any) {

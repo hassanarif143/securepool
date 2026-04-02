@@ -53,6 +53,9 @@ export default function SignupPage() {
   const { setUser } = useAuth();
   const { toast } = useToast();
 
+  const nextParam = new URLSearchParams(search).get("next");
+  const nextPath = nextParam && nextParam.startsWith("/") ? nextParam : "/dashboard";
+
   useEffect(() => {
     const params = new URLSearchParams(search);
     const ref = params.get("ref");
@@ -82,7 +85,7 @@ export default function SignupPage() {
           ? `Welcome to SecurePool! You received a ${bonus} USDT welcome bonus!`
           : "Welcome to SecurePool.",
       });
-      navigate("/dashboard");
+      navigate(nextPath);
     } catch {
       toast({ title: "Signup failed", description: "Network error", variant: "destructive" });
     } finally {

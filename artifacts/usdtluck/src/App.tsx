@@ -1,8 +1,11 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import { Layout } from "@/components/Layout";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/LandingPage";
@@ -28,23 +31,103 @@ const queryClient = new QueryClient({
   },
 });
 
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const [location, navigate] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      const next = encodeURIComponent(location || "/");
+      navigate(`/login?next=${next}`);
+    }
+  }, [user, isLoading, navigate, location]);
+
+  if (isLoading) return null;
+  if (!user) return null;
+  return <>{children}</>;
+}
+
+function RequireGuest({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && user) {
+      navigate("/dashboard");
+    }
+  }, [user, isLoading, navigate]);
+
+  if (isLoading) return null;
+  if (user) return null;
+  return <>{children}</>;
+}
+
 function Router() {
   return (
     <Layout>
       <Switch>
         <Route path="/" component={LandingPage} />
-        <Route path="/login" component={LoginPage} />
-        <Route path="/signup" component={SignupPage} />
-        <Route path="/dashboard" component={DashboardPage} />
-        <Route path="/pools" component={PoolsPage} />
-        <Route path="/pools/:poolId" component={PoolDetailPage} />
-        <Route path="/wallet" component={WalletPage} />
-        <Route path="/winners" component={WinnersPage} />
-        <Route path="/profile" component={ProfilePage} />
-        <Route path="/admin" component={AdminPage} />
-        <Route path="/referral" component={ReferralPage} />
-        <Route path="/reviews" component={ReviewsPage} />
-        <Route path="/leaderboard" component={LeaderboardPage} />
+        <Route path="/login">
+          <RequireGuest>
+            <LoginPage />
+          </RequireGuest>
+        </Route>
+        <Route path="/signup">
+          <RequireGuest>
+            <SignupPage />
+          </RequireGuest>
+        </Route>
+
+        <Route path="/dashboard">
+          <RequireAuth>
+            <DashboardPage />
+          </RequireAuth>
+        </Route>
+        <Route path="/pools">
+          <RequireAuth>
+            <PoolsPage />
+          </RequireAuth>
+        </Route>
+        <Route path="/pools/:poolId">
+          <RequireAuth>
+            <PoolDetailPage />
+          </RequireAuth>
+        </Route>
+        <Route path="/wallet">
+          <RequireAuth>
+            <WalletPage />
+          </RequireAuth>
+        </Route>
+        <Route path="/winners">
+          <RequireAuth>
+            <WinnersPage />
+          </RequireAuth>
+        </Route>
+        <Route path="/profile">
+          <RequireAuth>
+            <ProfilePage />
+          </RequireAuth>
+        </Route>
+        <Route path="/admin">
+          <RequireAuth>
+            <AdminPage />
+          </RequireAuth>
+        </Route>
+        <Route path="/referral">
+          <RequireAuth>
+            <ReferralPage />
+          </RequireAuth>
+        </Route>
+        <Route path="/reviews">
+          <RequireAuth>
+            <ReviewsPage />
+          </RequireAuth>
+        </Route>
+        <Route path="/leaderboard">
+          <RequireAuth>
+            <LeaderboardPage />
+          </RequireAuth>
+        </Route>
         <Route component={NotFound} />
       </Switch>
     </Layout>

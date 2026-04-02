@@ -25,11 +25,13 @@ export default function ProfilePage() {
 
   if (isLoading || !user) return null;
 
+  const currentUser = user;
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch(`/api/users/${user.id}`, {
+      const res = await fetch(`/api/users/${currentUser.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -37,7 +39,7 @@ export default function ProfilePage() {
       });
       if (!res.ok) throw new Error("Update failed");
       const updated = await res.json();
-      setUser({ ...user, name: updated.name, cryptoAddress: updated.cryptoAddress });
+      setUser({ ...currentUser, name: updated.name, cryptoAddress: updated.cryptoAddress });
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       toast({ title: "Profile updated", description: "Your details have been saved." });
     } catch {
@@ -72,7 +74,7 @@ export default function ProfilePage() {
 
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" value={user.email} disabled className="opacity-60" />
+              <Input id="email" value={currentUser.email} disabled className="opacity-60" />
             </div>
 
             <div className="space-y-1.5">
@@ -102,11 +104,11 @@ export default function ProfilePage() {
         <CardContent className="grid grid-cols-2 gap-4">
           <div className="space-y-0.5">
             <p className="text-xs text-muted-foreground">Wallet Balance</p>
-            <p className="text-xl font-bold text-primary">{user.walletBalance.toFixed(2)} USDT</p>
+            <p className="text-xl font-bold text-primary">{currentUser.walletBalance.toFixed(2)} USDT</p>
           </div>
           <div className="space-y-0.5">
             <p className="text-xs text-muted-foreground">Member Since</p>
-            <p className="text-sm font-medium">{new Date(user.joinedAt).toLocaleDateString()}</p>
+            <p className="text-sm font-medium">{new Date(currentUser.joinedAt).toLocaleDateString()}</p>
           </div>
         </CardContent>
       </Card>
