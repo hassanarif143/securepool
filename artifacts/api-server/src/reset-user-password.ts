@@ -1,7 +1,21 @@
-import "dotenv/config";
+import { config } from "dotenv";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
-import { pool } from "@workspace/db";
+
+/* Load .env before any import of @workspace/db (pool throws if DATABASE_URL is missing). */
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const envPaths = [
+  resolve(process.cwd(), ".env"),
+  resolve(scriptDir, "../.env"),
+  resolve(scriptDir, "../../.env"),
+  resolve(scriptDir, "../../../.env"),
+];
+for (const p of envPaths) {
+  config({ path: p });
+}
+config();
 
 const BCRYPT_ROUNDS = 12;
 
@@ -16,9 +30,14 @@ function randomPassword(length = 18): string {
 async function main() {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl?.trim()) {
-    console.error("DATABASE_URL is required (e.g. in .env).");
+    console.error("DATABASE_URL is not set.");
+    console.error("Add it to one of these files (or export it in the shell):");
+    for (const p of envPaths) console.error(`  - ${p}`);
+    console.error("\nRailway: copy DATABASE_URL from Variables → paste into artifacts/api-server/.env");
     process.exit(1);
   }
+
+  const { pool } = await import("@workspace/db");
 
   const email = process.env.RESET_USER_EMAIL?.trim().toLowerCase();
   const idRaw = process.env.RESET_USER_ID?.trim();
