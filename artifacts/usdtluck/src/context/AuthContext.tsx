@@ -43,7 +43,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     query: {
       queryKey: getGetMeQueryKey(),
       retry: false,
-      refetchOnWindowFocus: true,
+      // Avoid aggressive focus refetch; this caused false logout on tab switches.
+      refetchOnWindowFocus: false,
       staleTime: 30_000,
       refetchInterval: 2 * 60 * 1000,
       refetchIntervalInBackground: false,
@@ -62,10 +63,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     if (!isFetched || !isError) return;
     const status = getErrorStatus(error);
-    if (status === 401 || status === 403) {
+    // Only clear user when unauthorized and no usable profile payload exists.
+    // This prevents brief cross-domain request glitches from logging users out.
+    if ((status === 401 || status === 403) && !data) {
       setUser(null);
     }
-  }, [isFetched, isError, error]);
+  }, [isFetched, isError, error, data]);
 
   function logout() {
     logoutMutation.mutate(undefined, {
