@@ -7,7 +7,7 @@ nixPkgs = ["nodejs_22"]
 cmds = ["npm i -g corepack && corepack enable && pnpm install --no-frozen-lockfile"]
 
 [phases.build]
-cmds = ["pnpm run build"]
+cmds = ["pnpm -r --if-present run build"]
 
 [start]
 cmd = "node artifacts/api-server/dist/index.js"
