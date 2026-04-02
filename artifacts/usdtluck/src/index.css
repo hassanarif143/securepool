@@ -172,7 +172,44 @@
   * {
     @apply border-border;
   }
+  html {
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
   body {
     @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+/* Landing page: infinite horizontal winners ticker */
+@keyframes landing-winners-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.landing-winners-marquee {
+  display: flex;
+  width: max-content;
+  animation: landing-winners-marquee 50s linear infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-winners-marquee {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 42rem;
+    margin-inline: auto;
+    row-gap: 0.5rem;
   }
 }

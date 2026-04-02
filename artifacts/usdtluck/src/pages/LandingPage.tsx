@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useListWinners, useListPools } from "@workspace/api-client-react";
@@ -21,6 +22,45 @@ function useAnimatedInt(target: number, duration = 1400) {
   return v;
 }
 
+const sectionReveal = {
+  initial: { opacity: 0, y: 28 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-60px" },
+  transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const },
+};
+
+function WinnerChip({ w }: { w: any }) {
+  const placeEmoji = w.place === 1 ? "🥇" : w.place === 2 ? "🥈" : "🥉";
+  return (
+    <div className="inline-flex items-center gap-3 shrink-0 rounded-2xl border border-[hsl(217,28%,18%)] bg-[hsl(222,30%,10%)] px-4 py-2.5 shadow-sm">
+      <span className="text-lg" aria-hidden>
+        {placeEmoji}
+      </span>
+      <div className="min-w-0">
+        <p className="font-semibold text-sm text-foreground truncate max-w-[140px] sm:max-w-[200px]">{w.userName}</p>
+        <p className="text-[11px] text-muted-foreground truncate max-w-[180px] sm:max-w-[240px]">{w.poolTitle}</p>
+      </div>
+      <span className="text-sm font-bold text-primary tabular-nums whitespace-nowrap">+{w.prize} USDT</span>
+    </div>
+  );
+}
+
+function WinnersTicker({ winners }: { winners: any[] }) {
+  const raw = (winners ?? []).slice(0, 20);
+  if (raw.length === 0) return null;
+  const loop = [...raw, ...raw];
+
+  return (
+    <div className="overflow-hidden py-2">
+      <div className="landing-winners-marquee gap-4 md:gap-6 py-1">
+        {loop.map((w, i) => (
+          <WinnerChip key={`${w.id}-${i}`} w={w} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function LandingPage() {
   const { data: winners } = useListWinners();
   const { data: pools } = useListPools();
@@ -39,6 +79,15 @@ export default function LandingPage() {
   }, []);
 
   const activePools = pools?.filter((p) => p.status === "open") ?? [];
+
+  const jumpLinks = [
+    { href: "#live-stats", label: "Live stats" },
+    ...(winners && winners.length > 0 ? [{ href: "#winners-ticker" as const, label: "Winners" }] : []),
+    { href: "#trust", label: "Trust" },
+    { href: "#how-steps", label: "How it works" },
+    ...(activePools.length > 0 ? [{ href: "#active-pools" as const, label: "Pools" }] : []),
+    { href: "#join-cta", label: "Get started" },
+  ];
 
   const uAnim = useAnimatedInt(summary?.totalUsers ?? 0);
   const rAnim = useAnimatedInt(Math.round(summary?.totalRewardsDistributed ?? 0));
@@ -98,11 +147,25 @@ export default function LandingPage() {
               </Button>
             </Link>
           </div>
+
+          <nav
+            className="mt-10 flex flex-wrap items-center justify-center gap-x-1 gap-y-2 text-sm text-muted-foreground"
+            aria-label="On this page"
+          >
+            {jumpLinks.map((item, idx) => (
+              <span key={item.href} className="inline-flex items-center gap-1">
+                {idx > 0 && <span className="text-border px-1 select-none" aria-hidden>|</span>}
+                <a href={item.href} className="hover:text-primary transition-colors underline-offset-4 hover:underline px-1 py-0.5 rounded-md">
+                  {item.label}
+                </a>
+              </span>
+            ))}
+          </nav>
         </div>
       </section>
 
       {/* Live stats */}
-      <section className="max-w-4xl mx-auto">
+      <motion.section id="live-stats" className="max-w-4xl mx-auto scroll-mt-24" {...sectionReveal}>
         <div className="grid grid-cols-3 gap-4 text-center">
           {[
             { label: "Community", value: summary ? `${uAnim}+` : "—", sub: "registered users" },
@@ -125,10 +188,38 @@ export default function LandingPage() {
           ))}
         </div>
         <p className="text-center text-[10px] text-muted-foreground mt-3">Figures update from the live platform.</p>
-      </section>
+      </motion.section>
+
+      {/* Recent winners — horizontal ticker */}
+      {winners && winners.length > 0 && (
+        <motion.section
+          id="winners-ticker"
+          className="max-w-6xl mx-auto scroll-mt-24 space-y-4"
+          {...sectionReveal}
+        >
+          <div className="text-center px-4">
+            <h2 className="text-2xl font-bold">Recent winners</h2>
+            <p className="text-muted-foreground text-sm mt-1">Live payouts rolling across the platform</p>
+          </div>
+          <div className="rounded-2xl border border-[hsl(217,28%,16%)] bg-[hsl(222,30%,7%)] overflow-hidden">
+            <WinnersTicker winners={winners as any[]} />
+          </div>
+          <div className="text-center">
+            <Link href="/winners">
+              <Button variant="outline" size="sm">
+                Full winners list →
+              </Button>
+            </Link>
+          </div>
+        </motion.section>
+      )}
 
       {/* Trust strip */}
-      <section className="max-w-4xl mx-auto flex flex-wrap justify-center gap-4 text-sm text-muted-foreground">
+      <motion.section
+        id="trust"
+        className="max-w-4xl mx-auto flex flex-wrap justify-center gap-4 text-sm text-muted-foreground scroll-mt-24"
+        {...sectionReveal}
+      >
         {[
           { icon: "🔍", t: "Transparent rules & prize breakdown" },
           { icon: "🔐", t: "Verified deposits & withdrawals" },
@@ -139,10 +230,10 @@ export default function LandingPage() {
             <span>{x.t}</span>
           </div>
         ))}
-      </section>
+      </motion.section>
 
       {/* How it works */}
-      <section className="max-w-4xl mx-auto">
+      <motion.section id="how-steps" className="max-w-4xl mx-auto scroll-mt-24" {...sectionReveal}>
         <h2 className="text-2xl font-bold text-center mb-10">How It Works</h2>
         <div className="grid md:grid-cols-3 gap-6">
           {[
@@ -166,11 +257,11 @@ export default function LandingPage() {
             </Card>
           ))}
         </div>
-      </section>
+      </motion.section>
 
       {/* Active Pools */}
       {activePools.length > 0 && (
-        <section className="max-w-4xl mx-auto">
+        <motion.section id="active-pools" className="max-w-4xl mx-auto scroll-mt-24" {...sectionReveal}>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold">Active Pools</h2>
             <Link href="/pools">
@@ -201,55 +292,11 @@ export default function LandingPage() {
               </Card>
             ))}
           </div>
-        </section>
-      )}
-
-      {/* Recent Winners */}
-      {winners && winners.length > 0 && (
-        <section className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold">Recent Winners 🏆</h2>
-            <p className="text-muted-foreground text-sm mt-1">Real rewards, verified payouts — updated live</p>
-          </div>
-          <div className="grid sm:grid-cols-2 gap-3">
-            {(winners as any[]).slice(0, 6).map((winner) => {
-              const placeEmoji = winner.place === 1 ? "🥇" : winner.place === 2 ? "🥈" : "🥉";
-              const borderColor =
-                winner.place === 1 ? "border-yellow-500/30" :
-                winner.place === 2 ? "border-slate-500/30" :
-                "border-orange-500/30";
-              const bg =
-                winner.place === 1 ? "bg-yellow-500/5" :
-                winner.place === 2 ? "bg-slate-500/5" :
-                "bg-orange-500/5";
-              return (
-                <div
-                  key={winner.id}
-                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all hover:shadow-md hover:-translate-y-0.5 ${borderColor} ${bg}`}
-                >
-                  <span className="text-2xl">{placeEmoji}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-foreground truncate">{winner.userName}</p>
-                    <p className="text-xs text-muted-foreground truncate">{winner.poolTitle}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="font-bold text-primary">+{winner.prize} USDT</p>
-                    <p className="text-xs text-muted-foreground">{new Date(winner.awardedAt).toLocaleDateString()}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="text-center mt-4">
-            <Link href="/winners">
-              <Button variant="ghost" size="sm">View all winners →</Button>
-            </Link>
-          </div>
-        </section>
+        </motion.section>
       )}
 
       {/* CTA */}
-      <section className="text-center py-16 max-w-2xl mx-auto">
+      <motion.section id="join-cta" className="text-center py-16 max-w-2xl mx-auto scroll-mt-24" {...sectionReveal}>
         <div
           className="relative rounded-3xl p-10 overflow-hidden"
           style={{
@@ -280,7 +327,7 @@ export default function LandingPage() {
             </Link>
           </div>
         </div>
-      </section>
+      </motion.section>
     </div>
   );
 }
