@@ -36,49 +36,55 @@ export function getNextTier(tierId: TierId) {
  * Returns { newTier, previousTier, tierChanged, freeTicketGranted }
  */
 export async function awardTierPoints(userId: number, points: number) {
-  /* Fetch current state */
-  const { rows } = await pool.query(
-    "SELECT tier, tier_points, free_tickets_claimed, wallet_balance, name FROM users WHERE id = $1",
-    [userId]
-  );
-  if (!rows[0]) return null;
+  try {
+    /* Fetch current state — requires migration 0004_user_tier.sql */
+    const { rows } = await pool.query(
+      "SELECT tier, tier_points, free_tickets_claimed, wallet_balance, name FROM users WHERE id = $1",
+      [userId],
+    );
+    if (!rows[0]) return null;
 
-  const currentTier = rows[0].tier as TierId;
-  const currentPoints = parseInt(rows[0].tier_points ?? "0");
-  const claimedRaw: string = rows[0].free_tickets_claimed ?? "";
-  const claimed = claimedRaw ? claimedRaw.split(",") : [];
+    const currentTier = rows[0].tier as TierId;
+    const currentPoints = parseInt(rows[0].tier_points ?? "0");
+    const claimedRaw: string = rows[0].free_tickets_claimed ?? "";
+    const claimed = claimedRaw ? claimedRaw.split(",") : [];
 
-  const newPoints = currentPoints + points;
-  const newTier = computeTier(newPoints);
-  const tierChanged = newTier !== currentTier;
+    const newPoints = currentPoints + points;
+    const newTier = computeTier(newPoints);
+    const tierChanged = newTier !== currentTier;
 
-  let freeTicketGranted = false;
-  let newBalance = parseFloat(rows[0].wallet_balance);
+    let freeTicketGranted = false;
+    let newBalance = parseFloat(rows[0].wallet_balance);
 
-  /* Grant free ticket if tier upgraded and not yet claimed for this tier */
-  if (tierChanged && !claimed.includes(newTier)) {
-    const tierCfg = getTierConfig(newTier);
-    if (tierCfg.free_ticket) {
-      newBalance += FREE_TICKET_USDT;
-      freeTicketGranted = true;
-      claimed.push(newTier);
+    /* Grant free ticket if tier upgraded and not yet claimed for this tier */
+    if (tierChanged && !claimed.includes(newTier)) {
+      const tierCfg = getTierConfig(newTier);
+      if (tierCfg.free_ticket) {
+        newBalance += FREE_TICKET_USDT;
+        freeTicketGranted = true;
+        claimed.push(newTier);
 
-      /* Log as transaction */
-      await pool.query(
-        `INSERT INTO transactions (user_id, tx_type, amount, status, note)
+        /* Log as transaction */
+        await pool.query(
+          `INSERT INTO transactions (user_id, tx_type, amount, status, note)
          VALUES ($1, 'reward', $2, 'completed', $3)`,
-        [userId, String(FREE_TICKET_USDT), `🎁 Tier upgrade bonus — reached ${tierCfg.label} tier`]
-      );
+          [userId, String(FREE_TICKET_USDT), `🎁 Tier upgrade bonus — reached ${tierCfg.label} tier`],
+        );
+      }
     }
-  }
 
-  /* Persist updated points, tier, claimed list, and possibly balance */
-  await pool.query(
-    `UPDATE users
+    /* Persist updated points, tier, claimed list, and possibly balance */
+    await pool.query(
+      `UPDATE users
      SET tier_points = $1, tier = $2, free_tickets_claimed = $3, wallet_balance = $4
      WHERE id = $5`,
-    [newPoints, newTier, claimed.join(","), String(newBalance), userId]
-  );
+      [newPoints, newTier, claimed.join(","), String(newBalance), userId],
+    );
 
-  return { newTier, previousTier: currentTier, tierChanged, freeTicketGranted, newPoints };
+    return { newTier, previousTier: currentTier, tierChanged, freeTicketGranted, newPoints };
+  } catch (err) {
+    /* Missing tier columns or DB error — do not break pool join / deposits */
+    console.warn("[tier] awardTierPoints skipped:", err);
+    return null;
+  }
 }

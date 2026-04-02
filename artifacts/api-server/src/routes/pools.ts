@@ -217,6 +217,10 @@ router.post("/:poolId/join", async (req, res) => {
   }
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, sessionUserId)).limit(1);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
   const entryFee = parseFloat(pool.entryFee);
   const userBalance = parseFloat(user.walletBalance);
 
