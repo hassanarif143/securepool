@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Response } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db, pool as dbPool, usersTable, referralsTable, transactionsTable } from "@workspace/db";
@@ -63,6 +63,17 @@ function authCookieOptions() {
     maxAge: 2 * 60 * 60 * 1000, // 2 hours
     path: "/",
   };
+}
+
+/** Must match options used when setting the cookie, or browsers won't clear it (esp. cross-site). */
+function clearJwtCookie(res: Response) {
+  const opts = authCookieOptions();
+  res.clearCookie(getJwtCookieName(), {
+    path: opts.path,
+    httpOnly: opts.httpOnly,
+    secure: opts.secure,
+    sameSite: opts.sameSite,
+  });
 }
 
 function trySetJwtCookie(res: any, userId: number, isAdmin: boolean) {
@@ -259,8 +270,11 @@ router.post("/login", loginLimiter, async (req, res) => {
 });
 
 router.post("/logout", (req, res) => {
-  req.session.destroy(() => {
-    res.clearCookie(getJwtCookieName(), { path: "/" });
+  req.session.destroy((err) => {
+    if (err) {
+      logger.warn({ err }, "session destroy on logout");
+    }
+    clearJwtCookie(res);
     res.json({ message: "Logged out successfully" });
   });
 });
