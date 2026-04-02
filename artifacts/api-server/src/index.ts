@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import app from "./app";
+import { runPendingSqlMigrations } from "./runMigrations";
 import { logger } from "./lib/logger";
 
 const rawPort = process.env["PORT"];
@@ -17,11 +17,20 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
-  }
+async function main() {
+  await runPendingSqlMigrations();
+  const { default: app } = await import("./app");
+  app.listen(port, (err?: Error) => {
+    if (err) {
+      logger.error({ err }, "Error listening on port");
+      process.exit(1);
+    }
 
-  logger.info({ port }, "Server listening");
+    logger.info({ port }, "Server listening");
+  });
+}
+
+main().catch((err: unknown) => {
+  logger.error({ err }, "Server failed to start");
+  process.exit(1);
 });
