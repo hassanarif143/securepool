@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import session from "express-session";
@@ -129,5 +129,19 @@ app.use(csrfProtection);
 
 app.use("/api", rejectIfBlocked);
 app.use("/api", router);
+
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+  if (res.headersSent) return;
+  logger.error({ err, path: req.originalUrl }, "unhandled error");
+  const message = err instanceof Error ? err.message : String(err);
+  if (req.originalUrl?.startsWith("/api")) {
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: process.env.NODE_ENV === "production" ? "Something went wrong. Please try again." : message,
+    });
+    return;
+  }
+  res.status(500).type("text").send("Internal Server Error");
+});
 
 export default app;

@@ -223,8 +223,7 @@ router.post("/login", loginLimiter, async (req, res) => {
   const { password } = parse.data;
 
   const { rows } = await dbPool.query(
-    `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at,
-            is_blocked, blocked_reason
+    `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at
      FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
     [email],
   );
@@ -242,8 +241,23 @@ router.post("/login", loginLimiter, async (req, res) => {
     return;
   }
 
-  if (user.is_blocked === true) {
-    const reason = typeof user.blocked_reason === "string" && user.blocked_reason.trim() ? user.blocked_reason.trim() : "Policy violation";
+  let isBlocked = false;
+  let blockedReason: string | null = null;
+  try {
+    const br = await dbPool.query(
+      `SELECT is_blocked, blocked_reason FROM users WHERE id = $1 LIMIT 1`,
+      [user.id],
+    );
+    const row = br.rows[0] as { is_blocked?: boolean; blocked_reason?: string | null } | undefined;
+    isBlocked = row?.is_blocked === true;
+    blockedReason = typeof row?.blocked_reason === "string" ? row.blocked_reason : null;
+  } catch (err) {
+    logger.warn({ err, userId: user.id }, "Could not read is_blocked columns; run migration 0003_user_block.sql");
+  }
+
+  if (isBlocked) {
+    const reason =
+      typeof blockedReason === "string" && blockedReason.trim() ? blockedReason.trim() : "Policy violation";
     res.status(403).json({
       error: "Account suspended",
       message: `Your account has been suspended. Reason: ${reason}. Contact support.`,
@@ -286,12 +300,29 @@ router.get("/me", async (req, res) => {
     return;
   }
 
-  const { rows } = await dbPool.query(
-    `SELECT id, name, email, wallet_balance, crypto_address, is_admin, joined_at,
-            COALESCE(tier, 'aurora') AS tier, COALESCE(tier_points, 0) AS tier_points
-     FROM users WHERE id = $1 LIMIT 1`,
-    [userId]
-  );
+  let rows: Array<Record<string, unknown>>;
+  try {
+    const r = await dbPool.query(
+      `SELECT id, name, email, wallet_balance, crypto_address, is_admin, joined_at,
+              COALESCE(tier, 'aurora') AS tier, COALESCE(tier_points, 0) AS tier_points
+       FROM users WHERE id = $1 LIMIT 1`,
+      [userId],
+    );
+    rows = r.rows as Array<Record<string, unknown>>;
+  } catch (err) {
+    logger.warn({ err, userId }, "/me: tier columns missing; fallback (run migration 0004_user_tier.sql)");
+    const r = await dbPool.query(
+      `SELECT id, name, email, wallet_balance, crypto_address, is_admin, joined_at
+       FROM users WHERE id = $1 LIMIT 1`,
+      [userId],
+    );
+    rows = (r.rows as Array<Record<string, unknown>>).map((row) => ({
+      ...row,
+      tier: "aurora",
+      tier_points: 0,
+    }));
+  }
+
   const user = rows[0];
   if (!user) {
     res.status(401).json({ error: "User not found" });
@@ -302,12 +333,12 @@ router.get("/me", async (req, res) => {
     id: user.id,
     name: user.name,
     email: user.email,
-    walletBalance: parseFloat(user.wallet_balance),
+    walletBalance: parseFloat(String(user.wallet_balance)),
     cryptoAddress: user.crypto_address ?? null,
     isAdmin: user.is_admin,
     joinedAt: user.joined_at,
-    tier: user.tier ?? "aurora",
-    tierPoints: parseInt(user.tier_points ?? "0"),
+    tier: (user.tier as string) ?? "aurora",
+    tierPoints: parseInt(String(user.tier_points ?? "0"), 10),
   });
 });
 

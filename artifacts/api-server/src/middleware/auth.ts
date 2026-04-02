@@ -56,6 +56,7 @@ export async function rejectIfBlocked(req: AuthedRequest, res: Response, next: N
       return res.status(403).json({ error: "Your account has been suspended. Contact support." });
     }
   } catch {
+    /* Column missing or DB glitch — do not block the request */
     return next();
   }
   next();
