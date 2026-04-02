@@ -123,7 +123,7 @@ export default function LandingPage() {
             Join reward pools for just <span className="text-primary font-semibold">10 USDT</span>. Three places are drawn with verifiable randomness —{" "}
             <span className="text-yellow-400 font-semibold">100</span>,{" "}
             <span className="text-slate-300 font-semibold">50</span>, and{" "}
-            <span className="text-orange-400 font-semibold">30 USDT</span>. Fully transparent, no hidden fees.
+            <span className="text-orange-400 font-semibold">30 USDT</span>. Fully transparent, all pool details visible before you join.
           </p>
           <div className="flex items-center justify-center gap-3 flex-wrap">
             <Link href="/signup">
