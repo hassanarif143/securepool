@@ -14,11 +14,23 @@ const UpdateUserBodySchema = z.object({
   city: z.string().min(2).max(80).optional(),
 });
 
+const userPublicCols = {
+  id: usersTable.id,
+  name: usersTable.name,
+  email: usersTable.email,
+  phone: usersTable.phone,
+  city: usersTable.city,
+  walletBalance: usersTable.walletBalance,
+  cryptoAddress: usersTable.cryptoAddress,
+  isAdmin: usersTable.isAdmin,
+  joinedAt: usersTable.joinedAt,
+} as const;
+
 router.get("/:userId", async (req, res) => {
   const userId = parseInt(req.params.userId);
   if (isNaN(userId)) { res.status(400).json({ error: "Invalid user ID" }); return; }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  const [user] = await db.select(userPublicCols).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
 
   res.json({
@@ -40,7 +52,11 @@ router.patch("/:userId", async (req, res) => {
 
   const sessionUserId = getAuthedUserId(req);
   if (!sessionUserId || sessionUserId !== userId) {
-    const [me] = await db.select().from(usersTable).where(eq(usersTable.id, sessionUserId)).limit(1);
+    const [me] = await db
+      .select({ isAdmin: usersTable.isAdmin })
+      .from(usersTable)
+      .where(eq(usersTable.id, sessionUserId))
+      .limit(1);
     if (!me?.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
   }
 
@@ -53,7 +69,11 @@ router.patch("/:userId", async (req, res) => {
   if (parse.data.phone !== undefined) updates.phone = sanitizeText(parse.data.phone, 20);
   if (parse.data.city !== undefined) updates.city = sanitizeText(parse.data.city, 80);
 
-  const [user] = await db.update(usersTable).set(updates).where(eq(usersTable.id, userId)).returning();
+  const [user] = await db
+    .update(usersTable)
+    .set(updates)
+    .where(eq(usersTable.id, userId))
+    .returning(userPublicCols);
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
 
   res.json({

@@ -7,6 +7,7 @@ import fs from "fs";
 import { z } from "zod";
 import { sanitizeText } from "../lib/sanitize";
 import { getAuthedUserId } from "../middleware/auth";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -77,109 +78,155 @@ router.get("/", async (req, res) => {
 });
 
 router.post("/deposit", uploadScreenshot, async (req: Request, res: Response) => {
-  const userId = getAuthedUserId(req);
-  if (!userId) {
-    res.status(401).json({ error: "Not authenticated" });
-    return;
+  try {
+    const userId = getAuthedUserId(req);
+    if (!userId) {
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+
+    const amount = parseFloat(req.body?.amount);
+    if (!amount || amount <= 0) {
+      res.status(400).json({ error: "Amount must be greater than 0" });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ error: "Payment screenshot is required" });
+      return;
+    }
+
+    /* Prevent duplicate pending deposits */
+    const [existingPending] = await db
+      .select({ id: transactionsTable.id })
+      .from(transactionsTable)
+      .where(and(
+        eq(transactionsTable.userId, userId),
+        eq(transactionsTable.txType, "deposit"),
+        eq(transactionsTable.status, "pending"),
+      ))
+      .limit(1);
+
+    if (existingPending) {
+      res.status(409).json({ error: "You already have a pending deposit awaiting review. Please wait for it to be processed before submitting a new one." });
+      return;
+    }
+
+    const screenshotUrl = `/uploads/${req.file.filename}`;
+    const note = req.body?.note ? sanitizeText(req.body.note, 200) : null;
+
+    /* Narrow columns so missing optional DB columns (e.g. is_blocked) do not break SELECT */
+    const [user] = await db
+      .select({ id: usersTable.id, name: usersTable.name })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1);
+
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const [tx] = await db
+      .insert(transactionsTable)
+      .values({
+        userId,
+        txType: "deposit",
+        amount: String(amount),
+        status: "pending",
+        note,
+        screenshotUrl,
+      })
+      .returning();
+
+    if (!tx) {
+      res.status(500).json({ error: "Failed to create deposit request" });
+      return;
+    }
+
+    res.status(201).json(formatTx({ ...tx, userName: user.name }));
+  } catch (err) {
+    logger.error({ err }, "POST /deposit failed");
+    res.status(500).json({
+      error: "Deposit failed",
+      message: process.env.NODE_ENV === "production" ? "Something went wrong. Please try again." : String(err instanceof Error ? err.message : err),
+    });
   }
-
-  const amount = parseFloat(req.body?.amount);
-  if (!amount || amount <= 0) {
-    res.status(400).json({ error: "Amount must be greater than 0" });
-    return;
-  }
-
-  if (!req.file) {
-    res.status(400).json({ error: "Payment screenshot is required" });
-    return;
-  }
-
-  /* Prevent duplicate pending deposits */
-  const [existingPending] = await db
-    .select({ id: transactionsTable.id })
-    .from(transactionsTable)
-    .where(and(
-      eq(transactionsTable.userId, userId),
-      eq(transactionsTable.txType, "deposit"),
-      eq(transactionsTable.status, "pending"),
-    ))
-    .limit(1);
-
-  if (existingPending) {
-    res.status(409).json({ error: "You already have a pending deposit awaiting review. Please wait for it to be processed before submitting a new one." });
-    return;
-  }
-
-  const screenshotUrl = `/uploads/${req.file.filename}`;
-  const note = req.body?.note ? sanitizeText(req.body.note, 200) : null;
-
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-
-  const [tx] = await db
-    .insert(transactionsTable)
-    .values({
-      userId,
-      txType: "deposit",
-      amount: String(amount),
-      status: "pending",
-      note,
-      screenshotUrl,
-    })
-    .returning();
-
-  res.status(201).json(formatTx({ ...tx, userName: user.name }));
 });
 
 router.post("/withdraw", async (req, res) => {
-  const userId = getAuthedUserId(req);
-  if (!userId) {
-    res.status(401).json({ error: "Not authenticated" });
-    return;
+  try {
+    const userId = getAuthedUserId(req);
+    if (!userId) {
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+
+    const WithdrawSchema = z.object({
+      amount: z.coerce.number().positive(),
+      walletAddress: z.string().min(10).max(120).regex(/^T[a-zA-Z0-9]{25,}$/),
+      note: z.string().max(200).optional(),
+    });
+    const parsed = WithdrawSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Validation error", message: parsed.error.message });
+      return;
+    }
+
+    const { amount, walletAddress, note } = parsed.data;
+    const cleanNote = note ? sanitizeText(note, 200) : "";
+    if (!amount || amount <= 0) {
+      res.status(400).json({ error: "Amount must be greater than 0" });
+      return;
+    }
+
+    const [user] = await db
+      .select({ id: usersTable.id, name: usersTable.name, walletBalance: usersTable.walletBalance })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1);
+
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const currentBalance = parseFloat(user.walletBalance);
+
+    if (currentBalance < amount) {
+      res.status(400).json({ error: `Insufficient balance. Current balance: ${currentBalance} USDT` });
+      return;
+    }
+
+    await db
+      .update(usersTable)
+      .set({ walletBalance: String(currentBalance - amount) })
+      .where(eq(usersTable.id, userId));
+
+    const [tx] = await db
+      .insert(transactionsTable)
+      .values({
+        userId,
+        txType: "withdraw",
+        amount: String(amount),
+        status: "pending",
+        note: `[wallet:${walletAddress}]${cleanNote ? ` ${cleanNote}` : ""}`,
+      })
+      .returning();
+
+    if (!tx) {
+      res.status(500).json({ error: "Failed to create withdrawal request" });
+      return;
+    }
+
+    res.status(201).json(formatTx({ ...tx, userName: user.name }));
+  } catch (err) {
+    logger.error({ err }, "POST /withdraw failed");
+    res.status(500).json({
+      error: "Withdrawal failed",
+      message: process.env.NODE_ENV === "production" ? "Something went wrong. Please try again." : String(err instanceof Error ? err.message : err),
+    });
   }
-
-  const WithdrawSchema = z.object({
-    amount: z.coerce.number().positive(),
-    walletAddress: z.string().min(10).max(120).regex(/^T[a-zA-Z0-9]{25,}$/),
-    note: z.string().max(200).optional(),
-  });
-  const parsed = WithdrawSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "Validation error", message: parsed.error.message });
-    return;
-  }
-
-  const { amount, walletAddress, note } = parsed.data;
-  const cleanNote = note ? sanitizeText(note, 200) : "";
-  if (!amount || amount <= 0) {
-    res.status(400).json({ error: "Amount must be greater than 0" });
-    return;
-  }
-
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  const currentBalance = parseFloat(user.walletBalance);
-
-  if (currentBalance < amount) {
-    res.status(400).json({ error: `Insufficient balance. Current balance: ${currentBalance} USDT` });
-    return;
-  }
-
-  await db
-    .update(usersTable)
-    .set({ walletBalance: String(currentBalance - amount) })
-    .where(eq(usersTable.id, userId));
-
-  const [tx] = await db
-    .insert(transactionsTable)
-    .values({
-      userId,
-      txType: "withdraw",
-      amount: String(amount),
-      status: "pending",
-      note: `[wallet:${walletAddress}]${cleanNote ? ` ${cleanNote}` : ""}`,
-    })
-    .returning();
-
-  res.status(201).json(formatTx({ ...tx, userName: user.name }));
 });
 
 export default router;
