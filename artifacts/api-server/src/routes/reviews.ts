@@ -22,7 +22,7 @@ router.get("/", async (req, res) => {
 
     const total = rows[0]?.total_count ? parseInt(rows[0].total_count) : 0;
 
-    res.json({
+    return res.json({
       reviews: rows.map((r) => ({
         id: r.id,
         userName: r.user_name,
@@ -38,7 +38,7 @@ router.get("/", async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to fetch reviews" });
+    return res.status(500).json({ error: "Failed to fetch reviews" });
   }
 });
 
@@ -87,7 +87,7 @@ router.post("/", async (req, res) => {
     );
 
     const r = rows[0];
-    res.status(201).json({
+    return res.status(201).json({
       id: r.id,
       userName: r.user_name,
       message: r.message,
@@ -99,7 +99,7 @@ router.post("/", async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to submit review" });
+    return res.status(500).json({ error: "Failed to submit review" });
   }
 });
 
@@ -113,9 +113,9 @@ router.get("/mine", async (req, res) => {
       "SELECT id FROM reviews WHERE user_id = $1",
       [user.id]
     );
-    res.json({ hasReviewed: rows.length > 0 });
+    return res.json({ hasReviewed: rows.length > 0 });
   } catch {
-    res.json({ hasReviewed: false });
+    return res.json({ hasReviewed: false });
   }
 });
 

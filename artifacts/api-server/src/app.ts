@@ -3,14 +3,20 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
 import path from "path";
 import { pool } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { attachAuth } from "./middleware/auth";
 
 const app: Express = express();
 
 const PgStore = connectPgSimple(session);
+
+app.disable("x-powered-by");
 
 app.use(
   pinoHttp({
@@ -33,8 +39,57 @@ app.use(
 );
 
 app.use(
+  helmet({
+    // Railway / Vercel already terminate TLS; enable HSTS only in prod
+    hsts: process.env.NODE_ENV === "production",
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // allow serving /uploads
+  }),
+);
+
+app.use(cookieParser());
+app.use(attachAuth);
+
+// Basic rate limit for all API routes (tighten per-route later)
+app.use(
+  "/api",
+  rateLimit({
+    windowMs: 60_000,
+    limit: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+  }),
+);
+
+function buildAllowedOrigins(): string[] {
+  const raw = process.env.FRONTEND_ORIGINS ?? process.env.FRONTEND_ORIGIN ?? "";
+  const list = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (process.env.NODE_ENV !== "production") {
+    list.push("http://localhost:5173", "http://127.0.0.1:5173");
+  }
+  return Array.from(new Set(list));
+}
+
+const allowedOrigins = buildAllowedOrigins();
+
+app.use(
   cors({
-    origin: true,
+    origin(origin, cb) {
+      // Allow same-origin / server-to-server / curl (no Origin header)
+      if (!origin) return cb(null, true);
+
+      if (allowedOrigins.length === 0) {
+        // Safer default for prod: block unknown origins unless explicitly configured
+        if (process.env.NODE_ENV === "production") return cb(new Error("CORS blocked"));
+        return cb(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error("CORS blocked"));
+    },
     credentials: true,
   }),
 );

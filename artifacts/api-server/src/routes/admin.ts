@@ -359,10 +359,10 @@ router.patch("/users/:id/tier", async (req, res) => {
     );
     if (!rows[0]) return res.status(404).json({ error: "User not found" });
     await logAction(getAdminId(req), "user", userId, "override_tier", `Set ${rows[0].name}'s tier to ${rows[0].tier} (${rows[0].tier_points} pts)`);
-    res.json({ name: rows[0].name, tier: rows[0].tier, tierPoints: parseInt(rows[0].tier_points) });
+    return res.json({ name: rows[0].name, tier: rows[0].tier, tierPoints: parseInt(rows[0].tier_points) });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to update tier" });
+    return res.status(500).json({ error: "Failed to update tier" });
   }
 });
 
@@ -405,10 +405,10 @@ router.delete("/reviews/:id", async (req, res) => {
     if (!rows[0]) return res.status(404).json({ error: "Review not found" });
     await dbPool.query("DELETE FROM reviews WHERE id = $1", [id]);
     await logAction(getAdminId(req), "review", id, "delete_review", `Deleted review #${id} by ${rows[0].user_name}`);
-    res.json({ message: "Review deleted" });
+    return res.json({ message: "Review deleted" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to delete review" });
+    return res.status(500).json({ error: "Failed to delete review" });
   }
 });
 
@@ -425,10 +425,10 @@ router.patch("/reviews/:id/visibility", async (req, res) => {
     );
     if (!rows[0]) return res.status(404).json({ error: "Review not found" });
     await logAction(getAdminId(req), "review", id, visible ? "show_review" : "hide_review", `${visible ? "Showed" : "Hid"} review #${id} by ${rows[0].user_name}`);
-    res.json({ id: rows[0].id, isVisible: rows[0].is_visible });
+    return res.json({ id: rows[0].id, isVisible: rows[0].is_visible });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to update visibility" });
+    return res.status(500).json({ error: "Failed to update visibility" });
   }
 });
 
@@ -445,10 +445,10 @@ router.patch("/reviews/:id/featured", async (req, res) => {
     );
     if (!rows[0]) return res.status(404).json({ error: "Review not found" });
     await logAction(getAdminId(req), "review", id, featured ? "feature_review" : "unfeature_review", `${featured ? "Featured" : "Unfeatured"} review #${id} by ${rows[0].user_name}`);
-    res.json({ id: rows[0].id, isFeatured: rows[0].is_featured });
+    return res.json({ id: rows[0].id, isFeatured: rows[0].is_featured });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to update featured status" });
+    return res.status(500).json({ error: "Failed to update featured status" });
   }
 });
 

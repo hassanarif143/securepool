@@ -25,7 +25,7 @@ router.get("/me", async (req, res) => {
       ? Math.min(100, Math.round(((tierPoints - tierCfg.minPoints) / (nextTier.minPoints - tierCfg.minPoints)) * 100))
       : 100;
 
-    res.json({
+    return res.json({
       tier: tierId,
       tierLabel: tierCfg.label,
       tierIcon: tierCfg.icon,
@@ -49,7 +49,7 @@ router.get("/me", async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to fetch tier info" });
+    return res.status(500).json({ error: "Failed to fetch tier info" });
   }
 });
 
@@ -63,7 +63,7 @@ router.get("/leaderboard", async (req, res) => {
        ORDER BY tier_points DESC
        LIMIT 20`
     );
-    res.json(rows.map((r, i) => ({
+    return res.json(rows.map((r, i) => ({
       rank: i + 1,
       userId: r.id,
       name: r.name,
@@ -74,7 +74,7 @@ router.get("/leaderboard", async (req, res) => {
     })));
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to fetch leaderboard" });
+    return res.status(500).json({ error: "Failed to fetch leaderboard" });
   }
 });
 

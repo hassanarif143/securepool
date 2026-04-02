@@ -1,8 +1,11 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
+import rateLimit from "express-rate-limit";
 import { db, pool as dbPool, usersTable, referralsTable, transactionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { SignupBody, LoginBody } from "@workspace/api-zod";
+import { getJwtCookieName, signUserJwt } from "../lib/jwt";
+import type { AuthedRequest } from "../middleware/auth";
 
 declare module "express-session" {
   interface SessionData {
@@ -13,6 +16,24 @@ declare module "express-session" {
 const SIGNUP_BONUS_USDT = 1; // bonus credited to new user when they sign up via referral
 
 const router: IRouter = Router();
+
+const loginLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+function authCookieOptions() {
+  const isProd = process.env.NODE_ENV === "production";
+  return {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: (isProd ? "none" : "lax") as "none" | "lax",
+    maxAge: 2 * 60 * 60 * 1000, // 2 hours
+    path: "/",
+  };
+}
 
 router.post("/signup", async (req, res) => {
   const parse = SignupBody.safeParse(req.body);
@@ -78,7 +99,10 @@ router.post("/signup", async (req, res) => {
     }
   }
 
+  // Back-compat session + new JWT cookie
   req.session.userId = user.id;
+  const token = signUserJwt({ userId: user.id, isAdmin: user.isAdmin });
+  res.cookie(getJwtCookieName(), token, authCookieOptions());
 
   res.status(201).json({
     user: {
@@ -96,7 +120,7 @@ router.post("/signup", async (req, res) => {
   });
 });
 
-router.post("/login", async (req, res) => {
+router.post("/login", loginLimiter, async (req, res) => {
   const parse = LoginBody.safeParse(req.body);
   if (!parse.success) {
     res.status(400).json({ error: "Validation error", message: parse.error.message });
@@ -117,7 +141,10 @@ router.post("/login", async (req, res) => {
     return;
   }
 
+  // Back-compat session + new JWT cookie
   req.session.userId = user.id;
+  const token = signUserJwt({ userId: user.id, isAdmin: user.isAdmin });
+  res.cookie(getJwtCookieName(), token, authCookieOptions());
 
   res.json({
     user: {
@@ -135,12 +162,14 @@ router.post("/login", async (req, res) => {
 
 router.post("/logout", (req, res) => {
   req.session.destroy(() => {
+    res.clearCookie(getJwtCookieName(), { path: "/" });
     res.json({ message: "Logged out successfully" });
   });
 });
 
 router.get("/me", async (req, res) => {
-  if (!req.session.userId) {
+  const userId = (req as AuthedRequest).userId ?? (req.session as any).userId;
+  if (!userId) {
     res.status(401).json({ error: "Not authenticated", message: "Please login to continue." });
     return;
   }
@@ -148,7 +177,7 @@ router.get("/me", async (req, res) => {
   const { rows } = await dbPool.query(
     `SELECT id, name, email, wallet_balance, crypto_address, is_admin, joined_at, tier, tier_points
      FROM users WHERE id = $1 LIMIT 1`,
-    [req.session.userId]
+    [userId]
   );
   const user = rows[0];
   if (!user) {
