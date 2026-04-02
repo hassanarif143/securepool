@@ -3,16 +3,15 @@ import { db, transactionsTable, usersTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
-import fs from "fs";
 import { z } from "zod";
 import { sanitizeText } from "../lib/sanitize";
 import { getAuthedUserId } from "../middleware/auth";
 import { logger } from "../lib/logger";
+import { getUploadsDir } from "../paths";
 
 const router: IRouter = Router();
 
-const uploadDir = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+const uploadDir = getUploadsDir();
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadDir),

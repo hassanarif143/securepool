@@ -6,10 +6,10 @@ import connectPgSimple from "connect-pg-simple";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
-import path from "path";
 import { pool } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { getUploadsDir } from "./paths";
 import { attachAuth, rejectIfBlocked } from "./middleware/auth";
 import { csrfProtection, issueCsrfToken } from "./middleware/csrf";
 
@@ -124,7 +124,7 @@ app.use(
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+app.use("/uploads", express.static(getUploadsDir()));
 app.use(csrfProtection);
 
 app.use("/api", rejectIfBlocked);
