@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
 
 export default function LoginPage() {
+  const apiBase = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "") ?? "";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -21,9 +22,9 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await fetch("/api/auth/csrf-token", { method: "GET", credentials: "include" });
+      await fetch(`${apiBase}/api/auth/csrf-token`, { method: "GET", credentials: "include" });
 
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(`${apiBase}/api/auth/login`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

@@ -42,6 +42,7 @@ function PasswordStrength({ password }: { password: string }) {
 }
 
 export default function SignupPage() {
+  const apiBase = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "") ?? "";
   const [name, setName] = useState("");
   const [cryptoAddress, setCryptoAddress] = useState("");
   const [email, setEmail] = useState("");
@@ -68,9 +69,9 @@ export default function SignupPage() {
     setLoading(true);
     try {
       // Ensure CSRF cookie exists before first state-changing request.
-      await fetch("/api/auth/csrf-token", { method: "GET", credentials: "include" });
+      await fetch(`${apiBase}/api/auth/csrf-token`, { method: "GET", credentials: "include" });
 
-      const res = await fetch("/api/auth/signup", {
+      const res = await fetch(`${apiBase}/api/auth/signup`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
