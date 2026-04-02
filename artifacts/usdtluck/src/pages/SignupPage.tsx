@@ -69,6 +69,9 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      // Ensure CSRF cookie exists before first state-changing request.
+      await fetch("/api/auth/csrf-token", { method: "GET", credentials: "include" });
+
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         credentials: "include",
@@ -97,8 +100,12 @@ export default function SignupPage() {
           : "Welcome to SecurePool.",
       });
       navigate(nextPath);
-    } catch {
-      toast({ title: "Signup failed", description: "Network error", variant: "destructive" });
+    } catch (err: any) {
+      toast({
+        title: "Signup failed",
+        description: err?.message || "Network error",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }

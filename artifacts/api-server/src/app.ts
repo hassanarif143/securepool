@@ -93,6 +93,9 @@ app.use(
       return cb(new Error("CORS blocked"));
     },
     credentials: true,
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-csrf-token"],
+    optionsSuccessStatus: 204,
   }),
 );
 
