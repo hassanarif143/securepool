@@ -3,7 +3,6 @@ import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db, pool as dbPool, usersTable, referralsTable, transactionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { LoginBody } from "@workspace/api-zod";
 import { z } from "zod";
 import { getJwtCookieName, signUserJwt } from "../lib/jwt";
 import type { AuthedRequest } from "../middleware/auth";
@@ -23,10 +22,15 @@ const router: IRouter = Router();
 
 const SignupSchema = z.object({
   name: z.string().min(2),
-  email: z.string().email(),
+  email: z.string().trim().email(),
   password: z.string().min(6),
   cryptoAddress: z.string().min(10).max(120).regex(/^T[a-zA-Z0-9]{25,}$/, "Invalid TRC20 wallet address"),
   referralCode: z.string().optional(),
+});
+
+const LoginSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(1),
 });
 
 const loginLimiter = rateLimit({
@@ -77,7 +81,8 @@ router.post("/signup", signupLimiter, async (req, res) => {
   }
 
   const cleanName = sanitizeText(parse.data.name, 80);
-  const { email, password, cryptoAddress } = parse.data;
+  const email = parse.data.email.toLowerCase();
+  const { password, cryptoAddress } = parse.data;
   const referralCode = parse.data.referralCode;
 
   const existing = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
@@ -163,13 +168,14 @@ router.post("/signup", signupLimiter, async (req, res) => {
 });
 
 router.post("/login", loginLimiter, async (req, res) => {
-  const parse = LoginBody.safeParse(req.body);
+  const parse = LoginSchema.safeParse(req.body);
   if (!parse.success) {
     res.status(400).json({ error: "Validation error", message: parse.error.message });
     return;
   }
 
-  const { email, password } = parse.data;
+  const email = parse.data.email.toLowerCase();
+  const { password } = parse.data;
 
   const { rows } = await dbPool.query(
     `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at
