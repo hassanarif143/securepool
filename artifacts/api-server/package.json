@@ -9,7 +9,8 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -b ../../lib/db && tsc -p tsconfig.json --noEmit",
     "seed:demo": "node --enable-source-maps ./dist/seed-demo-data.mjs",
-    "seed:cleanup": "node --enable-source-maps ./dist/seed-cleanup.mjs"
+    "seed:cleanup": "node --enable-source-maps ./dist/seed-cleanup.mjs",
+    "reset-password": "node --enable-source-maps ./dist/reset-user-password.mjs"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",

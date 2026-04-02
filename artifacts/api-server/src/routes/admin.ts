@@ -22,6 +22,7 @@ import { getAuthedUserId } from "../middleware/auth";
 import { isValidTrc20Address } from "../lib/trc20";
 import { logActivity } from "../services/activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
+import { refundAllPoolParticipants } from "../lib/pool-refunds";
 
 const router: IRouter = Router();
 
@@ -598,30 +599,12 @@ router.delete("/pools/:id", async (req, res) => {
     return;
   }
 
-  const participants = await db.select().from(poolParticipantsTable).where(eq(poolParticipantsTable.poolId, poolId));
-  const entryFee = parseFloat(pool.entryFee);
-
-  for (const p of participants) {
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, p.userId)).limit(1);
-    if (user) {
-      const refunded = parseFloat(user.walletBalance) + entryFee;
-      await db.update(usersTable).set({ walletBalance: String(refunded) }).where(eq(usersTable.id, p.userId));
-      await db.insert(transactionsTable).values({
-        userId: p.userId,
-        txType: "deposit",
-        amount: String(entryFee),
-        status: "completed",
-        note: `[Admin] Refund: pool "${pool.title}" was deleted`,
-      });
-    }
-  }
-
-  await db.delete(poolParticipantsTable).where(eq(poolParticipantsTable.poolId, poolId));
+  const { refundedCount } = await refundAllPoolParticipants(poolId, pool, `[Admin] pool "${pool.title}" deleted`);
   await db.delete(poolsTable).where(eq(poolsTable.id, poolId));
 
-  await logAction(getAdminId(req), "pool", poolId, "delete_pool", `Deleted pool "${pool.title}" — ${participants.length} participant(s) refunded`);
+  await logAction(getAdminId(req), "pool", poolId, "delete_pool", `Deleted pool "${pool.title}" — ${refundedCount} participant(s) refunded`);
 
-  res.json({ message: "Pool deleted and participants refunded", refundedCount: participants.length });
+  res.json({ message: "Pool deleted and participants refunded", refundedCount });
 });
 
 router.get("/pools/:id/participants", async (req, res) => {

@@ -11,6 +11,7 @@ import { pickUniqueWinners } from "../services/draw-service";
 import { logActivity } from "../services/activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { runJoinSideEffects } from "../services/join-side-effects";
+import { refundAllPoolParticipants } from "../lib/pool-refunds";
 
 const JoinPoolBody = z.object({ useFreeEntry: z.boolean().optional() });
 
@@ -258,6 +259,12 @@ router.patch("/:poolId", async (req, res) => {
     return;
   }
 
+  const [existingPool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  if (!existingPool) {
+    res.status(404).json({ error: "Pool not found" });
+    return;
+  }
+
   const parse = UpdatePoolBody.safeParse(req.body);
   if (!parse.success) {
     res.status(400).json({ error: "Validation error" });
@@ -268,6 +275,18 @@ router.patch("/:poolId", async (req, res) => {
   if (parse.data.title) updates.title = parse.data.title;
   if (parse.data.status) updates.status = parse.data.status;
   if (parse.data.endTime) updates.endTime = new Date(parse.data.endTime);
+
+  /* Refund if admin closes an open pool that never filled */
+  if (parse.data.status === "closed" && existingPool.status === "open") {
+    const [{ ct }] = await db
+      .select({ ct: count() })
+      .from(poolParticipantsTable)
+      .where(eq(poolParticipantsTable.poolId, poolId));
+    const n = Number(ct);
+    if (n > 0 && n < existingPool.maxUsers) {
+      await refundAllPoolParticipants(poolId, existingPool, "Pool closed before filling");
+    }
+  }
 
   const [pool] = await db.update(poolsTable).set(updates).where(eq(poolsTable.id, poolId)).returning();
   if (!pool) {
