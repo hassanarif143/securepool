@@ -85,8 +85,11 @@ router.post("/signup", signupLimiter, async (req, res) => {
   const { password, cryptoAddress } = parse.data;
   const referralCode = parse.data.referralCode;
 
-  const existing = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
-  if (existing.length > 0) {
+  const existingByEmail = await dbPool.query(
+    `SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+    [email],
+  );
+  if (existingByEmail.rows.length > 0) {
     res.status(409).json({ error: "Email already in use", message: "An account with this email already exists." });
     return;
   }
@@ -179,7 +182,7 @@ router.post("/login", loginLimiter, async (req, res) => {
 
   const { rows } = await dbPool.query(
     `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at
-     FROM users WHERE email = $1 LIMIT 1`,
+     FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
     [email],
   );
   const user = rows[0];
