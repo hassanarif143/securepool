@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useListWinners, useListPools } from "@workspace/api-client-react";
+import { apiUrl } from "@/lib/api-base";
 
 function useAnimatedInt(target: number, duration = 1400) {
   const [v, setV] = useState(0);
@@ -71,8 +72,7 @@ export default function LandingPage() {
   } | null>(null);
 
   useEffect(() => {
-    const base = import.meta.env.VITE_API_URL?.replace(/\/$/, "") ?? "";
-    fetch(`${base}/api/stats/summary`, { credentials: "omit" })
+    fetch(apiUrl("/api/stats/summary"), { credentials: "omit" })
       .then((r) => (r.ok ? r.json() : null))
       .then(setSummary)
       .catch(() => {});

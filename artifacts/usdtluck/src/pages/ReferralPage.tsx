@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
+import { apiUrl } from "@/lib/api-base";
 
 interface ReferralStats {
   total: number;
@@ -32,14 +33,6 @@ interface ReferralData {
 }
 
 export default function ReferralPage() {
-  const apiBase = (() => {
-    const explicit = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "");
-    if (explicit) return explicit;
-    if (typeof window !== "undefined" && window.location.hostname === "securepool-usdtluck.vercel.app") {
-      return "https://securepool-production.up.railway.app";
-    }
-    return "";
-  })();
   const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -54,7 +47,7 @@ export default function ReferralPage() {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`${apiBase}/api/referral/me`, { credentials: "include" })
+    fetch(apiUrl("/api/referral/me"), { credentials: "include" })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();

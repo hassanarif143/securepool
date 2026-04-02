@@ -1,18 +1,22 @@
-/** Alias for `getApiBaseUrl` — use with manual `fetch(\`${getApiBase()}/api/...\`)`. */
+/** Default API origin when the SPA is on Vercel/custom domain and env is unset. Override with VITE_API_URL. */
+const DEFAULT_PRODUCTION_API_ORIGIN = "https://securepool-production.up.railway.app";
+
+/** Alias for `getApiBaseUrl` — prefer `apiUrl("/api/...")` for fetches. */
 export function getApiBase(): string {
   return getApiBaseUrl();
 }
 
-/** API origin for credentialed cross-origin requests (must match setBaseUrl). */
+/**
+ * API origin for credentialed cross-origin requests (must match `setBaseUrl` in main.tsx).
+ * - Dev: empty string → same-origin `/api` via Vite proxy.
+ * - Prod: `VITE_API_URL` or default Railway host — never rely on relative `/api` (breaks on static hosts).
+ */
 export function getApiBaseUrl(): string {
-  const explicit = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "");
+  const explicit = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "").trim();
   if (explicit) return explicit;
-  if (typeof window !== "undefined" && import.meta.env.PROD) {
-    const host = window.location.hostname;
-    /* Any Vercel deployment: relative /uploads and /api would hit the SPA host and break images & admin API */
-    if (host === "securepool-usdtluck.vercel.app" || host.endsWith(".vercel.app")) {
-      return "https://securepool-production.up.railway.app";
-    }
+  if (import.meta.env.DEV) return "";
+  if (typeof window !== "undefined") {
+    return DEFAULT_PRODUCTION_API_ORIGIN;
   }
   return "";
 }

@@ -3,8 +3,8 @@ import { Link, useLocation, useSearch } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
-import { setCsrfToken } from "@/lib/csrf";
-import { getApiBaseUrl } from "@/lib/api-base";
+import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
+import { apiUrl } from "@/lib/api-base";
 
 function PasswordStrength({ password }: { password: string }) {
   const checks = [
@@ -44,7 +44,6 @@ function PasswordStrength({ password }: { password: string }) {
 }
 
 export default function SignupPage() {
-  const apiBase = getApiBaseUrl();
   const [name, setName] = useState("");
   const [cryptoAddress, setCryptoAddress] = useState("");
   const [email, setEmail] = useState("");
@@ -71,17 +70,22 @@ export default function SignupPage() {
     setLoading(true);
     try {
       // Ensure CSRF cookie exists before first state-changing request.
-      const csrfRes = await fetch(`${apiBase}/api/auth/csrf-token`, { method: "GET", credentials: "include" });
+      const csrfRes = await fetch(apiUrl("/api/auth/csrf-token"), { method: "GET", credentials: "include" });
       const csrfRaw = await csrfRes.text();
       const csrfData = csrfRaw ? (() => {
         try { return JSON.parse(csrfRaw); } catch { return {}; }
       })() : {};
-      setCsrfToken((csrfData as any).csrfToken ?? null);
+      const token = (csrfData as { csrfToken?: string }).csrfToken ?? null;
+      setCsrfToken(token);
 
-      const res = await fetch(`${apiBase}/api/auth/signup`, {
+      const csrfHeader = token ?? getCsrfToken();
+      const res = await fetch(apiUrl("/api/auth/signup"), {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfHeader ? { "x-csrf-token": csrfHeader } : {}),
+        },
         body: JSON.stringify({
           name,
           cryptoAddress,

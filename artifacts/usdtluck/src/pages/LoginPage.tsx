@@ -3,11 +3,10 @@ import { Link, useLocation, useSearch } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
-import { setCsrfToken } from "@/lib/csrf";
-import { getApiBaseUrl } from "@/lib/api-base";
+import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
+import { apiUrl } from "@/lib/api-base";
 
 export default function LoginPage() {
-  const apiBase = getApiBaseUrl();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -24,17 +23,22 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const csrfRes = await fetch(`${apiBase}/api/auth/csrf-token`, { method: "GET", credentials: "include" });
+      const csrfRes = await fetch(apiUrl("/api/auth/csrf-token"), { method: "GET", credentials: "include" });
       const csrfRaw = await csrfRes.text();
       const csrfData = csrfRaw ? (() => {
         try { return JSON.parse(csrfRaw); } catch { return {}; }
       })() : {};
-      setCsrfToken((csrfData as any).csrfToken ?? null);
+      const token = (csrfData as { csrfToken?: string }).csrfToken ?? null;
+      setCsrfToken(token);
 
-      const res = await fetch(`${apiBase}/api/auth/login`, {
+      const csrfHeader = token ?? getCsrfToken();
+      const res = await fetch(apiUrl("/api/auth/login"), {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfHeader ? { "x-csrf-token": csrfHeader } : {}),
+        },
         body: JSON.stringify({ email, password }),
       });
 
