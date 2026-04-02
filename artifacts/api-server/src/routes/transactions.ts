@@ -4,6 +4,8 @@ import { eq, desc, and } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { z } from "zod";
+import { sanitizeText } from "../lib/sanitize";
 
 const router: IRouter = Router();
 
@@ -97,7 +99,7 @@ router.post("/deposit", upload.single("screenshot"), async (req: Request, res: a
   }
 
   const screenshotUrl = `/uploads/${req.file.filename}`;
-  const note = req.body?.note ?? null;
+  const note = req.body?.note ? sanitizeText(req.body.note, 200) : null;
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, sessionUserId)).limit(1);
 
@@ -123,7 +125,19 @@ router.post("/withdraw", async (req, res) => {
     return;
   }
 
-  const amount = parseFloat(req.body?.amount);
+  const WithdrawSchema = z.object({
+    amount: z.coerce.number().positive(),
+    walletAddress: z.string().min(10).max(120).regex(/^T[a-zA-Z0-9]{25,}$/),
+    note: z.string().max(200).optional(),
+  });
+  const parsed = WithdrawSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Validation error", message: parsed.error.message });
+    return;
+  }
+
+  const { amount, walletAddress, note } = parsed.data;
+  const cleanNote = note ? sanitizeText(note, 200) : "";
   if (!amount || amount <= 0) {
     res.status(400).json({ error: "Amount must be greater than 0" });
     return;
@@ -149,7 +163,7 @@ router.post("/withdraw", async (req, res) => {
       txType: "withdraw",
       amount: String(amount),
       status: "pending",
-      note: req.body?.note ?? null,
+      note: `[wallet:${walletAddress}]${cleanNote ? ` ${cleanNote}` : ""}`,
     })
     .returning();
 

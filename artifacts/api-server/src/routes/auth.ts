@@ -3,9 +3,12 @@ import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db, pool as dbPool, usersTable, referralsTable, transactionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { SignupBody, LoginBody } from "@workspace/api-zod";
+import { LoginBody } from "@workspace/api-zod";
+import { z } from "zod";
 import { getJwtCookieName, signUserJwt } from "../lib/jwt";
 import type { AuthedRequest } from "../middleware/auth";
+import { sendRegistrationEmail } from "../lib/email";
+import { sanitizeText } from "../lib/sanitize";
 
 declare module "express-session" {
   interface SessionData {
@@ -17,7 +20,24 @@ const SIGNUP_BONUS_USDT = 1; // bonus credited to new user when they sign up via
 
 const router: IRouter = Router();
 
+const SignupSchema = z.object({
+  name: z.string().min(2),
+  email: z.string().email(),
+  password: z.string().min(6),
+  phone: z.string().min(8).max(20).regex(/^[0-9+\-\s()]+$/, "Invalid phone number format"),
+  city: z.string().min(2).max(80),
+  cryptoAddress: z.string().min(10).max(120).regex(/^T[a-zA-Z0-9]{25,}$/, "Invalid TRC20 wallet address"),
+  referralCode: z.string().optional(),
+});
+
 const loginLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const signupLimiter = rateLimit({
   windowMs: 60_000,
   limit: 5,
   standardHeaders: true,
@@ -35,20 +55,36 @@ function authCookieOptions() {
   };
 }
 
-router.post("/signup", async (req, res) => {
-  const parse = SignupBody.safeParse(req.body);
+router.get("/csrf-token", (req, res) => {
+  const token = (req as any).cookies?.sp_csrf ?? null;
+  res.json({ csrfToken: token });
+});
+
+router.post("/signup", signupLimiter, async (req, res) => {
+  const parse = SignupSchema.safeParse(req.body);
   if (!parse.success) {
     res.status(400).json({ error: "Validation error", message: parse.error.message });
     return;
   }
 
-  const { name, email, password } = parse.data;
-  /* Optional referral code passed as ?ref= query param or in request body */
-  const referralCode: string | undefined = (req.body.referralCode as string) || undefined;
+  const cleanName = sanitizeText(parse.data.name, 80);
+  const cleanCity = sanitizeText(parse.data.city, 80);
+  const { email, password, phone, cryptoAddress } = parse.data;
+  const referralCode = parse.data.referralCode;
 
   const existing = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
   if (existing.length > 0) {
     res.status(409).json({ error: "Email already in use", message: "An account with this email already exists." });
+    return;
+  }
+  const existingPhone = await db.select().from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
+  if (existingPhone.length > 0) {
+    res.status(409).json({ error: "Phone already in use", message: "An account with this phone already exists." });
+    return;
+  }
+  const existingWallet = await db.select().from(usersTable).where(eq(usersTable.cryptoAddress, cryptoAddress)).limit(1);
+  if (existingWallet.length > 0) {
+    res.status(409).json({ error: "Wallet already in use", message: "An account with this wallet already exists." });
     return;
   }
 
@@ -67,8 +103,11 @@ router.post("/signup", async (req, res) => {
   const [user] = await db
     .insert(usersTable)
     .values({
-      name,
+      name: cleanName,
       email,
+      phone,
+      city: cleanCity,
+      cryptoAddress,
       passwordHash,
       walletBalance: String(startBalance),
       referredBy: referrer?.id ?? undefined,
@@ -118,6 +157,9 @@ router.post("/signup", async (req, res) => {
       : "Account created successfully",
     referralBonus: referrer ? SIGNUP_BONUS_USDT : 0,
   });
+
+  // Fire-and-forget mail
+  void sendRegistrationEmail(user.email, user.name);
 });
 
 router.post("/login", loginLimiter, async (req, res) => {
@@ -151,6 +193,8 @@ router.post("/login", loginLimiter, async (req, res) => {
       id: user.id,
       name: user.name,
       email: user.email,
+      phone: user.phone ?? null,
+      city: user.city ?? null,
       walletBalance: parseFloat(user.walletBalance),
       cryptoAddress: user.cryptoAddress ?? null,
       isAdmin: user.isAdmin,
@@ -175,7 +219,7 @@ router.get("/me", async (req, res) => {
   }
 
   const { rows } = await dbPool.query(
-    `SELECT id, name, email, wallet_balance, crypto_address, is_admin, joined_at, tier, tier_points
+    `SELECT id, name, email, phone, city, wallet_balance, crypto_address, is_admin, joined_at, tier, tier_points
      FROM users WHERE id = $1 LIMIT 1`,
     [userId]
   );
@@ -189,6 +233,8 @@ router.get("/me", async (req, res) => {
     id: user.id,
     name: user.name,
     email: user.email,
+    phone: user.phone ?? null,
+    city: user.city ?? null,
     walletBalance: parseFloat(user.wallet_balance),
     cryptoAddress: user.crypto_address ?? null,
     isAdmin: user.is_admin,

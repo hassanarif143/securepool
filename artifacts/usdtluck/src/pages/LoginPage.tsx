@@ -39,16 +39,6 @@ export default function LoginPage() {
     );
   }
 
-  function fillDemo(type: "admin" | "user") {
-    if (type === "admin") {
-      setEmail("admin@usdtluck.com");
-      setPassword("password123");
-    } else {
-      setEmail("ahmed@example.com");
-      setPassword("password123");
-    }
-  }
-
   return (
     <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center -mx-4 sm:-mx-6 lg:-mx-8 -my-8 px-4">
       {/* Background glow orbs */}
@@ -247,33 +237,11 @@ export default function LoginPage() {
               </Link>
             </p>
 
-            {/* Demo credentials */}
-            <div className="mt-5 rounded-xl p-4 space-y-2"
+            <div className="mt-5 rounded-xl p-4"
               style={{ background: "hsl(224,30%,13%)", border: "1px solid hsl(217,28%,18%)" }}>
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                Try a demo account
+              <p className="text-[11px] text-muted-foreground text-center">
+                Use your registered credentials to sign in.
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => fillDemo("user")}
-                  className="flex flex-col items-start px-3 py-2 rounded-lg text-left transition-colors hover:bg-white/5"
-                  style={{ border: "1px solid hsl(217,28%,22%)" }}
-                >
-                  <span className="text-[11px] font-semibold text-foreground">👤 User</span>
-                  <span className="text-[10px] text-muted-foreground">ahmed@example.com</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fillDemo("admin")}
-                  className="flex flex-col items-start px-3 py-2 rounded-lg text-left transition-colors hover:bg-white/5"
-                  style={{ border: "1px solid hsl(217,28%,22%)" }}
-                >
-                  <span className="text-[11px] font-semibold text-foreground">⚙️ Admin</span>
-                  <span className="text-[10px] text-muted-foreground">admin@usdtluck.com</span>
-                </button>
-              </div>
-              <p className="text-[10px] text-muted-foreground text-center pt-1">Password: <span className="font-mono">password123</span></p>
             </div>
 
             {/* Trust badges */}

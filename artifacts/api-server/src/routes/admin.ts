@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, poolsTable, poolParticipantsTable, transactionsTable, winnersTable, adminActionsTable } from "@workspace/db";
 import { eq, count, sum, desc, and, sql } from "drizzle-orm";
+import { sendWithdrawalStatusEmail } from "../lib/email";
+import { sanitizeText } from "../lib/sanitize";
 
 const router: IRouter = Router();
 
@@ -223,7 +225,7 @@ router.get("/transactions/pending", async (req, res) => {
     })
     .from(transactionsTable)
     .innerJoin(usersTable, eq(transactionsTable.userId, usersTable.id))
-    .where(eq(transactionsTable.status, "pending"))
+    .where(sql`${transactionsTable.status} IN ('pending', 'under_review')`)
     .orderBy(desc(transactionsTable.createdAt));
 
   res.json(txs.map((t) => ({
@@ -242,7 +244,8 @@ router.post("/transactions/:id/approve", async (req, res) => {
   if (!tx) { res.status(404).json({ error: "Transaction not found" }); return; }
   if (tx.status !== "pending") { res.status(400).json({ error: "Transaction is not pending" }); return; }
 
-  await db.update(transactionsTable).set({ status: "completed" }).where(eq(transactionsTable.id, txId));
+  const nextStatus = tx.txType === "withdraw" ? "under_review" : "completed";
+  await db.update(transactionsTable).set({ status: nextStatus }).where(eq(transactionsTable.id, txId));
 
   if (tx.txType === "deposit") {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
@@ -264,13 +267,43 @@ router.post("/transactions/:id/approve", async (req, res) => {
   try {
     const notifMsg = tx.txType === "deposit"
       ? `Your deposit of ${tx.amount} USDT has been approved ✓ Your wallet has been credited.`
-      : `Your withdrawal of ${tx.amount} USDT has been approved and is being processed.`;
+      : `Your withdrawal of ${tx.amount} USDT is now under review and will be processed shortly.`;
     await db.execute(
       sql`INSERT INTO notifications (user_id, title, body, type) VALUES (${tx.userId}, 'Payment Approved', ${notifMsg}, 'success')`
     );
   } catch {}
 
-  res.json({ message: "Transaction approved" });
+  if (tx.txType === "withdraw" && txUser?.email) {
+    void sendWithdrawalStatusEmail(txUser.email, tx.amount, "under_review");
+  }
+
+  res.json({ message: tx.txType === "withdraw" ? "Withdrawal moved to under_review" : "Transaction approved" });
+});
+
+router.post("/transactions/:id/complete", async (req, res) => {
+  const txId = parseInt(req.params.id);
+  if (isNaN(txId)) { res.status(400).json({ error: "Invalid transaction ID" }); return; }
+
+  const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txId)).limit(1);
+  if (!tx) { res.status(404).json({ error: "Transaction not found" }); return; }
+  if (tx.txType !== "withdraw") { res.status(400).json({ error: "Only withdrawals can be completed here" }); return; }
+  if (tx.status !== "under_review" && tx.status !== "pending") { res.status(400).json({ error: "Withdrawal is not in a completable state" }); return; }
+
+  await db.update(transactionsTable).set({ status: "completed" }).where(eq(transactionsTable.id, txId));
+  const [txUser] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
+  await logAction(getAdminId(req), "transaction", txId, "complete_withdrawal", `Marked withdrawal ${txId} as completed`);
+
+  try {
+    await db.execute(
+      sql`INSERT INTO notifications (user_id, title, body, type) VALUES (${tx.userId}, 'Withdrawal Completed', ${`Your withdrawal of ${tx.amount} USDT has been processed.`}, 'success')`
+    );
+  } catch {}
+
+  if (txUser?.email) {
+    void sendWithdrawalStatusEmail(txUser.email, tx.amount, "completed");
+  }
+
+  res.json({ message: "Withdrawal marked as completed" });
 });
 
 router.post("/users/:id/adjust-balance", async (req, res) => {
@@ -308,9 +341,11 @@ router.post("/transactions/:id/reject", async (req, res) => {
 
   const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txId)).limit(1);
   if (!tx) { res.status(404).json({ error: "Transaction not found" }); return; }
-  if (tx.status !== "pending") { res.status(400).json({ error: "Transaction is not pending" }); return; }
+  if (tx.status !== "pending" && tx.status !== "under_review") { res.status(400).json({ error: "Transaction is not pending/under_review" }); return; }
 
-  await db.update(transactionsTable).set({ status: "failed" }).where(eq(transactionsTable.id, txId));
+  const reason = typeof req.body?.reason === "string" ? sanitizeText(req.body.reason, 200) : "";
+
+  await db.update(transactionsTable).set({ status: "rejected", note: reason ? `${tx.note ?? ""} [reject_reason:${reason}]`.trim() : tx.note }).where(eq(transactionsTable.id, txId));
 
   if (tx.txType === "withdraw") {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
@@ -325,11 +360,15 @@ router.post("/transactions/:id/reject", async (req, res) => {
   try {
     const notifMsg = tx.txType === "deposit"
       ? `Your deposit of ${tx.amount} USDT was rejected. Please check your screenshot and try again, or contact support.`
-      : `Your withdrawal of ${tx.amount} USDT was rejected. Your balance has been refunded.`;
+      : `Your withdrawal of ${tx.amount} USDT was rejected. ${reason ? `Reason: ${reason}. ` : ""}Your balance has been refunded.`;
     await db.execute(
       sql`INSERT INTO notifications (user_id, title, body, type) VALUES (${tx.userId}, 'Payment Rejected', ${notifMsg}, 'error')`
     );
   } catch {}
+
+  if (tx.txType === "withdraw" && txUser?.email) {
+    void sendWithdrawalStatusEmail(txUser.email, tx.amount, "rejected", reason || undefined);
+  }
 
   res.json({ message: "Transaction rejected" });
 });

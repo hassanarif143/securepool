@@ -2,7 +2,7 @@ import { pgTable, serial, integer, numeric, text, timestamp, pgEnum } from "driz
 import { usersTable } from "./users";
 
 export const txTypeEnum = pgEnum("tx_type", ["deposit", "withdraw", "reward", "pool_entry"]);
-export const txStatusEnum = pgEnum("tx_status", ["pending", "completed", "failed"]);
+export const txStatusEnum = pgEnum("tx_status", ["pending", "under_review", "completed", "rejected", "failed"]);
 
 export const transactionsTable = pgTable("transactions", {
   id: serial("id").primaryKey(),

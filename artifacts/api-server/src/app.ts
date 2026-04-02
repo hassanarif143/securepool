@@ -11,6 +11,7 @@ import { pool } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { attachAuth } from "./middleware/auth";
+import { csrfProtection, issueCsrfToken } from "./middleware/csrf";
 
 const app: Express = express();
 
@@ -48,6 +49,7 @@ app.use(
 
 app.use(cookieParser());
 app.use(attachAuth);
+app.use(issueCsrfToken);
 
 // Basic rate limit for all API routes (tighten per-route later)
 app.use(
@@ -97,6 +99,7 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+app.use(csrfProtection);
 
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {

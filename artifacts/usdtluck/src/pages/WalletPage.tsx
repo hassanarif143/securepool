@@ -42,6 +42,11 @@ function StatusChip({ status }: { status: string }) {
       ⏳ Pending
     </span>
   );
+  if (status === "under_review") return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-sm border border-blue-500/30 bg-blue-500/10 text-blue-300">
+      👀 Under Review
+    </span>
+  );
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-sm border border-red-500/30 bg-red-500/10 text-red-400">
       ✕ Rejected
@@ -62,6 +67,7 @@ export default function WalletPage() {
   const [tab, setTab] = useState<"deposit" | "withdraw" | "history">("deposit");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [withdrawWallet, setWithdrawWallet] = useState(user?.cryptoAddress ?? "");
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [depositLoading, setDepositLoading] = useState(false);
@@ -76,6 +82,12 @@ export default function WalletPage() {
   useEffect(() => {
     if (!isLoading && !user) navigate("/login");
   }, [user, isLoading]);
+
+  useEffect(() => {
+    if (user?.cryptoAddress && !withdrawWallet) {
+      setWithdrawWallet(user.cryptoAddress);
+    }
+  }, [user?.cryptoAddress, withdrawWallet]);
 
   if (isLoading || !user) return null;
 
@@ -124,13 +136,14 @@ export default function WalletPage() {
     e.preventDefault();
     const val = parseFloat(amount);
     if (!val || val <= 0) { toast({ title: "Invalid amount", variant: "destructive" }); return; }
+    if (!withdrawWallet) { toast({ title: "Wallet address required", variant: "destructive" }); return; }
 
     setWithdrawLoading(true);
     try {
       const res = await fetch("/api/transactions/withdraw", {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: val, note }),
+        body: JSON.stringify({ amount: val, walletAddress: withdrawWallet, note }),
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.error ?? "Withdrawal failed"); }
 
@@ -430,13 +443,26 @@ export default function WalletPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-                  Destination Address / Note
+                  Destination Address (TRC-20)
+                </label>
+                <input
+                  type="text"
+                  value={withdrawWallet}
+                  onChange={(e) => setWithdrawWallet(e.target.value)}
+                  placeholder={user.cryptoAddress ?? "Enter your USDT wallet address (TRC-20)"}
+                  className="w-full px-4 py-3 rounded-lg text-sm border border-[hsl(217,28%,22%)] bg-[hsl(217,28%,12%)] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-emerald-500/50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                  Note (optional)
                 </label>
                 <input
                   type="text"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder={user.cryptoAddress ?? "Enter your USDT wallet address (TRC-20)"}
+                  placeholder="Optional note"
                   className="w-full px-4 py-3 rounded-lg text-sm border border-[hsl(217,28%,22%)] bg-[hsl(217,28%,12%)] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-emerald-500/50"
                 />
               </div>

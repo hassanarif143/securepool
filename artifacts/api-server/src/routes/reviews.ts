@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { pool } from "@workspace/db";
+import { sanitizeText } from "../lib/sanitize";
 
 const router = Router();
 
@@ -47,7 +48,8 @@ router.post("/", async (req, res) => {
   const user = (req.session as any).user;
   if (!user) return res.status(401).json({ error: "Not authenticated" });
 
-  const { message, rating } = req.body;
+  const message = sanitizeText(req.body?.message, 500);
+  const { rating } = req.body;
 
   if (!message || typeof message !== "string" || message.trim().length < 10) {
     return res.status(400).json({ error: "Message must be at least 10 characters" });

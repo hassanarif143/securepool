@@ -3,6 +3,7 @@ import { db, poolsTable, poolParticipantsTable, usersTable, transactionsTable, w
 import { eq, and, sql, desc, count } from "drizzle-orm";
 import { maybeCreditReferralBonus } from "./referral";
 import { CreatePoolBody, UpdatePoolBody } from "@workspace/api-zod";
+import { sendDrawResultEmail, sendTicketApprovedEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -246,6 +247,10 @@ router.post("/:poolId/join", async (req, res) => {
   const { awardTierPoints, POINTS_POOL_JOIN } = await import("../lib/tier");
   const tierResult = await awardTierPoints(sessionUserId, POINTS_POOL_JOIN);
 
+  if (user?.email) {
+    void sendTicketApprovedEmail(user.email, `TKT-${poolId}-${sessionUserId}`, `Draw #${poolId}`);
+  }
+
   res.json({
     message: "Successfully joined the pool!",
     tierUpdate: tierResult ? {
@@ -294,6 +299,7 @@ router.post("/:poolId/distribute", async (req, res) => {
   ];
 
   const winnerRecords = [];
+  const winnerUserIds = new Set<number>();
   for (let i = 0; i < 3; i++) {
     const participant = shuffled[i];
     const { place, prize } = prizes[i];
@@ -316,9 +322,28 @@ router.post("/:poolId/distribute", async (req, res) => {
     });
 
     winnerRecords.push({ ...winner, userName: user.name, poolTitle: pool.title });
+    winnerUserIds.add(participant.userId);
   }
 
   await db.update(poolsTable).set({ status: "completed" }).where(eq(poolsTable.id, poolId));
+
+  // Notify all participants by email with winner/non-winner messaging
+  const participantUsers = await db
+    .select({ id: usersTable.id, email: usersTable.email })
+    .from(usersTable)
+    .innerJoin(poolParticipantsTable, eq(usersTable.id, poolParticipantsTable.userId))
+    .where(eq(poolParticipantsTable.poolId, poolId));
+
+  for (const p of participantUsers) {
+    if (!p.email) continue;
+    const winner = winnerRecords.find((w: any) => w.userId === p.id);
+    void sendDrawResultEmail(
+      p.email,
+      `Draw #${poolId}`,
+      Boolean(winner),
+      winner ? String(winner.prize) : undefined,
+    );
+  }
 
   res.json({
     message: "Rewards distributed successfully!",

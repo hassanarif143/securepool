@@ -1,13 +1,21 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useLayoutEffect, ReactNode } from "react";
 import { useGetMe, useLogout } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 
+function getErrorStatus(err: unknown): number | undefined {
+  if (typeof err !== "object" || err === null || !("status" in err)) return undefined;
+  const s = (err as { status: unknown }).status;
+  return typeof s === "number" ? s : undefined;
+}
+
 interface UserType {
   id: number;
   name: string;
   email: string;
+  phone?: string | null;
+  city?: string | null;
   walletBalance: number;
   cryptoAddress: string | null;
   isAdmin: boolean;
@@ -31,23 +39,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logoutMutation = useLogout();
   const [, navigate] = useLocation();
 
-  const { data, isLoading } = useGetMe({
+  const { data, isLoading, isError, error, isFetched } = useGetMe({
     query: {
       queryKey: getGetMeQueryKey(),
       retry: false,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true,
+      staleTime: 30_000,
+      refetchInterval: 2 * 60 * 1000,
+      refetchIntervalInBackground: false,
     },
   });
 
   useEffect(() => {
-    if (data) {
-      setUser(data as UserType);
+    if (!data) return;
+    if (isError) {
+      const st = getErrorStatus(error);
+      if (st === 401 || st === 403) return;
     }
-  }, [data]);
+    setUser(data as UserType);
+  }, [data, isError, error]);
+
+  useLayoutEffect(() => {
+    if (!isFetched || !isError) return;
+    const status = getErrorStatus(error);
+    if (status === 401 || status === 403) {
+      setUser(null);
+    }
+  }, [isFetched, isError, error]);
 
   function logout() {
     logoutMutation.mutate(undefined, {
       onSuccess: () => {
+        setUser(null);
+        queryClient.clear();
+        navigate("/login");
+      },
+      onError: () => {
         setUser(null);
         queryClient.clear();
         navigate("/login");

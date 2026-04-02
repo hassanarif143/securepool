@@ -39,9 +39,7 @@ A full-stack USDT reward pool web app. Users join prize pools for 10 USDT, 3 ran
 - **Tier progression system**: 5 tiers (Aurora→Lumen→Nova→Celestia→Orion), awarded for pool joins (+15 pts) and deposits (+2 pts/USDT); free 10 USDT ticket on each tier upgrade; animated TierUpgradeModal with confetti
 - **Tier Leaderboard**: public leaderboard ranked by tier points with tier badges and threshold display
 
-**Demo accounts (password: `password123`):**
-- Admin: `admin@usdtluck.com`
-- User: `ahmed@example.com`
+No demo accounts are seeded for production. Create users via normal signup flow.
 
 ### API Server (`artifacts/api-server`)
 Express 5 REST API serving all USDTLuck functionality.
