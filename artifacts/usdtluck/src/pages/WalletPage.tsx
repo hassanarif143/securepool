@@ -67,7 +67,7 @@ export default function WalletPage() {
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<"deposit" | "withdraw" | "history">("deposit");
-  const [txFilter, setTxFilter] = useState<"all" | "deposit" | "withdraw" | "reward">("all");
+  const [txFilter, setTxFilter] = useState<"all" | "deposit" | "withdraw" | "reward" | "pool_entry">("all");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [withdrawWallet, setWithdrawWallet] = useState(user?.cryptoAddress ?? "");
@@ -110,6 +110,7 @@ export default function WalletPage() {
     if (txFilter === "deposit") return t.txType === "deposit";
     if (txFilter === "withdraw") return t.txType === "withdraw" || t.txType === "withdrawal";
     if (txFilter === "reward") return t.txType === "reward" || t.txType === "referral_bonus" || t.txType === "tier_free_ticket";
+    if (txFilter === "pool_entry") return t.txType === "pool_entry";
     return true;
   }
 
@@ -502,10 +503,10 @@ export default function WalletPage() {
         {tab === "history" && (
           <div>
             {pendingAll.length > 0 && (
-              <div className="px-4 py-3 border-b border-[hsl(217,28%,14%)] space-y-2" style={{ background: "hsl(222,30%,10%)" }}>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-400/90">Pending</p>
+              <div className="px-4 py-3 border-b border-yellow-500/35 space-y-2 rounded-t-lg border-2 border-b-0 border-yellow-500/25" style={{ background: "hsl(222,30%,10%)" }}>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-yellow-400/90">Pending — needs attention</p>
                 {pendingAll.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between gap-2 text-xs rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2">
+                  <div key={t.id} className="flex items-center justify-between gap-2 text-xs rounded-lg border border-yellow-500/30 bg-yellow-500/8 px-3 py-2">
                     <span className="capitalize text-muted-foreground">{String(t.txType).replace("_", " ")}</span>
                     <StatusChip status={t.status} />
                     <span className="font-mono font-bold tabular-nums">{parseFloat(t.amount).toFixed(2)} USDT</span>
@@ -513,19 +514,32 @@ export default function WalletPage() {
                 ))}
               </div>
             )}
-            <div className="flex flex-wrap gap-2 px-4 py-2.5 border-b border-[hsl(217,28%,14%)]" style={{ background: "hsl(222,30%,10%)" }}>
-              {(["all", "deposit", "withdraw", "reward"] as const).map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setTxFilter(f)}
-                  className={`text-[10px] font-bold px-2 py-1 rounded-md border transition-colors ${
-                    txFilter === f ? "border-primary text-primary bg-primary/10" : "border-transparent text-muted-foreground hover:bg-white/5"
-                  }`}
-                >
-                  {f === "all" ? "All" : f === "deposit" ? "Deposits" : f === "withdraw" ? "Withdrawals" : "Rewards"}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-[hsl(217,28%,14%)]" style={{ background: "hsl(222,30%,10%)" }}>
+              <div className="flex flex-wrap gap-2">
+                {(["all", "deposit", "withdraw", "reward", "pool_entry"] as const).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setTxFilter(f)}
+                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition-colors ${
+                      txFilter === f ? "border-primary text-primary bg-primary/10" : "border-transparent text-muted-foreground hover:bg-white/5"
+                    }`}
+                  >
+                    {f === "all" ? "All" : f === "deposit" ? "Deposits" : f === "withdraw" ? "Withdrawals" : f === "reward" ? "Rewards" : "Pool Entries"}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="text-[10px] font-semibold px-2 py-1 rounded-md border border-[hsl(217,28%,22%)] text-muted-foreground hover:text-foreground hover:bg-white/5"
+                onClick={() => {
+                  queryClient.invalidateQueries({ queryKey: getGetUserTransactionsQueryKey(currentUser.id) });
+                  queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+                  toast({ title: "Refreshed" });
+                }}
+              >
+                ↻ Refresh
+              </button>
             </div>
             {/* Legend */}
             <div className="flex gap-4 px-5 py-2.5 border-b border-[hsl(217,28%,14%)] text-[10px] text-muted-foreground"
@@ -537,10 +551,15 @@ export default function WalletPage() {
             {txsLoading ? (
               <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
             ) : txArr.length === 0 ? (
-              <div className="py-12 text-center m-4 border border-dashed border-[hsl(217,28%,20%)] rounded-lg">
+              <div className="py-12 text-center m-4 border border-dashed border-[hsl(217,28%,20%)] rounded-lg px-4">
                 <p className="text-2xl mb-2 opacity-30">—</p>
                 <p className="text-sm font-medium">No transactions yet</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Your history will appear here</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                  Make your first deposit to get started — then join pools and win rewards.
+                </p>
+                <a href="/wallet?tab=deposit" className="inline-block mt-4 px-4 py-2 rounded-lg text-sm font-bold text-white" style={{ background: "#16a34a" }}>
+                  Deposit now
+                </a>
               </div>
             ) : filteredTx.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">No transactions in this filter.</div>

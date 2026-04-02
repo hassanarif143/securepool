@@ -8,6 +8,7 @@ import { sanitizeText } from "../lib/sanitize";
 import { getAuthedUserId } from "../middleware/auth";
 import { logger } from "../lib/logger";
 import { getUploadsDir } from "../paths";
+import { notifyUser } from "../lib/notify";
 
 const router: IRouter = Router();
 
@@ -143,6 +144,13 @@ router.post("/deposit", uploadScreenshot, async (req: Request, res: Response) =>
       return;
     }
 
+    void notifyUser(
+      userId,
+      "Deposit Submitted 📤",
+      `Your deposit of ${amount} USDT is pending review. We'll notify you once approved.`,
+      "info",
+    );
+
     res.status(201).json(formatTx({ ...tx, userName: user.name }));
   } catch (err) {
     logger.error({ err }, "POST /deposit failed");
@@ -217,6 +225,13 @@ router.post("/withdraw", async (req, res) => {
       res.status(500).json({ error: "Failed to create withdrawal request" });
       return;
     }
+
+    void notifyUser(
+      userId,
+      "Withdrawal Requested 📤",
+      `Your withdrawal of ${amount} USDT is being processed. You'll be notified once completed.`,
+      "info",
+    );
 
     res.status(201).json(formatTx({ ...tx, userName: user.name }));
   } catch (err) {

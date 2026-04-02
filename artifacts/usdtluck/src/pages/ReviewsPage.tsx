@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { apiUrl } from "@/lib/api-base";
 
 /* ── Types ── */
 interface Review {
@@ -178,7 +179,7 @@ function WriteReviewForm({ onSuccess }: { onSuccess: () => void }) {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/reviews", {
+      const res = await fetch(apiUrl("/api/reviews"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -309,7 +310,7 @@ export default function ReviewsPage() {
 
   async function loadReviews() {
     try {
-      const res = await fetch("/api/reviews?limit=50", { credentials: "include" });
+      const res = await fetch(apiUrl("/api/reviews?limit=50"), { credentials: "include" });
       const data = await res.json();
       setReviews(data.reviews ?? []);
     } catch {
@@ -322,7 +323,7 @@ export default function ReviewsPage() {
   async function checkHasReviewed() {
     if (!user) return;
     try {
-      const res = await fetch("/api/reviews/mine", { credentials: "include" });
+      const res = await fetch(apiUrl("/api/reviews/mine"), { credentials: "include" });
       const data = await res.json();
       setHasReviewed(data.hasReviewed);
     } catch {

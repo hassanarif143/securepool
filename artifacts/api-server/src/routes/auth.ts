@@ -8,6 +8,7 @@ import { getJwtCookieName, signUserJwt } from "../lib/jwt";
 import type { AuthedRequest } from "../middleware/auth";
 import { getAuthedUserId } from "../middleware/auth";
 import { sendRegistrationEmail } from "../lib/email";
+import { notifyUser } from "../lib/notify";
 import { sanitizeText } from "../lib/sanitize";
 import { logger } from "../lib/logger";
 import { getOrCreateCsrfToken } from "../middleware/csrf";
@@ -210,6 +211,13 @@ router.post("/signup", signupLimiter, async (req, res) => {
 
   // Fire-and-forget mail
   void sendRegistrationEmail(user.email, user.name);
+
+  void notifyUser(
+    user.id,
+    "Welcome to SecurePool! 👋",
+    "Your account is ready. Deposit USDT, join pools, and win rewards. Good luck!",
+    "info",
+  );
 });
 
 router.post("/login", loginLimiter, async (req, res) => {

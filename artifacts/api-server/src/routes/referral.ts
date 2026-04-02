@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, referralsTable, transactionsTable } from "@workspace/db";
+import { notifyUser } from "../lib/notify";
 import { eq, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -101,6 +102,7 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
 
     /* Credit referrer */
     const [referrer] = await db.select().from(usersTable).where(eq(usersTable.id, referral.referrerId)).limit(1);
+    const [referredUser] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, referredUserId)).limit(1);
     if (referrer) {
       const newBalance = parseFloat(referrer.walletBalance) + bonusReferrer;
       await db.update(usersTable).set({ walletBalance: String(newBalance) }).where(eq(usersTable.id, referrer.id));
@@ -111,6 +113,18 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
         status: "completed",
         note: `Referral bonus — ${referrer.name} referred a new user who joined their first pool`,
       });
+      void notifyUser(
+        referrer.id,
+        "Referral Bonus! 🔗",
+        `You earned ${bonusReferrer} USDT because ${referredUser?.name ?? "your referral"} joined a pool!`,
+        "referral",
+      );
+      void notifyUser(
+        referredUserId,
+        "Welcome Bonus! 🎁",
+        `You received ${bonusReferred} USDT welcome bonus through a referral when you signed up. Your first pool join unlocked your referrer's ${bonusReferrer} USDT reward — thanks for playing!`,
+        "reward",
+      );
     }
 
     /* Mark referral as credited */

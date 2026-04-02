@@ -24,7 +24,11 @@ interface PoolCardProps {
 }
 
 export function PoolCard({ pool, userJoined }: PoolCardProps) {
-  const fillPercent = Math.round((pool.participantCount / pool.maxUsers) * 100);
+  const fillPercent = pool.maxUsers > 0 ? Math.round((pool.participantCount / pool.maxUsers) * 100) : 0;
+  const endMs = pool.endTime ? new Date(pool.endTime).getTime() : 0;
+  const hoursLeft = endMs > 0 ? Math.max(0, (endMs - Date.now()) / 3_600_000) : Infinity;
+  const almostFull = fillPercent > 80;
+  const endingSoon = hoursLeft <= 24;
 
   return (
     <Card className="w-full hover:shadow-lg hover:shadow-primary/10 transition-all duration-200 hover:-translate-y-0.5 overflow-hidden group">
@@ -37,7 +41,19 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
               Entry: <span className="text-primary font-medium">{pool.entryFee} USDT</span> per ticket
             </p>
           </div>
-          <StatusBadge status={pool.status} />
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <StatusBadge status={pool.status} />
+            {pool.status === "open" && almostFull && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-red-500/40 bg-red-500/15 text-red-400">
+                Almost Full! 🔥
+              </span>
+            )}
+            {pool.status === "open" && endingSoon && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/15 text-amber-300">
+                Ending Soon! ⏰
+              </span>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -49,7 +65,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
 
         <div>
           <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-            <span>{pool.participantCount} / {pool.maxUsers} participants</span>
+            <span>{pool.participantCount}/{pool.maxUsers} spots filled</span>
             <span>{fillPercent}% full</span>
           </div>
           <div className="h-1.5 bg-muted rounded-full overflow-hidden">

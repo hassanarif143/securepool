@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { apiUrl } from "@/lib/api-base";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { useListPools, useGetUserTransactions, getGetUserTransactionsQueryKey } from "@workspace/api-client-react";
@@ -19,6 +20,30 @@ function greeting() {
   if (h < 12) return "Good morning";
   if (h < 17) return "Good afternoon";
   return "Good evening";
+}
+
+function useAnimatedNumber(target: number, durationMs = 900) {
+  const [v, setV] = useState(0);
+  const startRef = useRef<number | null>(null);
+  const fromRef = useRef(0);
+
+  useEffect(() => {
+    fromRef.current = v;
+    startRef.current = null;
+    let frame: number;
+    const tick = (now: number) => {
+      if (startRef.current == null) startRef.current = now;
+      const t = Math.min(1, (now - startRef.current) / durationMs);
+      const ease = 1 - (1 - t) ** 3;
+      setV(fromRef.current + (target - fromRef.current) * ease);
+      if (t < 1) frame = requestAnimationFrame(tick);
+      else setV(target);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target, durationMs]);
+
+  return v;
 }
 
 function timeAgo(dateStr: string) {
@@ -62,11 +87,20 @@ export default function DashboardPage() {
     if (!isLoading && !user) navigate("/login");
   }, [user, isLoading]);
 
+  const animBalance = useAnimatedNumber(user?.walletBalance ?? 0);
+
+  const openPoolCount = pools?.filter((p) => p.status === "open").length ?? 0;
+  const winCount = transactions?.filter((t) => t.txType === "reward").length ?? 0;
+  const activeEntryCount = user ? myEntries.filter((e) => e.status === "open").length : 0;
+  const animOpenPools = useAnimatedNumber(openPoolCount);
+  const animWins = useAnimatedNumber(winCount);
+  const animMyEntries = useAnimatedNumber(activeEntryCount);
+
   useEffect(() => {
     if (!user) return;
-    fetch("/api/tier/me", { credentials: "include" })
+    fetch(apiUrl("/api/tier/me"), { credentials: "include" })
       .then((r) => r.json()).then(setTierInfo).catch(() => {});
-    fetch("/api/pools/my-entries", { credentials: "include" })
+    fetch(apiUrl("/api/pools/my-entries"), { credentials: "include" })
       .then((r) => r.ok ? r.json() : []).then(setMyEntries).catch(() => {});
   }, [user]);
 
@@ -131,10 +165,15 @@ export default function DashboardPage() {
               </p>
               <div className="flex items-baseline gap-2">
                 <span className="text-5xl font-black tabular-nums tracking-tight" style={{ color: "hsl(152,72%,55%)" }}>
-                  {user.walletBalance.toFixed(2)}
+                  {animBalance.toFixed(2)}
                 </span>
                 <span className="text-lg font-bold text-muted-foreground">USDT</span>
               </div>
+              {user.walletBalance <= 0 && (
+                <p className="text-xs text-amber-400/90 mt-2 max-w-md">
+                  Your wallet is empty. Deposit USDT to start joining pools and winning rewards.
+                </p>
+              )}
               {tierNext && (
                 <p className="text-[11px] text-muted-foreground mt-2">
                   <span style={{ color: tierCurrent.color }}>{tierCurrent.icon} {tierCurrent.label}</span>
@@ -183,9 +222,9 @@ export default function DashboardPage() {
         {/* 3 stat boxes stacked */}
         <div className="grid grid-rows-3 gap-4 md:grid-rows-3">
           {[
-            { label: "Open Pools",  value: activePools.length, unit: "live",    icon: "◉", href: "/pools",   color: activePools.length > 0 ? "#10b981" : undefined },
-            { label: "Times Won",   value: totalWins,          unit: "prizes",  icon: "★", href: "/winners", color: totalWins > 0 ? "#f59e0b" : undefined },
-            { label: "My Entries",  value: myEntries.filter(e => e.status === "open").length, unit: "active", icon: "🎫", href: "/pools",   color: undefined },
+            { label: "Open Pools",  value: Math.round(animOpenPools), unit: "live",    icon: "◉", href: "/pools",   color: activePools.length > 0 ? "#10b981" : undefined },
+            { label: "Times Won",   value: Math.round(animWins),      unit: "prizes",  icon: "★", href: "/winners", color: totalWins > 0 ? "#f59e0b" : undefined },
+            { label: "My Entries",  value: Math.round(animMyEntries), unit: "active", icon: "🎫", href: "/pools",   color: undefined },
           ].map((s) => (
             <Link key={s.label} href={s.href}>
               <div className={`${box} rounded-xl px-4 py-3 flex items-center justify-between cursor-pointer transition-all hover:bg-white/[0.02] h-full`}>
@@ -234,10 +273,12 @@ export default function DashboardPage() {
                 <Skeleton className="h-36 rounded-lg" />
               </>
             ) : activePools.length === 0 ? (
-              <div className="py-12 text-center border border-dashed border-[hsl(217,28%,20%)] rounded-lg">
+              <div className="py-12 text-center border border-dashed border-[hsl(217,28%,20%)] rounded-lg px-4">
                 <p className="text-3xl mb-2">◉</p>
-                <p className="font-semibold text-sm">No open pools right now</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Check back soon — pools open daily</p>
+                <p className="font-semibold text-sm">No pools available right now</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+                  Check back soon! We&apos;ll notify you when a new pool opens.
+                </p>
               </div>
             ) : (
               activePools.slice(0, 2).map((pool) => {

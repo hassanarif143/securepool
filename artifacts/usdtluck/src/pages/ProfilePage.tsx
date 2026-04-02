@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { apiUrl } from "@/lib/api-base";
 
 export default function ProfilePage() {
   const { user, isLoading, setUser } = useAuth();
@@ -31,7 +32,7 @@ export default function ProfilePage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch(`/api/users/${currentUser.id}`, {
+      const res = await fetch(apiUrl(`/api/users/${currentUser.id}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

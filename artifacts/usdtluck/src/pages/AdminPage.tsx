@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { MoreHorizontal } from "lucide-react";
-import { apiUrl, apiAssetUrl, readApiErrorMessage } from "@/lib/api-base";
+import { apiUrl, apiAssetUrl, getFullImageUrl, readApiErrorMessage } from "@/lib/api-base";
 
 export default function AdminPage() {
   const { user, isLoading } = useAuth();
@@ -1237,17 +1237,42 @@ function UserProfileModal({ user, onClose }: { user: any; onClose: () => void })
       .finally(() => setLoading(false));
   }, [user.id]);
 
-  async function handleAction(txId: number, action: "approve" | "reject") {
+  async function handleComplete(txId: number) {
+    setActing(txId);
+    try {
+      const res = await fetch(apiUrl(`/api/admin/transactions/${txId}/complete`), { method: "POST", credentials: "include" });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      toast({ title: "Withdrawal completed ✓", description: "Marked as sent to user wallet." });
+      const updated = await fetch(apiUrl(`/api/admin/users/${user.id}/transactions`), { credentials: "include" }).then((r) => r.json());
+      setTxs(Array.isArray(updated) ? updated : []);
+    } catch (e: any) {
+      toast({ title: "Action failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setActing(null);
+    }
+  }
+
+  async function handleAction(txId: number, action: "approve" | "reject", tx?: { txType: string }) {
     setActing(txId);
     try {
       const res = await fetch(apiUrl(`/api/admin/transactions/${txId}/${action}`), { method: "POST", credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      toast({ title: action === "approve" ? "Approved ✓" : "Rejected", description: action === "approve" ? "Balance updated." : "Transaction rejected." });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      if (action === "approve") {
+        if (tx?.txType === "withdraw") {
+          toast({ title: "Withdrawal approved ✓", description: "Now under review — mark complete when paid out." });
+        } else {
+          toast({ title: "Deposit approved ✓", description: "Wallet balance has been updated." });
+        }
+      } else {
+        toast({ title: "Rejected", description: "Transaction marked as rejected." });
+      }
       const updated = await fetch(apiUrl(`/api/admin/users/${user.id}/transactions`), { credentials: "include" }).then((r) => r.json());
-      setTxs(updated);
-    } catch {
-      toast({ title: "Action failed", variant: "destructive" });
-    } finally { setActing(null); }
+      setTxs(Array.isArray(updated) ? updated : []);
+    } catch (e: any) {
+      toast({ title: "Action failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setActing(null);
+    }
   }
 
   function txColor(type: string) {
@@ -1296,22 +1321,29 @@ function UserProfileModal({ user, onClose }: { user: any; onClose: () => void })
                     <span className={`font-bold ${txColor(tx.txType)}`}>{tx.txType === "deposit" || tx.txType === "reward" ? "+" : "-"}{tx.amount.toFixed(2)} USDT</span>
                     <span className="text-xs text-muted-foreground capitalize">{tx.txType.replace("_", " ")}</span>
                     {tx.status === "pending" && <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">Pending</Badge>}
+                    {tx.status === "under_review" && <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">Under review</Badge>}
                     {tx.status === "completed" && <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">Completed</Badge>}
-                    {tx.status === "failed" && <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">Rejected</Badge>}
+                    {(tx.status === "rejected" || tx.status === "failed") && <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">Rejected</Badge>}
                   </div>
                   {tx.note && <p className="text-xs text-muted-foreground truncate">{tx.note}</p>}
                   <p className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleString()}</p>
                 </div>
                 {tx.status === "pending" && (tx.txType === "deposit" || tx.txType === "withdraw") && (
                   <div className="flex gap-1 shrink-0">
-                    <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white" onClick={() => handleAction(tx.id, "approve")} disabled={acting === tx.id}>Approve</Button>
-                    <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => handleAction(tx.id, "reject")} disabled={acting === tx.id}>Reject</Button>
+                    <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white" onClick={() => handleAction(tx.id, "approve", tx)} disabled={acting === tx.id}>Approve</Button>
+                    <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => handleAction(tx.id, "reject", tx)} disabled={acting === tx.id}>Reject</Button>
+                  </div>
+                )}
+                {tx.status === "under_review" && tx.txType === "withdraw" && (
+                  <div className="flex gap-1 shrink-0">
+                    <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleComplete(tx.id)} disabled={acting === tx.id}>Mark complete</Button>
+                    <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => handleAction(tx.id, "reject", tx)} disabled={acting === tx.id}>Reject</Button>
                   </div>
                 )}
               </div>
               {tx.screenshotUrl && (
-                <a href={apiAssetUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer">
-                  <img src={apiAssetUrl(tx.screenshotUrl)} alt="Screenshot" className="w-full max-h-32 object-contain rounded border bg-muted cursor-pointer hover:opacity-90" />
+                <a href={getFullImageUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer">
+                  <img src={getFullImageUrl(tx.screenshotUrl)} alt="Screenshot" className="w-full max-h-32 object-contain rounded border bg-muted cursor-pointer hover:opacity-90" />
                 </a>
               )}
             </div>
@@ -1425,15 +1457,40 @@ function PendingTransactionsTab() {
 
   useEffect(() => { loadPending(); }, []);
 
-  async function handleAction(id: number, action: "approve" | "reject") {
+  async function handleComplete(id: number) {
     setActing(id);
     try {
-      const res = await fetch(apiUrl(`/api/admin/transactions/${id}/${action}`), {
+      const res = await fetch(apiUrl(`/api/admin/transactions/${id}/complete`), {
         method: "POST",
         credentials: "include",
       });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
-      toast({ title: action === "approve" ? "Deposit approved ✓" : "Deposit rejected", description: action === "approve" ? "Wallet balance has been updated." : "Transaction marked as failed." });
+      toast({ title: "Withdrawal completed ✓", description: "Withdrawal has been processed." });
+      loadPending();
+    } catch (e: any) {
+      toast({ title: "Action failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setActing(null);
+    }
+  }
+
+  async function handleAction(tx: any, action: "approve" | "reject") {
+    setActing(tx.id);
+    try {
+      const res = await fetch(apiUrl(`/api/admin/transactions/${tx.id}/${action}`), {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      if (action === "approve") {
+        if (tx.txType === "withdraw") {
+          toast({ title: "Withdrawal approved ✓", description: "Now under review — mark complete when paid out." });
+        } else {
+          toast({ title: "Deposit approved ✓", description: "Wallet balance has been updated." });
+        }
+      } else {
+        toast({ title: "Rejected", description: "Transaction rejected." });
+      }
       loadPending();
     } catch (e: any) {
       toast({ title: "Action failed", description: e?.message, variant: "destructive" });
@@ -1459,7 +1516,13 @@ function PendingTransactionsTab() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-semibold">{tx.userName}</p>
-                  <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 capitalize">{tx.txType}</Badge>
+                  <Badge className="capitalize border border-muted-foreground/20">{tx.txType}</Badge>
+                  {tx.status === "pending" && (
+                    <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Pending</Badge>
+                  )}
+                  {tx.status === "under_review" && (
+                    <Badge className="bg-blue-100 text-blue-800 border-blue-200">Under review</Badge>
+                  )}
                   <span className="font-bold text-primary">{tx.amount.toFixed(2)} USDT</span>
                 </div>
                 <p className="text-xs text-muted-foreground">{tx.userEmail}</p>
@@ -1469,30 +1532,52 @@ function PendingTransactionsTab() {
                 {tx.note && <p className="text-xs text-muted-foreground">Note: {tx.note}</p>}
                 <p className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleString()}</p>
               </div>
-              <div className="flex gap-2 shrink-0">
-                <Button
-                  size="sm"
-                  onClick={() => handleAction(tx.id, "approve")}
-                  disabled={acting === tx.id}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => handleAction(tx.id, "reject")}
-                  disabled={acting === tx.id}
-                >
-                  Reject
-                </Button>
-              </div>
+              {tx.status === "pending" && (
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    onClick={() => handleAction(tx, "approve")}
+                    disabled={acting === tx.id}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleAction(tx, "reject")}
+                    disabled={acting === tx.id}
+                  >
+                    Reject
+                  </Button>
+                </div>
+              )}
+              {tx.status === "under_review" && tx.txType === "withdraw" && (
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    onClick={() => handleComplete(tx.id)}
+                    disabled={acting === tx.id}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Mark complete
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleAction(tx, "reject")}
+                    disabled={acting === tx.id}
+                  >
+                    Reject
+                  </Button>
+                </div>
+              )}
             </div>
             {tx.screenshotUrl && (
               <div className="rounded border overflow-hidden">
-                <a href={apiAssetUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer">
+                <a href={getFullImageUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer">
                   <img
-                    src={apiAssetUrl(tx.screenshotUrl)}
+                    src={getFullImageUrl(tx.screenshotUrl)}
                     alt="Payment screenshot"
                     className="max-h-64 w-full object-contain bg-muted"
                   />
@@ -1527,7 +1612,9 @@ function TransactionsTab() {
   function TxStatus({ status }: { status: string }) {
     if (status === "completed") return <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">Completed</Badge>;
     if (status === "pending") return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">Pending</Badge>;
-    return <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">Failed</Badge>;
+    if (status === "under_review") return <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">Under review</Badge>;
+    if (status === "rejected") return <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">Rejected</Badge>;
+    return <Badge className="bg-red-100 text-red-800 border-red-200 text-xs capitalize">{status.replace(/_/g, " ")}</Badge>;
   }
 
   function exportCSV() {
@@ -1570,8 +1657,9 @@ function TransactionsTab() {
         >
           <option value="all">All Statuses</option>
           <option value="pending">Pending</option>
+          <option value="under_review">Under review</option>
           <option value="completed">Completed</option>
-          <option value="failed">Failed</option>
+          <option value="rejected">Rejected</option>
         </select>
         <Button variant="outline" size="sm" onClick={exportCSV} className="shrink-0">Export CSV</Button>
       </div>
@@ -1595,7 +1683,7 @@ function TransactionsTab() {
             <div className="text-right shrink-0">
               <p className={`font-bold ${txColor(tx.txType)}`}>{tx.amount} USDT</p>
               {tx.screenshotUrl && (
-                <a href={apiAssetUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline">
+                <a href={getFullImageUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline">
                   Receipt
                 </a>
               )}

@@ -1,3 +1,8 @@
+/** Alias for `getApiBaseUrl` — use with manual `fetch(\`${getApiBase()}/api/...\`)`. */
+export function getApiBase(): string {
+  return getApiBaseUrl();
+}
+
 /** API origin for credentialed cross-origin requests (must match setBaseUrl). */
 export function getApiBaseUrl(): string {
   const explicit = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "");
@@ -24,6 +29,11 @@ export function apiAssetUrl(path: string | null | undefined): string {
   if (path == null || path === "") return "";
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
   return apiUrl(path.startsWith("/") ? path : `/${path}`);
+}
+
+/** Uploaded receipts (`/uploads/...`) must use API host on Vercel. Same as `apiAssetUrl`. */
+export function getFullImageUrl(path: string | null | undefined): string {
+  return apiAssetUrl(path);
 }
 
 /** Avoid `res.json()` on empty/HTML error bodies (proxies, wrong host). */

@@ -14,6 +14,7 @@ import {
 } from "@workspace/db";
 import { eq, count, sum, desc, and, sql } from "drizzle-orm";
 import { sendWithdrawalStatusEmail } from "../lib/email";
+import { notifyUser } from "../lib/notify";
 import { sanitizeText } from "../lib/sanitize";
 import { requireAdmin } from "../middleware/auth";
 import { getAuthedUserId } from "../middleware/auth";
@@ -299,13 +300,24 @@ router.post("/transactions/:id/approve", async (req, res) => {
       res.status(404).json({ error: "User not found" });
       return;
     }
-    const newBalance = parseFloat(user.walletBalance) + parseFloat(tx.amount);
-    await db.update(usersTable).set({ walletBalance: String(newBalance) }).where(eq(usersTable.id, tx.userId));
+    const depositAmt = parseFloat(tx.amount);
+    const newBalance = parseFloat(user.walletBalance) + depositAmt;
+    const bonusAmount = 2;
+    const newBalanceWithBonus = newBalance + bonusAmount;
+    await db.update(usersTable).set({ walletBalance: String(newBalanceWithBonus) }).where(eq(usersTable.id, tx.userId));
+
+    await db.insert(transactionsTable).values({
+      userId: tx.userId,
+      txType: "deposit",
+      amount: String(bonusAmount),
+      status: "completed",
+      note: "[System] Deposit bonus — 2 USDT reward for making a deposit",
+    });
 
     /* Award tier points for deposit: 2 pts per USDT */
     try {
       const { awardTierPoints, POINTS_PER_USDT } = await import("../lib/tier");
-      const pts = Math.max(1, Math.floor(parseFloat(tx.amount) * POINTS_PER_USDT));
+      const pts = Math.max(1, Math.floor(depositAmt * POINTS_PER_USDT));
       await awardTierPoints(tx.userId, pts);
     } catch {}
   }
@@ -319,12 +331,27 @@ router.post("/transactions/:id/approve", async (req, res) => {
 
   /* Notify user */
   try {
-    const notifMsg = tx.txType === "deposit"
-      ? `Your deposit of ${tx.amount} USDT has been approved ✓ Your wallet has been credited.`
-      : `Your withdrawal of ${tx.amount} USDT is now under review and will be processed shortly.`;
-    await db.execute(
-      sql`INSERT INTO notifications (user_id, title, message, type) VALUES (${tx.userId}, 'Payment Approved', ${notifMsg}, 'success')`
-    );
+    if (tx.txType === "deposit") {
+      await notifyUser(
+        tx.userId,
+        "Deposit Approved! ✅",
+        `Your deposit of ${tx.amount} USDT has been approved and added to your wallet.`,
+        "success",
+      );
+      await notifyUser(
+        tx.userId,
+        "Deposit Bonus! 🎉",
+        `You received a $2.00 USDT bonus for your deposit of ${tx.amount} USDT!`,
+        "reward",
+      );
+    } else {
+      await notifyUser(
+        tx.userId,
+        "Withdrawal Approved",
+        `Your withdrawal of ${tx.amount} USDT is now under review and will be processed shortly.`,
+        "info",
+      );
+    }
   } catch {}
 
   if (tx.txType === "withdraw" && txUser?.email) {
@@ -348,8 +375,11 @@ router.post("/transactions/:id/complete", async (req, res) => {
   await logAction(getAdminId(req), "transaction", txId, "complete_withdrawal", `Marked withdrawal ${txId} as completed`);
 
   try {
-    await db.execute(
-      sql`INSERT INTO notifications (user_id, title, message, type) VALUES (${tx.userId}, 'Withdrawal Completed', ${`Your withdrawal of ${tx.amount} USDT has been processed.`}, 'success')`
+    await notifyUser(
+      tx.userId,
+      "Withdrawal Completed! 💰",
+      `Your withdrawal of ${tx.amount} USDT has been sent to your wallet.`,
+      "success",
     );
   } catch {}
 
@@ -422,12 +452,12 @@ router.post("/transactions/:id/reject", async (req, res) => {
 
   /* Notify user */
   try {
-    const notifMsg = tx.txType === "deposit"
-      ? `Your deposit of ${tx.amount} USDT was rejected. Please check your screenshot and try again, or contact support.`
-      : `Your withdrawal of ${tx.amount} USDT was rejected. ${reason ? `Reason: ${reason}. ` : ""}Your balance has been refunded.`;
-    await db.execute(
-      sql`INSERT INTO notifications (user_id, title, message, type) VALUES (${tx.userId}, 'Payment Rejected', ${notifMsg}, 'error')`
-    );
+    const title = tx.txType === "deposit" ? "Deposit Rejected" : "Withdrawal Rejected";
+    const notifMsg =
+      tx.txType === "deposit"
+        ? `Your deposit of ${tx.amount} USDT was rejected. Please check your screenshot and try again, or contact support.`
+        : `Your withdrawal of ${tx.amount} USDT was rejected. ${reason ? `Reason: ${reason}. ` : ""}Your balance has been refunded.`;
+    await notifyUser(tx.userId, title, notifMsg, "error");
   } catch {}
 
   if (tx.txType === "withdraw" && txUser?.email) {
@@ -583,7 +613,7 @@ router.post("/users/:id/block", async (req, res) => {
     .where(eq(usersTable.id, targetId));
 
   await logAction(adminId, "user", targetId, "block_user", `Blocked ${target.name} <${target.email}>${reason ? ` — ${reason}` : ""}`);
-  res.json({ message: "User blocked" });
+  return res.json({ message: "User blocked" });
 });
 
 router.post("/users/:id/unblock", async (req, res) => {
@@ -599,7 +629,7 @@ router.post("/users/:id/unblock", async (req, res) => {
     .where(eq(usersTable.id, targetId));
 
   await logAction(getAdminId(req), "user", targetId, "unblock_user", `Unblocked ${target.name} <${target.email}>`);
-  res.json({ message: "User unblocked" });
+  return res.json({ message: "User unblocked" });
 });
 
 router.delete("/users/:id", async (req, res) => {
@@ -660,7 +690,7 @@ router.delete("/users/:id", async (req, res) => {
   }
 
   await logAction(adminId, "user", targetId, "delete_user", `Permanently deleted user ${snapshot}`);
-  res.json({ message: "User deleted" });
+  return res.json({ message: "User deleted" });
 });
 
 router.post("/users/:id/make-admin", async (req, res) => {
@@ -674,7 +704,7 @@ router.post("/users/:id/make-admin", async (req, res) => {
 
   await db.update(usersTable).set({ isAdmin: true }).where(eq(usersTable.id, targetId));
   await logAction(adminId, "user", targetId, "make_admin", `Granted admin to ${target.name} <${target.email}>`);
-  res.json({ message: "User is now an admin" });
+  return res.json({ message: "User is now an admin" });
 });
 
 router.post("/users/:id/remove-admin", async (req, res) => {
@@ -689,7 +719,7 @@ router.post("/users/:id/remove-admin", async (req, res) => {
 
   await db.update(usersTable).set({ isAdmin: false }).where(eq(usersTable.id, targetId));
   await logAction(adminId, "user", targetId, "remove_admin", `Removed admin from ${target.name} <${target.email}>`);
-  res.json({ message: "Admin removed" });
+  return res.json({ message: "Admin removed" });
 });
 
 router.post("/users/:id/reset-password", async (req, res) => {
@@ -704,7 +734,7 @@ router.post("/users/:id/reset-password", async (req, res) => {
   await db.update(usersTable).set({ passwordHash: hash }).where(eq(usersTable.id, targetId));
 
   await logAction(getAdminId(req), "user", targetId, "reset_password", `Reset password for ${target.name} <${target.email}>`);
-  res.json({ message: "Password reset", temporaryPassword: tempPass });
+  return res.json({ message: "Password reset", temporaryPassword: tempPass });
 });
 
 router.post("/users/:id/notify", async (req, res) => {
@@ -728,7 +758,7 @@ router.post("/users/:id/notify", async (req, res) => {
   ]);
 
   await logAction(getAdminId(req), "user", targetId, "notify_user", `Sent notification "${title}" to ${target.name}`);
-  res.json({ message: "Notification sent" });
+  return res.json({ message: "Notification sent" });
 });
 
 router.post("/broadcast", async (req, res) => {
@@ -746,7 +776,7 @@ router.post("/broadcast", async (req, res) => {
   );
 
   await logAction(getAdminId(req), "user", null, "broadcast", `Broadcast notification "${title}" to all users`);
-  res.json({ message: "Broadcast sent" });
+  return res.json({ message: "Broadcast sent" });
 });
 
 router.get("/users/export", async (req, res) => {

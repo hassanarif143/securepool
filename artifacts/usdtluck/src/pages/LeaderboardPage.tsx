@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { TIER_CONFIG, TierBadge } from "@/components/TierBadge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { apiUrl } from "@/lib/api-base";
 
 interface LeaderEntry {
   rank: number;
@@ -26,7 +27,7 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/tier/leaderboard", { credentials: "include" })
+    fetch(apiUrl("/api/tier/leaderboard"), { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setLeaders(Array.isArray(d) ? d : []))
       .finally(() => setLoading(false));

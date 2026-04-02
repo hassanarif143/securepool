@@ -4,6 +4,23 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { TierBadge } from "@/components/TierBadge";
 import { Logo } from "@/components/Logo";
+import { apiUrl } from "@/lib/api-base";
+
+function playNotifSound() {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 800;
+    gain.gain.value = 0.1;
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  } catch {
+    /* ignore */
+  }
+}
 
 /* ─────────────────────────────────────────────
    Notification Bell
@@ -14,17 +31,27 @@ function NotificationBell() {
   const [notifs, setNotifs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const prevUnread = useRef(0);
+  const countFirstLoad = useRef(true);
 
-  /* Poll unread count every 60s */
+  /* Poll unread count every 30s */
   useEffect(() => {
     function fetchCount() {
-      fetch("/api/notifications/unread-count", { credentials: "include" })
+      fetch(apiUrl("/api/notifications/unread-count"), { credentials: "include" })
         .then((r) => r.ok ? r.json() : { count: 0 })
-        .then((d) => setUnread(d.count ?? 0))
+        .then((d) => {
+          const c = d.count ?? 0;
+          if (!countFirstLoad.current && c > prevUnread.current) playNotifSound();
+          countFirstLoad.current = false;
+          prevUnread.current = c;
+          setUnread(c);
+        })
         .catch(() => {});
     }
+    countFirstLoad.current = true;
+    prevUnread.current = 0;
     fetchCount();
-    const id = setInterval(fetchCount, 60_000);
+    const id = setInterval(fetchCount, 30_000);
     return () => clearInterval(id);
   }, []);
 
@@ -41,15 +68,24 @@ function NotificationBell() {
     setOpen((v) => !v);
     if (!open) {
       setLoading(true);
-      fetch("/api/notifications", { credentials: "include" })
+      fetch(apiUrl("/api/notifications"), { credentials: "include" })
         .then((r) => r.ok ? r.json() : [])
         .then((d) => { setNotifs(d); setLoading(false); })
         .catch(() => setLoading(false));
     }
   }
 
+  function markAllRead() {
+    fetch(apiUrl("/api/notifications/read-all"), { method: "PATCH", credentials: "include" })
+      .then(() => {
+        setNotifs((prev) => prev.map((n: any) => ({ ...n, read: true })));
+        setUnread(0);
+      })
+      .catch(() => {});
+  }
+
   function markOneRead(id: number) {
-    fetch(`/api/notifications/${id}/read`, { method: "PATCH", credentials: "include" })
+    fetch(apiUrl(`/api/notifications/${id}/read`), { method: "PATCH", credentials: "include" })
       .then(() => {
         setNotifs((prev) => prev.map((n: any) => (n.id === id ? { ...n, read: true } : n)));
         setUnread((u) => Math.max(0, u - 1));
@@ -58,8 +94,17 @@ function NotificationBell() {
   }
 
   const typeIcon: Record<string, string> = {
-    win: "🏆", refund: "💸", pool_update: "🎱", referral: "🔗", tier: "⭐", pool: "🎱",
-    success: "✓", error: "!", info: "ℹ", warning: "⚠",
+    win: "🏆",
+    refund: "💸",
+    pool_update: "🎱",
+    referral: "🔗",
+    reward: "💰",
+    tier: "⭐",
+    pool: "🎱",
+    success: "✅",
+    error: "❌",
+    info: "ℹ️",
+    warning: "⚠️",
   };
 
   function typeStyle(t: string) {
@@ -99,7 +144,18 @@ function NotificationBell() {
           style={{ background: "hsl(222,30%,10%)", borderColor: "hsl(217,28%,18%)", boxShadow: "0 20px 40px rgba(0,0,0,0.6)" }}>
           <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "hsl(217,28%,16%)" }}>
             <p className="text-sm font-semibold">Notifications</p>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Recent</span>
+            <div className="flex items-center gap-2">
+              {unread > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); markAllRead(); }}
+                  className="text-[10px] font-semibold text-primary hover:underline"
+                >
+                  Mark all read
+                </button>
+              )}
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Recent</span>
+            </div>
           </div>
 
           <div className="max-h-72 overflow-y-auto">
@@ -621,10 +677,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
       )}
 
-      <footer className="border-t mt-auto py-5" style={{ borderColor: "hsl(217,28%,14%)" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-muted-foreground">
-          SecurePool &mdash; Transparent USDT Reward Pools &mdash; {new Date().getFullYear()}
+      <footer className="border-t mt-auto py-8" style={{ borderColor: "hsl(217,28%,14%)" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+            <Link href="/how-it-works" className="hover:text-foreground transition-colors">How It Works</Link>
+            <span className="opacity-30 hidden sm:inline">·</span>
+            <a href="#" className="hover:text-foreground transition-colors" onClick={(e) => e.preventDefault()}>Terms</a>
+            <span className="opacity-30 hidden sm:inline">·</span>
+            <a href="mailto:support@securepool.app" className="hover:text-foreground transition-colors">Support</a>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="opacity-40" aria-hidden>𝕏</span>
+            <span className="opacity-40" aria-hidden>in</span>
+            <span className="opacity-40" aria-hidden>▶</span>
+          </div>
         </div>
+        <p className="text-center text-[11px] text-muted-foreground/80 mt-2 px-4">
+          © {new Date().getFullYear()} SecurePool — Transparent USDT Reward Pools
+        </p>
       </footer>
     </div>
   );

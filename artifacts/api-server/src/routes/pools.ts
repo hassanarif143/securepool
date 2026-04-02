@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, poolsTable, poolParticipantsTable, usersTable, transactionsTable, winnersTable } from "@workspace/db";
 import { eq, and, sql, desc, count } from "drizzle-orm";
 import { maybeCreditReferralBonus } from "./referral";
+import { notifyUser, notifyAllUsers } from "../lib/notify";
 import { CreatePoolBody, UpdatePoolBody } from "@workspace/api-zod";
 import { sendDrawResultEmail, sendTicketApprovedEmail } from "../lib/email";
 import { getAuthedUserId } from "../middleware/auth";
@@ -64,6 +65,12 @@ router.post("/", async (req, res) => {
       status: "open",
     })
     .returning();
+
+  void notifyAllUsers(
+    "New Pool Available! 🎱",
+    `A new pool "${pool.title}" is now open! Entry fee: ${parseFloat(pool.entryFee)} USDT. Join now and win up to ${parseFloat(pool.prizeFirst)} USDT!`,
+    "pool",
+  );
 
   res.status(201).json(formatPool(pool, 0));
 });
@@ -252,6 +259,13 @@ router.post("/:poolId/join", async (req, res) => {
     void sendTicketApprovedEmail(user.email, `TKT-${poolId}-${sessionUserId}`, `Draw #${poolId}`);
   }
 
+  void notifyUser(
+    sessionUserId,
+    "Pool Joined! ✅",
+    `You've joined "${pool.title}". Good luck! Draw happens when the pool fills up or timer ends.`,
+    "pool",
+  );
+
   res.json({
     message: "Successfully joined the pool!",
     tierUpdate: tierResult ? {
@@ -301,6 +315,7 @@ router.post("/:poolId/distribute", async (req, res) => {
 
   const winnerRecords = [];
   const winnerUserIds = new Set<number>();
+  const placeLabel = (n: number) => (n === 1 ? "1st" : n === 2 ? "2nd" : "3rd");
   for (let i = 0; i < 3; i++) {
     const participant = shuffled[i];
     const { place, prize } = prizes[i];
@@ -322,8 +337,25 @@ router.post("/:poolId/distribute", async (req, res) => {
       note: `Winner - Place ${place} in pool: ${pool.title}`,
     });
 
+    void notifyUser(
+      participant.userId,
+      "You Won! 🏆",
+      `Congratulations! You won ${placeLabel(place)} place in "${pool.title}" and received ${prize} USDT!`,
+      "win",
+    );
+
     winnerRecords.push({ ...winner, userName: user.name, poolTitle: pool.title });
     winnerUserIds.add(participant.userId);
+  }
+
+  for (const p of participants) {
+    if (winnerUserIds.has(p.userId)) continue;
+    void notifyUser(
+      p.userId,
+      "Draw Results 🎱",
+      `The draw for "${pool.title}" has ended. Unfortunately you didn't win this time. Better luck next time!`,
+      "pool_update",
+    );
   }
 
   await db.update(poolsTable).set({ status: "completed" }).where(eq(poolsTable.id, poolId));

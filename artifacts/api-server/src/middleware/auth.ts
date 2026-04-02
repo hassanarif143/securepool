@@ -59,7 +59,7 @@ export async function rejectIfBlocked(req: AuthedRequest, res: Response, next: N
     /* Column missing or DB glitch — do not block the request */
     return next();
   }
-  next();
+  return next();
 }
 
 export async function requireAdmin(req: AuthedRequest, res: Response, next: NextFunction) {
@@ -68,5 +68,5 @@ export async function requireAdmin(req: AuthedRequest, res: Response, next: Next
 
   const [u] = await db.select({ isAdmin: usersTable.isAdmin }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!u?.isAdmin) return res.status(403).json({ error: "Forbidden" });
-  next();
+  return next();
 }
