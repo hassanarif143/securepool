@@ -14,6 +14,8 @@ import { attachAuth } from "./middleware/auth";
 import { csrfProtection, issueCsrfToken } from "./middleware/csrf";
 
 const app: Express = express();
+// Required on Railway/Render/Heroku-style proxies so secure cookies are set.
+app.set("trust proxy", 1);
 
 const PgStore = connectPgSimple(session);
 
@@ -111,6 +113,7 @@ app.use(
     store: new PgStore({
       pool,
     }),
+    proxy: process.env.NODE_ENV === "production",
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
