@@ -18,7 +18,7 @@ function generateCode(userId: number): string {
 
 /* GET /api/referral/me — get or generate referral code + stats for current user */
 router.get("/me", async (req, res) => {
-  const userId = (req as any).session?.userId;
+  const userId = (req as any).userId ?? (req as any).session?.userId;
   if (!userId) { res.status(401).json({ error: "Not authenticated" }); return; }
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
