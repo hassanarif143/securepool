@@ -228,11 +228,11 @@ export default function PoolDetailPage() {
             </div>
 
             {pool.status === "open" && (
-              <div className="text-center rounded-xl py-4 border border-amber-500/20 bg-amber-500/5">
-                <p className="text-xs text-amber-200/80 mb-2 uppercase tracking-wider font-semibold">Draw countdown</p>
-                <div className="text-2xl font-mono font-bold text-foreground">
-                  <CountdownTimer endTime={pool.endTime} />
-                </div>
+              <div className="rounded-xl py-4 px-3 border border-amber-500/20 bg-amber-500/5">
+                <p className="text-xs text-amber-200/80 mb-3 uppercase tracking-wider font-semibold text-center">
+                  Draw countdown
+                </p>
+                <CountdownTimer endTime={pool.endTime} className="flex w-full justify-center text-2xl" />
               </div>
             )}
 
