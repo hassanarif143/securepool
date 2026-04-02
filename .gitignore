@@ -8,6 +8,10 @@ out-tsc
 .expo
 .expo-shared
 
+# Environment secrets (never commit)
+.env
+**/.env
+
 # dependencies
 node_modules
 
