@@ -6,16 +6,16 @@ import bcrypt from "bcryptjs";
 
 /* Load .env before any import of @workspace/db (pool throws if DATABASE_URL is missing). */
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const envPaths = [
+const envPaths = [...new Set([
   resolve(process.cwd(), ".env"),
   resolve(scriptDir, "../.env"),
   resolve(scriptDir, "../../.env"),
   resolve(scriptDir, "../../../.env"),
-];
+])];
 for (const p of envPaths) {
-  config({ path: p });
+  config({ path: p, quiet: true });
 }
-config();
+config({ quiet: true });
 
 const BCRYPT_ROUNDS = 12;
 
@@ -31,9 +31,12 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl?.trim()) {
     console.error("DATABASE_URL is not set.");
-    console.error("Add it to one of these files (or export it in the shell):");
-    for (const p of envPaths) console.error(`  - ${p}`);
-    console.error("\nRailway: copy DATABASE_URL from Variables → paste into artifacts/api-server/.env");
+    console.error(
+      "If you see dotenv 'injecting env (0)', your .env exists but is empty or has no DATABASE_URL= line.",
+    );
+    console.error("Fix: open one of these files and add a real line (no quotes needed unless password has spaces):");
+    for (const p of envPaths) console.error(`  DATABASE_URL=postgresql://...  →  ${p}`);
+    console.error("\nCopy the value from Railway → Postgres (or API service) → Variables → DATABASE_URL.");
     process.exit(1);
   }
 
