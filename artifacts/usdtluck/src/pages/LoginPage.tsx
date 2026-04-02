@@ -5,7 +5,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
 
 export default function LoginPage() {
-  const apiBase = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "") ?? "";
+  const apiBase = (() => {
+    const explicit = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "");
+    if (explicit) return explicit;
+    if (typeof window !== "undefined" && window.location.hostname === "securepool-usdtluck.vercel.app") {
+      return "https://securepool-production.up.railway.app";
+    }
+    return "";
+  })();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);

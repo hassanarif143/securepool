@@ -71,6 +71,9 @@ function buildAllowedOrigins(): string[] {
 
   if (process.env.NODE_ENV !== "production") {
     list.push("http://localhost:5173", "http://127.0.0.1:5173");
+  } else {
+    // Safe production fallback for current deployed frontend
+    list.push("https://securepool-usdtluck.vercel.app");
   }
   return Array.from(new Set(list));
 }
@@ -82,12 +85,6 @@ app.use(
     origin(origin, cb) {
       // Allow same-origin / server-to-server / curl (no Origin header)
       if (!origin) return cb(null, true);
-
-      if (allowedOrigins.length === 0) {
-        // Safer default for prod: block unknown origins unless explicitly configured
-        if (process.env.NODE_ENV === "production") return cb(new Error("CORS blocked"));
-        return cb(null, true);
-      }
 
       if (allowedOrigins.includes(origin)) return cb(null, true);
       return cb(new Error("CORS blocked"));

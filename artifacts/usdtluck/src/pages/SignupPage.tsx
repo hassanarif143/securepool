@@ -42,7 +42,14 @@ function PasswordStrength({ password }: { password: string }) {
 }
 
 export default function SignupPage() {
-  const apiBase = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "") ?? "";
+  const apiBase = (() => {
+    const explicit = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "");
+    if (explicit) return explicit;
+    if (typeof window !== "undefined" && window.location.hostname === "securepool-usdtluck.vercel.app") {
+      return "https://securepool-production.up.railway.app";
+    }
+    return "";
+  })();
   const [name, setName] = useState("");
   const [cryptoAddress, setCryptoAddress] = useState("");
   const [email, setEmail] = useState("");
