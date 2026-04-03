@@ -41,11 +41,11 @@ const faqs = [
 
 export default function HowItWorksPage() {
   return (
-    <div className="max-w-4xl mx-auto space-y-16 pb-16">
-      <motion.section {...fade} className="text-center pt-4">
+    <div className="max-w-4xl mx-auto space-y-12 sm:space-y-16 pb-16 px-1 sm:px-0">
+      <motion.section {...fade} className="text-center pt-2 sm:pt-4">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary mb-3">SecurePool</p>
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">How SecurePool Works</h1>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+        <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4 leading-tight">How SecurePool Works</h1>
+        <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed px-2 sm:px-0">
           Simple, transparent, and fair. Here&apos;s everything you need to know.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">

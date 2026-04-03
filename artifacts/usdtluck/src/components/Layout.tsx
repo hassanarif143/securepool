@@ -142,8 +142,10 @@ function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 rounded-2xl border shadow-2xl overflow-hidden z-50"
-          style={{ background: "hsl(222,30%,10%)", borderColor: "hsl(217,28%,18%)", boxShadow: "0 20px 40px rgba(0,0,0,0.6)" }}>
+        <div
+          className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] sm:w-80 rounded-2xl border shadow-2xl overflow-hidden z-50"
+          style={{ background: "hsl(222,30%,10%)", borderColor: "hsl(217,28%,18%)", boxShadow: "0 20px 40px rgba(0,0,0,0.6)" }}
+        >
           <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "hsl(217,28%,16%)" }}>
             <p className="text-sm font-semibold">Notifications</p>
             <div className="flex items-center gap-2">
@@ -192,8 +194,8 @@ function NotificationBell() {
                       <p className="text-xs font-semibold leading-none">{n.title}</p>
                       {!n.read && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "hsl(152,72%,55%)" }} />}
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{n.message}</p>
-                    <p className="text-[10px] text-muted-foreground/50 mt-1">{timeAgo(n.created_at)}</p>
+                    <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{n.message}</p>
+                    <p className="text-[11px] text-muted-foreground/60 mt-1">{timeAgo(n.created_at)}</p>
                   </div>
                 </button>
               ))
@@ -458,11 +460,11 @@ function MobileMenu({
         </div>
       </div>
 
-      <nav className="px-3 pt-3 pb-4 space-y-0.5">
+      <nav className="px-3 pt-3 pb-6 space-y-1 safe-area-pb">
         {allLinks.map((link) => (
           <Link key={link.href} href={link.href}>
             <span onClick={onClose}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
+              className={`flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium transition-colors cursor-pointer min-h-12 ${
                 location.startsWith(link.href)
                   ? "bg-primary/12 text-primary"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/5"
@@ -476,17 +478,17 @@ function MobileMenu({
 
         <div className="pt-2 mt-2 border-t space-y-0.5" style={{ borderColor: "hsl(217,28%,14%)" }}>
           <Link href="/profile">
-            <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
+            <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12">
               <span className="w-5 text-center">👤</span> Profile & Settings
             </button>
           </Link>
           <Link href="/wallet">
-            <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
+            <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12">
               <span className="w-5 text-center">💼</span> My Wallet
             </button>
           </Link>
           <button onClick={() => { logout(); onClose(); }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors">
+            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-red-400 hover:bg-red-500/10 transition-colors min-h-12">
             <span className="w-5 text-center">🚪</span> Sign Out
           </button>
         </div>
@@ -534,7 +536,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-14 gap-3">
+          <div className="flex items-center min-h-[3.25rem] py-2.5 gap-2 sm:gap-3">
 
             {/* ── Logo ── */}
             <Link href={user ? "/dashboard" : "/"} className="shrink-0 mr-2">
@@ -646,14 +648,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {user ? <LuckyHourBanner /> : null}
 
-      <main className={`flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 ${user ? "pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-8" : ""}`}>
+      <main className={`flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${user ? "pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""}`}>
         {user ? <LiveJoinNotification /> : null}
         {children}
       </main>
 
       {user && (
         <nav
-          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t flex justify-around items-center min-h-16 py-1.5 px-1 safe-area-pb touch-manipulation"
+          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t flex justify-around items-stretch min-h-[3.75rem] py-2 px-1 safe-area-pb touch-manipulation"
           style={{ background: "hsla(224,30%,7%,0.96)", backdropFilter: "blur(12px)", borderColor: "hsl(217,28%,14%)" }}
         >
           {[
@@ -670,13 +672,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
             return (
               <Link key={item.href} href={item.href}>
                 <span
-                  className={`flex flex-col items-center justify-center text-[9px] font-medium min-w-[48px] max-w-[72px] py-1.5 px-0.5 rounded-lg transition-colors active:scale-95 ${
+                  className={`flex flex-col items-center justify-center text-[10px] sm:text-[11px] font-semibold min-w-[52px] max-w-[76px] py-2 px-1 rounded-xl transition-colors active:opacity-80 ${
                     active ? "text-primary" : "text-muted-foreground"
                   }`}
                   style={active ? { background: "hsla(152,72%,44%,0.12)" } : {}}
                 >
-                  <span className="text-base leading-none mb-0.5">{item.icon}</span>
-                  <span className="leading-tight text-center">{item.label}</span>
+                  <span className="text-lg leading-none mb-1" aria-hidden>{item.icon}</span>
+                  <span className="leading-snug text-center">{item.label}</span>
                 </span>
               </Link>
             );
@@ -684,8 +686,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
       )}
 
-      <footer className="border-t mt-auto py-8" style={{ borderColor: "hsl(217,28%,14%)" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+      <footer className="border-t mt-auto py-10 pb-[max(2.5rem,env(safe-area-inset-bottom))]" style={{ borderColor: "hsl(217,28%,14%)" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-5 text-sm text-muted-foreground">
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
             <Link href="/how-it-works" className="hover:text-foreground transition-colors">How It Works</Link>
             <span className="opacity-30 hidden sm:inline">·</span>
@@ -699,7 +701,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <span className="opacity-40" aria-hidden>▶</span>
           </div>
         </div>
-        <p className="text-center text-[11px] text-muted-foreground/80 mt-2 px-4">
+        <p className="text-center text-xs sm:text-sm text-muted-foreground/90 mt-4 px-4 leading-relaxed max-w-2xl mx-auto">
           © {new Date().getFullYear()} SecurePool — Transparent USDT Reward Pools
         </p>
       </footer>

@@ -80,7 +80,7 @@
   --secondary-border: 222 47% 11%;
 
   --muted: 210 40% 96%;
-  --muted-foreground: 215.4 16.3% 46.9%;
+  --muted-foreground: 215 18% 42%;
   --muted-border: 214 32% 91%;
 
   --accent: 210 40% 96%;
@@ -108,9 +108,10 @@
   --sidebar-foreground: 222 47% 11%;
   --sidebar-border: 214 32% 91%;
 
-  --app-font-sans: "Inter", sans-serif;
+  --app-font-sans: "Inter", system-ui, sans-serif;
+  --app-font-display: "Plus Jakarta Sans", var(--app-font-sans);
   --app-font-serif: Georgia, serif;
-  --app-font-mono: Menlo, monospace;
+  --app-font-mono: ui-monospace, Menlo, monospace;
 }
 
 .dark {
@@ -138,7 +139,7 @@
   --secondary-border: 217 28% 20%;
 
   --muted: 217 28% 13%;
-  --muted-foreground: 215 16% 52%;
+  --muted-foreground: 215 14% 62%;
   --muted-border: 217 28% 16%;
 
   --accent: 217 28% 15%;
@@ -174,6 +175,8 @@
   }
   html {
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
   @media (prefers-reduced-motion: reduce) {
     html {
@@ -181,7 +184,25 @@
     }
   }
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-sans antialiased text-[15px] sm:text-base leading-relaxed;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: hsl(152 72% 44% / 0.25);
+    color: inherit;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--app-font-display), var(--app-font-sans), system-ui, sans-serif;
+  }
+  .page-container {
+    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 

@@ -96,9 +96,9 @@ export default function LandingPage() {
   const pAnim = useAnimatedInt(summary?.activePools ?? 0);
 
   return (
-    <div className="space-y-20">
+    <div className="space-y-16 md:space-y-24">
       {/* Hero */}
-      <section className="relative text-center py-24 max-w-3xl mx-auto">
+      <section className="relative text-center py-14 sm:py-20 md:py-24 max-w-3xl mx-auto px-1 sm:px-0">
         <div
           className="absolute inset-0 -mx-4 md:-mx-8 rounded-3xl opacity-50 pointer-events-none"
           style={{
@@ -107,10 +107,10 @@ export default function LandingPage() {
           }}
         />
         <div className="relative">
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-sm text-primary font-medium mb-6">
+          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-2 text-sm text-primary font-semibold mb-5 sm:mb-6">
             🔒 Transparent USDT Reward Pools
           </div>
-          <h1 className="text-5xl font-bold tracking-tight mb-6 leading-tight">
+          <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-[3.25rem] font-bold tracking-tight mb-5 sm:mb-6 leading-[1.12]">
             Transparent reward pools<br />
             <span
               className="text-transparent bg-clip-text"
@@ -119,17 +119,17 @@ export default function LandingPage() {
               Fair draw · Equal chance
             </span>
           </h1>
-          <p className="text-lg text-muted-foreground mb-10 max-w-xl mx-auto leading-relaxed">
+          <p className="text-base sm:text-lg text-muted-foreground mb-8 sm:mb-10 max-w-xl mx-auto leading-relaxed px-1">
             Join reward pools for just <span className="text-primary font-semibold">10 USDT</span>. Three places are drawn with verifiable randomness —{" "}
             <span className="text-yellow-400 font-semibold">100</span>,{" "}
             <span className="text-slate-300 font-semibold">50</span>, and{" "}
             <span className="text-orange-400 font-semibold">30 USDT</span>. Fully transparent, all pool details visible before you join.
           </p>
-          <div className="flex items-center justify-center gap-3 flex-wrap">
-            <Link href="/signup">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 w-full max-w-md sm:max-w-none mx-auto sm:mx-0 sm:w-auto">
+            <Link href="/signup" className="w-full sm:w-auto">
               <Button
                 size="lg"
-                className="px-8 font-semibold"
+                className="w-full sm:w-auto px-8 font-semibold"
                 style={{
                   background: "linear-gradient(135deg, #16a34a, #15803d)",
                   boxShadow: "0 4px 20px rgba(22,163,74,0.35)",
@@ -138,20 +138,20 @@ export default function LandingPage() {
                 Create Free Account
               </Button>
             </Link>
-            <Link href="/how-it-works">
-              <Button size="lg" variant="outline" className="px-8">
+            <Link href="/how-it-works" className="w-full sm:w-auto">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto px-8">
                 Learn How It Works
               </Button>
             </Link>
-            <Link href="/winners">
-              <Button size="lg" variant="outline" className="px-8">
+            <Link href="/winners" className="w-full sm:w-auto">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto px-8">
                 Past results
               </Button>
             </Link>
           </div>
 
           <nav
-            className="mt-10 flex flex-wrap items-center justify-center gap-x-1 gap-y-2 text-sm text-muted-foreground"
+            className="mt-8 sm:mt-10 flex flex-wrap items-center justify-center gap-x-1 gap-y-2.5 text-sm text-muted-foreground px-2"
             aria-label="On this page"
           >
             {jumpLinks.map((item, idx) => (
@@ -167,8 +167,8 @@ export default function LandingPage() {
       </section>
 
       {/* Live stats */}
-      <motion.section id="live-stats" className="max-w-4xl mx-auto scroll-mt-24" {...sectionReveal}>
-        <div className="grid grid-cols-3 gap-4 text-center">
+      <motion.section id="live-stats" className="max-w-4xl mx-auto scroll-mt-24 px-1" {...sectionReveal}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-center">
           {[
             { label: "Community", value: summary ? `${uAnim}+` : "—", sub: "registered users" },
             { label: "Rewards paid", value: summary ? `${rAnim} USDT` : "—", sub: "total distributed" },
@@ -176,20 +176,20 @@ export default function LandingPage() {
           ].map((stat) => (
             <div
               key={stat.label}
-              className="bg-card border border-border/60 rounded-2xl py-5 px-4 hover:border-primary/30 transition-colors motion-safe:transition-transform motion-safe:hover:-translate-y-0.5"
+              className="bg-card border border-border/60 rounded-2xl py-6 px-4 sm:py-5 hover:border-primary/30 transition-colors motion-safe:transition-transform motion-safe:hover:-translate-y-0.5"
             >
               <p
-                className="text-2xl font-bold text-transparent bg-clip-text mb-0.5 tabular-nums"
+                className="text-3xl sm:text-2xl font-bold font-display text-transparent bg-clip-text mb-1 tabular-nums"
                 style={{ backgroundImage: "linear-gradient(135deg, #4ade80, #22c55e)" }}
               >
                 {stat.value}
               </p>
-              <p className="text-xs text-muted-foreground">{stat.sub}</p>
-              <p className="text-sm font-medium mt-1">{stat.label}</p>
+              <p className="text-xs text-muted-foreground leading-normal">{stat.sub}</p>
+              <p className="text-sm font-semibold mt-1.5">{stat.label}</p>
             </div>
           ))}
         </div>
-        <p className="text-center text-[10px] text-muted-foreground mt-3">Figures update from the live platform.</p>
+        <p className="text-center text-xs text-muted-foreground mt-4 leading-relaxed px-2">Figures update from the live platform.</p>
       </motion.section>
 
       <motion.section id="activity-feed" className="max-w-4xl mx-auto scroll-mt-24 grid md:grid-cols-2 gap-4" {...sectionReveal}>
@@ -205,8 +205,8 @@ export default function LandingPage() {
           {...sectionReveal}
         >
           <div className="text-center px-4">
-            <h2 className="text-2xl font-bold">Recent winners</h2>
-            <p className="text-muted-foreground text-sm mt-1">Live payouts rolling across the platform</p>
+            <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Recent winners</h2>
+            <p className="text-muted-foreground text-sm sm:text-base mt-2 leading-relaxed max-w-lg mx-auto">Live payouts rolling across the platform</p>
           </div>
           <div className="rounded-2xl border border-[hsl(217,28%,16%)] bg-[hsl(222,30%,7%)] overflow-hidden">
             <WinnersTicker winners={winners as any[]} />
@@ -241,8 +241,8 @@ export default function LandingPage() {
 
       {/* How it works */}
       <motion.section id="how-steps" className="max-w-4xl mx-auto scroll-mt-24" {...sectionReveal}>
-        <h2 className="text-2xl font-bold text-center mb-10">How It Works</h2>
-        <div className="grid md:grid-cols-3 gap-6">
+        <h2 className="font-display text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-10 tracking-tight">How It Works</h2>
+        <div className="grid md:grid-cols-3 gap-5 sm:gap-6">
           {[
             { step: "01", icon: "👤", title: "Create Account", desc: "Sign up and complete your profile in under 2 minutes." },
             { step: "02", icon: "💳", title: "Deposit & Join", desc: "Deposit USDT to your wallet, then join any open pool for 10 USDT." },
@@ -258,8 +258,8 @@ export default function LandingPage() {
                   {item.icon}
                 </div>
                 <div className="text-xs text-primary font-mono mb-1 opacity-60">{item.step}</div>
-                <h3 className="font-semibold mb-2">{item.title}</h3>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
+                <h3 className="font-display font-semibold text-base mb-2">{item.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
               </CardContent>
             </Card>
           ))}
@@ -269,8 +269,8 @@ export default function LandingPage() {
       {/* Active Pools */}
       {activePools.length > 0 && (
         <motion.section id="active-pools" className="max-w-4xl mx-auto scroll-mt-24" {...sectionReveal}>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">Active Pools</h2>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+            <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Active Pools</h2>
             <Link href="/pools">
               <Button variant="outline" size="sm">View All →</Button>
             </Link>
@@ -303,9 +303,9 @@ export default function LandingPage() {
       )}
 
       {/* CTA */}
-      <motion.section id="join-cta" className="text-center py-16 max-w-2xl mx-auto scroll-mt-24" {...sectionReveal}>
+      <motion.section id="join-cta" className="text-center py-12 sm:py-16 max-w-2xl mx-auto scroll-mt-24 px-1" {...sectionReveal}>
         <div
-          className="relative rounded-3xl p-10 overflow-hidden"
+          className="relative rounded-3xl p-8 sm:p-10 overflow-hidden"
           style={{
             background: "linear-gradient(135deg, hsla(152,72%,44%,0.12), hsla(200,80%,55%,0.08))",
             border: "1px solid hsla(152,72%,44%,0.2)",
@@ -316,8 +316,8 @@ export default function LandingPage() {
             style={{ background: "radial-gradient(ellipse 60% 50% at 50% 0%, hsla(152,72%,44%,0.15), transparent)" }}
           />
           <div className="relative">
-            <h2 className="text-3xl font-bold mb-4">Ready to Participate?</h2>
-            <p className="text-muted-foreground mb-8">
+            <h2 className="font-display text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 tracking-tight">Ready to Participate?</h2>
+            <p className="text-muted-foreground mb-6 sm:mb-8 text-sm sm:text-base leading-relaxed max-w-md mx-auto">
               Join users across Pakistan, India, and Dubai earning USDT every week.
             </p>
             <Link href="/signup">

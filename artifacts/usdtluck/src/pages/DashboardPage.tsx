@@ -190,11 +190,11 @@ export default function DashboardPage() {
   const firstName = user.name.split(" ")[0] ?? user.name;
 
   return (
-    <div className="space-y-6 pb-10 max-w-6xl mx-auto">
+    <div className="space-y-7 sm:space-y-8 pb-10 max-w-6xl mx-auto">
       {/* Page intro — one clear line */}
-      <div>
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="space-y-2">
+        <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-2xl">
           {greeting()}, {firstName}. Use your balance to join pools; prizes and withdrawals show in your wallet.
         </p>
       </div>

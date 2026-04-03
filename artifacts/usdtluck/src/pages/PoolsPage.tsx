@@ -11,10 +11,10 @@ export default function PoolsPage() {
   const completed = pools?.filter((p) => p.status === "completed") ?? [];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Reward Pools</h1>
-        <p className="text-muted-foreground mt-1">
+    <div className="space-y-6 sm:space-y-8">
+      <div className="space-y-2">
+        <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Reward Pools</h1>
+        <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-2xl">
           Join any open pool for 10 USDT. Three winners receive 100, 50, and 30 USDT.
         </p>
       </div>

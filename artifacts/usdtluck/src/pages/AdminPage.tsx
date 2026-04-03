@@ -91,24 +91,24 @@ export default function AdminPage() {
   if (isLoading || !user) return null;
 
   return (
-    <div className="space-y-4 sm:space-y-6 pb-8 md:pb-10 -mx-1 px-1 sm:mx-0 sm:px-0">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold">Admin Panel</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage pools, users, and rewards</p>
+    <div className="space-y-5 sm:space-y-6 pb-8 md:pb-10 -mx-1 px-1 sm:mx-0 sm:px-0">
+      <div className="space-y-1.5">
+        <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Admin Panel</h1>
+        <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">Manage pools, users, and rewards</p>
       </div>
 
       <Tabs defaultValue="finance">
-        <TabsList className="flex h-auto min-h-10 w-full flex-wrap sm:flex-nowrap gap-1 overflow-x-auto p-1 justify-start rounded-lg bg-muted/40 border border-border/50">
-          <TabsTrigger value="finance" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Finance</TabsTrigger>
-          <TabsTrigger value="pending" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Pending</TabsTrigger>
-          <TabsTrigger value="stats" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Stats</TabsTrigger>
-          <TabsTrigger value="pools" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Pools</TabsTrigger>
-          <TabsTrigger value="create" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Create</TabsTrigger>
-          <TabsTrigger value="users" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Users</TabsTrigger>
-          <TabsTrigger value="transactions" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Txns</TabsTrigger>
-          <TabsTrigger value="reviews" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Reviews</TabsTrigger>
-          <TabsTrigger value="wallets" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Wallets</TabsTrigger>
-          <TabsTrigger value="audit" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Audit</TabsTrigger>
+        <TabsList className="flex h-auto min-h-11 w-full flex-wrap sm:flex-nowrap gap-1.5 overflow-x-auto p-1.5 justify-start rounded-xl bg-muted/40 border border-border/50">
+          <TabsTrigger value="finance" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Finance</TabsTrigger>
+          <TabsTrigger value="pending" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Pending</TabsTrigger>
+          <TabsTrigger value="stats" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Stats</TabsTrigger>
+          <TabsTrigger value="pools" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Pools</TabsTrigger>
+          <TabsTrigger value="create" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Create</TabsTrigger>
+          <TabsTrigger value="users" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Users</TabsTrigger>
+          <TabsTrigger value="transactions" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Txns</TabsTrigger>
+          <TabsTrigger value="reviews" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Reviews</TabsTrigger>
+          <TabsTrigger value="wallets" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Wallets</TabsTrigger>
+          <TabsTrigger value="audit" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Audit</TabsTrigger>
         </TabsList>
         <TabsContent value="finance"><FinanceTab /></TabsContent>
         <TabsContent value="pending"><PendingTransactionsTab /></TabsContent>
