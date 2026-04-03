@@ -77,6 +77,12 @@ It matches that email **case-insensitively**, **deletes all pools** and pool-rel
 
 To keep a **different** email, edit `keep_email` in the `DO` block in the script.
 
+**If nothing in the app changes after you “ran” the script:** the SQL almost certainly did not run against the **same** database your API uses. In Neon, open the project whose **connection string matches** Railway `DATABASE_URL` (same host, database name, and branch if you use branching). Then run `scripts/list-users.sql` — you should see exactly what the API will return on **`GET /api/admin/users`**.
+
+**If `hassanarif143@yahoo.com` (or any extra account) is still listed:** either the full reset never applied, or it **aborted** because **`admin@usdtluck.com` does not exist** on that database (the script rolls back the whole transaction and leaves all users untouched). Fix: create/sign up **`admin@usdtluck.com`** on production, or change `keep_email` in the script to the account you want to keep, then run `scripts/reset-to-single-admin.sql` again.
+
+**To remove only one non-admin account** without wiping pools or treasury, edit `target_email` in `scripts/purge-user-by-email.sql` and run it on the correct Neon database.
+
 ## Demo seed data (development only)
 
 From repo root, after a successful API build and with **`DATABASE_URL`** set:

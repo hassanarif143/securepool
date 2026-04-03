@@ -125,6 +125,11 @@ export default function AdminPage() {
   );
 }
 
+function financeOverviewNum(v: unknown, fallback = 0): number {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function FinanceTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -183,20 +188,29 @@ function FinanceTab() {
     );
   }
 
-  const maxBar = Math.max(1, ...(overview?.perDraw.map((d) => Math.max(d.totalRevenue, d.totalPrizes)) ?? []));
+  const perDrawSafe = overview?.perDraw ?? [];
+  const activeUsersSafe = overview?.activeUsersByDay ?? [];
+  const maxBar = Math.max(1, ...perDrawSafe.map((d) => Math.max(financeOverviewNum(d.totalRevenue), financeOverviewNum(d.totalPrizes))));
 
   if (ovLoading || !overview) {
     return <p className="text-muted-foreground py-8 text-center">Loading finance overview...</p>;
   }
 
+  const bal = financeOverviewNum(overview.currentBalance);
+  const dep = financeOverviewNum(overview.totalRevenueDeposits);
+  const payout = financeOverviewNum(overview.totalPaidOutWithdrawals);
+  const fees = financeOverviewNum(overview.totalPlatformFees);
+  const todayD = financeOverviewNum(overview.todayDeposits);
+  const todayW = financeOverviewNum(overview.todayWithdrawals);
+
   return (
     <div className="space-y-6 mt-4">
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Central wallet (ledger balance)", value: `${overview.currentBalance.toFixed(2)} USDT` },
-          { label: "Total deposits (ticket approvals)", value: `${overview.totalRevenueDeposits.toFixed(2)} USDT` },
-          { label: "Total payouts (withdrawals completed)", value: `${overview.totalPaidOutWithdrawals.toFixed(2)} USDT` },
-          { label: "Total platform fees (draws)", value: `${overview.totalPlatformFees.toFixed(2)} USDT` },
+          { label: "Central wallet (ledger balance)", value: `${bal.toFixed(2)} USDT` },
+          { label: "Total deposits (ticket approvals)", value: `${dep.toFixed(2)} USDT` },
+          { label: "Total payouts (withdrawals completed)", value: `${payout.toFixed(2)} USDT` },
+          { label: "Total platform fees (draws)", value: `${fees.toFixed(2)} USDT` },
         ].map((c) => (
           <Card key={c.label}>
             <CardContent className="p-4">
@@ -211,8 +225,8 @@ function FinanceTab() {
         <Card>
           <CardContent className="p-4 text-sm">
             <p className="text-muted-foreground text-xs mb-1">Today (UTC)</p>
-            <p>Deposits: <span className="font-semibold">{overview.todayDeposits.toFixed(2)} USDT</span></p>
-            <p>Withdrawals: <span className="font-semibold">{overview.todayWithdrawals.toFixed(2)} USDT</span></p>
+            <p>Deposits: <span className="font-semibold">{todayD.toFixed(2)} USDT</span></p>
+            <p>Withdrawals: <span className="font-semibold">{todayW.toFixed(2)} USDT</span></p>
           </CardContent>
         </Card>
         <Card>
@@ -247,10 +261,10 @@ function FinanceTab() {
           <p className="text-xs text-muted-foreground font-normal">Click a row for the full saved summary.</p>
         </CardHeader>
         <CardContent className="space-y-3">
-          {overview.perDraw.length === 0 ? (
+          {perDrawSafe.length === 0 ? (
             <p className="text-sm text-muted-foreground">No completed draws with financials yet.</p>
           ) : (
-            overview.perDraw.map((d) => (
+            perDrawSafe.map((d) => (
               <button
                 key={d.poolId}
                 type="button"
@@ -266,20 +280,20 @@ function FinanceTab() {
                     <span className="text-[10px] text-muted-foreground">Revenue</span>
                     <div
                       className="rounded bg-emerald-500/80 min-h-[4px] w-full"
-                      style={{ height: `${Math.max(8, (d.totalRevenue / maxBar) * 100)}%` }}
+                      style={{ height: `${Math.max(8, (financeOverviewNum(d.totalRevenue) / maxBar) * 100)}%` }}
                     />
-                    <span className="text-xs font-semibold">{d.totalRevenue.toFixed(2)}</span>
+                    <span className="text-xs font-semibold">{financeOverviewNum(d.totalRevenue).toFixed(2)}</span>
                   </div>
                   <div className="flex-1 flex flex-col justify-end gap-1">
                     <span className="text-[10px] text-muted-foreground">Prizes</span>
                     <div
                       className="rounded bg-amber-500/80 min-h-[4px] w-full"
-                      style={{ height: `${Math.max(8, (d.totalPrizes / maxBar) * 100)}%` }}
+                      style={{ height: `${Math.max(8, (financeOverviewNum(d.totalPrizes) / maxBar) * 100)}%` }}
                     />
-                    <span className="text-xs font-semibold">{d.totalPrizes.toFixed(2)}</span>
+                    <span className="text-xs font-semibold">{financeOverviewNum(d.totalPrizes).toFixed(2)}</span>
                   </div>
                   <div className="text-right text-xs text-muted-foreground w-24">
-                    Fee: <span className="text-foreground font-medium">{d.platformFee.toFixed(2)}</span>
+                    Fee: <span className="text-foreground font-medium">{financeOverviewNum(d.platformFee).toFixed(2)}</span>
                   </div>
                 </div>
               </button>
@@ -294,14 +308,14 @@ function FinanceTab() {
         </CardHeader>
         <CardContent>
           <div className="flex items-end gap-1 h-28 overflow-x-auto pb-1">
-            {overview.activeUsersByDay.map((row) => {
-              const mh = Math.max(...overview.activeUsersByDay.map((r) => r.count), 1);
+            {activeUsersSafe.map((row) => {
+              const mh = Math.max(...activeUsersSafe.map((r) => financeOverviewNum(r.count, 0)), 1);
               return (
                 <div key={row.day} className="flex flex-col items-center gap-1 min-w-[20px]">
                   <div
                     className="w-3 rounded-sm bg-primary/70"
-                    style={{ height: `${Math.max(4, (row.count / mh) * 80)}px` }}
-                    title={`${row.day}: ${row.count}`}
+                    style={{ height: `${Math.max(4, (financeOverviewNum(row.count, 0) / mh) * 80)}px` }}
+                    title={`${row.day}: ${financeOverviewNum(row.count, 0)}`}
                   />
                   <span className="text-[9px] text-muted-foreground rotate-[-45deg] origin-top">{row.day.slice(5)}</span>
                 </div>
@@ -353,8 +367,8 @@ function FinanceTab() {
                     </td>
                     <td className="py-2 pr-2 text-xs capitalize">{row.type.replace("_", " ")}</td>
                     <td className="py-2 pr-2 text-xs max-w-[240px] truncate">{row.description}</td>
-                    <td className="py-2 pr-2 text-right font-mono text-xs">{row.amount.toFixed(2)}</td>
-                    <td className="py-2 text-right font-mono text-xs">{row.balanceAfter.toFixed(2)}</td>
+                    <td className="py-2 pr-2 text-right font-mono text-xs">{financeOverviewNum(row.amount).toFixed(2)}</td>
+                    <td className="py-2 text-right font-mono text-xs">{financeOverviewNum(row.balanceAfter).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>

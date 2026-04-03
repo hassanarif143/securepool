@@ -9,6 +9,7 @@ BEGIN;
 DO $$
 DECLARE
   keep_id   INTEGER;
+  who       TEXT;
   keep_email CONSTANT TEXT := 'admin@usdtluck.com';
 BEGIN
   SELECT u.id INTO keep_id
@@ -17,7 +18,11 @@ BEGIN
   LIMIT 1;
 
   IF keep_id IS NULL THEN
-    RAISE EXCEPTION 'No user with email %. Create that account first, then re-run.', keep_email;
+    SELECT COALESCE(string_agg(email || ' (id ' || id::text || ')', ', ' ORDER BY id), '(no rows)') INTO who FROM users;
+    RAISE EXCEPTION
+      'No user with email %. The whole script was rolled back — nothing changed. Current users: %. Create that login on THIS database (same host as Railway DATABASE_URL / Neon project), or edit keep_email in this script.',
+      keep_email,
+      who;
   END IF;
 
   RAISE NOTICE 'Fresh reset: keeping user id % (%) only.', keep_id, keep_email;
@@ -79,6 +84,11 @@ BEGIN
 
   DELETE FROM transactions;
   DELETE FROM referrals;
+
+  -- So DELETE users is not blocked by self-FKs (referred_by → users, etc.)
+  UPDATE users SET referred_by = NULL
+  WHERE referred_by IS NOT NULL
+    AND referred_by IN (SELECT id FROM users u2 WHERE u2.id IS DISTINCT FROM keep_id);
 
   -- Remove every other account
   DELETE FROM users WHERE id IS DISTINCT FROM keep_id;
