@@ -175,6 +175,15 @@ export default function ProfilePage() {
     if (user) setName(user.name);
   }, [user]);
 
+  const [hasLuckyBadge, setHasLuckyBadge] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    fetch(apiUrl("/api/user/loyalty"), { credentials: "include" })
+      .then((r) => r.json())
+      .then((d: { mystery_lucky_badge?: boolean }) => setHasLuckyBadge(Boolean(d.mystery_lucky_badge)))
+      .catch(() => {});
+  }, [user?.id]);
+
   if (isLoading || !user) return null;
 
   const currentUser = user;
@@ -381,6 +390,12 @@ export default function ProfilePage() {
               <p className="text-xs text-muted-foreground">Referral points toward free entry</p>
               <p className="font-semibold tabular-nums">{currentUser.referralPoints ?? 0} pts (5 = 1 free entry)</p>
             </div>
+            {hasLuckyBadge && (
+              <div className="col-span-2 flex items-center gap-2 pt-1">
+                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40">✨ Lucky — mystery box</Badge>
+                <span className="text-xs text-muted-foreground">Earned from a rare mystery reward</span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
