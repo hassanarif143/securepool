@@ -32,6 +32,9 @@ function timeAgoShort(iso: string) {
 import { MysteryBoxReveal } from "@/components/MysteryBoxReveal";
 import { NearMissModal } from "@/components/NearMissModal";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
+import { ComebackOfferModal, type ActiveCouponJson } from "@/components/ComebackOffer";
+import { PredictionPicker } from "@/components/PredictionPicker";
+import { PoolVipBadge } from "@/components/PoolVipBadge";
 
 type PoolDetailsApi = {
   current_entries: number;
@@ -43,6 +46,17 @@ type PoolDetailsApi = {
   join_blocked: boolean;
   participants: { name: string; joined_at: string }[];
   fillComparison?: { message: string | null; fasterPercent: number | null; avgFillSeconds: number | null };
+  min_pool_vip_tier?: string;
+  vip_locked?: boolean;
+  entry_pricing?: {
+    baseFee: number;
+    amountDue: number;
+    savings: number;
+    totalDiscountPercent: number;
+    vipDiscountPercent: number;
+    comebackDiscountPercent: number;
+    hasActiveComebackCoupon: boolean;
+  } | null;
 };
 
 function JoinCelebrationModal({
@@ -158,6 +172,9 @@ export default function PoolDetailPage() {
     rewardValue: number;
     poolJoinNumber: number;
   } | null>(null);
+  const [comebackCoupon, setComebackCoupon] = useState<ActiveCouponJson | null>(null);
+  const [showComebackModal, setShowComebackModal] = useState(false);
+  const prevNearMissRef = useRef(false);
 
   const { data: pool, isLoading } = useGetPool(id, {
     query: { enabled: !!id, queryKey: getGetPoolQueryKey(id) },
@@ -231,6 +248,49 @@ export default function PoolDetailPage() {
     const t = setInterval(poll, 20_000);
     return () => clearInterval(t);
   }, [id]);
+
+  useEffect(() => {
+    if (!id || !user || !pool || pool.status !== "completed") return;
+    const joined = poolDetails?.user_joined ?? pool.userJoined;
+    if (!joined) return;
+    const key = `near_miss_shown_${id}`;
+    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(key)) return;
+    fetch(apiUrl(`/api/pools/${id}/my-draw-result`), { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { winner?: boolean; position?: number | null; total?: number; tier?: string; message?: string } | null) => {
+        if (!d || d.winner || d.position == null || d.position <= 3) return;
+        const tier = (d.tier === "fire" || d.tier === "amber" ? d.tier : "neutral") as "fire" | "amber" | "neutral";
+        setNearMiss({
+          position: d.position,
+          total: d.total ?? 0,
+          tier,
+          message: d.message ?? "",
+        });
+        sessionStorage.setItem(key, "1");
+      })
+      .catch(() => {});
+  }, [id, user, pool, pool?.status, pool?.userJoined, poolDetails?.user_joined]);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (prevNearMissRef.current && !nearMiss) {
+      timer = setTimeout(() => {
+        void fetch(apiUrl("/api/user/active-coupon"), { credentials: "include" })
+          .then((r) => r.json())
+          .then((j: ActiveCouponJson) => {
+            if (j.hasCoupon) {
+              setComebackCoupon(j);
+              setShowComebackModal(true);
+            }
+          })
+          .catch(() => {});
+      }, 3000);
+    }
+    prevNearMissRef.current = Boolean(nearMiss);
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [nearMiss]);
 
   async function handleJoin() {
     if (!user) {
@@ -309,33 +369,17 @@ export default function PoolDetailPage() {
   const displayCount = poolDetails?.current_entries ?? pool.participantCount;
   const totalPrize = pool.prizeFirst + pool.prizeSecond + pool.prizeThird;
   const userJoinedEffective = poolDetails?.user_joined ?? pool.userJoined;
-  const canPayJoin = Boolean(user && user.walletBalance >= pool.entryFee);
 
-  useEffect(() => {
-    if (!id || !user || pool.status !== "completed" || !userJoinedEffective) return;
-    const key = `near_miss_shown_${id}`;
-    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(key)) return;
-    fetch(apiUrl(`/api/pools/${id}/my-draw-result`), { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { winner?: boolean; position?: number | null; total?: number; tier?: string; message?: string } | null) => {
-        if (!d || d.winner || d.position == null || d.position <= 3) return;
-        const tier = (d.tier === "fire" || d.tier === "amber" ? d.tier : "neutral") as "fire" | "amber" | "neutral";
-        setNearMiss({
-          position: d.position,
-          total: d.total ?? 0,
-          tier,
-          message: d.message ?? "",
-        });
-        sessionStorage.setItem(key, "1");
-      })
-      .catch(() => {});
-  }, [id, user, pool.status, userJoinedEffective]);
   const canFreeJoin = Boolean(user && (user.freeEntries ?? 0) > 0);
+  const effectiveEntryDue = poolDetails?.entry_pricing?.amountDue ?? pool.entryFee;
+  const canPayJoin = Boolean(user && user.walletBalance >= effectiveEntryDue);
+  const vipLocked = Boolean(poolDetails?.vip_locked);
   const joinDisabled =
     joining ||
     userJoinedEffective ||
     pool.status !== "open" ||
     displayCount >= pool.maxUsers ||
+    vipLocked ||
     (Boolean(user) && useFreeEntry && !canFreeJoin) ||
     (Boolean(user) && !useFreeEntry && !canPayJoin && !canFreeJoin);
 
@@ -377,6 +421,13 @@ export default function PoolDetailPage() {
           onClose={() => setNearMiss(null)}
         />
       )}
+      {showComebackModal && comebackCoupon?.hasCoupon && (
+        <ComebackOfferModal
+          coupon={comebackCoupon}
+          listEntryFee={pool.entryFee}
+          onDismiss={() => setShowComebackModal(false)}
+        />
+      )}
       {tierUpgrade && (
         <TierUpgradeModal
           previousTier={tierUpgrade.previousTier}
@@ -409,7 +460,25 @@ export default function PoolDetailPage() {
               {shareOk ? "Copied ✓" : "Share this pool"}
             </Button>
           </div>
-          <p className="text-muted-foreground">Join for {pool.entryFee} USDT per ticket</p>
+          <p className="text-muted-foreground flex flex-wrap items-center gap-2">
+            {poolDetails?.entry_pricing && poolDetails.entry_pricing.savings > 0 && !useFreeEntry ? (
+              <>
+                <span>
+                  Join for{" "}
+                  <span className="line-through opacity-60">{pool.entryFee}</span>{" "}
+                  <span className="text-primary font-semibold">{poolDetails.entry_pricing.amountDue}</span> USDT
+                </span>
+                <span className="text-xs text-primary/90">
+                  ({poolDetails.entry_pricing.totalDiscountPercent}% loyalty savings)
+                </span>
+              </>
+            ) : (
+              <>Join for {pool.entryFee} USDT per ticket</>
+            )}
+            {poolDetails?.min_pool_vip_tier && poolDetails.min_pool_vip_tier !== "bronze" && (
+              <PoolVipBadge tier={poolDetails.min_pool_vip_tier} className="text-[9px]" />
+            )}
+          </p>
         </div>
 
         <Card className="border-primary/20 overflow-hidden">
@@ -469,8 +538,22 @@ export default function PoolDetailPage() {
 
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Entry fee</span>
-              <span className="font-medium text-primary">{pool.entryFee} USDT</span>
+              <span className="font-medium text-primary">
+                {poolDetails?.entry_pricing && poolDetails.entry_pricing.savings > 0 ? (
+                  <>
+                    <span className="line-through text-muted-foreground mr-2">{pool.entryFee}</span>
+                    {poolDetails.entry_pricing.amountDue} USDT
+                  </>
+                ) : (
+                  <>{pool.entryFee} USDT</>
+                )}
+              </span>
             </div>
+            {pool.maxUsers > 0 && displayCount / pool.maxUsers >= 0.75 && pool.status === "open" && (
+              <div className="pt-2 border-t border-border/40">
+                <PredictionPicker poolId={pool.id} onLocked={() => void 0} />
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -504,9 +587,15 @@ export default function PoolDetailPage() {
                       {user?.walletBalance.toFixed(2) ?? "—"} USDT
                     </span>
                   </div>
-                  {user && !useFreeEntry && !canPayJoin && (
+                  {vipLocked && (
+                    <p className="text-sm text-amber-200/90">
+                      This pool needs a higher activity tier ({poolDetails?.min_pool_vip_tier ?? "silver"}). Join more open
+                      pools to unlock it.
+                    </p>
+                  )}
+                  {user && !useFreeEntry && !canPayJoin && !vipLocked && (
                     <p className="text-sm text-destructive">
-                      Insufficient balance. You need {pool.entryFee} USDT.{" "}
+                      Insufficient balance. You need {effectiveEntryDue} USDT.{" "}
                       <a href="/wallet" className="underline text-primary">Add funds</a>.
                     </p>
                   )}
@@ -520,7 +609,7 @@ export default function PoolDetailPage() {
                       ? "Joining..."
                       : useFreeEntry && canFreeJoin
                         ? "Join with free entry"
-                        : `Join pool — ${pool.entryFee} USDT`}
+                        : `Join pool — ${effectiveEntryDue} USDT`}
                   </Button>
                   {!user && (
                     <p className="text-xs text-center text-muted-foreground">

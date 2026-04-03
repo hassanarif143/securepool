@@ -5,6 +5,7 @@
  * USDTLuck API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PoolMinPoolVipTier } from "./poolMinPoolVipTier";
 import type { PoolStatus } from "./poolStatus";
 
 export interface Pool {
@@ -20,4 +21,10 @@ export interface Pool {
   prizeSecond: number;
   prizeThird: number;
   createdAt: Date;
+  /** Minimum activity tier required to join (default bronze) */
+  minPoolVipTier?: PoolMinPoolVipTier;
+  /** Minimum participants from prizes + target profit / list entry fee */
+  minParticipantsToRunDraw?: number;
+  /** True when participant count meets minParticipantsToRunDraw */
+  drawReady?: boolean;
 }

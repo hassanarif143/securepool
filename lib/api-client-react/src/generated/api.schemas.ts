@@ -81,6 +81,19 @@ export const PoolStatus = {
   completed: "completed",
 } as const;
 
+/**
+ * Minimum activity tier required to join (default bronze)
+ */
+export type PoolMinPoolVipTier =
+  (typeof PoolMinPoolVipTier)[keyof typeof PoolMinPoolVipTier];
+
+export const PoolMinPoolVipTier = {
+  bronze: "bronze",
+  silver: "silver",
+  gold: "gold",
+  diamond: "diamond",
+} as const;
+
 export interface Pool {
   id: number;
   title: string;
@@ -94,6 +107,87 @@ export interface Pool {
   prizeSecond: number;
   prizeThird: number;
   createdAt: string;
+  /** Minimum activity tier required to join (default bronze) */
+  minPoolVipTier?: PoolMinPoolVipTier;
+  /** Minimum participants from prizes + target profit / list entry fee */
+  minParticipantsToRunDraw?: number;
+  /** True when participant count meets minParticipantsToRunDraw */
+  drawReady?: boolean;
+}
+
+export interface AdminFinancePerDrawRow {
+  poolId: number;
+  poolTitle: string;
+  ticketsSold: number;
+  totalRevenue: number;
+  totalPrizes: number;
+  platformFee: number;
+  createdAt: string;
+}
+
+export interface ActiveUsersByDayRow {
+  day: string;
+  count: number;
+}
+
+export interface AdminFinanceOverview {
+  currentBalance: number;
+  totalRevenueDeposits: number;
+  totalPaidOutWithdrawals: number;
+  totalPlatformFees: number;
+  todayDeposits: number;
+  todayWithdrawals: number;
+  perDraw: AdminFinancePerDrawRow[];
+  activeUsersByDay: ActiveUsersByDayRow[];
+}
+
+export type AdminWalletLedgerRowType =
+  (typeof AdminWalletLedgerRowType)[keyof typeof AdminWalletLedgerRowType];
+
+export const AdminWalletLedgerRowType = {
+  deposit: "deposit",
+  withdrawal: "withdrawal",
+  platform_fee: "platform_fee",
+  bonus: "bonus",
+} as const;
+
+export interface AdminWalletLedgerRow {
+  id: number;
+  type: AdminWalletLedgerRowType;
+  amount: number;
+  referenceType: string;
+  referenceId?: number | null;
+  description: string;
+  balanceAfter: number;
+  createdAt: string;
+}
+
+export interface AdminDrawFinancialsDetail {
+  poolId: number;
+  poolTitle?: string | null;
+  ticketsSold: number;
+  ticketPrice: number;
+  totalRevenue: number;
+  prizeFirst: number;
+  prizeSecond: number;
+  prizeThird: number;
+  winnerFirstName?: string | null;
+  winnerSecondName?: string | null;
+  winnerThirdName?: string | null;
+  totalPrizes: number;
+  platformFee: number;
+  profitMarginPercent: number;
+  minParticipantsRequired: number;
+  createdAt: string;
+}
+
+export interface AdminFinanceSettings {
+  drawDesiredProfitUsdt: number;
+}
+
+export interface PatchAdminFinanceSettings {
+  /** @minimum 0 */
+  drawDesiredProfitUsdt: number;
 }
 
 export type PoolDetailStatus =
@@ -103,6 +197,19 @@ export const PoolDetailStatus = {
   open: "open",
   closed: "closed",
   completed: "completed",
+} as const;
+
+/**
+ * Minimum activity tier required to join (default bronze)
+ */
+export type PoolDetailMinPoolVipTier =
+  (typeof PoolDetailMinPoolVipTier)[keyof typeof PoolDetailMinPoolVipTier];
+
+export const PoolDetailMinPoolVipTier = {
+  bronze: "bronze",
+  silver: "silver",
+  gold: "gold",
+  diamond: "diamond",
 } as const;
 
 export interface PoolDetail {
@@ -119,7 +226,22 @@ export interface PoolDetail {
   prizeThird: number;
   createdAt: string;
   userJoined: boolean;
+  /** Minimum activity tier required to join (default bronze) */
+  minPoolVipTier?: PoolDetailMinPoolVipTier;
 }
+
+/**
+ * Optional minimum activity tier for this pool
+ */
+export type CreatePoolBodyMinPoolVipTier =
+  (typeof CreatePoolBodyMinPoolVipTier)[keyof typeof CreatePoolBodyMinPoolVipTier];
+
+export const CreatePoolBodyMinPoolVipTier = {
+  bronze: "bronze",
+  silver: "silver",
+  gold: "gold",
+  diamond: "diamond",
+} as const;
 
 export interface CreatePoolBody {
   title: string;
@@ -130,6 +252,8 @@ export interface CreatePoolBody {
   prizeFirst: number;
   prizeSecond: number;
   prizeThird: number;
+  /** Optional minimum activity tier for this pool */
+  minPoolVipTier?: CreatePoolBodyMinPoolVipTier;
 }
 
 export type UpdatePoolBodyStatus =
@@ -141,10 +265,21 @@ export const UpdatePoolBodyStatus = {
   completed: "completed",
 } as const;
 
+export type UpdatePoolBodyMinPoolVipTier =
+  (typeof UpdatePoolBodyMinPoolVipTier)[keyof typeof UpdatePoolBodyMinPoolVipTier];
+
+export const UpdatePoolBodyMinPoolVipTier = {
+  bronze: "bronze",
+  silver: "silver",
+  gold: "gold",
+  diamond: "diamond",
+} as const;
+
 export interface UpdatePoolBody {
   title?: string;
   status?: UpdatePoolBodyStatus;
   endTime?: string;
+  minPoolVipTier?: UpdatePoolBodyMinPoolVipTier;
 }
 
 export interface Participant {
@@ -216,6 +351,17 @@ export interface DistributeResult {
   winners: Winner[];
 }
 
+export type DashboardStatsComebackCoupons = {
+  issued?: number;
+  used?: number;
+  conversionPercent?: number;
+};
+
+export type DashboardStatsPoolVipBreakdownItem = {
+  tier: string;
+  count: number;
+};
+
 export interface DashboardStats {
   totalUsers: number;
   activePools: number;
@@ -224,4 +370,24 @@ export interface DashboardStats {
   totalDeposits: number;
   totalWithdrawals: number;
   recentWinners: Winner[];
+  comebackCoupons?: DashboardStatsComebackCoupons;
+  poolVipBreakdown?: DashboardStatsPoolVipBreakdownItem[];
 }
+
+export type ListAdminWalletTransactionsParams = {
+  type?: ListAdminWalletTransactionsType;
+  from?: string;
+  to?: string;
+  limit?: number;
+};
+
+export type ListAdminWalletTransactionsType =
+  (typeof ListAdminWalletTransactionsType)[keyof typeof ListAdminWalletTransactionsType];
+
+export const ListAdminWalletTransactionsType = {
+  all: "all",
+  deposit: "deposit",
+  withdrawal: "withdrawal",
+  platform_fee: "platform_fee",
+  bonus: "bonus",
+} as const;

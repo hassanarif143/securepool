@@ -8,9 +8,17 @@ import {
   useUpdatePool,
   useDistributeRewards,
   useListTransactions,
+  useGetAdminFinanceOverview,
+  useGetAdminFinanceSettings,
+  usePatchAdminFinanceSettings,
+  useListAdminWalletTransactions,
+  useGetAdminDrawFinancials,
   getGetDashboardStatsQueryKey,
   getListPoolsQueryKey,
   getListAdminUsersQueryKey,
+  getGetAdminFinanceOverviewQueryKey,
+  getGetAdminFinanceSettingsQueryKey,
+  getGetAdminDrawFinancialsQueryKey,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -42,6 +50,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { MoreHorizontal } from "lucide-react";
 import { apiUrl, getFullImageUrl, readApiErrorMessage } from "@/lib/api-base";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const ACTIVITY_TIER_OPTIONS = [
+  { value: "bronze", label: "Bronze — all members" },
+  { value: "silver", label: "Silver+ (6+ pool joins)" },
+  { value: "gold", label: "Gold+ (16+ pool joins)" },
+  { value: "diamond", label: "Diamond (31+ pool joins)" },
+] as const;
+
+type ActivityTier = (typeof ACTIVITY_TIER_OPTIONS)[number]["value"];
 
 function parseSuperAdminIds(): number[] {
   const raw = import.meta.env.VITE_SUPER_ADMIN_IDS as string | undefined;
@@ -73,8 +97,9 @@ export default function AdminPage() {
         <p className="text-sm text-muted-foreground mt-1">Manage pools, users, and rewards</p>
       </div>
 
-      <Tabs defaultValue="pending">
+      <Tabs defaultValue="finance">
         <TabsList className="flex h-auto min-h-10 w-full flex-wrap sm:flex-nowrap gap-1 overflow-x-auto p-1 justify-start rounded-lg bg-muted/40 border border-border/50">
+          <TabsTrigger value="finance" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Finance</TabsTrigger>
           <TabsTrigger value="pending" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Pending</TabsTrigger>
           <TabsTrigger value="stats" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Stats</TabsTrigger>
           <TabsTrigger value="pools" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Pools</TabsTrigger>
@@ -85,6 +110,7 @@ export default function AdminPage() {
           <TabsTrigger value="wallets" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Wallets</TabsTrigger>
           <TabsTrigger value="audit" className="text-xs sm:text-sm shrink-0 px-2.5 sm:px-3">Audit</TabsTrigger>
         </TabsList>
+        <TabsContent value="finance"><FinanceTab /></TabsContent>
         <TabsContent value="pending"><PendingTransactionsTab /></TabsContent>
         <TabsContent value="stats"><StatsTab /></TabsContent>
         <TabsContent value="pools"><PoolsTab /></TabsContent>
@@ -95,6 +121,280 @@ export default function AdminPage() {
         <TabsContent value="wallets"><WalletRequestsTab /></TabsContent>
         <TabsContent value="audit"><AuditLogsTab /></TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function FinanceTab() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: overview, isLoading: ovLoading } = useGetAdminFinanceOverview({
+    query: { queryKey: getGetAdminFinanceOverviewQueryKey() },
+  });
+  const { data: finSettings } = useGetAdminFinanceSettings({
+    query: { queryKey: getGetAdminFinanceSettingsQueryKey() },
+  });
+  const patchFin = usePatchAdminFinanceSettings();
+  const [profitInput, setProfitInput] = useState("");
+  useEffect(() => {
+    if (finSettings != null) setProfitInput(String(finSettings.drawDesiredProfitUsdt));
+  }, [finSettings]);
+
+  const [ledgerType, setLedgerType] = useState<"all" | "deposit" | "withdrawal" | "platform_fee" | "bonus">("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const ledgerParams = {
+    type: ledgerType,
+    ...(fromDate ? { from: fromDate } : {}),
+    ...(toDate ? { to: toDate } : {}),
+    limit: 200,
+  };
+  const { data: ledger, isLoading: ledgerLoading } = useListAdminWalletTransactions(ledgerParams, {
+    query: { queryKey: ["/api/admin/finance/wallet-transactions", ledgerParams] as const },
+  });
+
+  const [detailPoolId, setDetailPoolId] = useState<number | null>(null);
+  const drawDetail = useGetAdminDrawFinancials(detailPoolId ?? 0, {
+    query: {
+      enabled: detailPoolId != null && detailPoolId > 0,
+      queryKey: detailPoolId
+        ? getGetAdminDrawFinancialsQueryKey(detailPoolId)
+        : (["admin-draw-financials", "idle"] as const),
+    },
+  });
+
+  function saveProfit() {
+    const n = parseFloat(profitInput);
+    if (Number.isNaN(n) || n < 0) {
+      toast({ title: "Invalid value", variant: "destructive" });
+      return;
+    }
+    patchFin.mutate(
+      { data: { drawDesiredProfitUsdt: n } },
+      {
+        onSuccess: () => {
+          toast({ title: "Settings saved" });
+          void queryClient.invalidateQueries({ queryKey: getGetAdminFinanceSettingsQueryKey() });
+          void queryClient.invalidateQueries({ queryKey: getGetAdminFinanceOverviewQueryKey() });
+          void queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
+        },
+        onError: () => toast({ title: "Save failed", variant: "destructive" }),
+      },
+    );
+  }
+
+  const maxBar = Math.max(1, ...(overview?.perDraw.map((d) => Math.max(d.totalRevenue, d.totalPrizes)) ?? []));
+
+  if (ovLoading || !overview) {
+    return <p className="text-muted-foreground py-8 text-center">Loading finance overview...</p>;
+  }
+
+  return (
+    <div className="space-y-6 mt-4">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: "Treasury balance", value: `${overview.currentBalance.toFixed(2)} USDT` },
+          { label: "Deposits (ledger)", value: `${overview.totalRevenueDeposits.toFixed(2)} USDT` },
+          { label: "Paid out (ledger)", value: `${overview.totalPaidOutWithdrawals.toFixed(2)} USDT` },
+          { label: "Platform fees (ledger)", value: `${overview.totalPlatformFees.toFixed(2)} USDT` },
+        ].map((c) => (
+          <Card key={c.label}>
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">{c.label}</p>
+              <p className="text-lg font-bold mt-1">{c.value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Card>
+          <CardContent className="p-4 text-sm">
+            <p className="text-muted-foreground text-xs mb-1">Today (UTC)</p>
+            <p>Deposits: <span className="font-semibold">{overview.todayDeposits.toFixed(2)} USDT</span></p>
+            <p>Withdrawals: <span className="font-semibold">{overview.todayWithdrawals.toFixed(2)} USDT</span></p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Draw economics default</CardTitle>
+            <p className="text-xs text-muted-foreground font-normal">
+              Used for minimum participants: ceil((prizes + this target) / list entry fee), min 3.
+            </p>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-end gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Target profit (USDT)</Label>
+              <Input
+                className="h-9 w-36"
+                value={profitInput}
+                onChange={(e) => setProfitInput(e.target.value)}
+                type="number"
+                min={0}
+                step={1}
+              />
+            </div>
+            <Button size="sm" onClick={saveProfit} disabled={patchFin.isPending}>
+              Save
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Revenue vs prizes by draw</CardTitle>
+          <p className="text-xs text-muted-foreground font-normal">Click a row for the full saved summary.</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {overview.perDraw.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No completed draws with financials yet.</p>
+          ) : (
+            overview.perDraw.map((d) => (
+              <button
+                key={d.poolId}
+                type="button"
+                onClick={() => setDetailPoolId(d.poolId)}
+                className="w-full text-left rounded-lg p-3 space-y-2 transition-colors hover:bg-muted/50 border border-border/60"
+              >
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium truncate pr-2">{d.poolTitle}</span>
+                  <span className="text-muted-foreground shrink-0 text-xs">Pool #{d.poolId}</span>
+                </div>
+                <div className="flex gap-4 items-end h-16">
+                  <div className="flex-1 flex flex-col justify-end gap-1">
+                    <span className="text-[10px] text-muted-foreground">Revenue</span>
+                    <div
+                      className="rounded bg-emerald-500/80 min-h-[4px] w-full"
+                      style={{ height: `${Math.max(8, (d.totalRevenue / maxBar) * 100)}%` }}
+                    />
+                    <span className="text-xs font-semibold">{d.totalRevenue.toFixed(2)}</span>
+                  </div>
+                  <div className="flex-1 flex flex-col justify-end gap-1">
+                    <span className="text-[10px] text-muted-foreground">Prizes</span>
+                    <div
+                      className="rounded bg-amber-500/80 min-h-[4px] w-full"
+                      style={{ height: `${Math.max(8, (d.totalPrizes / maxBar) * 100)}%` }}
+                    />
+                    <span className="text-xs font-semibold">{d.totalPrizes.toFixed(2)}</span>
+                  </div>
+                  <div className="text-right text-xs text-muted-foreground w-24">
+                    Fee: <span className="text-foreground font-medium">{d.platformFee.toFixed(2)}</span>
+                  </div>
+                </div>
+              </button>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">New signups (30 days)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-end gap-1 h-28 overflow-x-auto pb-1">
+            {overview.activeUsersByDay.map((row) => {
+              const mh = Math.max(...overview.activeUsersByDay.map((r) => r.count), 1);
+              return (
+                <div key={row.day} className="flex flex-col items-center gap-1 min-w-[20px]">
+                  <div
+                    className="w-3 rounded-sm bg-primary/70"
+                    style={{ height: `${Math.max(4, (row.count / mh) * 80)}px` }}
+                    title={`${row.day}: ${row.count}`}
+                  />
+                  <span className="text-[9px] text-muted-foreground rotate-[-45deg] origin-top">{row.day.slice(5)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Treasury ledger</CardTitle>
+          <div className="flex flex-wrap gap-2 items-center pt-2">
+            <Select value={ledgerType} onValueChange={(v) => setLedgerType(v as typeof ledgerType)}>
+              <SelectTrigger className="h-9 w-[160px]">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="deposit">Deposits</SelectItem>
+                <SelectItem value="withdrawal">Withdrawals</SelectItem>
+                <SelectItem value="platform_fee">Platform fees</SelectItem>
+                <SelectItem value="bonus">Bonus</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input type="date" className="h-9 w-[150px]" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            <Input type="date" className="h-9 w-[150px]" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          </div>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {ledgerLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-muted-foreground border-b">
+                  <th className="py-2 pr-2">Date</th>
+                  <th className="py-2 pr-2">Type</th>
+                  <th className="py-2 pr-2">Description</th>
+                  <th className="py-2 pr-2 text-right">Amount</th>
+                  <th className="py-2 text-right">Balance after</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(ledger ?? []).map((row) => (
+                  <tr key={row.id} className="border-b border-border/40">
+                    <td className="py-2 pr-2 whitespace-nowrap text-xs">
+                      {row.createdAt ? new Date(row.createdAt).toLocaleString() : "—"}
+                    </td>
+                    <td className="py-2 pr-2 text-xs capitalize">{row.type.replace("_", " ")}</td>
+                    <td className="py-2 pr-2 text-xs max-w-[240px] truncate">{row.description}</td>
+                    <td className="py-2 pr-2 text-right font-mono text-xs">{row.amount.toFixed(2)}</td>
+                    <td className="py-2 text-right font-mono text-xs">{row.balanceAfter.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={detailPoolId != null} onOpenChange={(o) => !o && setDetailPoolId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Draw financial summary</DialogTitle>
+            <DialogDescription>Pool #{detailPoolId}</DialogDescription>
+          </DialogHeader>
+          {drawDetail.isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : drawDetail.data ? (
+            <div className="text-sm space-y-2">
+              <p className="font-medium">{drawDetail.data.poolTitle ?? "—"}</p>
+              <p>Tickets sold: {drawDetail.data.ticketsSold}</p>
+              <p>List price: {drawDetail.data.ticketPrice} USDT</p>
+              <p>Total revenue (paid): {drawDetail.data.totalRevenue.toFixed(2)} USDT</p>
+              <p>1st → {drawDetail.data.winnerFirstName ?? "—"} ({drawDetail.data.prizeFirst} USDT)</p>
+              <p>2nd → {drawDetail.data.winnerSecondName ?? "—"} ({drawDetail.data.prizeSecond} USDT)</p>
+              <p>3rd → {drawDetail.data.winnerThirdName ?? "—"} ({drawDetail.data.prizeThird} USDT)</p>
+              <p>Total prizes: {drawDetail.data.totalPrizes.toFixed(2)} USDT</p>
+              <p className="font-semibold">Platform fee: {drawDetail.data.platformFee.toFixed(2)} USDT</p>
+              <p>Profit margin: {drawDetail.data.profitMarginPercent.toFixed(2)}%</p>
+              <p className="text-xs text-muted-foreground">Min participants required: {drawDetail.data.minParticipantsRequired}</p>
+            </div>
+          ) : (
+            <p className="text-sm text-destructive">Could not load detail.</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setDetailPoolId(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -123,6 +423,51 @@ function StatsTab() {
           </Card>
         ))}
       </div>
+
+      {(stats.comebackCoupons != null || (stats.poolVipBreakdown != null && stats.poolVipBreakdown.length > 0)) && (
+        <div className="grid sm:grid-cols-2 gap-4">
+          {stats.comebackCoupons != null && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Comeback entry discounts</CardTitle>
+                <p className="text-xs text-muted-foreground font-normal">
+                  Issued after draws to non-winners; conversion = used ÷ issued.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                <p>
+                  <span className="text-muted-foreground">Issued:</span>{" "}
+                  <span className="font-semibold">{stats.comebackCoupons.issued}</span>
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Used:</span>{" "}
+                  <span className="font-semibold">{stats.comebackCoupons.used}</span>
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Conversion:</span>{" "}
+                  <span className="font-semibold text-primary">{stats.comebackCoupons.conversionPercent}%</span>
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          {stats.poolVipBreakdown != null && stats.poolVipBreakdown.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Members by activity tier</CardTitle>
+                <p className="text-xs text-muted-foreground font-normal">Based on pool join milestones (bronze → diamond).</p>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {stats.poolVipBreakdown.map((row) => (
+                  <div key={row.tier} className="flex justify-between text-sm">
+                    <span className="capitalize text-muted-foreground">{row.tier}</span>
+                    <span className="font-semibold">{row.count}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {stats.recentWinners.length > 0 && (
         <div>
@@ -182,6 +527,7 @@ function PoolsTab() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editEndTime, setEditEndTime] = useState("");
+  const [editMinPoolVipTier, setEditMinPoolVipTier] = useState<ActivityTier>("bronze");
   const [saving, setSaving] = useState(false);
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
@@ -199,6 +545,8 @@ function PoolsTab() {
     const dt = new Date(pool.endTime);
     dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
     setEditEndTime(dt.toISOString().slice(0, 16));
+    const t = pool.minPoolVipTier as ActivityTier | undefined;
+    setEditMinPoolVipTier(t && ["bronze", "silver", "gold", "diamond"].includes(t) ? t : "bronze");
   }
 
   async function saveEdit(poolId: number) {
@@ -207,7 +555,11 @@ function PoolsTab() {
       await fetch(apiUrl(`/api/pools/${poolId}`), {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: editTitle, endTime: new Date(editEndTime).toISOString() }),
+        body: JSON.stringify({
+          title: editTitle,
+          endTime: new Date(editEndTime).toISOString(),
+          minPoolVipTier: editMinPoolVipTier,
+        }),
       });
       toast({ title: "Pool updated" });
       setEditingId(null);
@@ -261,6 +613,7 @@ function PoolsTab() {
         onSuccess: (result: any) => {
           queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetDashboardStatsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetAdminFinanceOverviewQueryKey() });
           setCelebrationWinners(result.winners ?? []);
           setCelebrationPool(poolTitle);
           setShowCelebration(true);
@@ -349,6 +702,9 @@ function PoolsTab() {
         const showParticipants = participantsPoolId === pool.id;
         const totalPrize = pool.prizeFirst + pool.prizeSecond + pool.prizeThird;
         const isCompleted = pool.status === "completed";
+        const minForDraw = pool.minParticipantsToRunDraw ?? 3;
+        const drawReady =
+          typeof pool.drawReady === "boolean" ? pool.drawReady : pool.participantCount >= minForDraw;
 
         return (
           <div key={pool.id} className="rounded-2xl overflow-hidden transition-all"
@@ -375,6 +731,24 @@ function PoolsTab() {
                       Currently: {new Date(pool.endTime).toLocaleString()}
                     </p>
                   </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">Minimum activity tier</Label>
+                    <Select value={editMinPoolVipTier} onValueChange={(v) => setEditMinPoolVipTier(v as ActivityTier)}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ACTIVITY_TIER_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Only members at or above this tier can join (loyalty discounts still apply).
+                    </p>
+                  </div>
                 </div>
                 <div className="flex gap-2 pt-1">
                   <Button size="sm" onClick={() => saveEdit(pool.id)} disabled={saving}
@@ -397,6 +771,11 @@ function PoolsTab() {
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <p className={`font-bold text-base ${isCompleted ? "text-muted-foreground" : ""}`}>{pool.title}</p>
                       <PoolStatusChip status={pool.status} />
+                      {pool.minPoolVipTier && pool.minPoolVipTier !== "bronze" && (
+                        <Badge variant="outline" className="text-[10px] capitalize border-amber-500/40 text-amber-200/90">
+                          Min tier: {pool.minPoolVipTier}
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                       <span>Pool #{pool.id}</span>
@@ -446,6 +825,14 @@ function PoolsTab() {
                         }} />
                     </div>
                     <p className="text-muted-foreground mt-1">{fillPct}% full</p>
+                    <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug">
+                      Min to run draw: <span className="text-foreground font-medium">{minForDraw}</span> participants
+                      {drawReady ? (
+                        <span className="text-emerald-500 font-medium"> · ready</span>
+                      ) : (
+                        <span> · need {Math.max(0, minForDraw - pool.participantCount)} more</span>
+                      )}
+                    </p>
                   </div>
                 </div>
 
@@ -471,7 +858,8 @@ function PoolsTab() {
                       )}
                       <button
                         onClick={() => handleDistribute(pool.id, pool.title)}
-                        disabled={distributeRewards.isPending}
+                        disabled={distributeRewards.isPending || !drawReady}
+                        title={!drawReady ? `Need at least ${minForDraw} participants` : undefined}
                         className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
                         style={{ background: "hsl(152,72%,36%)", color: "white" }}>
                         🎉 Distribute Rewards
@@ -568,6 +956,7 @@ function CreatePoolTab() {
     prizeFirst: 100,
     prizeSecond: 50,
     prizeThird: 30,
+    minPoolVipTier: "bronze" as ActivityTier,
   });
   const [submitted, setSubmitted] = useState(false);
 
@@ -588,9 +977,15 @@ function CreatePoolTab() {
     createPool.mutate(
       {
         data: {
-          ...form,
+          title: form.title,
+          entryFee: form.entryFee,
+          maxUsers: form.maxUsers,
           startTime: new Date(form.startTime).toISOString(),
           endTime: new Date(form.endTime).toISOString(),
+          prizeFirst: form.prizeFirst,
+          prizeSecond: form.prizeSecond,
+          prizeThird: form.prizeThird,
+          minPoolVipTier: form.minPoolVipTier,
         },
       },
       {
@@ -599,7 +994,17 @@ function CreatePoolTab() {
           queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
           const now2 = new Date();
           const end2 = new Date(now2.getTime() + 7 * 24 * 60 * 60 * 1000);
-          setForm({ title: "", entryFee: 10, maxUsers: 50, startTime: localDatetimeValue(now2), endTime: localDatetimeValue(end2), prizeFirst: 100, prizeSecond: 50, prizeThird: 30 });
+          setForm({
+            title: "",
+            entryFee: 10,
+            maxUsers: 50,
+            startTime: localDatetimeValue(now2),
+            endTime: localDatetimeValue(end2),
+            prizeFirst: 100,
+            prizeSecond: 50,
+            prizeThird: 30,
+            minPoolVipTier: "bronze",
+          });
           setSubmitted(false);
         },
         onError: (err: any) => {
@@ -662,6 +1067,28 @@ function CreatePoolTab() {
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">users</span>
                   </div>
                 </div>
+              </div>
+
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">Minimum activity tier to join</Label>
+                <Select
+                  value={form.minPoolVipTier}
+                  onValueChange={(v) => setForm({ ...form, minPoolVipTier: v as ActivityTier })}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Tier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACTIVITY_TIER_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  Use Silver/Gold/Diamond for higher-value pools; members below this tier see the pool as locked.
+                </p>
               </div>
             </div>
 
@@ -788,6 +1215,9 @@ function CreatePoolTab() {
                       <p className="font-bold">{form.title || <span className="text-muted-foreground italic text-sm">Pool title...</span>}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {form.entryFee} USDT entry · {form.maxUsers} max users
+                        {form.minPoolVipTier !== "bronze" && (
+                          <span className="text-amber-200/80"> · Min {form.minPoolVipTier}</span>
+                        )}
                       </p>
                     </div>
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"

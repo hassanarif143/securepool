@@ -139,6 +139,20 @@ export const ListPoolsResponseItem = zod.object({
   prizeSecond: zod.number(),
   prizeThird: zod.number(),
   createdAt: zod.coerce.date(),
+  minPoolVipTier: zod
+    .enum(["bronze", "silver", "gold", "diamond"])
+    .optional()
+    .describe("Minimum activity tier required to join (default bronze)"),
+  minParticipantsToRunDraw: zod
+    .number()
+    .optional()
+    .describe(
+      "Minimum participants from prizes + target profit \/ list entry fee",
+    ),
+  drawReady: zod
+    .boolean()
+    .optional()
+    .describe("True when participant count meets minParticipantsToRunDraw"),
 });
 export const ListPoolsResponse = zod.array(ListPoolsResponseItem);
 
@@ -154,6 +168,10 @@ export const CreatePoolBody = zod.object({
   prizeFirst: zod.number(),
   prizeSecond: zod.number(),
   prizeThird: zod.number(),
+  minPoolVipTier: zod
+    .enum(["bronze", "silver", "gold", "diamond"])
+    .optional()
+    .describe("Optional minimum activity tier for this pool"),
 });
 
 /**
@@ -177,6 +195,10 @@ export const GetPoolResponse = zod.object({
   prizeThird: zod.number(),
   createdAt: zod.coerce.date(),
   userJoined: zod.boolean(),
+  minPoolVipTier: zod
+    .enum(["bronze", "silver", "gold", "diamond"])
+    .optional()
+    .describe("Minimum activity tier required to join (default bronze)"),
 });
 
 /**
@@ -190,6 +212,7 @@ export const UpdatePoolBody = zod.object({
   title: zod.string().optional(),
   status: zod.enum(["open", "closed", "completed"]).optional(),
   endTime: zod.coerce.date().optional(),
+  minPoolVipTier: zod.enum(["bronze", "silver", "gold", "diamond"]).optional(),
 });
 
 export const UpdatePoolResponse = zod.object({
@@ -205,6 +228,20 @@ export const UpdatePoolResponse = zod.object({
   prizeSecond: zod.number(),
   prizeThird: zod.number(),
   createdAt: zod.coerce.date(),
+  minPoolVipTier: zod
+    .enum(["bronze", "silver", "gold", "diamond"])
+    .optional()
+    .describe("Minimum activity tier required to join (default bronze)"),
+  minParticipantsToRunDraw: zod
+    .number()
+    .optional()
+    .describe(
+      "Minimum participants from prizes + target profit \/ list entry fee",
+    ),
+  drawReady: zod
+    .boolean()
+    .optional()
+    .describe("True when participant count meets minParticipantsToRunDraw"),
 });
 
 /**
@@ -321,6 +358,21 @@ export const GetDashboardStatsResponse = zod.object({
       awardedAt: zod.coerce.date(),
     }),
   ),
+  comebackCoupons: zod
+    .object({
+      issued: zod.number().optional(),
+      used: zod.number().optional(),
+      conversionPercent: zod.number().optional(),
+    })
+    .optional(),
+  poolVipBreakdown: zod
+    .array(
+      zod.object({
+        tier: zod.string(),
+        count: zod.number(),
+      }),
+    )
+    .optional(),
 });
 
 /**
@@ -349,3 +401,106 @@ export const ListAdminUsersResponseItem = zod.object({
   wins: zod.number().optional(),
 });
 export const ListAdminUsersResponse = zod.array(ListAdminUsersResponseItem);
+
+/**
+ * @summary Admin finance overview (treasury, draws, signups)
+ */
+export const GetAdminFinanceOverviewResponse = zod.object({
+  currentBalance: zod.number(),
+  totalRevenueDeposits: zod.number(),
+  totalPaidOutWithdrawals: zod.number(),
+  totalPlatformFees: zod.number(),
+  todayDeposits: zod.number(),
+  todayWithdrawals: zod.number(),
+  perDraw: zod.array(
+    zod.object({
+      poolId: zod.number(),
+      poolTitle: zod.string(),
+      ticketsSold: zod.number(),
+      totalRevenue: zod.number(),
+      totalPrizes: zod.number(),
+      platformFee: zod.number(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  activeUsersByDay: zod.array(
+    zod.object({
+      day: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Admin treasury ledger (append-only)
+ */
+export const ListAdminWalletTransactionsQueryParams = zod.object({
+  type: zod
+    .enum(["all", "deposit", "withdrawal", "platform_fee", "bonus"])
+    .optional(),
+  from: zod.coerce.string().optional(),
+  to: zod.coerce.string().optional(),
+  limit: zod.coerce.number().optional(),
+});
+
+export const ListAdminWalletTransactionsResponseItem = zod.object({
+  id: zod.number(),
+  type: zod.enum(["deposit", "withdrawal", "platform_fee", "bonus"]),
+  amount: zod.number(),
+  referenceType: zod.string(),
+  referenceId: zod.number().nullish(),
+  description: zod.string(),
+  balanceAfter: zod.number(),
+  createdAt: zod.coerce.date(),
+});
+export const ListAdminWalletTransactionsResponse = zod.array(
+  ListAdminWalletTransactionsResponseItem,
+);
+
+/**
+ * @summary Saved financial summary for a completed draw
+ */
+export const GetAdminDrawFinancialsParams = zod.object({
+  poolId: zod.coerce.number(),
+});
+
+export const GetAdminDrawFinancialsResponse = zod.object({
+  poolId: zod.number(),
+  poolTitle: zod.string().nullish(),
+  ticketsSold: zod.number(),
+  ticketPrice: zod.number(),
+  totalRevenue: zod.number(),
+  prizeFirst: zod.number(),
+  prizeSecond: zod.number(),
+  prizeThird: zod.number(),
+  winnerFirstName: zod.string().nullish(),
+  winnerSecondName: zod.string().nullish(),
+  winnerThirdName: zod.string().nullish(),
+  totalPrizes: zod.number(),
+  platformFee: zod.number(),
+  profitMarginPercent: zod.number(),
+  minParticipantsRequired: zod.number(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Platform finance settings
+ */
+export const GetAdminFinanceSettingsResponse = zod.object({
+  drawDesiredProfitUsdt: zod.number(),
+});
+
+/**
+ * @summary Update platform finance settings
+ */
+export const patchAdminFinanceSettingsBodyDrawDesiredProfitUsdtMin = 0;
+
+export const PatchAdminFinanceSettingsBody = zod.object({
+  drawDesiredProfitUsdt: zod
+    .number()
+    .min(patchAdminFinanceSettingsBodyDrawDesiredProfitUsdtMin),
+});
+
+export const PatchAdminFinanceSettingsResponse = zod.object({
+  drawDesiredProfitUsdt: zod.number(),
+});

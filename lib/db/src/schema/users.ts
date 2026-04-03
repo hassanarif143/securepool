@@ -1,4 +1,4 @@
-import { pgTable, serial, text, boolean, numeric, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, numeric, timestamp, integer, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -26,6 +26,15 @@ export const usersTable = pgTable("users", {
   longestStreak: integer("longest_streak").notNull().default(0),
   lastPoolJoinedAt: timestamp("last_pool_joined_at", { withTimezone: true }),
   mysteryLuckyBadge: boolean("mystery_lucky_badge").notNull().default(false),
+  tier: text("tier").notNull().default("aurora"),
+  tierPoints: integer("tier_points").notNull().default(0),
+  freeTicketsClaimed: text("free_tickets_claimed").notNull().default(""),
+  loginStreakDay: integer("login_streak_day").notNull().default(0),
+  lastDailyLoginDate: date("last_daily_login_date"),
+  poolVipTier: text("pool_vip_tier").notNull().default("bronze"),
+  poolVipUpdatedAt: timestamp("pool_vip_updated_at", { withTimezone: true }),
+  totalWins: integer("total_wins").notNull().default(0),
+  firstWinAt: timestamp("first_win_at", { withTimezone: true }),
 });
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({
@@ -44,6 +53,15 @@ export const insertUserSchema = createInsertSchema(usersTable).omit({
   longestStreak: true,
   lastPoolJoinedAt: true,
   mysteryLuckyBadge: true,
+  tier: true,
+  tierPoints: true,
+  freeTicketsClaimed: true,
+  loginStreakDay: true,
+  lastDailyLoginDate: true,
+  poolVipTier: true,
+  poolVipUpdatedAt: true,
+  totalWins: true,
+  firstWinAt: true,
 });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof usersTable.$inferSelect;

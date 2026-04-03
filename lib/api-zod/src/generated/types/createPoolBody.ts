@@ -5,6 +5,7 @@
  * USDTLuck API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CreatePoolBodyMinPoolVipTier } from "./createPoolBodyMinPoolVipTier";
 
 export interface CreatePoolBody {
   title: string;
@@ -15,4 +16,6 @@ export interface CreatePoolBody {
   prizeFirst: number;
   prizeSecond: number;
   prizeThird: number;
+  /** Optional minimum activity tier for this pool */
+  minPoolVipTier?: CreatePoolBodyMinPoolVipTier;
 }

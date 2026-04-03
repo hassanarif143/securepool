@@ -422,6 +422,103 @@ paths:
                 items:
                   $ref: "#/components/schemas/AdminUser"
 
+  /admin/finance/overview:
+    get:
+      operationId: getAdminFinanceOverview
+      tags: [admin]
+      summary: Admin finance overview (treasury, draws, signups)
+      responses:
+        "200":
+          description: Overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFinanceOverview"
+
+  /admin/finance/wallet-transactions:
+    get:
+      operationId: listAdminWalletTransactions
+      tags: [admin]
+      summary: Admin treasury ledger (append-only)
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [all, deposit, withdrawal, platform_fee, bonus]
+        - in: query
+          name: from
+          schema:
+            type: string
+        - in: query
+          name: to
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ledger rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminWalletLedgerRow"
+
+  /admin/finance/draws/{poolId}:
+    get:
+      operationId: getAdminDrawFinancials
+      tags: [admin]
+      summary: Saved financial summary for a completed draw
+      parameters:
+        - name: poolId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Draw financials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDrawFinancialsDetail"
+        "404":
+          description: Not found
+
+  /admin/finance/settings:
+    get:
+      operationId: getAdminFinanceSettings
+      tags: [admin]
+      summary: Platform finance settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFinanceSettings"
+    patch:
+      operationId: patchAdminFinanceSettings
+      tags: [admin]
+      summary: Update platform finance settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchAdminFinanceSettings"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFinanceSettings"
+
 components:
   schemas:
     HealthStatus:
@@ -590,7 +687,172 @@ components:
         createdAt:
           type: string
           format: date-time
+        minPoolVipTier:
+          type: string
+          enum: [bronze, silver, gold, diamond]
+          description: Minimum activity tier required to join (default bronze)
+        minParticipantsToRunDraw:
+          type: integer
+          description: Minimum participants from prizes + target profit / list entry fee
+        drawReady:
+          type: boolean
+          description: True when participant count meets minParticipantsToRunDraw
       required: [id, title, entryFee, maxUsers, participantCount, startTime, endTime, status, prizeFirst, prizeSecond, prizeThird, createdAt]
+
+    AdminFinanceOverview:
+      type: object
+      properties:
+        currentBalance:
+          type: number
+        totalRevenueDeposits:
+          type: number
+        totalPaidOutWithdrawals:
+          type: number
+        totalPlatformFees:
+          type: number
+        todayDeposits:
+          type: number
+        todayWithdrawals:
+          type: number
+        perDraw:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminFinancePerDrawRow"
+        activeUsersByDay:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActiveUsersByDayRow"
+      required:
+        - currentBalance
+        - totalRevenueDeposits
+        - totalPaidOutWithdrawals
+        - totalPlatformFees
+        - todayDeposits
+        - todayWithdrawals
+        - perDraw
+        - activeUsersByDay
+
+    AdminFinancePerDrawRow:
+      type: object
+      properties:
+        poolId:
+          type: integer
+        poolTitle:
+          type: string
+        ticketsSold:
+          type: integer
+        totalRevenue:
+          type: number
+        totalPrizes:
+          type: number
+        platformFee:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+      required: [poolId, poolTitle, ticketsSold, totalRevenue, totalPrizes, platformFee, createdAt]
+
+    ActiveUsersByDayRow:
+      type: object
+      properties:
+        day:
+          type: string
+        count:
+          type: integer
+      required: [day, count]
+
+    AdminWalletLedgerRow:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [deposit, withdrawal, platform_fee, bonus]
+        amount:
+          type: number
+        referenceType:
+          type: string
+        referenceId:
+          type: integer
+          nullable: true
+        description:
+          type: string
+        balanceAfter:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, type, amount, referenceType, description, balanceAfter, createdAt]
+
+    AdminDrawFinancialsDetail:
+      type: object
+      properties:
+        poolId:
+          type: integer
+        poolTitle:
+          type: string
+          nullable: true
+        ticketsSold:
+          type: integer
+        ticketPrice:
+          type: number
+        totalRevenue:
+          type: number
+        prizeFirst:
+          type: number
+        prizeSecond:
+          type: number
+        prizeThird:
+          type: number
+        winnerFirstName:
+          type: string
+          nullable: true
+        winnerSecondName:
+          type: string
+          nullable: true
+        winnerThirdName:
+          type: string
+          nullable: true
+        totalPrizes:
+          type: number
+        platformFee:
+          type: number
+        profitMarginPercent:
+          type: number
+        minParticipantsRequired:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - poolId
+        - ticketsSold
+        - ticketPrice
+        - totalRevenue
+        - prizeFirst
+        - prizeSecond
+        - prizeThird
+        - totalPrizes
+        - platformFee
+        - profitMarginPercent
+        - minParticipantsRequired
+        - createdAt
+
+    AdminFinanceSettings:
+      type: object
+      properties:
+        drawDesiredProfitUsdt:
+          type: number
+      required: [drawDesiredProfitUsdt]
+
+    PatchAdminFinanceSettings:
+      type: object
+      properties:
+        drawDesiredProfitUsdt:
+          type: number
+          minimum: 0
+      required: [drawDesiredProfitUsdt]
 
     PoolDetail:
       type: object
@@ -625,6 +887,10 @@ components:
           format: date-time
         userJoined:
           type: boolean
+        minPoolVipTier:
+          type: string
+          enum: [bronze, silver, gold, diamond]
+          description: Minimum activity tier required to join (default bronze)
       required: [id, title, entryFee, maxUsers, participantCount, startTime, endTime, status, prizeFirst, prizeSecond, prizeThird, createdAt, userJoined]
 
     CreatePoolBody:
@@ -648,6 +914,10 @@ components:
           type: number
         prizeThird:
           type: number
+        minPoolVipTier:
+          type: string
+          enum: [bronze, silver, gold, diamond]
+          description: Optional minimum activity tier for this pool
       required: [title, entryFee, maxUsers, startTime, endTime, prizeFirst, prizeSecond, prizeThird]
 
     UpdatePoolBody:
@@ -661,6 +931,9 @@ components:
         endTime:
           type: string
           format: date-time
+        minPoolVipTier:
+          type: string
+          enum: [bronze, silver, gold, diamond]
 
     Participant:
       type: object
@@ -768,4 +1041,23 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Winner"
+        comebackCoupons:
+          type: object
+          properties:
+            issued:
+              type: integer
+            used:
+              type: integer
+            conversionPercent:
+              type: number
+        poolVipBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              tier:
+                type: string
+              count:
+                type: integer
+            required: [tier, count]
       required: [totalUsers, activePools, completedPools, totalRewardsDistributed, totalDeposits, totalWithdrawals, recentWinners]

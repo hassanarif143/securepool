@@ -143,7 +143,7 @@ async function main() {
     const size = 15 + Math.floor(Math.random() * 26);
     const picked = shuffle(userIds).slice(0, Math.min(size, userIds.length));
     for (const uid of picked) {
-      await db.insert(poolParticipantsTable).values({ poolId: p.id, userId: uid, ticketCount: 1 });
+      await db.insert(poolParticipantsTable).values({ poolId: p.id, userId: uid, ticketCount: 1, amountPaid: "10" });
     }
     const top = shuffle(picked).slice(0, 3);
     const prizes = ["100.00", "50.00", "30.00"] as const;
@@ -179,7 +179,7 @@ async function main() {
     const joinN = 8 + Math.floor(Math.random() * 8);
     const picked = shuffle(userIds).slice(0, Math.min(joinN, userIds.length));
     for (const uid of picked) {
-      await db.insert(poolParticipantsTable).values({ poolId: active.id, userId: uid, ticketCount: 1 });
+      await db.insert(poolParticipantsTable).values({ poolId: active.id, userId: uid, ticketCount: 1, amountPaid: "10" });
     }
   }
 

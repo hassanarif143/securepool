@@ -14,6 +14,7 @@ import statsRouter from "./stats";
 import userWalletRouter from "./userWallet";
 import activityRouter from "./activity";
 import engagementRouter from "./engagement";
+import squadRouter from "./squad";
 
 const router: IRouter = Router();
 
@@ -21,6 +22,7 @@ router.use(healthRouter);
 router.use("/stats", statsRouter);
 router.use("/activity", activityRouter);
 router.use("/engagement", engagementRouter);
+router.use("/squad", squadRouter);
 router.use("/auth", authRouter);
 router.use("/user", userWalletRouter);
 router.use("/users", usersRouter);

@@ -2,13 +2,26 @@ import { useEffect, useState, useRef } from "react";
 import { apiUrl } from "@/lib/api-base";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
-import { useListPools, useGetUserTransactions, getGetUserTransactionsQueryKey } from "@workspace/api-client-react";
+import {
+  useListPools,
+  useGetUserTransactions,
+  getGetUserTransactionsQueryKey,
+  getGetMeQueryKey,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TierBadge, TierProgressCard, getTier, getNextTier, computeProgress } from "@/components/TierBadge";
 import { TierUpgradeModal } from "@/components/TierUpgradeModal";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { StreakCounter } from "@/components/StreakCounter";
 import { PointsExpiryWarning } from "@/components/PointsExpiryWarning";
+import { LivePoolWatcher } from "@/components/LivePoolWatcher";
+import { DailyLoginCalendar } from "@/components/DailyLoginCalendar";
+import { ComebackBanner, type ActiveCouponJson } from "@/components/ComebackOffer";
+import { SquadPanel } from "@/components/SquadPanel";
+import { AchievementGrid } from "@/components/AchievementGrid";
+import { PoolVipBadge } from "@/components/PoolVipBadge";
+import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 
 interface TierInfo {
   tier: string; tierLabel: string; tierIcon: string;
@@ -73,6 +86,7 @@ function txMeta(type: string) {
 
 /* ══════════════════════════════════════════ */
 export default function DashboardPage() {
+  const queryClient = useQueryClient();
   const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
   const [tierInfo, setTierInfo] = useState<TierInfo | null>(null);
@@ -80,6 +94,16 @@ export default function DashboardPage() {
   const [tierUpgrade, setTierUpgrade] = useState<{
     previousTier: string; newTier: string; freeTicketGranted: boolean; tierPoints: number;
   } | null>(null);
+  const [dailyLogin, setDailyLogin] = useState<{
+    isNewLogin: boolean;
+    claimed: boolean;
+    loginRowId?: number;
+    dayNumber: number;
+    reward: { type: string; value: number };
+    nextReward: { day: number; type: string; value: number };
+    streakBroken: boolean;
+  } | null>(null);
+  const [comeback, setComeback] = useState<ActiveCouponJson | null>(null);
 
   const { data: pools, isLoading: poolsLoading } = useListPools();
   const { data: transactions } = useGetUserTransactions(user?.id ?? 0, {
@@ -107,6 +131,34 @@ export default function DashboardPage() {
       .then((r) => r.ok ? r.json() : []).then(setMyEntries).catch(() => {});
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+    void (async () => {
+      try {
+        const csrfRes = await fetch(apiUrl("/api/auth/csrf-token"), { credentials: "include" });
+        const csrfData = await csrfRes.json().catch(() => ({}));
+        const token = (csrfData as { csrfToken?: string }).csrfToken ?? getCsrfToken();
+        setCsrfToken(token ?? null);
+        const r = await fetch(apiUrl("/api/user/daily-login"), {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { "x-csrf-token": token } : {}),
+          },
+          body: "{}",
+        });
+        const d = await r.json();
+        if (d.isNewLogin && !d.claimed) setDailyLogin(d);
+        const cr = await fetch(apiUrl("/api/user/active-coupon"), { credentials: "include" });
+        const cj = await cr.json();
+        setComeback(cj as ActiveCouponJson);
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [user?.id]);
+
   if (isLoading || !user) return null;
 
   const activePools = pools?.filter((p) => p.status === "open") ?? [];
@@ -129,15 +181,34 @@ export default function DashboardPage() {
       <div className="rounded-xl border border-[hsl(217,28%,16%)] px-4 py-3 bg-[hsl(222,30%,9%)]">
         <p className="text-sm text-muted-foreground">Welcome back</p>
         <p className="text-lg font-bold">{user.name}</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          You&apos;re on <span className="text-primary font-semibold capitalize">{user.tier ?? "aurora"}</span> tier
+        <p className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
+          You&apos;re on <span className="text-primary font-semibold capitalize">{user.tier ?? "aurora"}</span> loyalty tier
           {tierNext && (
             <> — {ptsToNext} pts to <span className="capitalize">{tierNext.id}</span></>
           )}
+          <PoolVipBadge tier={user.poolVipTier ?? "bronze"} />
         </p>
       </div>
+      {comeback?.hasCoupon && <ComebackBanner coupon={comeback} />}
       <PointsExpiryWarning />
       <StreakCounter />
+      {dailyLogin && dailyLogin.isNewLogin && !dailyLogin.claimed && (
+        <DailyLoginCalendar
+          initial={dailyLogin}
+          onDismiss={() => setDailyLogin(null)}
+          onClaimed={() => {
+            setDailyLogin((p) => (p ? { ...p, claimed: true } : null));
+            void queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          }}
+        />
+      )}
+      <LivePoolWatcher />
+      {(user.poolJoinCount ?? 0) > 0 && (user.totalWins ?? 0) === 0 && (
+        <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+          You haven&apos;t received a top prize yet — every draw is fair and random. You&apos;ve joined{" "}
+          <span className="text-foreground font-medium">{user.poolJoinCount}</span> pools. Your next reward could be soon.
+        </div>
+      )}
       {tierUpgrade && (
         <TierUpgradeModal
           previousTier={tierUpgrade.previousTier}
@@ -149,6 +220,13 @@ export default function DashboardPage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="space-y-4">
+          <SquadPanel />
+          <div className="rounded-xl border border-[hsl(217,28%,16%)] bg-[hsl(222,30%,9%)] p-4">
+            <p className="font-semibold text-foreground mb-3 text-sm">Achievements</p>
+            <AchievementGrid />
+          </div>
+        </div>
         <ActivityFeed limit={16} />
         <div className="rounded-xl border border-[hsl(217,28%,16%)] bg-[hsl(222,30%,9%)] p-4 text-sm text-muted-foreground">
           <p className="font-semibold text-foreground mb-2">Transparent reward pools</p>

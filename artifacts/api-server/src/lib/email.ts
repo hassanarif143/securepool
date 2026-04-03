@@ -105,3 +105,46 @@ export async function sendTicketApprovedEmail(to: string, ticketLabel: string, d
   await sendEmail({ to, subject: title, html: brandTemplate(title, body) });
 }
 
+export type DrawFinancialSummaryPayload = {
+  poolId: number;
+  poolTitle: string;
+  ticketsSold: number;
+  ticketPrice: number;
+  totalRevenue: number;
+  prizeFirst: number;
+  prizeSecond: number;
+  prizeThird: number;
+  winnerFirstName: string | null;
+  winnerSecondName: string | null;
+  winnerThirdName: string | null;
+  totalPrizes: number;
+  platformFee: number;
+  profitMarginPercent: number;
+};
+
+export async function sendAdminDrawFinancialSummaryEmail(payload: DrawFinancialSummaryPayload) {
+  const to = process.env.ADMIN_NOTIFY_EMAIL || process.env.ADMIN_EMAIL || process.env.SMTP_USER;
+  if (!to) return;
+
+  const margin = payload.profitMarginPercent.toFixed(1);
+  const body = `
+    <p><b>${payload.poolTitle}</b> (Draw #${payload.poolId})</p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;color:#d1d5db;">
+      <tr><td style="padding:6px 0;border-bottom:1px solid #374151;">Tickets sold</td><td style="padding:6px 0;border-bottom:1px solid #374151;text-align:right">${payload.ticketsSold}</td></tr>
+      <tr><td style="padding:6px 0;border-bottom:1px solid #374151;">List ticket price</td><td style="padding:6px 0;border-bottom:1px solid #374151;text-align:right">${payload.ticketPrice} USDT</td></tr>
+      <tr><td style="padding:6px 0;border-bottom:1px solid #374151;">Total revenue (paid)</td><td style="padding:6px 0;border-bottom:1px solid #374151;text-align:right">${payload.totalRevenue.toFixed(2)} USDT</td></tr>
+      <tr><td style="padding:6px 0;border-bottom:1px solid #374151;">1st → ${payload.winnerFirstName ?? "—"}</td><td style="padding:6px 0;border-bottom:1px solid #374151;text-align:right">${payload.prizeFirst} USDT</td></tr>
+      <tr><td style="padding:6px 0;border-bottom:1px solid #374151;">2nd → ${payload.winnerSecondName ?? "—"}</td><td style="padding:6px 0;border-bottom:1px solid #374151;text-align:right">${payload.prizeSecond} USDT</td></tr>
+      <tr><td style="padding:6px 0;border-bottom:1px solid #374151;">3rd → ${payload.winnerThirdName ?? "—"}</td><td style="padding:6px 0;border-bottom:1px solid #374151;text-align:right">${payload.prizeThird} USDT</td></tr>
+      <tr><td style="padding:6px 0;border-bottom:1px solid #374151;">Total prizes</td><td style="padding:6px 0;border-bottom:1px solid #374151;text-align:right">${payload.totalPrizes.toFixed(2)} USDT</td></tr>
+      <tr><td style="padding:6px 0;border-bottom:1px solid #374151;"><b>Platform fee</b></td><td style="padding:6px 0;border-bottom:1px solid #374151;text-align:right"><b>${payload.platformFee.toFixed(2)} USDT</b></td></tr>
+      <tr><td style="padding:6px 0;">Profit margin</td><td style="padding:6px 0;text-align:right">${margin}%</td></tr>
+    </table>
+  `;
+  await sendEmail({
+    to,
+    subject: `Draw #${payload.poolId} — financial summary`,
+    html: brandTemplate("Draw financial summary", body),
+  });
+}
+

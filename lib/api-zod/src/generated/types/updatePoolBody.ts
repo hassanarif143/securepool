@@ -5,10 +5,12 @@
  * USDTLuck API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdatePoolBodyMinPoolVipTier } from "./updatePoolBodyMinPoolVipTier";
 import type { UpdatePoolBodyStatus } from "./updatePoolBodyStatus";
 
 export interface UpdatePoolBody {
   title?: string;
   status?: UpdatePoolBodyStatus;
   endTime?: Date;
+  minPoolVipTier?: UpdatePoolBodyMinPoolVipTier;
 }

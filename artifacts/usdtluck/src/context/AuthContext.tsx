@@ -25,6 +25,9 @@ interface UserType {
   referralPoints?: number;
   freeEntries?: number;
   poolJoinCount?: number;
+  poolVipTier?: string;
+  totalWins?: number;
+  firstWinAt?: string | null;
 }
 
 interface AuthContextType {

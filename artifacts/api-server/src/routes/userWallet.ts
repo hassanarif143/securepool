@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
-import { db, pool as pgPool, usersTable, walletChangeRequestsTable } from "@workspace/db";
+import { db, pool as pgPool, usersTable, walletChangeRequestsTable, dailyLoginsTable } from "@workspace/db";
 import { and, desc, eq, ne } from "drizzle-orm";
 import { getAuthedUserId, requireAuth, type AuthedRequest } from "../middleware/auth";
 import { sanitizeText } from "../lib/sanitize";
@@ -79,6 +79,117 @@ router.get("/loyalty", async (req, res): Promise<void> => {
     streak_at_risk: risk,
     next_mystery_in: totalJoins % 3 === 0 ? 3 : 3 - (totalJoins % 3),
   });
+  return;
+});
+
+router.get("/active-coupon", async (req, res): Promise<void> => {
+  const userId = getAuthedUserId(req);
+  const { getActiveComebackCoupon } = await import("../services/coupon-service");
+  const c = await getActiveComebackCoupon(userId);
+  res.json(c);
+  return;
+});
+
+router.post("/daily-login", async (req, res): Promise<void> => {
+  const userId = getAuthedUserId(req);
+  const { processDailyLogin } = await import("../services/daily-login-service");
+  const out = await processDailyLogin(userId);
+  if (out && typeof out === "object" && "error" in out && out.error === "user_not_found") {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  res.json(out);
+  return;
+});
+
+router.post("/daily-login/claim", async (req, res): Promise<void> => {
+  const userId = getAuthedUserId(req);
+  const parse = z.object({ loginRowId: z.number().int().positive().optional() }).safeParse(req.body ?? {});
+  const { claimDailyLoginReward } = await import("../services/daily-login-service");
+  let loginRowId = parse.success ? parse.data.loginRowId : undefined;
+  if (loginRowId == null) {
+    const today = new Date().toISOString().slice(0, 10);
+    const [row] = await db
+      .select({ id: dailyLoginsTable.id })
+      .from(dailyLoginsTable)
+      .where(and(eq(dailyLoginsTable.userId, userId), eq(dailyLoginsTable.loginDate, today)))
+      .limit(1);
+    if (!row) {
+      res.status(400).json({ error: "No daily check-in row for today — open the app first." });
+      return;
+    }
+    loginRowId = row.id;
+  }
+  const r = await claimDailyLoginReward(userId, loginRowId);
+  if (!r.ok) {
+    res.status(400).json({ error: r.error ?? "Claim failed" });
+    return;
+  }
+  res.json({ ok: true });
+  return;
+});
+
+router.get("/login-calendar", async (req, res): Promise<void> => {
+  const userId = getAuthedUserId(req);
+  const days = Math.min(parseInt(String(req.query.days ?? "30"), 10) || 30, 60);
+  const { getLoginCalendar } = await import("../services/daily-login-service");
+  res.json(await getLoginCalendar(userId, days));
+  return;
+});
+
+router.get("/achievements", async (req, res): Promise<void> => {
+  const userId = getAuthedUserId(req);
+  const { getAchievementsPayload } = await import("../services/achievement-service");
+  res.json(await getAchievementsPayload(userId));
+  return;
+});
+
+router.get("/pool-vip", async (req, res): Promise<void> => {
+  const userId = getAuthedUserId(req);
+  const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (!u) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  const {
+    entryDiscountPercentForTier,
+    poolVipTierFromJoinCount,
+  } = await import("../services/pool-vip-service");
+  const tier = u.poolVipTier ?? "bronze";
+  const joins = u.poolJoinCount ?? 0;
+  const effectiveFromJoins = poolVipTierFromJoinCount(joins);
+  const nextTierAt =
+    effectiveFromJoins === "bronze"
+      ? 6
+      : effectiveFromJoins === "silver"
+        ? 16
+        : effectiveFromJoins === "gold"
+          ? 31
+          : null;
+  const joinsToNext = nextTierAt != null ? Math.max(0, nextTierAt - joins) : 0;
+  res.json({
+    tier,
+    effectiveTierByJoins: effectiveFromJoins,
+    discountPercent: entryDiscountPercentForTier(tier),
+    poolJoins: joins,
+    nextTierAt,
+    joinsToNext,
+    totalWins: u.totalWins ?? 0,
+    firstWinAt: u.firstWinAt?.toISOString() ?? null,
+    perks: {
+      bronze: "Standard access to open pools",
+      silver: "5% entry discount · Silver badge",
+      gold: "10% entry discount · Gold badge · priority support",
+      diamond: "15% entry discount · Diamond badge · boosted mystery chances",
+    },
+  });
+  return;
+});
+
+router.get("/prediction-stats", async (req, res): Promise<void> => {
+  const userId = getAuthedUserId(req);
+  const { getUserPredictionStats } = await import("../services/prediction-service");
+  res.json(await getUserPredictionStats(userId));
   return;
 });
 

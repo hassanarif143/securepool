@@ -335,7 +335,10 @@ router.get("/me", async (req, res) => {
   try {
     const r = await dbPool.query(
       `SELECT id, name, email, wallet_balance, crypto_address, is_admin, joined_at,
-              COALESCE(tier, 'aurora') AS tier, COALESCE(tier_points, 0) AS tier_points
+              COALESCE(tier, 'aurora') AS tier, COALESCE(tier_points, 0) AS tier_points,
+              COALESCE(pool_vip_tier, 'bronze') AS pool_vip_tier,
+              COALESCE(total_wins, 0)::int AS total_wins,
+              first_win_at
        FROM users WHERE id = $1 LIMIT 1`,
       [userId],
     );
@@ -351,6 +354,9 @@ router.get("/me", async (req, res) => {
       ...row,
       tier: "aurora",
       tier_points: 0,
+      pool_vip_tier: "bronze",
+      total_wins: 0,
+      first_win_at: null,
     }));
   }
 
@@ -392,6 +398,12 @@ router.get("/me", async (req, res) => {
     referralPoints,
     freeEntries,
     poolJoinCount,
+    poolVipTier: (user.pool_vip_tier as string) ?? "bronze",
+    totalWins: parseInt(String((user as { total_wins?: unknown }).total_wins ?? "0"), 10),
+    firstWinAt:
+      (user as { first_win_at?: Date | null }).first_win_at instanceof Date
+        ? ((user as { first_win_at: Date }).first_win_at.toISOString?.() ?? null)
+        : (user as { first_win_at?: string | null }).first_win_at ?? null,
   });
 });
 

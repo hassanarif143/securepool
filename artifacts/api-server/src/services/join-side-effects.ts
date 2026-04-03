@@ -25,8 +25,9 @@ export async function runJoinSideEffects(opts: {
   poolTitle: string;
   participantCountAfterJoin: number;
   maxUsers: number;
+  entryFeePaid?: number;
 }): Promise<JoinSideEffectsResult> {
-  const { userId, joinerName, poolId, poolTitle, participantCountAfterJoin, maxUsers } = opts;
+  const { userId, joinerName, poolId, poolTitle, participantCountAfterJoin, maxUsers, entryFeePaid } = opts;
   const who = privacyDisplayName(joinerName);
 
   await logActivity({
@@ -44,7 +45,14 @@ export async function runJoinSideEffects(opts: {
       poolId,
       metadata: { poolTitle },
     });
-    await db.update(poolsTable).set({ filledAt: new Date() }).where(eq(poolsTable.id, poolId));
+    const [poolRow] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+    const fillMin = poolRow
+      ? Math.max(1, Math.round((Date.now() - poolRow.createdAt.getTime()) / 60000))
+      : 1;
+    await db
+      .update(poolsTable)
+      .set({ filledAt: new Date(), avgFillTimeMinutes: fillMin })
+      .where(eq(poolsTable.id, poolId));
   }
 
   const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
@@ -75,6 +83,14 @@ export async function runJoinSideEffects(opts: {
     .update(usersTable)
     .set({ poolJoinCount: nextJoins, freeEntries })
     .where(eq(usersTable.id, userId));
+
+  const { syncUserPoolVipTier } = await import("./pool-vip-service");
+  await syncUserPoolVipTier(userId, nextJoins);
+
+  if (entryFeePaid != null && entryFeePaid > 0) {
+    const { applySquadCoPoolBonus } = await import("./squad-service");
+    await applySquadCoPoolBonus({ userId, poolId, poolTitle, entryFee: entryFeePaid });
+  }
 
   let mysteryReward: MysteryRewardRow | null = null;
   if (nextJoins > 0 && nextJoins % 3 === 0) {

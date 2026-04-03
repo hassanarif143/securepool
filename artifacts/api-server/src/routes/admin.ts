@@ -13,6 +13,8 @@ import {
   adminActionsTable,
   walletChangeRequestsTable,
   luckyHoursTable,
+  poolDrawFinancialsTable,
+  platformSettingsTable,
 } from "@workspace/db";
 import { eq, ne, count, sum, desc, and, sql } from "drizzle-orm";
 import { sendWithdrawalStatusEmail } from "../lib/email";
@@ -24,6 +26,14 @@ import { isValidTrc20Address } from "../lib/trc20";
 import { logActivity } from "../services/activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { refundAllPoolParticipants } from "../lib/pool-refunds";
+import {
+  appendDepositFromTicketPurchase,
+  appendWithdrawalForPayout,
+  financeOverviewQueries,
+  listWalletTransactionsFiltered,
+  activeUsersByDay,
+  getDrawDesiredProfitUsdt,
+} from "../services/admin-wallet-service";
 
 const router: IRouter = Router();
 
@@ -292,6 +302,23 @@ router.get("/stats", async (req, res) => {
     .orderBy(desc(winnersTable.awardedAt))
     .limit(10);
 
+  let comebackCoupons = { issued: 0, used: 0, conversionPercent: 0 };
+  let poolVipBreakdown: { tier: string; count: number }[] = [];
+  try {
+    const { getCouponStats } = await import("../services/coupon-service");
+    comebackCoupons = await getCouponStats();
+  } catch {
+    /* migration not applied */
+  }
+  try {
+    const { rows } = await pgPool.query<{ tier: string; c: string }>(
+      `SELECT COALESCE(pool_vip_tier, 'bronze') AS tier, COUNT(*)::text AS c FROM users GROUP BY 1 ORDER BY 1`,
+    );
+    poolVipBreakdown = rows.map((r) => ({ tier: r.tier, count: parseInt(r.c, 10) || 0 }));
+  } catch {
+    /* column missing */
+  }
+
   res.json({
     totalUsers: Number(totalUsers),
     activePools,
@@ -300,6 +327,8 @@ router.get("/stats", async (req, res) => {
     totalDeposits,
     totalWithdrawals,
     recentWinners: recentWinnersRaw.map((w) => ({ ...w, prize: parseFloat(w.prize) })),
+    comebackCoupons,
+    poolVipBreakdown,
   });
 });
 
@@ -661,115 +690,159 @@ router.post("/transactions/:id/approve", async (req, res) => {
   const txId = parseInt(req.params.id);
   if (isNaN(txId)) { res.status(400).json({ error: "Invalid transaction ID" }); return; }
 
-  const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txId)).limit(1);
-  if (!tx) { res.status(404).json({ error: "Transaction not found" }); return; }
-  if (tx.status !== "pending") { res.status(400).json({ error: "Transaction is not pending" }); return; }
+  const [txn] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txId)).limit(1);
+  if (!txn) { res.status(404).json({ error: "Transaction not found" }); return; }
+  if (txn.status !== "pending") { res.status(400).json({ error: "Transaction is not pending" }); return; }
 
-  const nextStatus = tx.txType === "withdraw" ? "under_review" : "completed";
-  await db.update(transactionsTable).set({ status: nextStatus }).where(eq(transactionsTable.id, txId));
+  const nextStatus = txn.txType === "withdraw" ? "under_review" : "completed";
 
-  if (tx.txType === "deposit") {
-    const [user] = await db
-      .select({ walletBalance: usersTable.walletBalance })
-      .from(usersTable)
-      .where(eq(usersTable.id, tx.userId))
-      .limit(1);
-    if (!user) {
+  try {
+    await db.transaction(async (trx) => {
+      await trx.update(transactionsTable).set({ status: nextStatus }).where(eq(transactionsTable.id, txId));
+
+      if (txn.txType === "deposit") {
+        const [user] = await trx
+          .select({ walletBalance: usersTable.walletBalance })
+          .from(usersTable)
+          .where(eq(usersTable.id, txn.userId))
+          .limit(1);
+        if (!user) {
+          const e = new Error("USER_NOT_FOUND");
+          (e as { code?: string }).code = "USER_NOT_FOUND";
+          throw e;
+        }
+        const depositAmt = parseFloat(txn.amount);
+        const newBalance = parseFloat(user.walletBalance) + depositAmt;
+        const bonusAmount = 2;
+        const newBalanceWithBonus = newBalance + bonusAmount;
+        await trx.update(usersTable).set({ walletBalance: String(newBalanceWithBonus) }).where(eq(usersTable.id, txn.userId));
+
+        await trx.insert(transactionsTable).values({
+          userId: txn.userId,
+          txType: "deposit",
+          amount: String(bonusAmount),
+          status: "completed",
+          note: "[System] Deposit bonus — 2 USDT reward for making a deposit",
+        });
+
+        await appendDepositFromTicketPurchase(trx, {
+          amount: depositAmt,
+          referenceId: txId,
+          description: `Deposit approved — user tx #${txId} — ${depositAmt} USDT (excludes signup bonus)`,
+        });
+      }
+    });
+  } catch (err: unknown) {
+    if ((err as { code?: string }).code === "USER_NOT_FOUND") {
       res.status(404).json({ error: "User not found" });
       return;
     }
-    const depositAmt = parseFloat(tx.amount);
-    const newBalance = parseFloat(user.walletBalance) + depositAmt;
-    const bonusAmount = 2;
-    const newBalanceWithBonus = newBalance + bonusAmount;
-    await db.update(usersTable).set({ walletBalance: String(newBalanceWithBonus) }).where(eq(usersTable.id, tx.userId));
+    throw err;
+  }
 
-    await db.insert(transactionsTable).values({
-      userId: tx.userId,
-      txType: "deposit",
-      amount: String(bonusAmount),
-      status: "completed",
-      note: "[System] Deposit bonus — 2 USDT reward for making a deposit",
-    });
-
-    /* Award tier points for deposit: 2 pts per USDT */
+  if (txn.txType === "deposit") {
     try {
       const { awardTierPoints, POINTS_PER_USDT } = await import("../lib/tier");
-      const pts = Math.max(1, Math.floor(depositAmt * POINTS_PER_USDT));
-      await awardTierPoints(tx.userId, pts);
-    } catch {}
+      const pts = Math.max(1, Math.floor(parseFloat(txn.amount) * POINTS_PER_USDT));
+      await awardTierPoints(txn.userId, pts);
+    } catch {
+      /* ignore */
+    }
   }
 
   const [txUser] = await db
     .select({ name: usersTable.name, email: usersTable.email })
     .from(usersTable)
-    .where(eq(usersTable.id, tx.userId))
+    .where(eq(usersTable.id, txn.userId))
     .limit(1);
-  await logAction(getAdminId(req), "transaction", txId, "approve", `Approved ${tx.txType} of ${tx.amount} USDT for ${txUser?.name ?? "user"} (tx #${txId})`);
+  await logAction(getAdminId(req), "transaction", txId, "approve", `Approved ${txn.txType} of ${txn.amount} USDT for ${txUser?.name ?? "user"} (tx #${txId})`);
 
-  /* Notify user */
   try {
-    if (tx.txType === "deposit") {
+    if (txn.txType === "deposit") {
       await notifyUser(
-        tx.userId,
+        txn.userId,
         "Deposit Approved! ✅",
-        `Your deposit of ${tx.amount} USDT has been approved and added to your wallet.`,
+        `Your deposit of ${txn.amount} USDT has been approved and added to your wallet.`,
         "success",
       );
       await notifyUser(
-        tx.userId,
+        txn.userId,
         "Deposit Bonus! 🎉",
-        `You received a $2.00 USDT bonus for your deposit of ${tx.amount} USDT!`,
+        `You received a $2.00 USDT bonus for your deposit of ${txn.amount} USDT!`,
         "reward",
       );
     } else {
       await notifyUser(
-        tx.userId,
+        txn.userId,
         "Withdrawal Approved",
-        `Your withdrawal of ${tx.amount} USDT is now under review and will be processed shortly.`,
+        `Your withdrawal of ${txn.amount} USDT is now under review and will be processed shortly.`,
         "info",
       );
     }
-  } catch {}
-
-  if (tx.txType === "withdraw" && txUser?.email) {
-    void sendWithdrawalStatusEmail(txUser.email, tx.amount, "under_review");
+  } catch {
+    /* ignore */
   }
 
-  res.json({ message: tx.txType === "withdraw" ? "Withdrawal moved to under_review" : "Transaction approved" });
+  if (txn.txType === "withdraw" && txUser?.email) {
+    void sendWithdrawalStatusEmail(txUser.email, txn.amount, "under_review");
+  }
+
+  res.json({ message: txn.txType === "withdraw" ? "Withdrawal moved to under_review" : "Transaction approved" });
 });
 
 router.post("/transactions/:id/complete", async (req, res) => {
   const txId = parseInt(req.params.id);
   if (isNaN(txId)) { res.status(400).json({ error: "Invalid transaction ID" }); return; }
 
-  const [tx] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txId)).limit(1);
-  if (!tx) { res.status(404).json({ error: "Transaction not found" }); return; }
-  if (tx.txType !== "withdraw") { res.status(400).json({ error: "Only withdrawals can be completed here" }); return; }
-  if (tx.status !== "under_review") { res.status(400).json({ error: "Mark complete only after approval (under review)" }); return; }
+  const [txn] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, txId)).limit(1);
+  if (!txn) { res.status(404).json({ error: "Transaction not found" }); return; }
+  if (txn.txType !== "withdraw") { res.status(400).json({ error: "Only withdrawals can be completed here" }); return; }
+  if (txn.status !== "under_review") { res.status(400).json({ error: "Mark complete only after approval (under review)" }); return; }
 
-  await db.update(transactionsTable).set({ status: "completed" }).where(eq(transactionsTable.id, txId));
-  const [txUser] = await db.select().from(usersTable).where(eq(usersTable.id, tx.userId)).limit(1);
+  const wdAmount = parseFloat(txn.amount);
+  try {
+    await db.transaction(async (trx) => {
+      await appendWithdrawalForPayout(trx, {
+        amount: wdAmount,
+        referenceId: txId,
+        description: `Withdrawal completed — user tx #${txId} — ${wdAmount} USDT sent`,
+      });
+      await trx.update(transactionsTable).set({ status: "completed" }).where(eq(transactionsTable.id, txId));
+    });
+  } catch (err: unknown) {
+    if ((err as { code?: string }).code === "INSUFFICIENT_ADMIN_WALLET") {
+      res.status(400).json({
+        error: "Insufficient admin treasury balance",
+        message: "Recorded treasury balance is too low to mark this payout complete. Verify ledger and Binance balance.",
+      });
+      return;
+    }
+    throw err;
+  }
+
+  const [txUser] = await db.select().from(usersTable).where(eq(usersTable.id, txn.userId)).limit(1);
   await logAction(getAdminId(req), "transaction", txId, "complete_withdrawal", `Marked withdrawal ${txId} as completed`);
 
   try {
     await notifyUser(
-      tx.userId,
+      txn.userId,
       "Withdrawal Completed! 💰",
-      `Your withdrawal of ${tx.amount} USDT has been sent to your wallet.`,
+      `Your withdrawal of ${txn.amount} USDT has been sent to your wallet.`,
       "success",
     );
-  } catch {}
+  } catch {
+    /* ignore */
+  }
 
   if (txUser?.email) {
-    void sendWithdrawalStatusEmail(txUser.email, tx.amount, "completed");
+    void sendWithdrawalStatusEmail(txUser.email, txn.amount, "completed");
   }
 
   if (txUser) {
     void logActivity({
       type: "payout_sent",
-      message: `Reward transfer of ${tx.amount} USDT completed for ${privacyDisplayName(txUser.name)}.`,
-      userId: tx.userId,
+      message: `Reward transfer of ${txn.amount} USDT completed for ${privacyDisplayName(txUser.name)}.`,
+      userId: txn.userId,
       metadata: { transactionId: txId },
     });
   }
@@ -1335,6 +1408,119 @@ router.post("/wallet-requests/:id/reject", async (req, res) => {
   }
 
   return res.json({ message: "Request rejected" });
+});
+
+router.get("/finance/overview", async (_req, res) => {
+  const start = new Date();
+  start.setUTCHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+  const overview = await financeOverviewQueries({ todayStart: start, todayEnd: end });
+  const drawRows = await db
+    .select({
+      poolId: poolDrawFinancialsTable.poolId,
+      poolTitle: poolsTable.title,
+      ticketsSold: poolDrawFinancialsTable.ticketsSold,
+      totalRevenue: poolDrawFinancialsTable.totalRevenue,
+      totalPrizes: poolDrawFinancialsTable.totalPrizes,
+      platformFee: poolDrawFinancialsTable.platformFee,
+      createdAt: poolDrawFinancialsTable.createdAt,
+    })
+    .from(poolDrawFinancialsTable)
+    .innerJoin(poolsTable, eq(poolDrawFinancialsTable.poolId, poolsTable.id))
+    .orderBy(desc(poolDrawFinancialsTable.createdAt))
+    .limit(24);
+
+  const perDraw = drawRows.map((r) => ({
+    poolId: r.poolId,
+    poolTitle: r.poolTitle,
+    ticketsSold: r.ticketsSold,
+    totalRevenue: parseFloat(r.totalRevenue),
+    totalPrizes: parseFloat(r.totalPrizes),
+    platformFee: parseFloat(r.platformFee),
+    createdAt: r.createdAt,
+  }));
+
+  const activeUsers = await activeUsersByDay(30);
+
+  res.json({
+    ...overview,
+    perDraw,
+    activeUsersByDay: activeUsers,
+  });
+});
+
+router.get("/finance/wallet-transactions", async (req, res) => {
+  const rawType = typeof req.query.type === "string" ? req.query.type : "all";
+  const typeFilter =
+    rawType === "deposit" || rawType === "withdrawal" || rawType === "platform_fee" || rawType === "bonus"
+      ? rawType
+      : "all";
+  const from = typeof req.query.from === "string" && req.query.from ? new Date(req.query.from) : undefined;
+  const to = typeof req.query.to === "string" && req.query.to ? new Date(req.query.to) : undefined;
+  const limitRaw = parseInt(String(req.query.limit ?? "200"), 10);
+  const limit = Number.isNaN(limitRaw) ? 200 : limitRaw;
+
+  const rows = await listWalletTransactionsFiltered({ typeFilter, from, to, limit });
+  res.json(rows);
+});
+
+router.get("/finance/draws/:poolId", async (req, res) => {
+  const poolId = parseInt(req.params.poolId, 10);
+  if (Number.isNaN(poolId)) {
+    res.status(400).json({ error: "Invalid pool ID" });
+    return;
+  }
+  const [fin] = await db.select().from(poolDrawFinancialsTable).where(eq(poolDrawFinancialsTable.poolId, poolId)).limit(1);
+  if (!fin) {
+    res.status(404).json({ error: "No financial record for this draw" });
+    return;
+  }
+  const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  res.json({
+    poolId: fin.poolId,
+    poolTitle: pool?.title ?? null,
+    ticketsSold: fin.ticketsSold,
+    ticketPrice: parseFloat(fin.ticketPrice),
+    totalRevenue: parseFloat(fin.totalRevenue),
+    prizeFirst: parseFloat(fin.prizeFirst),
+    prizeSecond: parseFloat(fin.prizeSecond),
+    prizeThird: parseFloat(fin.prizeThird),
+    winnerFirstName: fin.winnerFirstName,
+    winnerSecondName: fin.winnerSecondName,
+    winnerThirdName: fin.winnerThirdName,
+    totalPrizes: parseFloat(fin.totalPrizes),
+    platformFee: parseFloat(fin.platformFee),
+    profitMarginPercent: parseFloat(fin.profitMarginPercent),
+    minParticipantsRequired: fin.minParticipantsRequired,
+    createdAt: fin.createdAt,
+  });
+});
+
+router.get("/finance/settings", async (_req, res) => {
+  const drawDesiredProfitUsdt = await getDrawDesiredProfitUsdt();
+  res.json({ drawDesiredProfitUsdt });
+});
+
+const PatchFinanceSettings = z.object({
+  drawDesiredProfitUsdt: z.number().nonnegative(),
+});
+
+router.patch("/finance/settings", async (req, res) => {
+  const parsed = PatchFinanceSettings.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", message: parsed.error.message });
+    return;
+  }
+  const v = String(parsed.data.drawDesiredProfitUsdt);
+  await db
+    .insert(platformSettingsTable)
+    .values({ id: 1, drawDesiredProfitUsdt: v, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: platformSettingsTable.id,
+      set: { drawDesiredProfitUsdt: v, updatedAt: new Date() },
+    });
+  res.json({ drawDesiredProfitUsdt: parsed.data.drawDesiredProfitUsdt });
 });
 
 export default router;

@@ -17,7 +17,11 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AdminDrawFinancialsDetail,
+  AdminFinanceOverview,
+  AdminFinanceSettings,
   AdminUser,
+  AdminWalletLedgerRow,
   AuthResponse,
   CreatePoolBody,
   CreateTransactionBody,
@@ -25,9 +29,11 @@ import type {
   DistributeResult,
   ErrorResponse,
   HealthStatus,
+  ListAdminWalletTransactionsParams,
   LoginBody,
   MessageResponse,
   Participant,
+  PatchAdminFinanceSettings,
   Pool,
   PoolDetail,
   SignupBody,
@@ -1646,3 +1652,443 @@ export function useListAdminUsers<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Admin finance overview (treasury, draws, signups)
+ */
+export const getGetAdminFinanceOverviewUrl = () => {
+  return `/api/admin/finance/overview`;
+};
+
+export const getAdminFinanceOverview = async (
+  options?: RequestInit,
+): Promise<AdminFinanceOverview> => {
+  return customFetch<AdminFinanceOverview>(getGetAdminFinanceOverviewUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminFinanceOverviewQueryKey = () => {
+  return [`/api/admin/finance/overview`] as const;
+};
+
+export const getGetAdminFinanceOverviewQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminFinanceOverview>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminFinanceOverview>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminFinanceOverviewQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminFinanceOverview>>
+  > = ({ signal }) => getAdminFinanceOverview({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminFinanceOverview>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminFinanceOverviewQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminFinanceOverview>>
+>;
+export type GetAdminFinanceOverviewQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Admin finance overview (treasury, draws, signups)
+ */
+
+export function useGetAdminFinanceOverview<
+  TData = Awaited<ReturnType<typeof getAdminFinanceOverview>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminFinanceOverview>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminFinanceOverviewQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Admin treasury ledger (append-only)
+ */
+export const getListAdminWalletTransactionsUrl = (
+  params?: ListAdminWalletTransactionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/finance/wallet-transactions?${stringifiedParams}`
+    : `/api/admin/finance/wallet-transactions`;
+};
+
+export const listAdminWalletTransactions = async (
+  params?: ListAdminWalletTransactionsParams,
+  options?: RequestInit,
+): Promise<AdminWalletLedgerRow[]> => {
+  return customFetch<AdminWalletLedgerRow[]>(
+    getListAdminWalletTransactionsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAdminWalletTransactionsQueryKey = (
+  params?: ListAdminWalletTransactionsParams,
+) => {
+  return [
+    `/api/admin/finance/wallet-transactions`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListAdminWalletTransactionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminWalletTransactions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminWalletTransactionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminWalletTransactions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminWalletTransactionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminWalletTransactions>>
+  > = ({ signal }) =>
+    listAdminWalletTransactions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminWalletTransactions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminWalletTransactionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminWalletTransactions>>
+>;
+export type ListAdminWalletTransactionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Admin treasury ledger (append-only)
+ */
+
+export function useListAdminWalletTransactions<
+  TData = Awaited<ReturnType<typeof listAdminWalletTransactions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminWalletTransactionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminWalletTransactions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminWalletTransactionsQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Saved financial summary for a completed draw
+ */
+export const getGetAdminDrawFinancialsUrl = (poolId: number) => {
+  return `/api/admin/finance/draws/${poolId}`;
+};
+
+export const getAdminDrawFinancials = async (
+  poolId: number,
+  options?: RequestInit,
+): Promise<AdminDrawFinancialsDetail> => {
+  return customFetch<AdminDrawFinancialsDetail>(
+    getGetAdminDrawFinancialsUrl(poolId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAdminDrawFinancialsQueryKey = (poolId: number) => {
+  return [`/api/admin/finance/draws/${poolId}`] as const;
+};
+
+export const getGetAdminDrawFinancialsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminDrawFinancials>>,
+  TError = ErrorType<void>,
+>(
+  poolId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminDrawFinancials>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminDrawFinancialsQueryKey(poolId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminDrawFinancials>>
+  > = ({ signal }) =>
+    getAdminDrawFinancials(poolId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!poolId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminDrawFinancials>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminDrawFinancialsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminDrawFinancials>>
+>;
+export type GetAdminDrawFinancialsQueryError = ErrorType<void>;
+
+/**
+ * @summary Saved financial summary for a completed draw
+ */
+
+export function useGetAdminDrawFinancials<
+  TData = Awaited<ReturnType<typeof getAdminDrawFinancials>>,
+  TError = ErrorType<void>,
+>(
+  poolId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminDrawFinancials>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminDrawFinancialsQueryOptions(poolId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Platform finance settings
+ */
+export const getGetAdminFinanceSettingsUrl = () => {
+  return `/api/admin/finance/settings`;
+};
+
+export const getAdminFinanceSettings = async (
+  options?: RequestInit,
+): Promise<AdminFinanceSettings> => {
+  return customFetch<AdminFinanceSettings>(getGetAdminFinanceSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminFinanceSettingsQueryKey = () => {
+  return [`/api/admin/finance/settings`] as const;
+};
+
+export const getGetAdminFinanceSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminFinanceSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminFinanceSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminFinanceSettingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminFinanceSettings>>
+  > = ({ signal }) => getAdminFinanceSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminFinanceSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminFinanceSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminFinanceSettings>>
+>;
+export type GetAdminFinanceSettingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Platform finance settings
+ */
+
+export function useGetAdminFinanceSettings<
+  TData = Awaited<ReturnType<typeof getAdminFinanceSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminFinanceSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminFinanceSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update platform finance settings
+ */
+export const getPatchAdminFinanceSettingsUrl = () => {
+  return `/api/admin/finance/settings`;
+};
+
+export const patchAdminFinanceSettings = async (
+  patchAdminFinanceSettings: PatchAdminFinanceSettings,
+  options?: RequestInit,
+): Promise<AdminFinanceSettings> => {
+  return customFetch<AdminFinanceSettings>(getPatchAdminFinanceSettingsUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(patchAdminFinanceSettings),
+  });
+};
+
+export const getPatchAdminFinanceSettingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchAdminFinanceSettings>>,
+    TError,
+    { data: BodyType<PatchAdminFinanceSettings> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof patchAdminFinanceSettings>>,
+  TError,
+  { data: BodyType<PatchAdminFinanceSettings> },
+  TContext
+> => {
+  const mutationKey = ["patchAdminFinanceSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof patchAdminFinanceSettings>>,
+    { data: BodyType<PatchAdminFinanceSettings> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return patchAdminFinanceSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PatchAdminFinanceSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof patchAdminFinanceSettings>>
+>;
+export type PatchAdminFinanceSettingsMutationBody =
+  BodyType<PatchAdminFinanceSettings>;
+export type PatchAdminFinanceSettingsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update platform finance settings
+ */
+export const usePatchAdminFinanceSettings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof patchAdminFinanceSettings>>,
+    TError,
+    { data: BodyType<PatchAdminFinanceSettings> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof patchAdminFinanceSettings>>,
+  TError,
+  { data: BodyType<PatchAdminFinanceSettings> },
+  TContext
+> => {
+  return useMutation(getPatchAdminFinanceSettingsMutationOptions(options));
+};
