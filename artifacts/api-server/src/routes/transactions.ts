@@ -1,5 +1,6 @@
 import { Router, type IRouter, type NextFunction, type Request, type Response } from "express";
 import { db, transactionsTable, usersTable } from "@workspace/db";
+import { mirrorAvailableFromUser } from "../services/user-wallet-service";
 import { eq, desc, and } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
@@ -209,6 +210,8 @@ router.post("/withdraw", async (req, res) => {
       .update(usersTable)
       .set({ walletBalance: String(currentBalance - amount) })
       .where(eq(usersTable.id, userId));
+
+    await mirrorAvailableFromUser(db, userId);
 
     const [tx] = await db
       .insert(transactionsTable)

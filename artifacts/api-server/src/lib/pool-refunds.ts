@@ -1,4 +1,5 @@
 import { db, poolParticipantsTable, usersTable, transactionsTable, poolsTable } from "@workspace/db";
+import { mirrorAvailableFromUser } from "../services/user-wallet-service";
 import { eq, and, desc, or } from "drizzle-orm";
 import { notifyUser } from "./notify";
 import { logActivity } from "../services/activity-service";
@@ -64,6 +65,7 @@ export async function refundAllPoolParticipants(
       const refundAmt = paidAmount > 0 ? paidAmount : parseFloat(pool.entryFee);
       const newBal = parseFloat(user.walletBalance) + refundAmt;
       await db.update(usersTable).set({ walletBalance: String(newBal) }).where(eq(usersTable.id, p.userId));
+      await mirrorAvailableFromUser(db, p.userId);
       await db.insert(transactionsTable).values({
         userId: p.userId,
         txType: "deposit",

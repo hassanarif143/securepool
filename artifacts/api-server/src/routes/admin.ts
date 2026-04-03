@@ -29,11 +29,14 @@ import { refundAllPoolParticipants } from "../lib/pool-refunds";
 import {
   appendDepositFromTicketPurchase,
   appendWithdrawalForPayout,
+  appendBonusGrant,
   financeOverviewQueries,
+  financeSummaryExtended,
   listWalletTransactionsFiltered,
   activeUsersByDay,
   getDrawDesiredProfitUsdt,
 } from "../services/admin-wallet-service";
+import { mirrorAvailableFromUser, recordDepositApproved, recordWithdrawalCompleted } from "../services/user-wallet-service";
 
 const router: IRouter = Router();
 
@@ -728,7 +731,20 @@ router.post("/transactions/:id/approve", async (req, res) => {
         await appendDepositFromTicketPurchase(trx, {
           amount: depositAmt,
           referenceId: txId,
+          userId: txn.userId,
           description: `Deposit approved — user tx #${txId} — ${depositAmt} USDT (excludes signup bonus)`,
+        });
+        await appendBonusGrant(trx, {
+          amount: bonusAmount,
+          userId: txn.userId,
+          description: `Deposit match bonus — user tx #${txId} — ${bonusAmount} USDT`,
+        });
+        await recordDepositApproved(trx, {
+          userId: txn.userId,
+          depositAmount: depositAmt,
+          bonusAmount,
+          balanceAfter: newBalanceWithBonus,
+          depositTxId: txId,
         });
       }
     });
@@ -805,15 +821,23 @@ router.post("/transactions/:id/complete", async (req, res) => {
       await appendWithdrawalForPayout(trx, {
         amount: wdAmount,
         referenceId: txId,
+        userId: txn.userId,
         description: `Withdrawal completed — user tx #${txId} — ${wdAmount} USDT sent`,
       });
       await trx.update(transactionsTable).set({ status: "completed" }).where(eq(transactionsTable.id, txId));
+      await recordWithdrawalCompleted(trx, {
+        userId: txn.userId,
+        amount: wdAmount,
+        withdrawTxId: txId,
+        description: `Withdrawal of ${wdAmount} USDT completed (tx #${txId})`,
+      });
     });
   } catch (err: unknown) {
-    if ((err as { code?: string }).code === "INSUFFICIENT_ADMIN_WALLET") {
+    const e = err as { code?: string; currentBalance?: number; withdrawalAmount?: number };
+    if (e.code === "INSUFFICIENT_ADMIN_WALLET") {
       res.status(400).json({
-        error: "Insufficient admin treasury balance",
-        message: "Recorded treasury balance is too low to mark this payout complete. Verify ledger and Binance balance.",
+        error: "Insufficient central wallet balance",
+        message: `Insufficient central wallet balance. Current balance: ${e.currentBalance != null ? e.currentBalance.toFixed(2) : "?"} USDT, withdrawal amount: ${e.withdrawalAmount != null ? e.withdrawalAmount.toFixed(2) : "?"} USDT`,
       });
       return;
     }
@@ -865,6 +889,7 @@ router.post("/users/:id/adjust-balance", async (req, res) => {
   if (newBalance < 0) { res.status(400).json({ error: "Balance cannot go below 0" }); return; }
 
   await db.update(usersTable).set({ walletBalance: String(newBalance) }).where(eq(usersTable.id, userId));
+  await mirrorAvailableFromUser(db, userId);
 
   await db.insert(transactionsTable).values({
     userId,
@@ -1408,6 +1433,43 @@ router.post("/wallet-requests/:id/reject", async (req, res) => {
   }
 
   return res.json({ message: "Request rejected" });
+});
+
+router.get("/wallet/balance", async (_req, res) => {
+  const start = new Date();
+  start.setUTCHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+  const o = await financeOverviewQueries({ todayStart: start, todayEnd: end });
+  res.json({
+    balance: o.currentBalance,
+    total_deposits: o.totalRevenueDeposits,
+    total_payouts: o.totalPaidOutWithdrawals,
+    total_fees: o.totalPlatformFees,
+  });
+});
+
+router.get("/wallet/summary", async (_req, res) => {
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const todayEnd = new Date(todayStart);
+  todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
+  const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+  const s = await financeSummaryExtended({ weekStart, monthStart, todayStart, todayEnd });
+  res.json({
+    balance: s.currentBalance,
+    total_deposits: s.totalRevenueDeposits,
+    total_payouts: s.totalPaidOutWithdrawals,
+    total_fees: s.totalPlatformFees,
+    today_deposits: s.todayDeposits,
+    today_withdrawals: s.todayWithdrawals,
+    week_deposits: s.weekDeposits,
+    week_payouts: s.weekPayouts,
+    month_deposits: s.monthDeposits,
+    month_payouts: s.monthPayouts,
+  });
 });
 
 router.get("/finance/overview", async (_req, res) => {

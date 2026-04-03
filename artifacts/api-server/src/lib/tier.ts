@@ -1,4 +1,6 @@
-import { pool } from "@workspace/db";
+import { db, pool } from "@workspace/db";
+import { appendBonusGrant } from "../services/admin-wallet-service";
+import { recordBonusFromPlatform } from "../services/user-wallet-service";
 
 export const TIER_CONFIG = [
   { id: "aurora",   label: "Bronze",   minPoints: 0,   icon: "🥉", free_ticket: false },
@@ -80,6 +82,28 @@ export async function awardTierPoints(userId: number, points: number) {
      WHERE id = $5`,
       [newPoints, newTier, claimed.join(","), String(newBalance), userId],
     );
+
+    if (freeTicketGranted) {
+      const tierCfg = getTierConfig(newTier);
+      try {
+        await db.transaction(async (trx) => {
+          await appendBonusGrant(trx, {
+            userId,
+            amount: FREE_TICKET_USDT,
+            description: `Tier upgrade free ticket credit — ${tierCfg.label} tier`,
+          });
+          await recordBonusFromPlatform(trx, {
+            userId,
+            amount: FREE_TICKET_USDT,
+            balanceAfter: newBalance,
+            description: `Tier upgrade bonus — ${FREE_TICKET_USDT} USDT (${tierCfg.label})`,
+            referenceType: "tier",
+          });
+        });
+      } catch (e) {
+        console.warn("[tier] central/user wallet ledger for tier bonus:", e);
+      }
+    }
 
     return { newTier, previousTier: currentTier, tierChanged, freeTicketGranted, newPoints };
   } catch (err) {

@@ -3,6 +3,8 @@ import { Router, type IRouter } from "express";
 import { db, usersTable, referralsTable, transactionsTable } from "@workspace/db";
 import { notifyUser } from "../lib/notify";
 import { eq, desc } from "drizzle-orm";
+import { appendBonusGrant } from "../services/admin-wallet-service";
+import { recordBonusFromPlatform } from "../services/user-wallet-service";
 
 const router: IRouter = Router();
 
@@ -104,15 +106,30 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
     /* Credit referrer */
     const [referrer] = await db.select().from(usersTable).where(eq(usersTable.id, referral.referrerId)).limit(1);
     const [referredUser] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, referredUserId)).limit(1);
-    if (referrer) {
+    if (referrer && bonusReferrer > 0) {
       const newBalance = parseFloat(referrer.walletBalance) + bonusReferrer;
-      await db.update(usersTable).set({ walletBalance: String(newBalance) }).where(eq(usersTable.id, referrer.id));
-      await db.insert(transactionsTable).values({
-        userId: referrer.id,
-        txType: "reward",
-        amount: String(bonusReferrer),
-        status: "completed",
-        note: `Referral bonus — ${referrer.name} referred a new user who joined their first pool`,
+      await db.transaction(async (trx) => {
+        await trx.update(usersTable).set({ walletBalance: String(newBalance) }).where(eq(usersTable.id, referrer.id));
+        await trx.insert(transactionsTable).values({
+          userId: referrer.id,
+          txType: "reward",
+          amount: String(bonusReferrer),
+          status: "completed",
+          note: `Referral bonus — ${referrer.name} referred a new user who joined their first pool`,
+        });
+        await appendBonusGrant(trx, {
+          amount: bonusReferrer,
+          userId: referrer.id,
+          description: `Referral bonus — referred user #${referredUserId} first pool join`,
+        });
+        await recordBonusFromPlatform(trx, {
+          userId: referrer.id,
+          amount: bonusReferrer,
+          balanceAfter: newBalance,
+          description: `Referral bonus — ${bonusReferrer.toFixed(2)} USDT`,
+          referenceType: "referral",
+          referenceId: referral.id,
+        });
       });
       void notifyUser(
         referrer.id,

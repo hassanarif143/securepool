@@ -193,10 +193,10 @@ function FinanceTab() {
     <div className="space-y-6 mt-4">
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Treasury balance", value: `${overview.currentBalance.toFixed(2)} USDT` },
-          { label: "Deposits (ledger)", value: `${overview.totalRevenueDeposits.toFixed(2)} USDT` },
-          { label: "Paid out (ledger)", value: `${overview.totalPaidOutWithdrawals.toFixed(2)} USDT` },
-          { label: "Platform fees (ledger)", value: `${overview.totalPlatformFees.toFixed(2)} USDT` },
+          { label: "Central wallet (ledger balance)", value: `${overview.currentBalance.toFixed(2)} USDT` },
+          { label: "Total deposits (ticket approvals)", value: `${overview.totalRevenueDeposits.toFixed(2)} USDT` },
+          { label: "Total payouts (withdrawals completed)", value: `${overview.totalPaidOutWithdrawals.toFixed(2)} USDT` },
+          { label: "Total platform fees (draws)", value: `${overview.totalPlatformFees.toFixed(2)} USDT` },
         ].map((c) => (
           <Card key={c.label}>
             <CardContent className="p-4">
@@ -313,7 +313,7 @@ function FinanceTab() {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Treasury ledger</CardTitle>
+          <CardTitle className="text-base">Central wallet ledger</CardTitle>
           <div className="flex flex-wrap gap-2 items-center pt-2">
             <Select value={ledgerType} onValueChange={(v) => setLedgerType(v as typeof ledgerType)}>
               <SelectTrigger className="h-9 w-[160px]">

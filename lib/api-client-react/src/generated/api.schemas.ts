@@ -18,6 +18,22 @@ export interface MessageResponse {
   message: string;
 }
 
+export interface UserWalletLedgerRow {
+  id: number;
+  transaction_type: string;
+  category: string;
+  amount: number;
+  reference_type?: string | null;
+  reference_id?: number | null;
+  description: string;
+  balance_after: number;
+  created_at: string;
+}
+
+export interface UserWalletTransactionsResponse {
+  transactions: UserWalletLedgerRow[];
+}
+
 export interface User {
   id: number;
   name: string;
@@ -141,6 +157,33 @@ export interface AdminFinanceOverview {
   activeUsersByDay: ActiveUsersByDayRow[];
 }
 
+export interface AdminCentralWalletBalance {
+  /** Running balance from central_wallet_ledger (last row) */
+  balance: number;
+  /** Sum of TICKET_DEPOSIT credits */
+  total_deposits: number;
+  /** Sum of PRIZE_PAYOUT debits */
+  total_payouts: number;
+  /** Net platform fees from draws (CREDIT minus DEBIT rows) */
+  total_fees: number;
+}
+
+export interface AdminCentralWalletSummary {
+  balance: number;
+  total_deposits: number;
+  total_payouts: number;
+  total_fees: number;
+  today_deposits: number;
+  today_withdrawals: number;
+  week_deposits: number;
+  week_payouts: number;
+  month_deposits: number;
+  month_payouts: number;
+}
+
+/**
+ * Legacy filter label mapped from central_wallet_ledger category
+ */
 export type AdminWalletLedgerRowType =
   (typeof AdminWalletLedgerRowType)[keyof typeof AdminWalletLedgerRowType];
 
@@ -151,12 +194,25 @@ export const AdminWalletLedgerRowType = {
   bonus: "bonus",
 } as const;
 
+export type AdminWalletLedgerRowTransactionType =
+  (typeof AdminWalletLedgerRowTransactionType)[keyof typeof AdminWalletLedgerRowTransactionType];
+
+export const AdminWalletLedgerRowTransactionType = {
+  CREDIT: "CREDIT",
+  DEBIT: "DEBIT",
+} as const;
+
 export interface AdminWalletLedgerRow {
   id: number;
+  /** Legacy filter label mapped from central_wallet_ledger category */
   type: AdminWalletLedgerRowType;
+  transactionType?: AdminWalletLedgerRowTransactionType;
+  /** e.g. TICKET_DEPOSIT, PRIZE_PAYOUT, PLATFORM_FEE, BONUS_CREDIT */
+  category?: string;
   amount: number;
-  referenceType: string;
+  referenceType?: string | null;
   referenceId?: number | null;
+  userId?: number | null;
   description: string;
   balanceAfter: number;
   createdAt: string;
@@ -373,6 +429,10 @@ export interface DashboardStats {
   comebackCoupons?: DashboardStatsComebackCoupons;
   poolVipBreakdown?: DashboardStatsPoolVipBreakdownItem[];
 }
+
+export type ListCurrentUserWalletLedgerParams = {
+  limit?: number;
+};
 
 export type ListAdminWalletTransactionsParams = {
   type?: ListAdminWalletTransactionsType;

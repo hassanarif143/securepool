@@ -27,6 +27,19 @@ PostgreSQL column for the message body is **`message`** (not `body`). All server
 | Email (optional) | `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` |
 | Admin | `SUPER_ADMIN_USER_IDS` (comma-separated numeric IDs) |
 
+## Access — what you need (hosting + login)
+
+| What | Where you get it |
+|------|------------------|
+| **Source code** | GitHub repo access (clone / pull `main`). |
+| **Production API** | Railway (or any host): set env vars from `artifacts/api-server/.env.example`; connect **Neon** `DATABASE_URL`. |
+| **Production frontend** | Vercel: `VITE_API_URL` = public Railway API origin; allow that origin in Railway `FRONTEND_ORIGINS`. |
+| **Database** | Neon console: connection string → `DATABASE_URL`. Run SQL migrations via API boot **or** Neon SQL Editor. |
+| **Admin panel** | A user with **`is_admin = true`** in DB (or sign up + flip in Neon). **Super-admin** IDs: `SUPER_ADMIN_USER_IDS` on API. |
+| **Email (optional)** | Gmail app password → `SMTP_USER` / `SMTP_PASS` / `EMAIL_FROM`; admin draw emails: `ADMIN_EMAIL` or `ADMIN_NOTIFY_EMAIL`. |
+
+Local: copy **`artifacts/api-server/.env.example`** → **`artifacts/api-server/.env`** and fill real values (file is gitignored).
+
 ## Local development
 
 From the **repository root** (after `pnpm install`):
@@ -34,9 +47,9 @@ From the **repository root** (after `pnpm install`):
 | Command | What it does |
 |---------|----------------|
 | `pnpm run dev:frontend` | Starts Vite with defaults **`PORT=5173`** and **`BASE_PATH=/`** (required by `artifacts/usdtluck/vite.config.ts`). Proxies **`/api`** and **`/uploads`** to **`http://localhost:8080`**. Override port: `PORT=5180 pnpm run dev:frontend`. |
-| `pnpm run dev:stack` | Runs `scripts/dev-stack.sh`: starts the API in the background (`pnpm --filter @workspace/api-server run dev`), then the frontend. Press **Ctrl+C** to stop both. |
+| `pnpm run dev:stack` | Runs `scripts/dev-stack.sh`: API on **8080**, frontend on **5173** (override with `API_PORT` / `FE_PORT`). Press **Ctrl+C** to stop both. |
 
-Set **`DATABASE_URL`**, **`SESSION_SECRET`**, and **`JWT_SECRET`** in a root **`.env`** file (gitignored) or export them in your shell before starting the API. For the default Vite proxy, run the API on **port 8080**, or change the `server.proxy` targets in `artifacts/usdtluck/vite.config.ts` to match your API `PORT`.
+Set **`DATABASE_URL`**, **`SESSION_SECRET`**, and **`JWT_SECRET`** in **`artifacts/api-server/.env`** (see `.env.example`). Vite proxies `/api` to **`http://localhost:8080`** — keep **`PORT=8080`** in that `.env` unless you change `vite.config.ts`.
 
 **Apple Silicon:** If Vite fails with missing optional natives (`@rollup/rollup-darwin-arm64`, `lightningcss`, `@tailwindcss/oxide`), the workspace root lists matching **`devDependencies`** — run **`pnpm install`** again from the repo root.
 
@@ -46,6 +59,11 @@ The API runs pending SQL migrations on startup (`runPendingSqlMigrations`). Ensu
 
 - **`0005_wallet_change_demo.sql`** — `wallet_change_requests`, `users.is_demo`, `winners.payment_status`
 - **`0006_activity_loyalty.sql`** — `activity_logs`, `users.referral_points`, `users.free_entries`, `users.pool_join_count` (and backfill join counts)
+- **`0007`–`0008`** — engagement / retention columns and related tables (see `lib/db/migrations/`)
+- **`0009_admin_wallet_and_draw_financials.sql`** — legacy `admin_wallet_transactions`, `platform_settings`, `pool_draw_financials`, `pool_participants.amount_paid`
+- **`0010_central_wallet_user_wallets.sql`** — **`central_wallet_ledger`** (canonical treasury ledger), **`user_wallet`**, **`user_wallet_transactions`**; one-time backfill from legacy admin wallet + user aggregates. New writes go to `central_wallet_ledger` only.
+
+**API (finance):** `GET /api/admin/finance/overview` (full dashboard payload), `GET /api/admin/wallet/balance` and `GET /api/admin/wallet/summary` (headline + period totals). **User:** `GET /api/user/wallet` (includes balance breakdown fields), `GET /api/user/wallet/transactions`. Regenerate clients after OpenAPI changes: **`pnpm --filter @workspace/api-spec run codegen`**.
 
 If you change Drizzle schema under `lib/db`, run **`pnpm exec tsc -b lib/db`** (or root **`pnpm run typecheck:libs`**) so declaration files stay in sync. The **`@workspace/api-server`** `typecheck` script builds `lib/db` first, then typechecks the API.
 

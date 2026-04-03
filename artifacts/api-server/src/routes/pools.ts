@@ -43,6 +43,7 @@ import { computeEntryDiscount } from "../services/entry-discount-service";
 import { getActiveComebackCoupon, markCouponUsed } from "../services/coupon-service";
 import { computeMinParticipantsToRunDraw } from "../services/draw-economics";
 import { appendPlatformFeeForDraw, getDrawDesiredProfitUsdt } from "../services/admin-wallet-service";
+import { mirrorAvailableFromUser, recordPrizeWon } from "../services/user-wallet-service";
 
 const JoinPoolBody = z.object({
   useFreeEntry: z.boolean().optional(),
@@ -853,6 +854,7 @@ router.post("/:poolId/join", async (req, res) => {
       .update(usersTable)
       .set({ walletBalance: String(userBalance - amountDue) })
       .where(eq(usersTable.id, sessionUserId));
+    await mirrorAvailableFromUser(db, sessionUserId);
   }
 
   await db.insert(poolParticipantsTable).values({
@@ -1039,6 +1041,15 @@ async function executePoolDistribution(poolId: number) {
           firstWinAt: isFirstWinEver ? new Date() : user.firstWinAt,
         })
         .where(eq(usersTable.id, participant.userId));
+
+      await recordPrizeWon(tx, {
+        userId: participant.userId,
+        amount: prize,
+        poolId,
+        place,
+        poolTitle: pool.title,
+        balanceAfter: newBalance,
+      });
 
       if (isFirstWinEver) firstWinUserIds.push(participant.userId);
 

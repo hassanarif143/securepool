@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { z } from "zod";
 import { db, pool as pgPool, usersTable, walletChangeRequestsTable, dailyLoginsTable } from "@workspace/db";
+import { getUserWalletPayload, listUserWalletTransactions } from "../services/user-wallet-service";
 import { and, desc, eq, ne } from "drizzle-orm";
 import { getAuthedUserId, requireAuth, type AuthedRequest } from "../middleware/auth";
 import { sanitizeText } from "../lib/sanitize";
@@ -33,7 +34,11 @@ const changeLimiter = rateLimit({
   limit: 3,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `wallet_change:${getAuthedUserId(req) || req.ip}`,
+  keyGenerator: (req) => {
+    const uid = getAuthedUserId(req);
+    if (uid) return `wallet_change:${uid}`;
+    return `wallet_change:${ipKeyGenerator(req.ip ?? "127.0.0.1")}`;
+  },
 });
 
 router.get("/loyalty", async (req, res): Promise<void> => {
@@ -278,6 +283,8 @@ router.get("/wallet", async (req, res): Promise<void> => {
     if (until.getTime() > Date.now()) cooldownUntil = until.toISOString();
   }
 
+  const fin = await getUserWalletPayload(userId);
+
   res.json({
     address: user.cryptoAddress ?? null,
     pendingRequest: pending
@@ -295,7 +302,20 @@ router.get("/wallet", async (req, res): Promise<void> => {
         }
       : null,
     cooldownUntil,
+    available_balance: fin?.available_balance ?? 0,
+    total_won: fin?.total_won ?? 0,
+    total_withdrawn: fin?.total_withdrawn ?? 0,
+    total_bonus: fin?.total_bonus ?? 0,
   });
+  return;
+});
+
+router.get("/wallet/transactions", async (req, res): Promise<void> => {
+  const userId = getAuthedUserId(req);
+  const limitRaw = parseInt(String(req.query.limit ?? "50"), 10);
+  const limit = Number.isNaN(limitRaw) ? 50 : limitRaw;
+  const rows = await listUserWalletTransactions(userId, limit);
+  res.json({ transactions: rows });
   return;
 });
 

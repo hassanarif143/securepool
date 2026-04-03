@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Response } from "express";
 import bcrypt from "bcryptjs";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { db, pool as dbPool, usersTable, referralsTable, transactionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -50,7 +50,8 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => {
     const email = typeof (req.body as any)?.email === "string" ? (req.body as any).email.toLowerCase().trim() : "";
-    return email || req.ip || "unknown";
+    if (email) return email;
+    return ipKeyGenerator(req.ip ?? "127.0.0.1");
   },
 });
 
@@ -59,7 +60,7 @@ const signupLimiter = rateLimit({
   limit: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip || "unknown",
+  keyGenerator: (req) => ipKeyGenerator(req.ip ?? "127.0.0.1"),
 });
 
 function authCookieOptions() {

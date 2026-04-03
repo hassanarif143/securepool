@@ -27,6 +27,10 @@ type WalletApi = {
   pendingRequest: { id: number; newAddress: string; reason: string; requestedAt: string } | null;
   lastRejected: { adminNote: string | null; reviewedAt: string | null } | null;
   cooldownUntil: string | null;
+  available_balance?: number;
+  total_won?: number;
+  total_withdrawn?: number;
+  total_bonus?: number;
 };
 
 function truncateAddr(addr: string): { short: string; full: string } {
@@ -41,6 +45,81 @@ function cooldownParts(untilIso: string): { h: number; m: number } | null {
   if (end <= now) return null;
   const ms = end - now;
   return { h: Math.floor(ms / 3_600_000), m: Math.floor((ms % 3_600_000) / 60_000) };
+}
+
+type UserWalletTxRow = {
+  id: number;
+  transaction_type: string;
+  category: string;
+  amount: number;
+  description: string;
+  balance_after: number;
+  created_at: string;
+};
+
+function WalletLedgerCard() {
+  const { user, isLoading } = useAuth();
+  const [rows, setRows] = useState<UserWalletTxRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    fetch(apiUrl("/api/user/wallet/transactions?limit=25"), { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { transactions?: UserWalletTxRow[] } | null) => {
+        if (!cancelled && j?.transactions) setRows(j.transactions);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  if (isLoading || !user) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Wallet activity</CardTitle>
+        <CardDescription>Recent credits and debits from your in-app wallet (server ledger).</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No ledger entries yet.</p>
+        ) : (
+          <ul className="space-y-2 text-sm max-h-64 overflow-y-auto pr-1">
+            {rows.map((r) => (
+              <li key={r.id} className="flex flex-wrap justify-between gap-2 border-b border-border/40 pb-2 last:border-0 text-xs">
+                <div className="min-w-0 flex-1">
+                  <p className="text-foreground/90 break-words">{r.description}</p>
+                  <p className="text-muted-foreground mt-0.5">
+                    {new Date(r.created_at).toLocaleString()} · {r.category.replace(/_/g, " ")}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p
+                    className={`font-semibold tabular-nums ${r.transaction_type === "CREDIT" ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}`}
+                  >
+                    {r.transaction_type === "CREDIT" ? "+" : "−"}
+                    {r.amount.toFixed(2)} USDT
+                  </p>
+                  <p className="text-[10px] text-muted-foreground tabular-nums">Bal {r.balance_after.toFixed(2)}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 function PrizeHistoryCard() {
@@ -287,6 +366,41 @@ export default function ProfilePage() {
   return (
     <div className="max-w-lg mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Profile</h1>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Your wallet</CardTitle>
+          <CardDescription>Balances from completed deposits, prizes, bonuses, and withdrawals (server-tracked).</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {walletLoading ? (
+            <p className="text-muted-foreground">Loading…</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Available</p>
+                <p className="text-lg font-semibold tabular-nums">
+                  {(walletInfo?.available_balance ?? currentUser.walletBalance).toFixed(2)} USDT
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total won (draws)</p>
+                <p className="text-lg font-semibold tabular-nums">{(walletInfo?.total_won ?? 0).toFixed(2)} USDT</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total withdrawn</p>
+                <p className="text-lg font-semibold tabular-nums">{(walletInfo?.total_withdrawn ?? 0).toFixed(2)} USDT</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total bonuses</p>
+                <p className="text-lg font-semibold tabular-nums">{(walletInfo?.total_bonus ?? 0).toFixed(2)} USDT</p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <WalletLedgerCard />
 
       <Card>
         <CardHeader>

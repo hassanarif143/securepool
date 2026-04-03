@@ -5,14 +5,20 @@
  * USDTLuck API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AdminWalletLedgerRowTransactionType } from "./adminWalletLedgerRowTransactionType";
 import type { AdminWalletLedgerRowType } from "./adminWalletLedgerRowType";
 
 export interface AdminWalletLedgerRow {
   id: number;
+  /** Legacy filter label mapped from central_wallet_ledger category */
   type: AdminWalletLedgerRowType;
+  transactionType?: AdminWalletLedgerRowTransactionType;
+  /** e.g. TICKET_DEPOSIT, PRIZE_PAYOUT, PLATFORM_FEE, BONUS_CREDIT */
+  category?: string;
   amount: number;
-  referenceType: string;
+  referenceType?: string | null;
   referenceId?: number | null;
+  userId?: number | null;
   description: string;
   balanceAfter: number;
   createdAt: Date;

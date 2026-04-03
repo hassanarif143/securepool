@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Legacy filter label mapped from central_wallet_ledger category
+ */
 export type AdminWalletLedgerRowType =
   (typeof AdminWalletLedgerRowType)[keyof typeof AdminWalletLedgerRowType];
 

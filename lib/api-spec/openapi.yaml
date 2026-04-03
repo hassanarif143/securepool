@@ -121,6 +121,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /user/wallet/transactions:
+    get:
+      operationId: listCurrentUserWalletLedger
+      tags: [users]
+      summary: Current user wallet ledger rows (prizes, withdrawals, deposits, bonuses)
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Wrapped list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserWalletTransactionsResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /users/{userId}:
     get:
       operationId: getUser
@@ -435,6 +460,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/AdminFinanceOverview"
 
+  /admin/wallet/balance:
+    get:
+      operationId: getAdminCentralWalletBalance
+      tags: [admin]
+      summary: Central wallet balance and cumulative ledger totals
+      responses:
+        "200":
+          description: Balance snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCentralWalletBalance"
+
+  /admin/wallet/summary:
+    get:
+      operationId: getAdminCentralWalletSummary
+      tags: [admin]
+      summary: Central wallet plus today / week / month deposit and payout totals
+      responses:
+        "200":
+          description: Extended summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCentralWalletSummary"
+
   /admin/finance/wallet-transactions:
     get:
       operationId: listAdminWalletTransactions
@@ -543,6 +594,48 @@ components:
         message:
           type: string
       required: [message]
+
+    UserWalletLedgerRow:
+      type: object
+      properties:
+        id:
+          type: integer
+        transaction_type:
+          type: string
+        category:
+          type: string
+        amount:
+          type: number
+        reference_type:
+          type: string
+          nullable: true
+        reference_id:
+          type: integer
+          nullable: true
+        description:
+          type: string
+        balance_after:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - transaction_type
+        - category
+        - amount
+        - description
+        - balance_after
+        - created_at
+
+    UserWalletTransactionsResponse:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserWalletLedgerRow"
+      required: [transactions]
 
     User:
       type: object
@@ -761,6 +854,58 @@ components:
           type: integer
       required: [day, count]
 
+    AdminCentralWalletBalance:
+      type: object
+      properties:
+        balance:
+          type: number
+          description: Running balance from central_wallet_ledger (last row)
+        total_deposits:
+          type: number
+          description: Sum of TICKET_DEPOSIT credits
+        total_payouts:
+          type: number
+          description: Sum of PRIZE_PAYOUT debits
+        total_fees:
+          type: number
+          description: Net platform fees from draws (CREDIT minus DEBIT rows)
+      required: [balance, total_deposits, total_payouts, total_fees]
+
+    AdminCentralWalletSummary:
+      type: object
+      properties:
+        balance:
+          type: number
+        total_deposits:
+          type: number
+        total_payouts:
+          type: number
+        total_fees:
+          type: number
+        today_deposits:
+          type: number
+        today_withdrawals:
+          type: number
+        week_deposits:
+          type: number
+        week_payouts:
+          type: number
+        month_deposits:
+          type: number
+        month_payouts:
+          type: number
+      required:
+        - balance
+        - total_deposits
+        - total_payouts
+        - total_fees
+        - today_deposits
+        - today_withdrawals
+        - week_deposits
+        - week_payouts
+        - month_deposits
+        - month_payouts
+
     AdminWalletLedgerRow:
       type: object
       properties:
@@ -769,11 +914,22 @@ components:
         type:
           type: string
           enum: [deposit, withdrawal, platform_fee, bonus]
+          description: Legacy filter label mapped from central_wallet_ledger category
+        transactionType:
+          type: string
+          enum: [CREDIT, DEBIT]
+        category:
+          type: string
+          description: e.g. TICKET_DEPOSIT, PRIZE_PAYOUT, PLATFORM_FEE, BONUS_CREDIT
         amount:
           type: number
         referenceType:
           type: string
+          nullable: true
         referenceId:
+          type: integer
+          nullable: true
+        userId:
           type: integer
           nullable: true
         description:
@@ -783,7 +939,7 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [id, type, amount, referenceType, description, balanceAfter, createdAt]
+      required: [id, type, amount, description, balanceAfter, createdAt]
 
     AdminDrawFinancialsDetail:
       type: object

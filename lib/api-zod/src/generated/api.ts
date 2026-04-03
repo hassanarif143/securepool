@@ -67,6 +67,33 @@ export const GetMeResponse = zod.object({
 });
 
 /**
+ * @summary Current user wallet ledger rows (prizes, withdrawals, deposits, bonuses)
+ */
+export const listCurrentUserWalletLedgerQueryLimitDefault = 50;
+
+export const ListCurrentUserWalletLedgerQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .default(listCurrentUserWalletLedgerQueryLimitDefault),
+});
+
+export const ListCurrentUserWalletLedgerResponse = zod.object({
+  transactions: zod.array(
+    zod.object({
+      id: zod.number(),
+      transaction_type: zod.string(),
+      category: zod.string(),
+      amount: zod.number(),
+      reference_type: zod.string().nullish(),
+      reference_id: zod.number().nullish(),
+      description: zod.string(),
+      balance_after: zod.number(),
+      created_at: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
  * @summary Get user profile
  */
 export const GetUserParams = zod.object({
@@ -432,6 +459,36 @@ export const GetAdminFinanceOverviewResponse = zod.object({
 });
 
 /**
+ * @summary Central wallet balance and cumulative ledger totals
+ */
+export const GetAdminCentralWalletBalanceResponse = zod.object({
+  balance: zod
+    .number()
+    .describe("Running balance from central_wallet_ledger (last row)"),
+  total_deposits: zod.number().describe("Sum of TICKET_DEPOSIT credits"),
+  total_payouts: zod.number().describe("Sum of PRIZE_PAYOUT debits"),
+  total_fees: zod
+    .number()
+    .describe("Net platform fees from draws (CREDIT minus DEBIT rows)"),
+});
+
+/**
+ * @summary Central wallet plus today / week / month deposit and payout totals
+ */
+export const GetAdminCentralWalletSummaryResponse = zod.object({
+  balance: zod.number(),
+  total_deposits: zod.number(),
+  total_payouts: zod.number(),
+  total_fees: zod.number(),
+  today_deposits: zod.number(),
+  today_withdrawals: zod.number(),
+  week_deposits: zod.number(),
+  week_payouts: zod.number(),
+  month_deposits: zod.number(),
+  month_payouts: zod.number(),
+});
+
+/**
  * @summary Admin treasury ledger (append-only)
  */
 export const ListAdminWalletTransactionsQueryParams = zod.object({
@@ -445,10 +502,18 @@ export const ListAdminWalletTransactionsQueryParams = zod.object({
 
 export const ListAdminWalletTransactionsResponseItem = zod.object({
   id: zod.number(),
-  type: zod.enum(["deposit", "withdrawal", "platform_fee", "bonus"]),
+  type: zod
+    .enum(["deposit", "withdrawal", "platform_fee", "bonus"])
+    .describe("Legacy filter label mapped from central_wallet_ledger category"),
+  transactionType: zod.enum(["CREDIT", "DEBIT"]).optional(),
+  category: zod
+    .string()
+    .optional()
+    .describe("e.g. TICKET_DEPOSIT, PRIZE_PAYOUT, PLATFORM_FEE, BONUS_CREDIT"),
   amount: zod.number(),
-  referenceType: zod.string(),
+  referenceType: zod.string().nullish(),
   referenceId: zod.number().nullish(),
+  userId: zod.number().nullish(),
   description: zod.string(),
   balanceAfter: zod.number(),
   createdAt: zod.coerce.date(),

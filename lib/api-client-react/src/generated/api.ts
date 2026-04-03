@@ -17,6 +17,8 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AdminCentralWalletBalance,
+  AdminCentralWalletSummary,
   AdminDrawFinancialsDetail,
   AdminFinanceOverview,
   AdminFinanceSettings,
@@ -30,6 +32,7 @@ import type {
   ErrorResponse,
   HealthStatus,
   ListAdminWalletTransactionsParams,
+  ListCurrentUserWalletLedgerParams,
   LoginBody,
   MessageResponse,
   Participant,
@@ -41,6 +44,7 @@ import type {
   UpdatePoolBody,
   UpdateUserBody,
   User,
+  UserWalletTransactionsResponse,
   Winner,
 } from "./api.schemas";
 
@@ -436,6 +440,115 @@ export function useGetMe<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetMeQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Current user wallet ledger rows (prizes, withdrawals, deposits, bonuses)
+ */
+export const getListCurrentUserWalletLedgerUrl = (
+  params?: ListCurrentUserWalletLedgerParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/user/wallet/transactions?${stringifiedParams}`
+    : `/api/user/wallet/transactions`;
+};
+
+export const listCurrentUserWalletLedger = async (
+  params?: ListCurrentUserWalletLedgerParams,
+  options?: RequestInit,
+): Promise<UserWalletTransactionsResponse> => {
+  return customFetch<UserWalletTransactionsResponse>(
+    getListCurrentUserWalletLedgerUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListCurrentUserWalletLedgerQueryKey = (
+  params?: ListCurrentUserWalletLedgerParams,
+) => {
+  return [
+    `/api/user/wallet/transactions`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListCurrentUserWalletLedgerQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCurrentUserWalletLedger>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListCurrentUserWalletLedgerParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCurrentUserWalletLedger>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListCurrentUserWalletLedgerQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCurrentUserWalletLedger>>
+  > = ({ signal }) =>
+    listCurrentUserWalletLedger(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCurrentUserWalletLedger>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCurrentUserWalletLedgerQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCurrentUserWalletLedger>>
+>;
+export type ListCurrentUserWalletLedgerQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Current user wallet ledger rows (prizes, withdrawals, deposits, bonuses)
+ */
+
+export function useListCurrentUserWalletLedger<
+  TData = Awaited<ReturnType<typeof listCurrentUserWalletLedger>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: ListCurrentUserWalletLedgerParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCurrentUserWalletLedger>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCurrentUserWalletLedgerQueryOptions(
+    params,
+    options,
+  );
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -1721,6 +1834,166 @@ export function useGetAdminFinanceOverview<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetAdminFinanceOverviewQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Central wallet balance and cumulative ledger totals
+ */
+export const getGetAdminCentralWalletBalanceUrl = () => {
+  return `/api/admin/wallet/balance`;
+};
+
+export const getAdminCentralWalletBalance = async (
+  options?: RequestInit,
+): Promise<AdminCentralWalletBalance> => {
+  return customFetch<AdminCentralWalletBalance>(
+    getGetAdminCentralWalletBalanceUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAdminCentralWalletBalanceQueryKey = () => {
+  return [`/api/admin/wallet/balance`] as const;
+};
+
+export const getGetAdminCentralWalletBalanceQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminCentralWalletBalance>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminCentralWalletBalance>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminCentralWalletBalanceQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminCentralWalletBalance>>
+  > = ({ signal }) =>
+    getAdminCentralWalletBalance({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminCentralWalletBalance>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminCentralWalletBalanceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminCentralWalletBalance>>
+>;
+export type GetAdminCentralWalletBalanceQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Central wallet balance and cumulative ledger totals
+ */
+
+export function useGetAdminCentralWalletBalance<
+  TData = Awaited<ReturnType<typeof getAdminCentralWalletBalance>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminCentralWalletBalance>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminCentralWalletBalanceQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Central wallet plus today / week / month deposit and payout totals
+ */
+export const getGetAdminCentralWalletSummaryUrl = () => {
+  return `/api/admin/wallet/summary`;
+};
+
+export const getAdminCentralWalletSummary = async (
+  options?: RequestInit,
+): Promise<AdminCentralWalletSummary> => {
+  return customFetch<AdminCentralWalletSummary>(
+    getGetAdminCentralWalletSummaryUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAdminCentralWalletSummaryQueryKey = () => {
+  return [`/api/admin/wallet/summary`] as const;
+};
+
+export const getGetAdminCentralWalletSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminCentralWalletSummary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminCentralWalletSummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminCentralWalletSummaryQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminCentralWalletSummary>>
+  > = ({ signal }) =>
+    getAdminCentralWalletSummary({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminCentralWalletSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminCentralWalletSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminCentralWalletSummary>>
+>;
+export type GetAdminCentralWalletSummaryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Central wallet plus today / week / month deposit and payout totals
+ */
+
+export function useGetAdminCentralWalletSummary<
+  TData = Awaited<ReturnType<typeof getAdminCentralWalletSummary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminCentralWalletSummary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminCentralWalletSummaryQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
