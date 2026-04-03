@@ -1,7 +1,14 @@
 -- Admin treasury ledger, draw financial summaries, platform settings, per-participant revenue
 BEGIN;
 
-CREATE TYPE admin_wallet_tx_type AS ENUM ('deposit', 'withdrawal', 'platform_fee', 'bonus');
+-- Idempotent: startup runs all migrations every boot; plain CREATE TYPE fails on second run.
+DO $migrate$
+BEGIN
+  CREATE TYPE admin_wallet_tx_type AS ENUM ('deposit', 'withdrawal', 'platform_fee', 'bonus');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END
+$migrate$;
 
 CREATE TABLE IF NOT EXISTS admin_wallet_transactions (
   id SERIAL PRIMARY KEY,

@@ -46,7 +46,8 @@ export async function runPendingSqlMigrations(): Promise<void> {
       await pool.query(sql);
       logger.info({ file }, "[migrate] applied");
     } catch (err) {
-      logger.error({ err, file }, "[migrate] failed");
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error({ err, file, message }, "[migrate] failed");
       throw err;
     }
   }
