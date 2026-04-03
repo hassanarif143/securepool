@@ -7,7 +7,6 @@ import { Logo } from "@/components/Logo";
 import { apiUrl } from "@/lib/api-base";
 import { LuckyHourBanner } from "@/components/LuckyHourBanner";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
-import { TrustStrip } from "@/components/TrustStrip";
 import { LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
 
 function playNotifSound() {
@@ -647,14 +646,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
           />
         )}
       </header>
-
-      {user && (
-        <div className="border-b border-border/60 bg-gradient-to-b from-background to-background/95">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3">
-            <TrustStrip />
-          </div>
-        </div>
-      )}
 
       {user ? <LuckyHourBanner /> : null}
 

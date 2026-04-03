@@ -24,6 +24,7 @@ import { TransactionStatusBadge } from "@/components/TransactionStatusBadge";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Inbox } from "lucide-react";
+import { TrustStrip } from "@/components/TrustStrip";
 
 interface TierInfo {
   tier: string;
@@ -197,6 +198,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 sm:space-y-10 pb-12 max-w-6xl mx-auto">
+      {/* Subtle trust grid — above overview, low visual weight */}
+      <TrustStrip />
+
       {/* Page intro */}
       <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-br from-[hsl(222,30%,10%)] via-[hsl(222,30%,9%)] to-[hsl(224,30%,8%)] px-5 py-5 sm:px-6 sm:py-6 shadow-lg shadow-black/20 ring-1 ring-white/[0.04]">
         <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-primary/5 blur-3xl pointer-events-none" aria-hidden />
