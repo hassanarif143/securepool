@@ -10,7 +10,8 @@
     "typecheck": "tsc -b ../../lib/db ../../lib/api-zod && tsc -p tsconfig.json --noEmit",
     "seed:demo": "node --enable-source-maps ./dist/seed-demo-data.mjs",
     "seed:cleanup": "node --enable-source-maps ./dist/seed-cleanup.mjs",
-    "reset-password": "node --enable-source-maps ./dist/reset-user-password.mjs"
+    "reset-password": "node --enable-source-maps ./dist/reset-user-password.mjs",
+    "fresh:start": "node --enable-source-maps ./dist/fresh-database-admin.mjs"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",

@@ -20,6 +20,7 @@ async function buildAll() {
       path.resolve(artifactDir, "src/seed-demo-data.ts"),
       path.resolve(artifactDir, "src/seed-cleanup.ts"),
       path.resolve(artifactDir, "src/reset-user-password.ts"),
+      path.resolve(artifactDir, "src/fresh-database-admin.ts"),
     ],
     platform: "node",
     bundle: true,

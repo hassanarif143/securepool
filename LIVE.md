@@ -83,6 +83,26 @@ To keep a **different** email, edit `keep_email` in the `DO` block in the script
 
 **To remove only one non-admin account** without wiping pools or treasury, edit `target_email` in `scripts/purge-user-by-email.sql` and run it on the correct Neon database.
 
+### Full wipe + brand-new admin (email + password)
+
+Use this when you want **zero users** in the database and **one new admin** with credentials you choose (bcrypt hash matches the API). Requires **Node** and the same **`DATABASE_URL`** as production.
+
+From **repo root** (after `pnpm install`):
+
+```bash
+pnpm --filter @workspace/api-server run build
+cd artifacts/api-server
+FRESH_CONFIRM=YES ADMIN_EMAIL='your-admin@example.com' ADMIN_PASSWORD='your-secure-pass' ADMIN_NAME='Admin' pnpm run fresh:start
+```
+
+The command prints **`userId`**, **`email`**, and **`password`**. Then:
+
+1. Set **`SUPER_ADMIN_USER_IDS`** on Railway to that **`userId`** (comma-separated if you add more admins later).
+2. Log out of the site (or clear cookies) and sign in with the new email and password.
+3. Redeploy the API if you only changed env vars.
+
+This clears the same data as `scripts/reset-to-single-admin.sql` (pools, ledgers, transactions, all users) but **recreates** the admin row instead of keeping `admin@usdtluck.com`.
+
 ## Demo seed data (development only)
 
 From repo root, after a successful API build and with **`DATABASE_URL`** set:
