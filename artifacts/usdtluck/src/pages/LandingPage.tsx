@@ -195,8 +195,8 @@ export default function LandingPage() {
       {/* Live stats */}
       <motion.section id="live-stats" className="max-w-4xl mx-auto scroll-mt-28 px-2 sm:px-0" {...sectionReveal}>
         <p className="text-center text-xs font-semibold uppercase tracking-[0.22em] text-primary/90 mb-4">Platform pulse</p>
-        <div className="rounded-2xl border border-primary/10 bg-gradient-to-br from-[hsl(222,30%,10%)] via-[hsl(222,30%,9%)] to-[hsl(224,30%,8%)] p-1 shadow-xl shadow-black/30 ring-1 ring-white/[0.04]">
-          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border/50 rounded-[0.9rem] overflow-hidden bg-[hsl(222,30%,9%)]/80">
+        <div className="rounded-2xl border border-primary/10 bg-gradient-to-br from-[hsl(222,30%,10%)] via-[hsl(222,30%,9%)] to-[hsl(224,30%,8%)] p-1.5 shadow-xl shadow-black/30 ring-1 ring-white/[0.04] sm:p-2">
+          <div className="grid grid-cols-1 divide-y divide-border/50 overflow-hidden rounded-[0.85rem] bg-[hsl(222,30%,9%)]/80 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             {[
               { label: "Community", value: summary ? `${uAnim}+` : "—", sub: "Registered users", icon: "👥" },
               { label: "Rewards paid", value: summary ? `${rAnim} USDT` : "—", sub: "Total distributed", icon: "💎" },
@@ -296,7 +296,7 @@ export default function LandingPage() {
         <p className="text-center text-sm text-muted-foreground max-w-lg mx-auto mb-8 sm:mb-10 leading-relaxed">
           Three steps from signup to your first draw — no hidden steps.
         </p>
-        <div className="grid md:grid-cols-3 gap-5 sm:gap-6 relative">
+        <div className="grid md:grid-cols-3 gap-x-5 gap-y-10 sm:gap-y-8 md:gap-6 relative pt-1">
           <div className="hidden md:block absolute top-16 left-[16%] right-[16%] h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent pointer-events-none" aria-hidden />
           {[
             { step: "01", icon: "👤", title: "Create account", desc: "Sign up and complete your profile in under two minutes." },
@@ -305,10 +305,10 @@ export default function LandingPage() {
           ].map((item) => (
             <Card
               key={item.step}
-              className="text-center relative overflow-hidden group border-border/70 hover:border-primary/35 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5"
+              className="group relative overflow-visible text-center border-border/70 transition-all duration-300 hover:border-primary/35 hover:shadow-lg hover:shadow-primary/5"
             >
-              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary/0 via-primary/50 to-primary/0 opacity-40 group-hover:opacity-100 transition-opacity" />
-              <CardContent className="pt-8 pb-8 px-5">
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-1 rounded-t-2xl bg-gradient-to-r from-primary/0 via-primary/50 to-primary/0 opacity-40 group-hover:opacity-100 transition-opacity" />
+              <CardContent className="relative z-10 px-5 pb-8 pt-9 sm:pt-10">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner ring-1 ring-primary/10"
                   style={{ background: "linear-gradient(145deg, hsla(152,72%,44%,0.18), hsla(152,72%,44%,0.05))" }}
                 >

@@ -68,7 +68,7 @@ function PodiumCard({ winner }: { winner: any }) {
 
   return (
     <div
-      className="relative rounded-2xl p-5 flex flex-col items-center text-center transition-all hover:-translate-y-1"
+      className="relative flex flex-col items-center rounded-2xl p-5 pt-6 text-center transition-all hover:-translate-y-1 sm:pt-5"
       style={{
         background: meta.bg,
         border: `1px solid ${meta.border}`,
@@ -178,13 +178,13 @@ export default function WinnersPage() {
     <div className="max-w-3xl mx-auto space-y-10">
 
       {/* ── Hero header ── */}
-      <div className="relative">
+      <div className="relative overflow-visible pt-2">
         <div
           className="absolute inset-0 rounded-3xl pointer-events-none"
           style={{ background: "radial-gradient(ellipse 70% 50% at 50% 0%, hsla(45,100%,50%,0.06) 0%, transparent 70%)" }}
         />
-        <div className="relative text-center pt-6 pb-2">
-          <div className="text-5xl mb-3">🏆</div>
+        <div className="relative px-1 text-center pb-2 pt-8 sm:pt-10">
+          <div className="mb-4 text-5xl leading-none sm:text-[3.25rem]">🏆</div>
           <h1 className="text-3xl font-bold mb-2">Winners Hall of Fame</h1>
           <p className="text-muted-foreground">
             Real USDT rewards — verified, transparent, paid instantly to wallets
@@ -194,7 +194,7 @@ export default function WinnersPage() {
 
       {/* ── Stats bar ── */}
       {!isLoading && winnersList.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-3 pt-2">
           {[
             { label: "Total Distributed", value: `${totalDistributed.toFixed(0)} USDT`, icon: "💰" },
             { label: "Pools Completed", value: uniquePools, icon: "🎱" },
@@ -202,10 +202,10 @@ export default function WinnersPage() {
           ].map((stat) => (
             <div
               key={stat.label}
-              className="rounded-2xl text-center px-3 py-4"
+              className="rounded-2xl px-3 py-5 text-center sm:py-4"
               style={{ background: "hsl(222,30%,10%)", border: "1px solid hsl(217,28%,16%)" }}
             >
-              <div className="text-xl mb-1">{stat.icon}</div>
+              <div className="mb-2 text-xl leading-none sm:mb-1">{stat.icon}</div>
               <p className="text-lg font-bold text-primary">{stat.value}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">{stat.label}</p>
             </div>
@@ -240,15 +240,15 @@ export default function WinnersPage() {
 
       {/* ── Latest round podium ── */}
       {!isLoading && hasLatestRound && (
-        <div>
-          <div className="flex items-center gap-3 mb-4">
+        <div className="pt-2">
+          <div className="mb-5 flex items-center gap-3">
             <div className="h-px flex-1" style={{ background: "hsl(217,28%,16%)" }} />
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest px-2">
+            <span className="px-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Latest Round
             </span>
             <div className="h-px flex-1" style={{ background: "hsl(217,28%,16%)" }} />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-3 sm:gap-4">
             {/* Reorder: 2nd | 1st | 3rd for podium effect */}
             {[latestRound[1], latestRound[0], latestRound[2]].map((w, i) =>
               w ? <PodiumCard key={w.id} winner={w} /> : <div key={i} />

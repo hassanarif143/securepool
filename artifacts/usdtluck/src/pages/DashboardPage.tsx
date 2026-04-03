@@ -670,7 +670,7 @@ export default function DashboardPage() {
         <div className={panelHead}>
           <h2 className="font-display text-sm sm:text-base font-semibold">How it works</h2>
         </div>
-        <div className="grid sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[hsl(217,28%,16%)]">
+        <div className="grid divide-y divide-[hsl(217,28%,16%)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           {[
             {
               title: "1. Add balance",
@@ -688,7 +688,7 @@ export default function DashboardPage() {
               icon: "✓",
             },
           ].map((s) => (
-            <div key={s.title} className="p-4 sm:p-5 hover:bg-white/[0.02] transition-colors">
+            <div key={s.title} className="p-5 sm:p-6 first:pt-5 hover:bg-white/[0.02] transition-colors sm:first:pt-6">
               <span className="text-lg" aria-hidden>
                 {s.icon}
               </span>

@@ -2706,9 +2706,9 @@ function ReviewsTab() {
         </div>
       )}
 
-      <div className="space-y-4 mt-4">
+      <div className="space-y-4 pt-2 sm:pt-1">
         {/* Stats bar */}
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 min-[480px]:grid-cols-3 sm:grid-cols-5 gap-3 sm:gap-3">
           {[
             { label: "Total", value: total, color: "text-foreground" },
             { label: "Visible", value: visible, color: "text-green-400" },
@@ -2717,9 +2717,9 @@ function ReviewsTab() {
             { label: "Avg Rating", value: `${avgRating}★`, color: "text-yellow-400" },
           ].map((s) => (
             <Card key={s.label}>
-              <CardContent className="p-3 text-center">
+              <CardContent className="px-3 py-4 text-center sm:px-3 sm:py-4">
                 <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{s.label}</p>
               </CardContent>
             </Card>
           ))}

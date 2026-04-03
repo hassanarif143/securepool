@@ -348,13 +348,13 @@ export default function ReviewsPage() {
     <div className="max-w-2xl mx-auto space-y-8">
 
       {/* ── Hero ── */}
-      <div className="relative">
+      <div className="relative overflow-visible pt-2">
         <div
           className="absolute inset-0 rounded-3xl pointer-events-none"
           style={{ background: "radial-gradient(ellipse 70% 50% at 50% 0%, hsla(152,72%,44%,0.07) 0%, transparent 70%)" }}
         />
-        <div className="relative text-center pt-6 pb-2">
-          <div className="text-5xl mb-3">💬</div>
+        <div className="relative px-1 pb-2 pt-8 text-center sm:pt-10">
+          <div className="mb-4 text-5xl leading-none">💬</div>
           <h1 className="text-3xl font-bold mb-2">What Winners Say</h1>
           <p className="text-muted-foreground">
             Real stories from real users — verified winners share their experience
@@ -364,7 +364,7 @@ export default function ReviewsPage() {
 
       {/* ── Trust stats ── */}
       {!loading && reviews.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-3 pt-2">
           {[
             { label: "Reviews", value: reviews.length, icon: "📝" },
             { label: "Winner Reviews", value: totalWinners, icon: "🏆" },
@@ -376,10 +376,10 @@ export default function ReviewsPage() {
           ].map((stat) => (
             <div
               key={stat.label}
-              className="rounded-2xl text-center px-3 py-4"
+              className="rounded-2xl px-3 py-5 text-center sm:py-4"
               style={{ background: "hsl(222,30%,10%)", border: "1px solid hsl(217,28%,16%)" }}
             >
-              <div className="text-xl mb-1">{stat.icon}</div>
+              <div className="mb-2 text-xl leading-none sm:mb-1">{stat.icon}</div>
               <p className="text-lg font-bold text-primary">{stat.value}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">{stat.label}</p>
             </div>

@@ -60,14 +60,14 @@ export default function HowItWorksPage() {
         </div>
       </motion.section>
 
-      <section>
+      <section className="pt-2">
         <h2 className="text-2xl font-bold mb-8 text-center">Step-by-step</h2>
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid sm:grid-cols-2 gap-x-4 gap-y-7 sm:gap-y-6">
           {steps.map((s, i) => (
             <motion.div key={s.n} {...fade} transition={{ delay: i * 0.05, duration: 0.4 }}>
-              <Card className="h-full border-[hsl(217,28%,18%)] bg-[hsl(222,30%,9%)] overflow-hidden hover:border-primary/30 transition-colors">
-                <div className="h-1 bg-gradient-to-r from-primary/50 to-emerald-600/40" />
-                <CardContent className="p-5 flex gap-4">
+              <Card className="h-full overflow-visible border-[hsl(217,28%,18%)] bg-[hsl(222,30%,9%)] transition-colors hover:border-primary/30">
+                <div className="h-1 rounded-t-2xl bg-gradient-to-r from-primary/50 to-emerald-600/40" />
+                <CardContent className="flex gap-4 p-5 pt-6">
                   <div className="flex flex-col items-center shrink-0">
                     <span className="text-2xl mb-1">{s.icon}</span>
                     <span className="text-[10px] font-mono text-primary/80">0{s.n}</span>
