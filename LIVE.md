@@ -27,6 +27,19 @@ PostgreSQL column for the message body is **`message`** (not `body`). All server
 | Email (optional) | `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` |
 | Admin | `SUPER_ADMIN_USER_IDS` (comma-separated numeric IDs) |
 
+## Local development
+
+From the **repository root** (after `pnpm install`):
+
+| Command | What it does |
+|---------|----------------|
+| `pnpm run dev:frontend` | Starts Vite with defaults **`PORT=5173`** and **`BASE_PATH=/`** (required by `artifacts/usdtluck/vite.config.ts`). Proxies **`/api`** and **`/uploads`** to **`http://localhost:8080`**. Override port: `PORT=5180 pnpm run dev:frontend`. |
+| `pnpm run dev:stack` | Runs `scripts/dev-stack.sh`: starts the API in the background (`pnpm --filter @workspace/api-server run dev`), then the frontend. Press **Ctrl+C** to stop both. |
+
+Set **`DATABASE_URL`**, **`SESSION_SECRET`**, and **`JWT_SECRET`** in a root **`.env`** file (gitignored) or export them in your shell before starting the API. For the default Vite proxy, run the API on **port 8080**, or change the `server.proxy` targets in `artifacts/usdtluck/vite.config.ts` to match your API `PORT`.
+
+**Apple Silicon:** If Vite fails with missing optional natives (`@rollup/rollup-darwin-arm64`, `lightningcss`, `@tailwindcss/oxide`), the workspace root lists matching **`devDependencies`** — run **`pnpm install`** again from the repo root.
+
 ## Database migrations (wallet / demo flags)
 
 The API runs pending SQL migrations on startup (`runPendingSqlMigrations`). Ensure these migrations have been applied on the target database:
@@ -59,7 +72,7 @@ Demo users have **`is_demo = true`** and **cannot log in**.
 - `pnpm --filter @workspace/api-server run typecheck` — builds `lib/db` then typechecks the API
 - `pnpm --filter @workspace/api-server run build`
 - `cd artifacts/usdtluck && pnpm exec tsc -p tsconfig.json --noEmit`
-- `PORT=5173 BASE_PATH=/ pnpm --filter @workspace/usdtluck run build`
+- `pnpm run dev:frontend` then production build: `pnpm --filter @workspace/usdtluck run build` (or `PORT=5173 BASE_PATH=/` inline if you prefer)
 
 **CI:** On push/PR to `main` or `master`, GitHub Actions runs `pnpm run typecheck`, API `build`, and frontend `build` (see `.github/workflows/ci.yml`).
 
