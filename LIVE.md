@@ -69,13 +69,13 @@ If you change Drizzle schema under `lib/db`, run **`pnpm exec tsc -b lib/db`** (
 
 ## Fresh start — only one admin (live testing)
 
-To **delete every user except one admin** (Neon / Postgres), use a backup first, then run:
+To **delete every user except** **`admin@usdtluck.com`** (Neon / Postgres), use a backup first, then run:
 
 `scripts/reset-to-single-admin.sql`
 
-It keeps the **lowest `id`** among rows with **`is_admin = true`**, removes related rows (transactions, pool entries, referrals, wallets, etc.), clears **`"session"`** so everyone must log in again, and resets the **`users` id sequence**. Optional commented block at the bottom can also wipe **pools** and **treasury ledgers** for an empty slate.
+It matches that email **case-insensitively**, removes related rows for all other users (transactions, pool entries, referrals, wallets, etc.), clears **`"session"`** so everyone must log in again, and resets the **`users` id sequence**. Optional commented block at the bottom can also wipe **pools** and **treasury ledgers** for an empty slate.
 
-If you have **multiple admins**, either demote the others first or edit the script to set a fixed `keep_id`.
+To keep a **different** email, edit `keep_email` at the top of the `DO` block in the script.
 
 ## Demo seed data (development only)
 

@@ -3,8 +3,8 @@
 -- Run in Neon SQL Editor (or psql) against your production/staging DATABASE.
 --
 -- Rules:
--- * Picks the admin to keep as: lowest id among users where is_admin = true.
--- * If no admin exists, the script raises an error and rolls back.
+-- * Keeps exactly the user with email admin@usdtluck.com (case-insensitive).
+-- * If that row does not exist, the script raises an error and rolls back.
 -- * Truncates express-session table so all browsers must log in again.
 -- * Clears all squads (safe when only one user remains).
 -- * Optional block at bottom: wipe ledger + pools for a completely empty slate.
@@ -17,18 +17,18 @@ BEGIN;
 DO $$
 DECLARE
   keep_id INTEGER;
+  keep_email CONSTANT TEXT := 'admin@usdtluck.com';
 BEGIN
   SELECT u.id INTO keep_id
   FROM users u
-  WHERE u.is_admin = TRUE
-  ORDER BY u.id
+  WHERE lower(trim(u.email)) = lower(trim(keep_email))
   LIMIT 1;
 
   IF keep_id IS NULL THEN
-    RAISE EXCEPTION 'No user with is_admin = true found. Promote one user in Neon first, then re-run.';
+    RAISE EXCEPTION 'No user with email %. Create that account first, then re-run.', keep_email;
   END IF;
 
-  RAISE NOTICE 'Keeping user id % as the only account.', keep_id;
+  RAISE NOTICE 'Keeping user id % (%) as the only account.', keep_id, keep_email;
 
   -- express-session / connect-pg-simple (quoted: session is a reserved word)
   DELETE FROM "session";
