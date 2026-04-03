@@ -69,13 +69,13 @@ If you change Drizzle schema under `lib/db`, run **`pnpm exec tsc -b lib/db`** (
 
 ## Fresh start — only one admin (live testing)
 
-To **delete every user except** **`admin@usdtluck.com`** (Neon / Postgres), use a backup first, then run:
+To **delete every user except** **`admin@usdtluck.com`** and get a **clean slate for real testing** (Neon / Postgres), take a backup first, then run:
 
 `scripts/reset-to-single-admin.sql`
 
-It matches that email **case-insensitively**, removes related rows for all other users (transactions, pool entries, referrals, wallets, etc.), clears **`"session"`** so everyone must log in again, and resets the **`users` id sequence**. Optional commented block at the bottom can also wipe **pools** and **treasury ledgers** for an empty slate.
+It matches that email **case-insensitively**, **deletes all pools** and pool-related rows (CASCADE where defined), **truncates** **`central_wallet_ledger`** and **`admin_wallet_transactions`**, clears **`user_wallet`** / **`user_wallet_transactions`**, wipes **transactions**, **referrals**, **activity** / **loyalty** tables, **notifications** and **reviews** (if those tables exist), **`lucky_hours`**, **squads**, **`"session"`** when present, then removes every other **`users`** row. The kept admin gets **wallet and stats reset to defaults** (password unchanged) and a fresh **`user_wallet`** row at zero. Sequences for **`users`** and **`pools`** are adjusted.
 
-To keep a **different** email, edit `keep_email` at the top of the `DO` block in the script.
+To keep a **different** email, edit `keep_email` in the `DO` block in the script.
 
 ## Demo seed data (development only)
 

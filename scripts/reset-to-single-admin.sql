@@ -1,22 +1,14 @@
 -- =============================================================================
--- Reset database for live testing: keep ONE admin user, delete everyone else.
--- Run in Neon SQL Editor (or psql) against your production/staging DATABASE.
---
--- Rules:
--- * Keeps exactly the user with email admin@usdtluck.com (case-insensitive).
--- * If that row does not exist, the script raises an error and rolls back.
--- * Truncates express-session table so all browsers must log in again.
--- * Clears all squads (safe when only one user remains).
--- * Optional block at bottom: wipe ledger + pools for a completely empty slate.
---
--- BEFORE RUNNING: backup your database (Neon branch / snapshot / pg_dump).
+-- Fresh live testing reset: keep ONLY admin@usdtluck.com, wipe everyone else
+-- AND reset that admin's balance/stats + treasury ledgers + all pools & tx history.
+-- Run in Neon SQL Editor (or psql). BACKUP FIRST.
 -- =============================================================================
 
 BEGIN;
 
 DO $$
 DECLARE
-  keep_id INTEGER;
+  keep_id   INTEGER;
   keep_email CONSTANT TEXT := 'admin@usdtluck.com';
 BEGIN
   SELECT u.id INTO keep_id
@@ -28,64 +20,109 @@ BEGIN
     RAISE EXCEPTION 'No user with email %. Create that account first, then re-run.', keep_email;
   END IF;
 
-  RAISE NOTICE 'Keeping user id % (%) as the only account.', keep_id, keep_email;
+  RAISE NOTICE 'Fresh reset: keeping user id % (%) only.', keep_id, keep_email;
 
-  -- express-session / connect-pg-simple (quoted: session is a reserved word)
-  DELETE FROM "session";
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'session'
+  ) THEN
+    DELETE FROM "session";
+  END IF;
 
-  DELETE FROM notifications WHERE user_id IS DISTINCT FROM keep_id;
-  DELETE FROM reviews WHERE user_id IS DISTINCT FROM keep_id;
+  -- Pools: participants + winners must go first (FK to pools). Deleting pools CASCADE-cleans
+  -- predictions, pool_draw_financials, pool_page_views, pool_view_heartbeats, etc.
+  DELETE FROM pool_participants;
+  DELETE FROM winners;
+  DELETE FROM pools;
 
-  DELETE FROM user_wallet_transactions WHERE user_id IS DISTINCT FROM keep_id;
-  DELETE FROM user_wallet WHERE user_id IS DISTINCT FROM keep_id;
-  DELETE FROM central_wallet_ledger WHERE user_id IS NOT NULL AND user_id IS DISTINCT FROM keep_id;
+  TRUNCATE TABLE central_wallet_ledger RESTART IDENTITY;
+  TRUNCATE TABLE admin_wallet_transactions RESTART IDENTITY;
 
-  DELETE FROM wallet_change_requests WHERE user_id IS DISTINCT FROM keep_id;
-  UPDATE wallet_change_requests SET reviewed_by = NULL WHERE reviewed_by IS NOT NULL AND reviewed_by IS DISTINCT FROM keep_id;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'notifications'
+  ) THEN
+    DELETE FROM notifications;
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'reviews'
+  ) THEN
+    DELETE FROM reviews;
+  END IF;
 
-  DELETE FROM admin_actions WHERE admin_id IS DISTINCT FROM keep_id;
+  -- Per-user wallet mirror tables (all rows)
+  DELETE FROM user_wallet_transactions;
+  DELETE FROM user_wallet;
+
+  DELETE FROM wallet_change_requests;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'lucky_hours'
+  ) THEN
+    DELETE FROM lucky_hours;
+  END IF;
+
+  DELETE FROM admin_actions;
 
   DELETE FROM squad_bonuses;
   DELETE FROM squad_members;
   DELETE FROM squads;
 
-  DELETE FROM predictions WHERE user_id IS DISTINCT FROM keep_id OR predicted_user_id IS DISTINCT FROM keep_id;
-  DELETE FROM achievements WHERE user_id IS DISTINCT FROM keep_id;
-  DELETE FROM daily_logins WHERE user_id IS DISTINCT FROM keep_id;
-  DELETE FROM discount_coupons WHERE user_id IS DISTINCT FROM keep_id;
-  DELETE FROM mystery_rewards WHERE user_id IS DISTINCT FROM keep_id;
-  DELETE FROM point_transactions WHERE user_id IS DISTINCT FROM keep_id;
-  DELETE FROM pool_view_heartbeats WHERE user_id IS DISTINCT FROM keep_id;
-  DELETE FROM pool_page_views WHERE user_id IS DISTINCT FROM keep_id;
+  DELETE FROM achievements;
+  DELETE FROM daily_logins;
+  DELETE FROM discount_coupons;
+  DELETE FROM mystery_rewards;
+  DELETE FROM point_transactions;
 
-  UPDATE lucky_hours SET activated_by = NULL WHERE activated_by IS NOT NULL AND activated_by IS DISTINCT FROM keep_id;
-  UPDATE activity_logs SET user_id = NULL WHERE user_id IS NOT NULL AND user_id IS DISTINCT FROM keep_id;
+  DELETE FROM activity_logs;
 
-  DELETE FROM transactions WHERE user_id IS DISTINCT FROM keep_id;
-  DELETE FROM pool_participants WHERE user_id IS DISTINCT FROM keep_id;
-  DELETE FROM winners WHERE user_id IS DISTINCT FROM keep_id;
-  DELETE FROM referrals WHERE referrer_id IS DISTINCT FROM keep_id OR referred_id IS DISTINCT FROM keep_id;
+  DELETE FROM transactions;
+  DELETE FROM referrals;
 
+  -- Remove every other account
   DELETE FROM users WHERE id IS DISTINCT FROM keep_id;
 
-  -- Reset sequences so next signup gets a clean id after large deletes (optional hygiene)
-  PERFORM setval(pg_get_serial_sequence('users', 'id'), (SELECT COALESCE(MAX(id), 1) FROM users));
+  -- Admin row: like a brand-new tester (password unchanged)
+  UPDATE users SET
+    wallet_balance         = '0',
+    referral_points        = 0,
+    free_entries           = 0,
+    pool_join_count        = 0,
+    current_streak         = 0,
+    longest_streak         = 0,
+    last_pool_joined_at    = NULL,
+    mystery_lucky_badge    = FALSE,
+    tier                   = 'aurora',
+    tier_points            = 0,
+    free_tickets_claimed   = '',
+    login_streak_day       = 0,
+    last_daily_login_date  = NULL,
+    pool_vip_tier          = 'bronze',
+    pool_vip_updated_at    = NULL,
+    total_wins             = 0,
+    first_win_at           = NULL,
+    referred_by            = NULL,
+    is_blocked             = FALSE,
+    blocked_at             = NULL,
+    blocked_reason         = NULL,
+    is_demo                = FALSE,
+    is_admin               = TRUE
+  WHERE id = keep_id;
 
-  RAISE NOTICE 'Done. Only user id % remains. Log in again (sessions cleared).', keep_id;
+  INSERT INTO user_wallet (user_id, available_balance, total_won, total_withdrawn, total_bonus, updated_at)
+  VALUES (keep_id, 0, 0, 0, 0, NOW())
+  ON CONFLICT (user_id) DO UPDATE SET
+    available_balance = 0,
+    total_won = 0,
+    total_withdrawn = 0,
+    total_bonus = 0,
+    updated_at = NOW();
+
+  PERFORM setval(pg_get_serial_sequence('users', 'id'), (SELECT COALESCE(MAX(id), 1) FROM users));
+  PERFORM setval(pg_get_serial_sequence('pools', 'id'), 1, FALSE);
+
+  RAISE NOTICE 'Done. Only % remains; wallet 0; ledgers & pools empty. Log in again.', keep_email;
 END $$;
 
 COMMIT;
-
--- =============================================================================
--- OPTIONAL — uncomment for empty pools + cleared ledgers (second transaction).
--- Adjust order if your FKs differ; run \d in psql to confirm.
--- =============================================================================
--- BEGIN;
--- DELETE FROM pool_participants;
--- DELETE FROM winners;
--- DELETE FROM pool_draw_financials;
--- DELETE FROM pools;
--- SELECT setval(pg_get_serial_sequence('pools', 'id'), COALESCE((SELECT MAX(id) FROM pools), 1));
--- TRUNCATE central_wallet_ledger RESTART IDENTITY;
--- TRUNCATE admin_wallet_transactions RESTART IDENTITY;
--- COMMIT;
