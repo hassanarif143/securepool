@@ -899,6 +899,8 @@ function UsersTab() {
   const [bcTitle, setBcTitle] = useState("");
   const [bcBody, setBcBody] = useState("");
   const [bcType, setBcType] = useState("info");
+  const [luckyHourOpen, setLuckyHourOpen] = useState(false);
+  const [lhMinutes, setLhMinutes] = useState("60");
   const [tierOpen, setTierOpen] = useState(false);
   const [tierTarget, setTierTarget] = useState<any | null>(null);
   const [tierTier, setTierTier] = useState("aurora");
@@ -1186,6 +1188,38 @@ function UsersTab() {
       </DialogContent>
     </Dialog>
 
+    <Dialog open={luckyHourOpen} onOpenChange={setLuckyHourOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Start Lucky Hour</DialogTitle>
+        </DialogHeader>
+        <p className="text-xs text-muted-foreground">Referrers earn 2× (or chosen multiplier) referral points on each referred pool join until it ends.</p>
+        <Input type="number" min={5} max={360} placeholder="Minutes" value={lhMinutes} onChange={(e) => setLhMinutes(e.target.value)} />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setLuckyHourOpen(false)}>Cancel</Button>
+          <Button
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                const m = parseInt(lhMinutes, 10);
+                if (Number.isNaN(m) || m < 5) throw new Error("Min 5 minutes");
+                await postJson("/api/admin/lucky-hour/start", { minutes: m, multiplier: 2 });
+                toast({ title: "Lucky hour started" });
+                setLuckyHourOpen(false);
+              } catch (e: any) {
+                toast({ title: "Failed", description: e.message, variant: "destructive" });
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Start
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     <Dialog open={tierOpen} onOpenChange={setTierOpen}>
       <DialogContent>
         <DialogHeader>
@@ -1259,6 +1293,7 @@ function UsersTab() {
           />
           <div className="flex gap-2 w-full sm:w-auto">
             <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={exportServerCsv}>Export CSV</Button>
+            <Button size="sm" variant="outline" className="flex-1 sm:flex-none" onClick={() => setLuckyHourOpen(true)}>Lucky hour</Button>
             <Button size="sm" className="flex-1 sm:flex-none" onClick={() => setBroadcastOpen(true)} style={{ background: "hsl(152,72%,36%)", color: "white" }}>Broadcast</Button>
           </div>
         </div>

@@ -42,6 +42,11 @@ router.get("/loyalty", async (req, res): Promise<void> => {
     .select({
       poolJoinCount: usersTable.poolJoinCount,
       freeEntries: usersTable.freeEntries,
+      currentStreak: usersTable.currentStreak,
+      longestStreak: usersTable.longestStreak,
+      lastPoolJoinedAt: usersTable.lastPoolJoinedAt,
+      mysteryLuckyBadge: usersTable.mysteryLuckyBadge,
+      referralPoints: usersTable.referralPoints,
     })
     .from(usersTable)
     .where(eq(usersTable.id, userId))
@@ -56,13 +61,73 @@ router.get("/loyalty", async (req, res): Promise<void> => {
   else if (totalJoins % 5 === 0) nextMilestone = totalJoins + 5;
   else nextMilestone = Math.ceil(totalJoins / 5) * 5;
   const joinsRemaining = Math.max(0, nextMilestone - totalJoins);
+  const { getPointsExpiringSummary } = await import("../services/points-ledger-service");
+  const { streakAtRisk } = await import("../services/streak-service");
+  const ptsExp = await getPointsExpiringSummary(userId);
+  const risk = streakAtRisk(u.lastPoolJoinedAt ?? null, u.currentStreak ?? 0);
   res.json({
     total_joins: totalJoins,
     free_entries: u.freeEntries ?? 0,
     next_free_at: nextMilestone,
     joins_remaining: joinsRemaining,
+    current_streak: u.currentStreak ?? 0,
+    longest_streak: u.longestStreak ?? 0,
+    last_pool_joined_at: u.lastPoolJoinedAt?.toISOString() ?? null,
+    mystery_lucky_badge: u.mysteryLuckyBadge ?? false,
+    referral_points: u.referralPoints ?? 0,
+    points_expiring: ptsExp,
+    streak_at_risk: risk,
+    next_mystery_in: totalJoins % 3 === 0 ? 3 : 3 - (totalJoins % 3),
   });
   return;
+});
+
+router.get("/draw-history", async (req, res): Promise<void> => {
+  const userId = getAuthedUserId(req);
+  const lim = Math.min(parseInt(String(req.query.limit ?? "30"), 10) || 30, 50);
+  const { rows } = await pgPool.query<{
+    pool_id: number;
+    title: string;
+    draw_position: number | null;
+    is_winner: boolean;
+    place: number | null;
+  }>(
+    `SELECT p.id AS pool_id, p.title,
+            pp.draw_position,
+            EXISTS (SELECT 1 FROM winners w WHERE w.pool_id = p.id AND w.user_id = $1) AS is_winner,
+            (SELECT w.place FROM winners w WHERE w.pool_id = p.id AND w.user_id = $1 LIMIT 1) AS place
+     FROM pool_participants pp
+     INNER JOIN pools p ON p.id = pp.pool_id
+     WHERE pp.user_id = $1 AND p.status = 'completed'
+     ORDER BY p.id DESC
+     LIMIT $2`,
+    [userId, lim],
+  );
+  res.json(
+    rows.map((r) => ({
+      poolId: r.pool_id,
+      title: r.title,
+      drawPosition: r.draw_position,
+      winner: r.is_winner,
+      place: r.place,
+    })),
+  );
+});
+
+router.post("/mystery/:rewardId/claim", async (req, res): Promise<void> => {
+  const userId = getAuthedUserId(req);
+  const rewardId = parseInt(req.params.rewardId, 10);
+  if (isNaN(rewardId)) {
+    res.status(400).json({ error: "Invalid reward id" });
+    return;
+  }
+  const { claimMysteryReward } = await import("../services/mystery-reward-service");
+  const out = await claimMysteryReward(userId, rewardId);
+  if (!out.ok) {
+    res.status(400).json({ error: out.error ?? "Claim failed" });
+    return;
+  }
+  res.json({ ok: true });
 });
 
 router.get("/wallet", async (req, res): Promise<void> => {

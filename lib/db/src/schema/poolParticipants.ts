@@ -8,6 +8,7 @@ export const poolParticipantsTable = pgTable("pool_participants", {
   userId: integer("user_id").notNull().references(() => usersTable.id),
   ticketCount: integer("ticket_count").notNull().default(1),
   joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+  drawPosition: integer("draw_position"),
 });
 
 export type PoolParticipant = typeof poolParticipantsTable.$inferSelect;

@@ -12,6 +12,7 @@ import {
   winnersTable,
   adminActionsTable,
   walletChangeRequestsTable,
+  luckyHoursTable,
 } from "@workspace/db";
 import { eq, ne, count, sum, desc, and, sql } from "drizzle-orm";
 import { sendWithdrawalStatusEmail } from "../lib/email";
@@ -1192,6 +1193,30 @@ router.post("/broadcast", async (req, res) => {
 
   await logAction(getAdminId(req), "user", null, "broadcast", `Broadcast notification "${title}" to all users`);
   return res.json({ message: "Broadcast sent" });
+});
+
+const LuckyHourStartBody = z.object({
+  minutes: z.number().min(5).max(360),
+  multiplier: z.number().min(2).max(5).optional(),
+});
+
+router.post("/lucky-hour/start", async (req, res) => {
+  const parse = LuckyHourStartBody.safeParse(req.body ?? {});
+  if (!parse.success) return res.status(400).json({ error: "Validation error", message: parse.error.message });
+  const minutes = parse.data.minutes;
+  const mult = parse.data.multiplier ?? 2;
+  const endsAt = new Date(Date.now() + minutes * 60_000);
+  const adminId = getAdminId(req);
+  const [row] = await db
+    .insert(luckyHoursTable)
+    .values({ endsAt, multiplier: mult, activatedBy: adminId })
+    .returning();
+  await logAction(getAdminId(req), "pool", null, "lucky_hour_start", `Lucky hour ${minutes}m, ${mult}x referral points`);
+  return res.json({
+    id: row?.id,
+    endsAt: row?.endsAt?.toISOString(),
+    multiplier: row?.multiplier,
+  });
 });
 
 /* ── Wallet change requests ── */

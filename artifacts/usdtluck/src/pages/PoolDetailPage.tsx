@@ -20,6 +20,19 @@ import { TierUpgradeModal } from "@/components/TierUpgradeModal";
 import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
 import { PoolStatusBar } from "@/components/PoolStatusBar";
 
+function timeAgoShort(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+import { MysteryBoxReveal } from "@/components/MysteryBoxReveal";
+import { NearMissModal } from "@/components/NearMissModal";
+import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
+
 type PoolDetailsApi = {
   current_entries: number;
   platform_fee: number;
@@ -29,6 +42,7 @@ type PoolDetailsApi = {
   user_joined: boolean;
   join_blocked: boolean;
   participants: { name: string; joined_at: string }[];
+  fillComparison?: { message: string | null; fasterPercent: number | null; avgFillSeconds: number | null };
 };
 
 function JoinCelebrationModal({
@@ -123,6 +137,27 @@ export default function PoolDetailPage() {
   const [poolDetails, setPoolDetails] = useState<PoolDetailsApi | null>(null);
   const [useFreeEntry, setUseFreeEntry] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [viewersCount, setViewersCount] = useState<number | undefined>(undefined);
+  const [recentJoiners, setRecentJoiners] = useState<{ name: string; joined_at: string }[]>([]);
+  const [pendingMystery, setPendingMystery] = useState<{
+    id: number;
+    rewardType: string;
+    rewardValue: number;
+    poolJoinNumber: number;
+  } | null>(null);
+  const [showMystery, setShowMystery] = useState(false);
+  const [nearMiss, setNearMiss] = useState<{
+    position: number;
+    total: number;
+    tier: "fire" | "amber" | "neutral";
+    message: string;
+  } | null>(null);
+  const mysteryRef = useRef<{
+    id: number;
+    rewardType: string;
+    rewardValue: number;
+    poolJoinNumber: number;
+  } | null>(null);
 
   const { data: pool, isLoading } = useGetPool(id, {
     query: { enabled: !!id, queryKey: getGetPoolQueryKey(id) },
@@ -153,6 +188,50 @@ export default function PoolDetailPage() {
     };
   }, [id]);
 
+  useEffect(() => {
+    if (!id || !user) return;
+    async function beat() {
+      try {
+        const csrfRes = await fetch(apiUrl("/api/auth/csrf-token"), { credentials: "include" });
+        const csrfData = await csrfRes.json().catch(() => ({}));
+        const token = (csrfData as { csrfToken?: string }).csrfToken ?? getCsrfToken();
+        setCsrfToken(token ?? null);
+        await fetch(apiUrl(`/api/pools/${id}/view-heartbeat`), {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { "x-csrf-token": token } : {}),
+          },
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+    void beat();
+    const hb = setInterval(() => void beat(), 30_000);
+    return () => clearInterval(hb);
+  }, [id, user]);
+
+  useEffect(() => {
+    if (!id) return;
+    async function poll() {
+      try {
+        const [vr, jr] = await Promise.all([
+          fetch(apiUrl(`/api/pools/${id}/viewers`)).then((r) => r.json()),
+          fetch(apiUrl(`/api/pools/${id}/recent-joiners?limit=6`)).then((r) => r.json()),
+        ]);
+        setViewersCount(typeof vr.count === "number" ? vr.count : 0);
+        setRecentJoiners(Array.isArray(jr) ? jr : []);
+      } catch {
+        /* ignore */
+      }
+    }
+    void poll();
+    const t = setInterval(poll, 20_000);
+    return () => clearInterval(t);
+  }, [id]);
+
   async function handleJoin() {
     if (!user) {
       navigate("/login");
@@ -160,10 +239,17 @@ export default function PoolDetailPage() {
     }
     setJoining(true);
     try {
+      const csrfRes = await fetch(apiUrl("/api/auth/csrf-token"), { credentials: "include" });
+      const csrfData = await csrfRes.json().catch(() => ({}));
+      const token = (csrfData as { csrfToken?: string }).csrfToken ?? getCsrfToken();
+      setCsrfToken(token ?? null);
       const res = await fetch(apiUrl(`/api/pools/${id}/join`), {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "x-csrf-token": token } : {}),
+        },
         body: JSON.stringify({
           useFreeEntry: useFreeEntry && (user.freeEntries ?? 0) > 0,
         }),
@@ -178,6 +264,12 @@ export default function PoolDetailPage() {
         return;
       }
       const usedFree = Boolean((data as { usedFreeEntry?: boolean }).usedFreeEntry);
+      const mr = (data as { mysteryReward?: { id: number; rewardType: string; rewardValue: number; poolJoinNumber: number } })
+        .mysteryReward;
+      if (mr) {
+        mysteryRef.current = mr;
+        setPendingMystery(mr);
+      }
       queryClient.invalidateQueries({ queryKey: getGetPoolQueryKey(id) });
       queryClient.invalidateQueries({ queryKey: getGetPoolParticipantsQueryKey(id) });
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
@@ -197,6 +289,7 @@ export default function PoolDetailPage() {
             freeTicketGranted: t.freeTicketGranted,
             tierPoints: t.tierPoints,
           });
+          if (mysteryRef.current) setShowMystery(true);
         }, 2200);
       }
     } catch (e: unknown) {
@@ -217,6 +310,26 @@ export default function PoolDetailPage() {
   const totalPrize = pool.prizeFirst + pool.prizeSecond + pool.prizeThird;
   const userJoinedEffective = poolDetails?.user_joined ?? pool.userJoined;
   const canPayJoin = Boolean(user && user.walletBalance >= pool.entryFee);
+
+  useEffect(() => {
+    if (!id || !user || pool.status !== "completed" || !userJoinedEffective) return;
+    const key = `near_miss_shown_${id}`;
+    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(key)) return;
+    fetch(apiUrl(`/api/pools/${id}/my-draw-result`), { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { winner?: boolean; position?: number | null; total?: number; tier?: string; message?: string } | null) => {
+        if (!d || d.winner || d.position == null || d.position <= 3) return;
+        const tier = (d.tier === "fire" || d.tier === "amber" ? d.tier : "neutral") as "fire" | "amber" | "neutral";
+        setNearMiss({
+          position: d.position,
+          total: d.total ?? 0,
+          tier,
+          message: d.message ?? "",
+        });
+        sessionStorage.setItem(key, "1");
+      })
+      .catch(() => {});
+  }, [id, user, pool.status, userJoinedEffective]);
   const canFreeJoin = Boolean(user && (user.freeEntries ?? 0) > 0);
   const joinDisabled =
     joining ||
@@ -233,7 +346,35 @@ export default function PoolDetailPage() {
           poolTitle={pool.title}
           entryFee={pool.entryFee}
           usedFreeEntry={celebrationUsedFree}
-          onClose={() => setShowCelebration(false)}
+          onClose={() => {
+            setShowCelebration(false);
+            if (mysteryRef.current) setShowMystery(true);
+          }}
+        />
+      )}
+      {showMystery && pendingMystery && (
+        <MysteryBoxReveal
+          rewardId={pendingMystery.id}
+          rewardType={pendingMystery.rewardType}
+          rewardValue={pendingMystery.rewardValue}
+          poolJoinNumber={pendingMystery.poolJoinNumber}
+          onClose={() => {
+            setShowMystery(false);
+            setPendingMystery(null);
+            mysteryRef.current = null;
+          }}
+          onClaimed={() => {
+            void queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          }}
+        />
+      )}
+      {nearMiss && (
+        <NearMissModal
+          position={nearMiss.position}
+          total={nearMiss.total}
+          tier={nearMiss.tier}
+          message={nearMiss.message}
+          onClose={() => setNearMiss(null)}
         />
       )}
       {tierUpgrade && (
@@ -297,7 +438,25 @@ export default function PoolDetailPage() {
 
         <Card className="border-primary/20">
           <CardContent className="p-5 space-y-4">
-            <PoolStatusBar current={displayCount} max={pool.maxUsers} status={pool.status} poolId={pool.id} />
+            <PoolStatusBar
+              current={displayCount}
+              max={pool.maxUsers}
+              status={pool.status}
+              poolId={pool.id}
+              fillHint={poolDetails?.fillComparison?.message ?? undefined}
+              viewersCount={viewersCount}
+            />
+
+            {recentJoiners.length > 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                <span className="font-medium text-foreground/90">Recently joined:</span>{" "}
+                {recentJoiners.map((j, i) => (
+                  <span key={`${j.name}-${i}`}>
+                    {j.name} ({timeAgoShort(j.joined_at)}){i < recentJoiners.length - 1 ? ", " : ""}
+                  </span>
+                ))}
+              </p>
+            )}
 
             {pool.status === "open" && (
               <div className="rounded-xl py-4 px-3 border border-amber-500/20 bg-amber-500/5">

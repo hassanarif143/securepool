@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { TierBadge } from "@/components/TierBadge";
 import { Logo } from "@/components/Logo";
 import { apiUrl } from "@/lib/api-base";
+import { LuckyHourBanner } from "@/components/LuckyHourBanner";
+import { LiveJoinNotification } from "@/components/LiveJoinNotification";
 
 function playNotifSound() {
   try {
@@ -514,6 +516,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   /* Secondary links — tucked into "More" dropdown on desktop */
   const secondaryLinks = user ? [
     { href: "/how-it-works", label: "How It Works", icon: "📘" },
+    { href: "/leaderboard", label: "Leaderboard", icon: "📊" },
     { href: "/reviews",    label: "Reviews",    icon: "💬" },
     { href: "/referral",   label: "Referral",   icon: "🔗" },
     ...(user.isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: "⚙️" }] : []),
@@ -641,7 +644,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
+      {user ? <LuckyHourBanner /> : null}
+
       <main className={`flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 ${user ? "pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-8" : ""}`}>
+        {user ? <LiveJoinNotification /> : null}
         {children}
       </main>
 

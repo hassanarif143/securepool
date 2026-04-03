@@ -7,6 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TierBadge, TierProgressCard, getTier, getNextTier, computeProgress } from "@/components/TierBadge";
 import { TierUpgradeModal } from "@/components/TierUpgradeModal";
 import { ActivityFeed } from "@/components/ActivityFeed";
+import { StreakCounter } from "@/components/StreakCounter";
+import { PointsExpiryWarning } from "@/components/PointsExpiryWarning";
 
 interface TierInfo {
   tier: string; tierLabel: string; tierIcon: string;
@@ -134,6 +136,8 @@ export default function DashboardPage() {
           )}
         </p>
       </div>
+      <PointsExpiryWarning />
+      <StreakCounter />
       {tierUpgrade && (
         <TierUpgradeModal
           previousTier={tierUpgrade.previousTier}

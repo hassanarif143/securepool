@@ -16,6 +16,7 @@ export const poolsTable = pgTable("pools", {
   prizeSecond: numeric("prize_second", { precision: 18, scale: 2 }).notNull().default("50"),
   prizeThird: numeric("prize_third", { precision: 18, scale: 2 }).notNull().default("30"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  filledAt: timestamp("filled_at", { withTimezone: true }),
 });
 
 export const insertPoolSchema = createInsertSchema(poolsTable).omit({ id: true, createdAt: true });

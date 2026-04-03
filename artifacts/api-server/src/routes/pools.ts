@@ -1,17 +1,26 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
-import { db, poolsTable, poolParticipantsTable, usersTable, transactionsTable, winnersTable } from "@workspace/db";
+import {
+  db,
+  poolsTable,
+  poolParticipantsTable,
+  usersTable,
+  transactionsTable,
+  winnersTable,
+  pool as pgPool,
+} from "@workspace/db";
 import { eq, and, sql, desc, count } from "drizzle-orm";
 import { maybeCreditReferralBonus } from "./referral";
 import { notifyUser, notifyAllUsers } from "../lib/notify";
 import { CreatePoolBody, UpdatePoolBody } from "@workspace/api-zod";
 import { sendDrawResultEmail, sendTicketApprovedEmail } from "../lib/email";
 import { getAuthedUserId } from "../middleware/auth";
-import { pickUniqueWinners } from "../services/draw-service";
+import { computeDrawRanking, pickWinnersFromRanking } from "../services/draw-service";
 import { logActivity } from "../services/activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { runJoinSideEffects } from "../services/join-side-effects";
 import { refundAllPoolParticipants } from "../lib/pool-refunds";
+import { getPoolFillComparison } from "../services/pool-engagement-service";
 
 const JoinPoolBody = z.object({ useFreeEntry: z.boolean().optional() });
 
@@ -152,6 +161,11 @@ router.get("/details/:poolId", async (req, res) => {
     })),
     user_joined: userJoined,
     join_blocked: pool.status !== "open" || currentEntries >= pool.maxUsers || userJoined,
+    fillComparison: await getPoolFillComparison({
+      createdAt: pool.createdAt,
+      currentEntries,
+      maxUsers: pool.maxUsers,
+    }),
   });
 });
 
@@ -220,6 +234,134 @@ router.get("/my-entries", async (req, res) => {
   })));
 });
 
+router.get("/:poolId/recent-joiners", async (req, res) => {
+  const poolId = parseInt(req.params.poolId, 10);
+  if (isNaN(poolId)) {
+    res.status(400).json({ error: "Invalid pool ID" });
+    return;
+  }
+  const lim = Math.min(parseInt(String(req.query.limit ?? "8"), 10) || 8, 20);
+  const { rows } = await pgPool.query<{ name: string; joined_at: Date }>(
+    `SELECT u.name, pp.joined_at
+     FROM pool_participants pp
+     INNER JOIN users u ON u.id = pp.user_id
+     WHERE pp.pool_id = $1 AND COALESCE(u.is_demo, false) = false
+     ORDER BY pp.joined_at DESC
+     LIMIT $2`,
+    [poolId, lim],
+  );
+  res.json(
+    rows.map((r) => ({
+      name: privacyDisplayName(r.name),
+      joined_at: r.joined_at,
+    })),
+  );
+});
+
+router.get("/:poolId/viewers", async (req, res) => {
+  const poolId = parseInt(req.params.poolId, 10);
+  if (isNaN(poolId)) {
+    res.status(400).json({ error: "Invalid pool ID" });
+    return;
+  }
+  const { rows } = await pgPool.query<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM pool_view_heartbeats
+     WHERE pool_id = $1 AND last_seen_at > NOW() - INTERVAL '60 seconds'`,
+    [poolId],
+  );
+  res.json({ count: parseInt(rows[0]?.c ?? "0", 10) || 0 });
+});
+
+router.post("/:poolId/view-heartbeat", async (req, res) => {
+  const poolId = parseInt(req.params.poolId, 10);
+  if (isNaN(poolId)) {
+    res.status(400).json({ error: "Invalid pool ID" });
+    return;
+  }
+  const userId = getAuthedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  await pgPool.query(
+    `INSERT INTO pool_view_heartbeats (pool_id, user_id, last_seen_at) VALUES ($1, $2, NOW())
+     ON CONFLICT (pool_id, user_id) DO UPDATE SET last_seen_at = EXCLUDED.last_seen_at`,
+    [poolId, userId],
+  );
+  await pgPool.query(
+    `INSERT INTO pool_page_views (user_id, pool_id, last_viewed_at) VALUES ($1, $2, NOW())
+     ON CONFLICT (user_id, pool_id) DO UPDATE SET last_viewed_at = EXCLUDED.last_viewed_at`,
+    [userId, poolId],
+  );
+  res.json({ ok: true });
+});
+
+router.get("/:poolId/my-draw-result", async (req, res) => {
+  const poolId = parseInt(req.params.poolId, 10);
+  if (isNaN(poolId)) {
+    res.status(400).json({ error: "Invalid pool ID" });
+    return;
+  }
+  const userId = getAuthedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  if (!pool || pool.status !== "completed") {
+    res.status(404).json({ error: "No draw result for this pool yet" });
+    return;
+  }
+  const [row] = await db
+    .select({
+      drawPosition: poolParticipantsTable.drawPosition,
+    })
+    .from(poolParticipantsTable)
+    .where(and(eq(poolParticipantsTable.poolId, poolId), eq(poolParticipantsTable.userId, userId)))
+    .limit(1);
+  const [{ ct }] = await db
+    .select({ ct: count() })
+    .from(poolParticipantsTable)
+    .where(eq(poolParticipantsTable.poolId, poolId));
+  const total = Number(ct);
+  const pos = row?.drawPosition;
+  if (pos == null) {
+    res.json({ poolId, total, position: null, winner: false, message: null });
+    return;
+  }
+  const [won] = await db
+    .select()
+    .from(winnersTable)
+    .where(and(eq(winnersTable.poolId, poolId), eq(winnersTable.userId, userId)))
+    .limit(1);
+  if (won) {
+    res.json({
+      poolId,
+      total,
+      position: pos,
+      winner: true,
+      place: won.place,
+      message: `You placed ${won.place === 1 ? "1st" : won.place === 2 ? "2nd" : "3rd"}!`,
+    });
+    return;
+  }
+  let tier: "fire" | "amber" | "neutral" = "neutral";
+  let message = `You finished #${pos} of ${total}.`;
+  if (pos <= 5 && pos > 3) {
+    tier = "fire";
+    message =
+      pos === 4
+        ? `You were #4 of ${total} — just 1 spot from 3rd prize!`
+        : `You were #5 of ${total} — so close to the podium!`;
+  } else if (pos <= 10) {
+    tier = "amber";
+    message = `Top half finish — #${pos} of ${total}. Join the next pool!`;
+  } else if (pos <= 20) {
+    message = `You finished #${pos} of ${total}. Better luck next time!`;
+  }
+  res.json({ poolId, total, position: pos, winner: false, tier, message });
+});
+
 router.get("/:poolId", async (req, res) => {
   const poolId = parseInt(req.params.poolId);
   if (isNaN(poolId)) {
@@ -237,6 +379,7 @@ router.get("/:poolId", async (req, res) => {
     .select({ ct: count() })
     .from(poolParticipantsTable)
     .where(eq(poolParticipantsTable.poolId, poolId));
+  const currentEntries = Number(ct);
 
   const sessionUserId = getAuthedUserId(req);
   let userJoined = false;
@@ -249,7 +392,13 @@ router.get("/:poolId", async (req, res) => {
     userJoined = existing.length > 0;
   }
 
-  res.json({ ...formatPool(pool, Number(ct)), userJoined });
+  const fillComparison = await getPoolFillComparison({
+    createdAt: pool.createdAt,
+    currentEntries,
+    maxUsers: pool.maxUsers,
+  });
+
+  res.json({ ...formatPool(pool, currentEntries), userJoined, fillComparison });
 });
 
 router.patch("/:poolId", async (req, res) => {
@@ -416,7 +565,7 @@ router.post("/:poolId/join", async (req, res) => {
   );
 
   const newParticipantCount = Number(ct) + 1;
-  void runJoinSideEffects({
+  const engagement = await runJoinSideEffects({
     userId: sessionUserId,
     joinerName: user.name,
     poolId,
@@ -435,6 +584,15 @@ router.post("/:poolId/join", async (req, res) => {
       previousTier: tierResult.previousTier,
       freeTicketGranted: tierResult.freeTicketGranted,
     } : null,
+    mysteryReward: engagement.mysteryReward
+      ? {
+          id: engagement.mysteryReward.id,
+          rewardType: engagement.mysteryReward.rewardType,
+          rewardValue: engagement.mysteryReward.rewardValue,
+          poolJoinNumber: engagement.mysteryReward.poolJoinNumber,
+        }
+      : null,
+    streak: engagement.streak,
   });
 });
 
@@ -466,7 +624,19 @@ router.post("/:poolId/distribute", async (req, res) => {
     return;
   }
 
-  const picked = pickUniqueWinners(participants, 3);
+  const { shuffled, positionByUserId } = computeDrawRanking(participants);
+  const picked = pickWinnersFromRanking(shuffled, 3);
+
+  for (const row of participants) {
+    const pos = positionByUserId.get(row.userId);
+    if (pos != null) {
+      await db
+        .update(poolParticipantsTable)
+        .set({ drawPosition: pos })
+        .where(eq(poolParticipantsTable.id, row.id));
+    }
+  }
+
   const prizes = [
     { place: 1, prize: parseFloat(pool.prizeFirst) },
     { place: 2, prize: parseFloat(pool.prizeSecond) },
@@ -517,14 +687,28 @@ router.post("/:poolId/distribute", async (req, res) => {
     winnerUserIds.add(participant.userId);
   }
 
+  const totalN = participants.length;
   for (const p of participants) {
     if (winnerUserIds.has(p.userId)) continue;
-    void notifyUser(
-      p.userId,
-      "Draw complete",
-      `The fair draw for "${pool.title}" has finished. Thank you for participating.`,
-      "pool_update",
-    );
+    const pos = positionByUserId.get(p.userId) ?? totalN;
+    let title = "Draw complete";
+    let body = `The fair draw for "${pool.title}" has finished. Thank you for participating.`;
+    if (pos <= 5 && pos > 3) {
+      title = "So close!";
+      body =
+        pos === 4
+          ? `Your draw position: #4 of ${totalN} — you were just 1 spot away from 3rd prize!`
+          : `Your draw position: #5 of ${totalN} — only a couple of spots from the podium!`;
+    } else if (pos <= 10) {
+      title = "Draw position";
+      body = `You finished #${pos} of ${totalN} — almost there! Top half finish. Join the next pool!`;
+    } else if (pos <= 20) {
+      title = "Draw position";
+      body = `You finished #${pos} of ${totalN}. Better luck next pool — join again for another chance.`;
+    } else {
+      body = `You finished #${pos} of ${totalN}. Thank you for participating in "${pool.title}".`;
+    }
+    void notifyUser(p.userId, title, body, "pool_update");
   }
 
   await db.update(poolsTable).set({ status: "completed" }).where(eq(poolsTable.id, poolId));

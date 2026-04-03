@@ -3,6 +3,7 @@ import "dotenv/config";
 import { runPendingSqlMigrations } from "./runMigrations";
 import { logger } from "./lib/logger";
 import { scheduleExpiredPoolJob } from "./lib/pool-auto-close";
+import { scheduleEngagementJobs } from "./lib/engagement-scheduler";
 
 const rawPort = process.env["PORT"];
 
@@ -29,6 +30,7 @@ async function main() {
 
     logger.info({ port }, "Server listening");
     scheduleExpiredPoolJob();
+    scheduleEngagementJobs();
   });
 }
 
