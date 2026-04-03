@@ -486,7 +486,7 @@ export default function PoolDetailPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Prize Distribution</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <div className="grid grid-cols-3 gap-4 text-center mb-4">
               <PrizeTile place="1st Place" amount={pool.prizeFirst} color="text-yellow-400" bg="bg-yellow-500/10 border border-yellow-500/20" />
               <PrizeTile place="2nd Place" amount={pool.prizeSecond} color="text-slate-300" bg="bg-slate-500/10 border border-slate-500/20" />

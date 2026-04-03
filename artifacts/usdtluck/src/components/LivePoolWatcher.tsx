@@ -45,7 +45,7 @@ export function LivePoolWatcher() {
           Fair draws run when pools fill or close — share to help complete them.
         </p>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-0">
         {rows.map((p) => {
           const pct = p.maxUsers > 0 ? Math.round((p.participantCount / p.maxUsers) * 100) : 0;
           let msg = "";

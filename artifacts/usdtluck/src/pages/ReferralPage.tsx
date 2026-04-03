@@ -131,7 +131,7 @@ export default function ReferralPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Your Referral Link</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-0">
             {fetching ? (
               <Skeleton className="h-12 w-full" />
             ) : (
@@ -295,7 +295,7 @@ export default function ReferralPage() {
 function StatCard({ label, value, icon, color = "text-foreground" }: { label: string; value: string | number; icon: string; color?: string }) {
   return (
     <Card className="text-center">
-      <CardContent className="pt-5 pb-5">
+      <CardContent className="py-6">
         <div className="text-2xl mb-1">{icon}</div>
         <p className={`text-xl font-bold ${color}`}>{value}</p>
         <p className="text-xs text-muted-foreground mt-0.5">{label}</p>

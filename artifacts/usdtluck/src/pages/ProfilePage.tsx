@@ -89,7 +89,7 @@ function WalletLedgerCard() {
         <CardTitle className="text-base">Wallet activity</CardTitle>
         <CardDescription>Recent credits and debits from your in-app wallet (server ledger).</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : rows.length === 0 ? (
@@ -158,7 +158,7 @@ function PrizeHistoryCard() {
           Wallet credits from completed fair draws. On-chain reward transfers use your saved TRC20 address.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : rows.length === 0 ? (
@@ -372,7 +372,7 @@ export default function ProfilePage() {
           <CardTitle className="text-base">Your wallet</CardTitle>
           <CardDescription>Balances from completed deposits, prizes, bonuses, and withdrawals (server-tracked).</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
+        <CardContent className="space-y-2 pt-0 text-sm">
           {walletLoading ? (
             <p className="text-muted-foreground">Loading…</p>
           ) : (
@@ -409,7 +409,7 @@ export default function ProfilePage() {
             Your prize payouts are sent manually to this address. It is locked for your protection.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 pt-0">
           {walletLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading wallet…
@@ -490,7 +490,7 @@ export default function ProfilePage() {
           <CardTitle className="text-base">Loyalty & free entries</CardTitle>
           <CardDescription>Every 5 reward pool joins earn one free entry. Referral activity also builds points.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm">
+        <CardContent className="space-y-3 pt-0 text-sm">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <p className="text-xs text-muted-foreground">Total joins</p>
@@ -521,7 +521,7 @@ export default function ProfilePage() {
           <CardTitle className="text-base">Account Information</CardTitle>
           <CardDescription>Update your display name</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <form onSubmit={handleSave} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="name">Full Name</Label>
@@ -551,7 +551,7 @@ export default function ProfilePage() {
         <CardHeader>
           <CardTitle className="text-base">Account Stats</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-4">
+        <CardContent className="grid grid-cols-2 gap-4 pt-0">
           <div className="space-y-0.5">
             <p className="text-xs text-muted-foreground">Wallet Balance</p>
             <p className="text-xl font-bold text-primary">{currentUser.walletBalance.toFixed(2)} USDT</p>

@@ -236,7 +236,7 @@ function FinanceTab() {
               Used for minimum participants: ceil((prizes + this target) / list entry fee), min 3.
             </p>
           </CardHeader>
-          <CardContent className="flex flex-wrap items-end gap-2">
+          <CardContent className="flex flex-wrap items-end gap-2 pt-0">
             <div className="space-y-1">
               <Label className="text-xs">Target profit (USDT)</Label>
               <Input
@@ -260,7 +260,7 @@ function FinanceTab() {
           <CardTitle className="text-base">Revenue vs prizes by draw</CardTitle>
           <p className="text-xs text-muted-foreground font-normal">Click a row for the full saved summary.</p>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 pt-0">
           {perDrawSafe.length === 0 ? (
             <p className="text-sm text-muted-foreground">No completed draws with financials yet.</p>
           ) : (
@@ -306,7 +306,7 @@ function FinanceTab() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base">New signups (30 days)</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <div className="flex items-end gap-1 h-28 overflow-x-auto pb-1">
             {activeUsersSafe.map((row) => {
               const mh = Math.max(...activeUsersSafe.map((r) => financeOverviewNum(r.count, 0)), 1);
@@ -345,7 +345,7 @@ function FinanceTab() {
             <Input type="date" className="h-9 w-[150px]" value={toDate} onChange={(e) => setToDate(e.target.value)} />
           </div>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent className="overflow-x-auto pt-0">
           {ledgerLoading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : (
@@ -448,7 +448,7 @@ function StatsTab() {
                   Issued after draws to non-winners; conversion = used ÷ issued.
                 </p>
               </CardHeader>
-              <CardContent className="space-y-1 text-sm">
+              <CardContent className="space-y-1 pt-0 text-sm">
                 <p>
                   <span className="text-muted-foreground">Issued:</span>{" "}
                   <span className="font-semibold">{stats.comebackCoupons.issued}</span>
@@ -470,7 +470,7 @@ function StatsTab() {
                 <CardTitle className="text-base">Members by activity tier</CardTitle>
                 <p className="text-xs text-muted-foreground font-normal">Based on pool join milestones (bronze → diamond).</p>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-2 pt-0">
                 {stats.poolVipBreakdown.map((row) => (
                   <div key={row.tier} className="flex justify-between text-sm">
                     <span className="capitalize text-muted-foreground">{row.tier}</span>

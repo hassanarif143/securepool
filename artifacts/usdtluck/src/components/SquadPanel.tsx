@@ -62,7 +62,7 @@ export function SquadPanel() {
             Team up with friends — bonus points when squad mates join the same pool or win.
           </p>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 pt-0">
           <div className="flex gap-2">
             <Input placeholder="Squad name" value={name} onChange={(e) => setName(e.target.value)} />
             <Button disabled={busy} size="sm" onClick={() => void postJson("/api/squad/create", { name })}>
@@ -86,7 +86,7 @@ export function SquadPanel() {
         <CardTitle className="text-base">{data.squad.name}</CardTitle>
         <p className="text-xs font-mono text-muted-foreground">Code: {data.squad.code}</p>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-2 pt-0">
         <Button
           type="button"
           variant="outline"

@@ -56,7 +56,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-0">
         <div className="grid grid-cols-3 gap-2 text-center">
           <PrizeTile place="1st" amount={pool.prizeFirst} color="text-yellow-400" bg="bg-yellow-500/10 border border-yellow-500/20" />
           <PrizeTile place="2nd" amount={pool.prizeSecond} color="text-slate-300" bg="bg-slate-500/10 border border-slate-500/20" />
