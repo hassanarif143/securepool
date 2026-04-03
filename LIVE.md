@@ -67,6 +67,16 @@ The API runs pending SQL migrations on startup (`runPendingSqlMigrations`). Ensu
 
 If you change Drizzle schema under `lib/db`, run **`pnpm exec tsc -b lib/db`** (or root **`pnpm run typecheck:libs`**) so declaration files stay in sync. The **`@workspace/api-server`** `typecheck` script builds `lib/db` first, then typechecks the API.
 
+## Fresh start — only one admin (live testing)
+
+To **delete every user except one admin** (Neon / Postgres), use a backup first, then run:
+
+`scripts/reset-to-single-admin.sql`
+
+It keeps the **lowest `id`** among rows with **`is_admin = true`**, removes related rows (transactions, pool entries, referrals, wallets, etc.), clears **`"session"`** so everyone must log in again, and resets the **`users` id sequence**. Optional commented block at the bottom can also wipe **pools** and **treasury ledgers** for an empty slate.
+
+If you have **multiple admins**, either demote the others first or edit the script to set a fixed `keep_id`.
+
 ## Demo seed data (development only)
 
 From repo root, after a successful API build and with **`DATABASE_URL`** set:
