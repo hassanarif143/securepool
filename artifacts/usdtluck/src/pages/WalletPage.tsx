@@ -1,10 +1,17 @@
 import { useState, useRef, useEffect } from "react";
-import { useLocation, useSearch } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useGetUserTransactions, getGetUserTransactionsQueryKey, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiUrl, apiAssetUrl, readApiErrorMessage } from "@/lib/api-base";
+import { DepositStepFlow } from "@/components/DepositStepFlow";
+import { TransactionStatusBadge } from "@/components/TransactionStatusBadge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowRight, Inbox, Shield } from "lucide-react";
 
 const PLATFORM_ADDRESS = "TQn9Y2khEsLJW1ChVWFMSMeRDow5kBDaVR";
 const NETWORK = "TRC-20 (Tron)";
@@ -32,30 +39,8 @@ function txMeta(type: string) {
   return TX_META[type] ?? { icon: "—", label: type.replace(/_/g, " "), sign: "", color: "#64748b", isCredit: false };
 }
 
-function StatusChip({ status }: { status: string }) {
-  if (status === "completed") return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-sm border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-      ✓ Completed
-    </span>
-  );
-  if (status === "pending") return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-sm border border-yellow-500/30 bg-yellow-500/10 text-yellow-400">
-      ⏳ Pending
-    </span>
-  );
-  if (status === "under_review") return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-sm border border-blue-500/30 bg-blue-500/10 text-blue-300">
-      👀 Under Review
-    </span>
-  );
-  return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-sm border border-red-500/30 bg-red-500/10 text-red-400">
-      ✕ Rejected
-    </span>
-  );
-}
-
-const box = "border border-[hsl(217,28%,18%)] bg-[hsl(222,30%,9%)]";
+const box =
+  "rounded-2xl border border-[hsl(217,28%,18%)] bg-[hsl(222,30%,9%)] shadow-xl shadow-black/25 ring-1 ring-white/[0.03]";
 const headerBar = "px-5 py-3 border-b border-[hsl(217,28%,16%)]";
 
 /* ══════════════════════════════════════════ */
@@ -194,32 +179,57 @@ export default function WalletPage() {
   ] as const;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4 pb-10">
+    <div className="max-w-2xl mx-auto space-y-4 pb-10 md:pb-12">
 
-      {/* Balance hero */}
-      <div className={`${box} rounded-xl overflow-hidden`}>
-        <div className={`${headerBar} flex items-center justify-between`} style={{ background: "hsl(222,30%,11%)" }}>
+      {/* Balance hero — primary trust anchor */}
+      <div className={`${box} overflow-hidden`}>
+        <div
+          className={`${headerBar} flex flex-wrap items-center justify-between gap-2 bg-gradient-to-r from-[hsl(222,30%,11%)] to-[hsl(222,30%,9.5%)]`}
+        >
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Wallet</p>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/[0.08] px-2.5 py-1 text-[10px] font-medium text-emerald-300/95">
+            <Shield className="h-3 w-3" aria-hidden />
+            Reviewed deposits
+          </span>
         </div>
-        <div className="px-6 py-5">
-          <p className="text-[11px] text-muted-foreground mb-1">Available Balance</p>
-          <div className="flex items-baseline gap-2">
-            <span className="text-5xl font-black tabular-nums tracking-tight" style={{ color: "hsl(152,72%,55%)" }}>
+        <div className="px-5 py-6 sm:px-7 sm:py-7">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Available balance</p>
+          <div className="mt-1 flex flex-wrap items-baseline gap-2">
+            <span className="font-display text-5xl font-black tabular-nums tracking-tight sm:text-[3.25rem]" style={{ color: "hsl(152,72%,55%)" }}>
               {user.walletBalance.toFixed(2)}
             </span>
             <span className="text-xl font-bold text-muted-foreground">USDT</span>
+          </div>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button className="min-h-12 w-full font-semibold shadow-md shadow-primary/20 sm:w-auto sm:min-w-[9rem]" asChild>
+              <Link href="/wallet?tab=deposit">Deposit</Link>
+            </Button>
+            <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[9rem]" asChild>
+              <Link href="/wallet?tab=withdraw">Withdraw</Link>
+            </Button>
+            <Button
+              variant="secondary"
+              className="min-h-12 w-full font-medium sm:w-auto sm:min-w-[9rem]"
+              asChild
+            >
+              <Link href="/pools">
+                Join a pool
+                <ArrowRight className="h-4 w-4 opacity-80" />
+              </Link>
+            </Button>
           </div>
         </div>
       </div>
 
       {/* Tab bar */}
-      <div className={`${box} rounded-xl overflow-hidden`}>
+      <div className={`${box} overflow-hidden`}>
         <div className="flex border-b border-[hsl(217,28%,16%)]">
           {tabs.map((t) => (
             <button
               key={t.id}
+              type="button"
               onClick={() => { setTab(t.id); setAmount(""); setNote(""); }}
-              className={`flex-1 py-3 text-sm font-semibold transition-colors ${
+              className={`flex-1 min-h-12 py-3 text-sm font-semibold transition-colors duration-200 ${
                 tab === t.id
                   ? "text-foreground border-b-2 border-emerald-500"
                   : "text-muted-foreground hover:text-foreground"
@@ -251,87 +261,32 @@ export default function WalletPage() {
             )}
 
             {/* Network warning */}
-            <div className="flex items-start gap-3 p-4 rounded-lg border border-red-500/25 bg-red-500/8">
-              <span className="text-red-400 shrink-0 mt-0.5">⚠</span>
+            <div className="flex items-start gap-3 rounded-xl border border-red-500/25 bg-red-500/[0.08] p-4 ring-1 ring-red-500/10">
+              <span className="mt-0.5 shrink-0 text-red-400">⚠</span>
               <div>
-                <p className="font-bold text-sm text-red-300">Send only USDT on {NETWORK}</p>
-                <p className="text-xs text-red-400/80 mt-0.5">
+                <p className="text-sm font-bold text-red-300">Send only USDT on {NETWORK}</p>
+                <p className="mt-0.5 text-xs text-red-400/85">
                   Sending on the wrong network will result in permanent loss of funds. We cannot recover it.
                 </p>
               </div>
             </div>
 
-            {/* Steps */}
-            <div className="space-y-0 divide-y divide-[hsl(217,28%,15%)] border border-[hsl(217,28%,18%)] rounded-xl overflow-hidden">
-              {/* Step 1 */}
-              <div className="p-4 flex gap-4 items-start" style={{ background: "hsl(222,30%,10%)" }}>
-                <div className="w-7 h-7 rounded-md flex items-center justify-center text-xs font-black shrink-0 mt-0.5"
-                  style={{ background: "hsl(152,72%,15%)", color: "hsl(152,72%,55%)", border: "1px solid hsl(152,72%,25%)" }}>
-                  1
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-sm mb-2">Copy our USDT wallet address</p>
-                  <div className="flex items-center gap-2 p-3 rounded-lg border border-[hsl(217,28%,22%)]"
-                    style={{ background: "hsl(217,28%,12%)" }}>
-                    <code className="text-xs font-mono text-foreground flex-1 break-all select-all">{PLATFORM_ADDRESS}</code>
-                    <button
-                      type="button"
-                      onClick={copyAddress}
-                      className="shrink-0 px-3 py-1.5 rounded-md text-xs font-bold transition-all"
-                      style={{
-                        background: copied ? "hsl(152,72%,15%)" : "hsl(217,28%,20%)",
-                        color: copied ? "hsl(152,72%,55%)" : "hsl(210,40%,80%)",
-                        border: `1px solid ${copied ? "hsl(152,72%,30%)" : "hsl(217,28%,28%)"}`,
-                      }}
-                    >
-                      {copied ? "✓ Copied" : "Copy"}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-1.5">
-                    Network: <span className="font-semibold text-foreground">{NETWORK}</span>
-                    <span className="mx-1.5 opacity-30">·</span>
-                    Min deposit: <span className="font-semibold text-foreground">1 USDT</span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Step 2 */}
-              <div className="p-4 flex gap-4 items-start" style={{ background: "hsl(222,30%,10%)" }}>
-                <div className="w-7 h-7 rounded-md flex items-center justify-center text-xs font-black shrink-0 mt-0.5"
-                  style={{ background: "hsl(217,28%,14%)", color: "hsl(210,40%,70%)", border: "1px solid hsl(217,28%,22%)" }}>
-                  2
-                </div>
-                <div>
-                  <p className="font-bold text-sm">Send USDT from your exchange</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Open Binance, Bybit, or any exchange. Paste the address above and send the amount you want to deposit.
-                    Wait for the transaction to confirm (usually 1–2 minutes).
-                  </p>
-                </div>
-              </div>
-
-              {/* Step 3 */}
-              <div className="p-4 flex gap-4 items-start" style={{ background: "hsl(222,30%,10%)" }}>
-                <div className="w-7 h-7 rounded-md flex items-center justify-center text-xs font-black shrink-0 mt-0.5"
-                  style={{ background: "hsl(217,28%,14%)", color: "hsl(210,40%,70%)", border: "1px solid hsl(217,28%,22%)" }}>
-                  3
-                </div>
-                <div>
-                  <p className="font-bold text-sm">Upload your payment proof below</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Take a screenshot of the completed transaction from your exchange and upload it in the form below.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <DepositStepFlow
+              platformAddress={PLATFORM_ADDRESS}
+              network={NETWORK}
+              minDeposit="1 USDT"
+              copied={copied}
+              onCopy={copyAddress}
+            />
 
             {/* Form */}
             <form onSubmit={handleDeposit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-                  Amount Sent (USDT)
-                </label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="deposit-amount" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Amount sent (USDT)
+                </Label>
+                <Input
+                  id="deposit-amount"
                   type="number"
                   min="1"
                   step="0.01"
@@ -340,18 +295,26 @@ export default function WalletPage() {
                   placeholder="e.g. 50"
                   required
                   disabled={!!pendingDeposit}
-                  className="w-full px-4 py-3 rounded-lg text-sm font-semibold tabular-nums border border-[hsl(217,28%,22%)] bg-[hsl(217,28%,12%)] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-emerald-500/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="border-border/90 bg-muted/25 font-semibold tabular-nums disabled:opacity-40"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-                  Payment Screenshot <span className="text-red-400">*</span>
-                </label>
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Payment screenshot <span className="text-destructive">*</span>
+                </Label>
                 <div
-                  className="border-2 border-dashed border-[hsl(217,28%,22%)] rounded-lg p-5 text-center transition-colors cursor-pointer hover:border-[hsl(217,28%,32%)]"
+                  className="cursor-pointer rounded-xl border-2 border-dashed border-border/90 bg-muted/20 p-5 text-center transition-colors duration-200 hover:border-primary/35 hover:bg-muted/30"
                   onClick={() => !pendingDeposit && fileInputRef.current?.click()}
-                  style={{ background: "hsl(217,28%,10%)" }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      if (!pendingDeposit) fileInputRef.current?.click();
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Upload payment screenshot"
                 >
                   {screenshotPreview ? (
                     <div className="space-y-2">
@@ -381,33 +344,33 @@ export default function WalletPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-                  Transaction ID / Note <span className="opacity-40">(optional)</span>
-                </label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="deposit-note" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Transaction ID / note <span className="font-normal opacity-50">(optional)</span>
+                </Label>
+                <Input
+                  id="deposit-note"
                   type="text"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="e.g. abc123def (helps us verify faster)"
                   disabled={!!pendingDeposit}
-                  className="w-full px-4 py-3 rounded-lg text-sm border border-[hsl(217,28%,22%)] bg-[hsl(217,28%,12%)] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-emerald-500/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="border-border/90 bg-muted/25 disabled:opacity-40"
                 />
               </div>
 
               {pendingDeposit ? (
-                <div className="w-full py-3 rounded-lg text-sm font-bold text-center border border-yellow-500/30 bg-yellow-500/8 text-yellow-400">
-                  ⏳ Awaiting verification — please wait
+                <div className="w-full rounded-xl border border-yellow-500/35 bg-yellow-500/[0.08] py-3.5 text-center text-sm font-semibold text-yellow-300">
+                  Awaiting verification — please wait
                 </div>
               ) : (
-                <button
+                <Button
                   type="submit"
                   disabled={depositLoading}
-                  className="w-full py-3 rounded-lg text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-50"
-                  style={{ background: "#16a34a", boxShadow: "0 2px 8px rgba(22,163,74,0.25)" }}
+                  className="min-h-12 w-full font-semibold shadow-lg shadow-primary/25 transition-transform duration-200 active:scale-[0.99]"
                 >
-                  {depositLoading ? "Submitting…" : "Submit Deposit Request →"}
-                </button>
+                  {depositLoading ? "Submitting…" : "Submit deposit request"}
+                </Button>
               )}
             </form>
           </div>
@@ -421,7 +384,9 @@ export default function WalletPage() {
                 <span className="text-yellow-400 shrink-0 mt-0.5">⚠</span>
                 <p className="text-sm text-yellow-300">
                   Please add your USDT wallet address in your{" "}
-                  <a href="/profile" className="underline font-semibold">Profile</a>{" "}
+                  <Link href="/profile" className="font-semibold underline">
+                    Profile
+                  </Link>{" "}
                   before withdrawing — so we can send funds to the right address.
                 </p>
               </div>
@@ -443,11 +408,12 @@ export default function WalletPage() {
             </div>
 
             <form onSubmit={handleWithdraw} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+              <div className="space-y-2">
+                <Label htmlFor="withdraw-amount" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Amount (USDT)
-                </label>
-                <input
+                </Label>
+                <Input
+                  id="withdraw-amount"
                   type="number"
                   min="1"
                   step="0.01"
@@ -456,45 +422,47 @@ export default function WalletPage() {
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder={`Max: ${user.walletBalance.toFixed(2)}`}
                   required
-                  className="w-full px-4 py-3 rounded-lg text-sm font-semibold tabular-nums border border-[hsl(217,28%,22%)] bg-[hsl(217,28%,12%)] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-emerald-500/50"
+                  className="border-border/90 bg-muted/25 font-semibold tabular-nums"
                 />
-                <p className="text-[10px] text-muted-foreground mt-1">Available: {user.walletBalance.toFixed(2)} USDT</p>
+                <p className="text-[10px] text-muted-foreground">Available: {user.walletBalance.toFixed(2)} USDT</p>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-                  Destination Address (TRC-20)
-                </label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="withdraw-addr" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Destination address (TRC-20)
+                </Label>
+                <Input
+                  id="withdraw-addr"
                   type="text"
                   value={withdrawWallet}
                   onChange={(e) => setWithdrawWallet(e.target.value)}
                   placeholder={user.cryptoAddress ?? "Enter your USDT wallet address (TRC-20)"}
-                  className="w-full px-4 py-3 rounded-lg text-sm border border-[hsl(217,28%,22%)] bg-[hsl(217,28%,12%)] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-emerald-500/50"
+                  className="border-border/90 bg-muted/25 font-mono text-sm"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-                  Note (optional)
-                </label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="withdraw-note" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Note <span className="font-normal opacity-50">(optional)</span>
+                </Label>
+                <Input
+                  id="withdraw-note"
                   type="text"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Optional note"
-                  className="w-full px-4 py-3 rounded-lg text-sm border border-[hsl(217,28%,22%)] bg-[hsl(217,28%,12%)] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-emerald-500/50"
+                  className="border-border/90 bg-muted/25"
                 />
               </div>
 
-              <button
+              <Button
                 type="submit"
+                variant="secondary"
                 disabled={withdrawLoading || user.walletBalance <= 0}
-                className="w-full py-3 rounded-lg text-sm font-bold transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed border border-[hsl(217,28%,28%)]"
-                style={{ background: "hsl(217,28%,14%)" }}
+                className="min-h-12 w-full border border-border font-semibold transition-transform duration-200 active:scale-[0.99] disabled:opacity-40"
               >
-                {withdrawLoading ? "Submitting…" : "Request Withdrawal →"}
-              </button>
+                {withdrawLoading ? "Submitting…" : "Request withdrawal"}
+              </Button>
             </form>
           </div>
         )}
@@ -508,7 +476,7 @@ export default function WalletPage() {
                 {pendingAll.map((t) => (
                   <div key={t.id} className="flex items-center justify-between gap-2 text-xs rounded-lg border border-yellow-500/30 bg-yellow-500/8 px-3 py-2">
                     <span className="capitalize text-muted-foreground">{String(t.txType).replace("_", " ")}</span>
-                    <StatusChip status={t.status} />
+                    <TransactionStatusBadge status={t.status} compact />
                     <span className="font-mono font-bold tabular-nums">{parseFloat(t.amount).toFixed(2)} USDT</span>
                   </div>
                 ))}
@@ -549,17 +517,30 @@ export default function WalletPage() {
             </div>
 
             {txsLoading ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
+              <div className="space-y-0 divide-y divide-border/60 p-4">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                    <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <Skeleton className="h-3 w-28 rounded" />
+                      <Skeleton className="h-2.5 w-20 rounded" />
+                    </div>
+                    <Skeleton className="h-4 w-16 shrink-0 rounded" />
+                  </div>
+                ))}
+              </div>
             ) : txArr.length === 0 ? (
-              <div className="py-12 text-center m-4 border border-dashed border-[hsl(217,28%,20%)] rounded-lg px-4">
-                <p className="text-2xl mb-2 opacity-30">—</p>
-                <p className="text-sm font-medium">No transactions yet</p>
-                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                  Make your first deposit to get started — then join pools and win rewards.
+              <div className="m-4 flex flex-col items-center rounded-2xl border border-dashed border-border/80 bg-muted/10 px-6 py-12 text-center">
+                <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-border/80 bg-card text-muted-foreground">
+                  <Inbox className="h-7 w-7" strokeWidth={1.5} aria-hidden />
+                </span>
+                <p className="font-display text-sm font-semibold text-foreground">No transactions yet</p>
+                <p className="mt-1 max-w-sm text-xs text-muted-foreground leading-relaxed">
+                  Make your first deposit to fund your wallet — then join pools and track every movement here.
                 </p>
-                <a href="/wallet?tab=deposit" className="inline-block mt-4 px-4 py-2 rounded-lg text-sm font-bold text-white" style={{ background: "#16a34a" }}>
-                  Deposit now
-                </a>
+                <Button className="mt-5 min-h-11 font-semibold shadow-md shadow-primary/20" asChild>
+                  <Link href="/wallet?tab=deposit">Deposit now</Link>
+                </Button>
               </div>
             ) : filteredTx.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">No transactions in this filter.</div>
@@ -580,7 +561,7 @@ export default function WalletPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-xs font-semibold">{meta.label}</p>
-                            <StatusChip status={tx.status} />
+                            <TransactionStatusBadge status={tx.status} />
                           </div>
                           <p className="text-[10px] text-muted-foreground mt-0.5">
                             {timeAgo(tx.createdAt)}

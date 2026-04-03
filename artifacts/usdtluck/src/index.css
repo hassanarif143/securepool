@@ -204,6 +204,25 @@
   .safe-area-pb {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+  /** Used by shadcn Button / Badge — subtle lift without layout shift */
+  .hover-elevate {
+    transition: box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+  .hover-elevate:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+  }
+  .active-elevate-2:active {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hover-elevate,
+    .active-elevate-2 {
+      transition: none;
+    }
+    .hover-elevate:hover {
+      box-shadow: none;
+    }
+  }
 }
 
 /* Landing page: infinite horizontal winners ticker */

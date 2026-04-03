@@ -7,6 +7,8 @@ import { Logo } from "@/components/Logo";
 import { apiUrl } from "@/lib/api-base";
 import { LuckyHourBanner } from "@/components/LuckyHourBanner";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
+import { TrustStrip } from "@/components/TrustStrip";
+import { LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
 
 function playNotifSound() {
   try {
@@ -646,6 +648,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
+      {user && (
+        <div className="border-b border-border/60 bg-gradient-to-b from-background to-background/95">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3">
+            <TrustStrip />
+          </div>
+        </div>
+      )}
+
       {user ? <LuckyHourBanner /> : null}
 
       <main className={`flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${user ? "pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""}`}>
@@ -655,30 +665,34 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {user && (
         <nav
-          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t flex justify-around items-stretch min-h-[3.75rem] py-2 px-1 safe-area-pb touch-manipulation"
+          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t flex justify-around items-stretch min-h-[4.25rem] py-2 px-1 safe-area-pb touch-manipulation shadow-[0_-8px_32px_rgba(0,0,0,0.35)] transition-shadow"
           style={{ background: "hsla(224,30%,7%,0.96)", backdropFilter: "blur(12px)", borderColor: "hsl(217,28%,14%)" }}
+          aria-label="Primary"
         >
-          {[
-            { href: "/dashboard", label: "Home", icon: "🏠" },
-            { href: "/pools", label: "Pools", icon: "🎱" },
-            { href: "/wallet", label: "Wallet", icon: "💳" },
-            ...(user.isAdmin ? [{ href: "/admin", label: "Admin", icon: "⚙️" }] as const : []),
-            { href: "/winners", label: "Wins", icon: "🏆" },
-          ].map((item) => {
+          {(
+            [
+              { href: "/dashboard", label: "Home", Icon: LayoutDashboard },
+              { href: "/pools", label: "Pools", Icon: Layers },
+              { href: "/wallet", label: "Wallet", Icon: Wallet },
+              ...(user.isAdmin ? [{ href: "/admin", label: "Admin", Icon: Shield }] as const : []),
+              { href: "/winners", label: "Wins", Icon: Trophy },
+            ] as const
+          ).map((item) => {
             const active =
               item.href === "/dashboard"
                 ? location === "/dashboard"
                 : location.startsWith(item.href);
+            const Icon = item.Icon;
             return (
               <Link key={item.href} href={item.href}>
                 <span
-                  className={`flex flex-col items-center justify-center text-[10px] sm:text-[11px] font-semibold min-w-[52px] max-w-[76px] py-2 px-1 rounded-xl transition-colors active:opacity-80 ${
-                    active ? "text-primary" : "text-muted-foreground"
+                  className={`flex min-h-[3.25rem] flex-col items-center justify-center gap-1 rounded-xl px-2 text-[10px] font-semibold tracking-tight transition-colors duration-200 active:scale-[0.98] ${
+                    active ? "text-primary" : "text-muted-foreground hover:text-foreground/90"
                   }`}
                   style={active ? { background: "hsla(152,72%,44%,0.12)" } : {}}
                 >
-                  <span className="text-lg leading-none mb-1" aria-hidden>{item.icon}</span>
-                  <span className="leading-snug text-center">{item.label}</span>
+                  <Icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.25 : 2} aria-hidden />
+                  <span className="leading-tight text-center max-w-[4.5rem] truncate">{item.label}</span>
                 </span>
               </Link>
             );

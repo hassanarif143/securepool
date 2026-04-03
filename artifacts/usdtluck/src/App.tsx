@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/context/AuthContext";
 import { useAuth } from "@/context/AuthContext";
 import { Layout } from "@/components/Layout";
+import { PageLoading } from "@/components/PageLoading";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
@@ -43,7 +44,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
     }
   }, [user, isLoading, navigate, location]);
 
-  if (isLoading) return null;
+  if (isLoading) return <PageLoading />;
   if (!user) return null;
   return <>{children}</>;
 }

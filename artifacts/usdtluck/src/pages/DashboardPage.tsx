@@ -20,8 +20,10 @@ import { ComebackBanner, type ActiveCouponJson } from "@/components/ComebackOffe
 import { SquadPanel } from "@/components/SquadPanel";
 import { AchievementGrid } from "@/components/AchievementGrid";
 import { PoolVipBadge } from "@/components/PoolVipBadge";
+import { TransactionStatusBadge } from "@/components/TransactionStatusBadge";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { Button } from "@/components/ui/button";
+import { ArrowRight, Inbox } from "lucide-react";
 
 interface TierInfo {
   tier: string;
@@ -198,19 +200,39 @@ export default function DashboardPage() {
       {/* Page intro */}
       <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-br from-[hsl(222,30%,10%)] via-[hsl(222,30%,9%)] to-[hsl(224,30%,8%)] px-5 py-5 sm:px-6 sm:py-6 shadow-lg shadow-black/20 ring-1 ring-white/[0.04]">
         <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-primary/5 blur-3xl pointer-events-none" aria-hidden />
-        <div className="relative flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-          <div className="space-y-1.5">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90">Overview</p>
-            <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-2xl">
-              {greeting()}, {firstName}. Your balance, pools, and wallet activity in one place.
-            </p>
+        <div className="relative flex flex-col gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90">Overview</p>
+              <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
+              <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+                {greeting()}, {firstName}. Your balance, pools, and wallet activity in one place.
+              </p>
+            </div>
+            <div className="shrink-0 text-left sm:text-right">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Today</p>
+              <p className="text-sm font-medium tabular-nums text-foreground/90">
+                {new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+              </p>
+            </div>
           </div>
-          <div className="text-left sm:text-right shrink-0">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Today</p>
-            <p className="text-sm font-medium tabular-nums text-foreground/90">
-              {new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
-            </p>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button
+              className="min-h-12 w-full font-semibold shadow-md shadow-primary/20 sm:w-auto sm:min-w-[10rem]"
+              asChild
+            >
+              <Link href="/pools">
+                Join a pool
+                <ArrowRight className="h-4 w-4 opacity-90" aria-hidden />
+              </Link>
+            </Button>
+            <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[9rem]" asChild>
+              <Link href="/wallet?tab=deposit">Deposit</Link>
+            </Button>
+            <Button variant="secondary" className="min-h-12 w-full font-medium sm:w-auto sm:min-w-[9rem]" asChild>
+              <Link href="/wallet">Wallet</Link>
+            </Button>
           </div>
         </div>
       </div>
@@ -246,65 +268,94 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className={`md:col-span-2 ${box} overflow-hidden`}>
           <div className={panelHead}>
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Wallet balance</p>
-              <p className="text-xs text-muted-foreground/90 mt-1 flex flex-wrap items-center gap-2">
-                <span className="capitalize font-medium text-foreground/80">{user.tier ?? "aurora"}</span> tier
-                {tierNext && (
-                  <span>
-                    · {ptsToNext} pts to {tierNext.id}
-                  </span>
-                )}
-                <PoolVipBadge tier={user.poolVipTier ?? "bronze"} />
-              </p>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground shrink-0">Loyalty</span>
+                  <TierBadge tier={user.tier ?? "aurora"} size="sm" />
+                  {tierNext && (
+                    <span className="text-xs text-muted-foreground">
+                      <span className="text-foreground/70">{ptsToNext} pts</span> to {tierNext.label}
+                    </span>
+                  )}
+                </div>
+                <span className="hidden sm:inline text-border/60" aria-hidden>
+                  |
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground shrink-0">Pool access</span>
+                  <PoolVipBadge tier={user.poolVipTier ?? "bronze"} />
+                </div>
+              </div>
             </div>
-            <TierBadge tier={user.tier ?? "aurora"} size="sm" />
           </div>
 
-          <div className="p-5 sm:p-6 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.06] via-transparent to-transparent pointer-events-none rounded-b-2xl" aria-hidden />
-            <div className="relative">
-              <p
-                className="font-display text-4xl sm:text-5xl lg:text-[3.25rem] font-extrabold tabular-nums tracking-tight"
-                style={{ color: "hsl(152,72%,56%)" }}
-              >
-                {animBalance.toFixed(2)}{" "}
-                <span className="text-lg sm:text-xl font-bold text-muted-foreground">USDT</span>
-              </p>
-              {user.walletBalance <= 0 && (
-                <p className="text-sm text-amber-500/95 mt-3 max-w-md leading-relaxed">
-                  Add USDT to join pools. Use Deposit to submit a transfer for admin approval.
+          <div className="p-6 sm:p-8 flex flex-col gap-6 relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.05] via-transparent to-transparent pointer-events-none rounded-b-2xl" aria-hidden />
+            <div className="relative flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+              <div className="min-w-0 flex-1">
+                <p
+                  className="font-display text-4xl sm:text-5xl lg:text-[3.25rem] font-extrabold tabular-nums tracking-tight"
+                  style={{ color: "hsl(152,72%,56%)" }}
+                >
+                  {animBalance.toFixed(2)}{" "}
+                  <span className="text-lg sm:text-xl font-bold text-muted-foreground">USDT</span>
                 </p>
-              )}
-            </div>
-            <div className="relative flex flex-wrap gap-2">
-              <Button className="shadow-md shadow-primary/20" style={{ background: "linear-gradient(135deg, #22c55e, #15803d)" }} asChild>
-                <Link href="/wallet?tab=deposit">Deposit</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/wallet?tab=withdraw">Withdraw</Link>
-              </Button>
-              <Button variant="secondary" asChild>
-                <Link href="/pools">View pools</Link>
-              </Button>
+                {user.walletBalance <= 0 && (
+                  <div className="mt-4 rounded-xl border border-amber-500/35 bg-amber-500/[0.08] px-4 py-3 text-sm text-amber-100/95 leading-relaxed max-w-xl shadow-inner">
+                    <p className="font-medium text-amber-200/95 mb-1">Fund your wallet</p>
+                    <p className="text-amber-100/85 text-[13px]">
+                      Tap <span className="font-semibold text-white">Deposit</span>, send USDT, then upload proof for admin approval. Once credited, you can join pools.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="relative flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row w-full lg:w-auto lg:min-w-[200px] xl:min-w-[280px]">
+                <Button
+                  className="w-full sm:flex-1 lg:w-full xl:flex-1 min-h-11 shadow-md shadow-primary/25 font-semibold"
+                  style={{ background: "linear-gradient(135deg, #22c55e, #15803d)" }}
+                  asChild
+                >
+                  <Link href="/wallet?tab=deposit">Deposit</Link>
+                </Button>
+                <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:flex-1 lg:grid lg:w-full xl:flex xl:flex-1">
+                  <Button variant="outline" className="w-full min-h-11 font-medium" asChild>
+                    <Link href="/wallet?tab=withdraw">Withdraw</Link>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full min-h-11 border border-border/80 bg-white/[0.03] font-medium text-foreground hover:bg-white/[0.06]"
+                    asChild
+                  >
+                    <Link href="/pools">View pools</Link>
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
 
           {tierNext && (
-            <div className="px-5 pb-5 sm:px-6 border-t border-[hsl(217,28%,14%)] pt-4 bg-[hsl(222,30%,8%)]/50">
-              <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
-                <span className="font-medium">Tier progress</span>
-                <span className="tabular-nums">{tierProgress}%</span>
+            <div className="px-6 pb-6 sm:px-8 border-t border-[hsl(217,28%,14%)] pt-5 bg-[hsl(222,30%,7%)]/80">
+              <div className="flex justify-between items-baseline gap-2 mb-2">
+                <span className="text-xs font-semibold text-foreground/90 tracking-wide">Loyalty tier progress</span>
+                <span className="text-sm font-bold tabular-nums text-primary">{tierProgress}%</span>
               </div>
-              <div className="h-2 rounded-full overflow-hidden bg-[hsl(217,28%,16%)]">
-                <div className="h-full transition-all duration-700 rounded-full" style={{ width: `${tierProgress}%`, background: "linear-gradient(90deg, hsl(152,72%,40%), hsl(152,72%,52%))" }} />
+              <div className="h-3 rounded-full overflow-hidden bg-[hsl(217,22%,18%)] ring-1 ring-white/[0.06]">
+                <div
+                  className="h-full transition-all duration-700 rounded-full shadow-[0_0_12px_hsla(152,72%,50%,0.35)]"
+                  style={{ width: `${tierProgress}%`, background: "linear-gradient(90deg, hsl(152,72%,42%), hsl(152,72%,58%))" }}
+                />
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                <span style={{ color: tierCurrent.color }}>{tierCurrent.icon}</span> {tierCurrent.label}
+              <p className="text-xs text-muted-foreground mt-3 flex flex-wrap items-center gap-1.5">
+                <span style={{ color: tierCurrent.color }}>{tierCurrent.icon}</span>
+                <span className="font-medium text-foreground/90">{tierCurrent.label}</span>
                 {tierNext && (
                   <>
-                    {" "}
-                    → <span style={{ color: tierNext.color }}>{tierNext.icon}</span> {tierNext.label}
+                    <span className="text-muted-foreground/70 mx-0.5">→</span>
+                    <span style={{ color: tierNext.color }}>{tierNext.icon}</span>
+                    <span className="font-medium text-foreground/90">{tierNext.label}</span>
                   </>
                 )}
               </p>
@@ -490,24 +541,31 @@ export default function DashboardPage() {
           </p>
 
           {recentTxs.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center py-10 px-4 m-3 border border-dashed border-border rounded-lg">
+            <div className="m-3 flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border/80 bg-muted/5 px-4 py-10 text-center">
+              <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl border border-border/60 text-muted-foreground">
+                <Inbox className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+              </span>
               <p className="text-sm font-medium">No transactions yet</p>
-              <p className="text-xs text-muted-foreground mt-1 text-center">Deposit or join a pool to see activity here.</p>
+              <p className="mt-1 max-w-xs text-xs text-muted-foreground">Deposit or join a pool to see activity here.</p>
             </div>
           ) : (
             <div className="divide-y divide-[hsl(217,28%,13%)] flex-1">
               {recentTxs.map((tx) => {
                 const meta = txMeta(tx.txType);
+                const showStatus = tx.txType === "deposit" || tx.txType === "withdraw";
                 return (
-                  <div key={tx.id} className="flex items-stretch hover:bg-white/[0.02]">
+                  <div key={tx.id} className="flex items-stretch transition-colors hover:bg-white/[0.02]">
                     <div className="w-1 shrink-0" style={{ background: meta.isCredit ? "#10b981" : "#f87171" }} />
-                    <div className="flex items-center gap-3 flex-1 min-w-0 px-3 py-2.5 sm:px-4">
-                      <span className="text-sm shrink-0 w-7 text-center opacity-80">{meta.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{meta.label}</p>
+                    <div className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 sm:px-4">
+                      <span className="w-7 shrink-0 text-center text-sm opacity-80">{meta.icon}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <p className="text-xs font-medium">{meta.label}</p>
+                          {showStatus ? <TransactionStatusBadge status={tx.status} compact /> : null}
+                        </div>
                         <p className="text-[10px] text-muted-foreground">{timeAgo(tx.createdAt)}</p>
                       </div>
-                      <p className="text-xs font-semibold tabular-nums shrink-0" style={{ color: meta.color }}>
+                      <p className="shrink-0 text-xs font-semibold tabular-nums" style={{ color: meta.color }}>
                         {meta.sign}
                         {tx.amount} USDT
                       </p>
