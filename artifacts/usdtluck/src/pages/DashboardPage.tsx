@@ -21,6 +21,7 @@ import { SquadPanel } from "@/components/SquadPanel";
 import { AchievementGrid } from "@/components/AchievementGrid";
 import { PoolVipBadge } from "@/components/PoolVipBadge";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
+import { Button } from "@/components/ui/button";
 
 interface TierInfo {
   tier: string;
@@ -97,7 +98,10 @@ function txMeta(type: string) {
   );
 }
 
-const box = "border border-[hsl(217,28%,18%)] bg-[hsl(222,30%,9%)]";
+const box =
+  "border border-[hsl(217,28%,18%)] bg-[hsl(222,30%,9%)] rounded-2xl shadow-lg shadow-black/25 ring-1 ring-white/[0.03]";
+const panelHead =
+  "flex flex-wrap items-center justify-between gap-2 px-4 py-3.5 border-b border-[hsl(217,28%,16%)] sm:px-5 bg-gradient-to-r from-[hsl(222,30%,11%)] to-[hsl(222,30%,10%)]";
 
 export default function DashboardPage() {
   const queryClient = useQueryClient();
@@ -190,13 +194,25 @@ export default function DashboardPage() {
   const firstName = user.name.split(" ")[0] ?? user.name;
 
   return (
-    <div className="space-y-7 sm:space-y-8 pb-10 max-w-6xl mx-auto">
-      {/* Page intro — one clear line */}
-      <div className="space-y-2">
-        <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-2xl">
-          {greeting()}, {firstName}. Use your balance to join pools; prizes and withdrawals show in your wallet.
-        </p>
+    <div className="space-y-8 sm:space-y-10 pb-12 max-w-6xl mx-auto">
+      {/* Page intro */}
+      <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-br from-[hsl(222,30%,10%)] via-[hsl(222,30%,9%)] to-[hsl(224,30%,8%)] px-5 py-5 sm:px-6 sm:py-6 shadow-lg shadow-black/20 ring-1 ring-white/[0.04]">
+        <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-primary/5 blur-3xl pointer-events-none" aria-hidden />
+        <div className="relative flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90">Overview</p>
+            <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-2xl">
+              {greeting()}, {firstName}. Your balance, pools, and wallet activity in one place.
+            </p>
+          </div>
+          <div className="text-left sm:text-right shrink-0">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Today</p>
+            <p className="text-sm font-medium tabular-nums text-foreground/90">
+              {new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Time-sensitive & lightweight alerts first (not a wall of cards) */}
@@ -219,76 +235,71 @@ export default function DashboardPage() {
       <LivePoolWatcher />
 
       {(user.poolJoinCount ?? 0) > 0 && (user.totalWins ?? 0) === 0 && (
-        <div className="rounded-lg border border-border/50 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3.5 text-sm text-muted-foreground leading-relaxed">
           You haven&apos;t won a top prize yet — draws are random. You&apos;ve joined{" "}
-          <span className="text-foreground font-medium">{user.poolJoinCount}</span> pool
+          <span className="text-foreground font-semibold">{user.poolJoinCount}</span> pool
           {user.poolJoinCount === 1 ? "" : "s"}. Keep playing for a chance to win.
         </div>
       )}
 
       {/* PRIMARY: Balance + actions + quick numbers */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className={`md:col-span-2 ${box} rounded-xl overflow-hidden`}>
-          <div
-            className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-[hsl(217,28%,16%)] sm:px-5"
-            style={{ background: "hsl(222,30%,11%)" }}
-          >
+        <div className={`md:col-span-2 ${box} overflow-hidden`}>
+          <div className={panelHead}>
             <div>
-              <p className="text-xs font-medium text-muted-foreground">Wallet balance</p>
-              <p className="text-[11px] text-muted-foreground/80 mt-0.5 flex flex-wrap items-center gap-2">
-                <span className="capitalize">{user.tier ?? "aurora"}</span> tier
-                {tierNext && <span>· {ptsToNext} pts to {tierNext.id}</span>}
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Wallet balance</p>
+              <p className="text-xs text-muted-foreground/90 mt-1 flex flex-wrap items-center gap-2">
+                <span className="capitalize font-medium text-foreground/80">{user.tier ?? "aurora"}</span> tier
+                {tierNext && (
+                  <span>
+                    · {ptsToNext} pts to {tierNext.id}
+                  </span>
+                )}
                 <PoolVipBadge tier={user.poolVipTier ?? "bronze"} />
               </p>
             </div>
             <TierBadge tier={user.tier ?? "aurora"} size="sm" />
           </div>
 
-          <div className="p-4 sm:p-5 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-4xl sm:text-5xl font-black tabular-nums tracking-tight" style={{ color: "hsl(152,72%,55%)" }}>
-                {animBalance.toFixed(2)} <span className="text-lg font-bold text-muted-foreground">USDT</span>
+          <div className="p-5 sm:p-6 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.06] via-transparent to-transparent pointer-events-none rounded-b-2xl" aria-hidden />
+            <div className="relative">
+              <p
+                className="font-display text-4xl sm:text-5xl lg:text-[3.25rem] font-extrabold tabular-nums tracking-tight"
+                style={{ color: "hsl(152,72%,56%)" }}
+              >
+                {animBalance.toFixed(2)}{" "}
+                <span className="text-lg sm:text-xl font-bold text-muted-foreground">USDT</span>
               </p>
               {user.walletBalance <= 0 && (
-                <p className="text-xs text-amber-500/90 mt-2 max-w-md">Add USDT to join pools. Use Deposit to submit a transfer for admin approval.</p>
+                <p className="text-sm text-amber-500/95 mt-3 max-w-md leading-relaxed">
+                  Add USDT to join pools. Use Deposit to submit a transfer for admin approval.
+                </p>
               )}
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Link href="/wallet?tab=deposit">
-                <button
-                  type="button"
-                  className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition hover:opacity-90"
-                  style={{ background: "#16a34a", boxShadow: "0 2px 8px rgba(22,163,74,0.25)" }}
-                >
-                  Deposit
-                </button>
-              </Link>
-              <Link href="/wallet?tab=withdraw">
-                <button type="button" className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition hover:bg-white/[0.05] ${box}`}>
-                  Withdraw
-                </button>
-              </Link>
-              <Link href="/pools">
-                <button
-                  type="button"
-                  className="px-4 py-2.5 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:opacity-95"
-                >
-                  View pools
-                </button>
-              </Link>
+            <div className="relative flex flex-wrap gap-2">
+              <Button className="shadow-md shadow-primary/20" style={{ background: "linear-gradient(135deg, #22c55e, #15803d)" }} asChild>
+                <Link href="/wallet?tab=deposit">Deposit</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/wallet?tab=withdraw">Withdraw</Link>
+              </Button>
+              <Button variant="secondary" asChild>
+                <Link href="/pools">View pools</Link>
+              </Button>
             </div>
           </div>
 
           {tierNext && (
-            <div className="px-4 pb-4 sm:px-5">
-              <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                <span>Loyalty tier progress</span>
-                <span>{tierProgress}%</span>
+            <div className="px-5 pb-5 sm:px-6 border-t border-[hsl(217,28%,14%)] pt-4 bg-[hsl(222,30%,8%)]/50">
+              <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
+                <span className="font-medium">Tier progress</span>
+                <span className="tabular-nums">{tierProgress}%</span>
               </div>
-              <div className="h-1.5 rounded-full overflow-hidden bg-[hsl(217,28%,16%)]">
-                <div className="h-full transition-all duration-700 rounded-full" style={{ width: `${tierProgress}%`, background: "hsl(152,72%,44%)" }} />
+              <div className="h-2 rounded-full overflow-hidden bg-[hsl(217,28%,16%)]">
+                <div className="h-full transition-all duration-700 rounded-full" style={{ width: `${tierProgress}%`, background: "linear-gradient(90deg, hsl(152,72%,40%), hsl(152,72%,52%))" }} />
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1.5">
+              <p className="text-xs text-muted-foreground mt-2">
                 <span style={{ color: tierCurrent.color }}>{tierCurrent.icon}</span> {tierCurrent.label}
                 {tierNext && (
                   <>
@@ -305,36 +316,46 @@ export default function DashboardPage() {
           {[
             {
               label: "Open pools",
-              sub: "you can join",
+              sub: "You can join",
               value: Math.round(animOpenPools),
               href: "/pools",
               accent: activePools.length > 0,
+              icon: "🎱",
             },
             {
               label: "Prizes won",
-              sub: "all time",
+              sub: "All time",
               value: Math.round(animWins),
               href: "/winners",
               accent: totalWins > 0,
+              icon: "🏆",
             },
             {
-              label: "Your live entries",
-              sub: "active now",
+              label: "Live entries",
+              sub: "Active now",
               value: Math.round(animMyEntries),
               href: "/pools",
               accent: activeEntryCount > 0,
+              icon: "🎟️",
             },
           ].map((s) => (
             <Link key={s.label} href={s.href}>
               <div
-                className={`${box} rounded-xl px-4 py-3 flex items-center justify-between h-full cursor-pointer transition hover:bg-white/[0.03]`}
+                className={`${box} px-4 py-4 flex items-center justify-between h-full min-h-[4.5rem] cursor-pointer transition-all hover:border-primary/25 hover:bg-white/[0.02] group`}
               >
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground">{s.label}</p>
-                  <p className="text-[11px] text-muted-foreground/70">{s.sub}</p>
-                  <p className={`text-2xl font-bold tabular-nums mt-1 ${s.accent ? "text-emerald-400" : ""}`}>{s.value}</p>
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-2xl shrink-0 opacity-90" aria-hidden>
+                    {s.icon}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{s.label}</p>
+                    <p className="text-xs text-muted-foreground/80 mt-0.5">{s.sub}</p>
+                    <p className={`font-display text-2xl font-bold tabular-nums mt-0.5 ${s.accent ? "text-emerald-400" : "text-foreground"}`}>
+                      {s.value}
+                    </p>
+                  </div>
                 </div>
-                <span className="text-muted-foreground text-sm">→</span>
+                <span className="text-muted-foreground text-lg group-hover:text-primary transition-colors shrink-0">→</span>
               </div>
             </Link>
           ))}
@@ -343,13 +364,10 @@ export default function DashboardPage() {
 
       {/* Pools + activity — main content */}
       <div className="grid gap-4 lg:grid-cols-5">
-        <div className={`lg:col-span-3 ${box} rounded-xl overflow-hidden`}>
-          <div
-            className="flex items-center justify-between px-4 py-3 border-b border-[hsl(217,28%,16%)] sm:px-5"
-            style={{ background: "hsl(222,30%,11%)" }}
-          >
+        <div className={`lg:col-span-3 ${box} overflow-hidden`}>
+          <div className={panelHead}>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold">Open pools</h2>
+              <h2 className="font-display text-sm sm:text-base font-semibold">Open pools</h2>
               {activePools.length > 0 && (
                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
                   {activePools.length} open
@@ -386,14 +404,14 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={pool.id}
-                    className="border border-[hsl(217,28%,19%)] rounded-lg overflow-hidden hover:border-[hsl(217,28%,28%)] transition-colors"
+                    className="border border-[hsl(217,28%,19%)] rounded-xl overflow-hidden hover:border-primary/20 transition-all shadow-md shadow-black/10 hover:shadow-lg hover:shadow-black/15"
                     style={{ background: "hsl(222,30%,10%)" }}
                   >
-                    <div className="h-1" style={{ background: urgent ? "#ef4444" : "#10b981" }} />
-                    <div className="p-4">
+                    <div className="h-1.5" style={{ background: urgent ? "linear-gradient(90deg,#ef4444,#f97316)" : "linear-gradient(90deg,#10b981,#22c55e)" }} />
+                    <div className="p-4 sm:p-5">
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div>
-                          <p className="font-semibold text-sm">{pool.title}</p>
+                          <p className="font-display font-semibold text-sm sm:text-base leading-snug">{pool.title}</p>
                           <p className="text-[11px] text-muted-foreground mt-1">
                             <span className="text-emerald-400 font-medium">Live</span>
                             {hoursLeft > 0 ? ` · ${hoursLeft}h left` : " · Closing soon"}
@@ -437,15 +455,13 @@ export default function DashboardPage() {
                         </div>
                       </div>
 
-                      <Link href={`/pools/${pool.id}`}>
-                        <button
-                          type="button"
-                          className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition hover:opacity-90"
-                          style={{ background: "#16a34a" }}
-                        >
-                          Join this pool · {feeLabel}
-                        </button>
-                      </Link>
+                      <Button
+                        className="w-full font-semibold shadow-md shadow-primary/15"
+                        style={{ background: "linear-gradient(135deg,#22c55e,#15803d)" }}
+                        asChild
+                      >
+                        <Link href={`/pools/${pool.id}`}>Join · {feeLabel}</Link>
+                      </Button>
                     </div>
                   </div>
                 );
@@ -457,17 +473,14 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className={`lg:col-span-2 ${box} rounded-xl overflow-hidden flex flex-col min-h-[280px]`}>
-          <div
-            className="flex items-center justify-between px-4 py-3 border-b border-[hsl(217,28%,16%)] sm:px-5"
-            style={{ background: "hsl(222,30%,11%)" }}
-          >
-            <h2 className="text-sm font-semibold">Wallet activity</h2>
+        <div className={`lg:col-span-2 ${box} overflow-hidden flex flex-col min-h-[280px]`}>
+          <div className={panelHead}>
+            <h2 className="font-display text-sm sm:text-base font-semibold">Wallet activity</h2>
             <Link href="/wallet" className="text-xs font-medium text-primary hover:underline">
               Full history
             </Link>
           </div>
-          <p className="text-[10px] text-muted-foreground px-4 py-2 border-b border-[hsl(217,28%,14%)] sm:px-5 flex gap-4">
+          <p className="text-xs text-muted-foreground px-4 py-2.5 border-b border-[hsl(217,28%,14%)] sm:px-5 flex gap-5">
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-sm bg-emerald-500" /> In
             </span>
@@ -519,13 +532,10 @@ export default function DashboardPage() {
       </div>
 
       {activeJoined.length > 0 && (
-        <div className={`${box} rounded-xl overflow-hidden`}>
-          <div
-            className="flex items-center justify-between px-4 py-3 border-b border-[hsl(217,28%,16%)] sm:px-5"
-            style={{ background: "hsl(222,30%,11%)" }}
-          >
+        <div className={`${box} overflow-hidden`}>
+          <div className={panelHead}>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold">Your active entries</h2>
+              <h2 className="font-display text-sm sm:text-base font-semibold">Your active entries</h2>
               <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/12 text-emerald-400 border border-emerald-500/20">
                 {activeJoined.length}
               </span>
@@ -571,21 +581,24 @@ export default function DashboardPage() {
       )}
 
       {/* Secondary: community & achievements — below the fold */}
-      <div className="space-y-4">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Community & extras</h2>
+      <div className="space-y-5">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90 mb-1">Engage</p>
+          <h2 className="font-display text-lg sm:text-xl font-bold tracking-tight">Community & extras</h2>
+        </div>
         <div className="grid gap-4 md:grid-cols-2">
           <SquadPanel />
-          <div className={`${box} rounded-xl p-4`}>
-            <p className="text-sm font-semibold mb-3">Achievements</p>
+          <div className={`${box} p-4 sm:p-5`}>
+            <p className="font-display text-sm font-semibold mb-3">Achievements</p>
             <AchievementGrid />
           </div>
         </div>
         <ActivityFeed limit={12} />
       </div>
 
-      <div className={`${box} rounded-xl overflow-hidden`}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[hsl(217,28%,16%)] sm:px-5" style={{ background: "hsl(222,30%,11%)" }}>
-          <h2 className="text-sm font-semibold">Loyalty tier</h2>
+      <div className={`${box} overflow-hidden`}>
+        <div className={panelHead}>
+          <h2 className="font-display text-sm sm:text-base font-semibold">Loyalty tier</h2>
           <Link href="/leaderboard" className="text-xs font-medium text-primary hover:underline">
             Leaderboard
           </Link>
@@ -595,28 +608,34 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className={`${box} rounded-xl overflow-hidden`}>
-        <div className="px-4 py-3 border-b border-[hsl(217,28%,16%)] sm:px-5" style={{ background: "hsl(222,30%,11%)" }}>
-          <h2 className="text-sm font-semibold">How it works</h2>
+      <div className={`${box} overflow-hidden`}>
+        <div className={panelHead}>
+          <h2 className="font-display text-sm sm:text-base font-semibold">How it works</h2>
         </div>
         <div className="grid sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[hsl(217,28%,16%)]">
           {[
             {
               title: "1. Add balance",
               desc: "Deposit USDT (admin verifies). Your balance is used to join pools.",
+              icon: "💰",
             },
             {
               title: "2. Join a pool",
               desc: "Pay the entry fee. When the pool closes or fills, a fair draw picks winners.",
+              icon: "🎱",
             },
             {
               title: "3. Get paid",
               desc: "Prizes go to your in-app wallet. Withdraw to your TRC20 address when ready.",
+              icon: "✓",
             },
           ].map((s) => (
-            <div key={s.title} className="p-4 sm:p-5">
-              <p className="font-semibold text-sm mb-1">{s.title}</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">{s.desc}</p>
+            <div key={s.title} className="p-4 sm:p-5 hover:bg-white/[0.02] transition-colors">
+              <span className="text-lg" aria-hidden>
+                {s.icon}
+              </span>
+              <p className="font-display font-semibold text-sm mb-1.5 mt-2">{s.title}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
             </div>
           ))}
         </div>
