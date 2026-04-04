@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Response } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { db, pool as dbPool, usersTable, referralsTable, transactionsTable } from "@workspace/db";
@@ -75,7 +75,7 @@ function authCookieOptions() {
     httpOnly: true,
     secure: isProd,
     sameSite: (isProd ? "none" : "lax") as "none" | "lax",
-    maxAge: 2 * 60 * 60 * 1000, // 2 hours
+    maxAge: 7 * 24 * 60 * 60 * 1000, // align with express-session + JWT exp
     path: "/",
   };
 }
@@ -96,9 +96,15 @@ function trySetJwtCookie(res: any, userId: number, isAdmin: boolean) {
     const token = signUserJwt({ userId, isAdmin });
     res.cookie(getJwtCookieName(), token, authCookieOptions());
   } catch (err) {
-    // Keep session login functional even if JWT env is misconfigured.
     logger.warn({ err, userId }, "JWT cookie not set; using session auth fallback");
   }
+}
+
+/** Persist session to PG before sending auth response (helps cross-origin signup/login). */
+function persistSession(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.save((err) => (err ? reject(err) : resolve()));
+  });
 }
 
 async function verifyAndUpgradePassword(userId: number, storedHash: string, inputPassword: string): Promise<boolean> {
@@ -202,8 +208,9 @@ router.post("/signup", signupLimiter, async (req, res) => {
     }
   }
 
-  // Back-compat session + new JWT cookie
+  // Back-compat session + JWT cookie (JWT is critical for Vercel → Railway; session cookie is often blocked cross-site)
   req.session.userId = user.id;
+  await persistSession(req);
   trySetJwtCookie(res, user.id, user.isAdmin);
 
   const otpResult = await issueOtpEmail(user.id, { skipMinInterval: true });
@@ -337,8 +344,9 @@ router.post("/login", loginLimiter, async (req, res) => {
     return;
   }
 
-  // Back-compat session + new JWT cookie
+  // Back-compat session + JWT cookie (cross-site SPA)
   req.session.userId = user.id;
+  await persistSession(req);
   trySetJwtCookie(res, user.id, Boolean(user.is_admin));
 
   res.json({
