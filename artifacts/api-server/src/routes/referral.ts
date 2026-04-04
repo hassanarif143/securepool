@@ -123,6 +123,8 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
 
     if (!referral || referral.bonusGiven) return;
 
+    const tierMilestoneNotifs: { at: number; usdt: number }[] = [];
+
     await db.transaction(async (trx) => {
       const [lockedRef] = await trx
         .select()
@@ -228,7 +230,20 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
           creditedAt: new Date(),
         })
         .where(eq(referralsTable.id, referral.id));
+
+      for (const g of tierGrants) {
+        tierMilestoneNotifs.push(g);
+      }
     });
+
+    for (const g of tierMilestoneNotifs) {
+      void notifyUser(
+        referral.referrerId,
+        "Referral tier milestone",
+        `${g.at} successful referrals — +${g.usdt} USDT ticket bonus unlocked (pool entries).`,
+        "tier",
+      );
+    }
 
     const [referrerOut] = await db.select().from(usersTable).where(eq(usersTable.id, referral.referrerId)).limit(1);
     const [referredUser] = await db

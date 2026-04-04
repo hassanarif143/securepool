@@ -1,6 +1,6 @@
 import { useState } from "react";
-import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
+import { useCelebration } from "@/context/CelebrationContext";
 import { apiUrl } from "@/lib/api-base";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 
@@ -22,6 +22,7 @@ function labelFor(type: string, value: number) {
 }
 
 export function MysteryBoxReveal({ rewardId, rewardType, rewardValue, poolJoinNumber, onClose, onClaimed }: Props) {
+  const { enqueue } = useCelebration();
   const [picked, setPicked] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [claiming, setClaiming] = useState(false);
@@ -42,9 +43,12 @@ export function MysteryBoxReveal({ rewardId, rewardType, rewardValue, poolJoinNu
         },
       });
       if (!res.ok) throw new Error("Claim failed");
-      if (rewardType === "free_entry" || rewardType === "badge") {
-        void confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
-      }
+      enqueue({
+        kind: "lucky",
+        title: "⭐ Lucky reward!",
+        message: `${labelFor(rewardType, rewardValue)} · Join #${poolJoinNumber}`,
+        dedupeKey: `mystery-claim-${rewardId}`,
+      });
       onClaimed();
       onClose();
     } catch {

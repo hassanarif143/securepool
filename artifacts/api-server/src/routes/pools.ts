@@ -631,6 +631,7 @@ router.get("/:poolId/my-draw-result", async (req, res) => {
       position: pos,
       winner: true,
       place: won.place,
+      prize: parseFloat(String(won.prize)),
       message: `You placed ${won.place === 1 ? "1st" : won.place === 2 ? "2nd" : "3rd"}!`,
     });
     return;
@@ -1213,7 +1214,7 @@ router.post("/:poolId/distribute", async (req, res) => {
     void notifyUser(
       w.userId,
       "Prize awarded",
-      `You placed ${placeLabel(w.place)} in "${pool.title}" and received ${w.prize} USDT in your wallet.`,
+      `You placed ${placeLabel(w.place)} in "${pool.title}" (pool #${poolId}) and received ${w.prize} USDT in your wallet.`,
       "win",
     );
     void logActivity({

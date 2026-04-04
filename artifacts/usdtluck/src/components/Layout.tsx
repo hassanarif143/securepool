@@ -7,6 +7,7 @@ import { Logo } from "@/components/Logo";
 import { apiUrl } from "@/lib/api-base";
 import { LuckyHourBanner } from "@/components/LuckyHourBanner";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
+import { CelebrationNotificationBridge } from "@/components/CelebrationNotificationBridge";
 import { LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
 
 function playNotifSound() {
@@ -651,6 +652,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <main className={`flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${user ? "pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""}`}>
         {user ? <LiveJoinNotification /> : null}
+        {user ? <CelebrationNotificationBridge /> : null}
         {children}
       </main>
 

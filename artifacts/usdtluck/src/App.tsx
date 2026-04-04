@@ -5,6 +5,7 @@ import { useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/context/AuthContext";
+import { CelebrationProvider } from "@/context/CelebrationContext";
 import { useAuth } from "@/context/AuthContext";
 import { Layout } from "@/components/Layout";
 import { PageLoading } from "@/components/PageLoading";
@@ -159,7 +160,9 @@ function App() {
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <AuthProvider>
-            <Router />
+            <CelebrationProvider>
+              <Router />
+            </CelebrationProvider>
           </AuthProvider>
         </WouterRouter>
         <Toaster />

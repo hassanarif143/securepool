@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   useGetPool,
@@ -35,6 +35,33 @@ import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { ComebackOfferModal, type ActiveCouponJson } from "@/components/ComebackOffer";
 import { PredictionPicker } from "@/components/PredictionPicker";
 import { PoolVipBadge } from "@/components/PoolVipBadge";
+import { useCelebration } from "@/context/CelebrationContext";
+
+function streakCelebrationItem(milestone: "3" | "5" | "10", poolId: number) {
+  const dedupeKey = `streak-${milestone}-pool-${poolId}`;
+  if (milestone === "3") {
+    return {
+      kind: "streak" as const,
+      title: "🔥 3 draw streak!",
+      message: "+2 referral points added — they count toward free entries and rewards.",
+      dedupeKey,
+    };
+  }
+  if (milestone === "5") {
+    return {
+      kind: "streak" as const,
+      title: "🔥 5 draw streak!",
+      message: "You earned 1 free pool entry. Use it on any open pool.",
+      dedupeKey,
+    };
+  }
+  return {
+    kind: "streak" as const,
+    title: "🔥 10 draw streak!",
+    message: "You earned 2 free pool entries. You're on fire!",
+    dedupeKey,
+  };
+}
 
 type PoolDetailsApi = {
   current_entries: number;
@@ -138,6 +165,7 @@ function JoinCelebrationModal({
 export default function PoolDetailPage() {
   const { poolId } = useParams<{ poolId: string }>();
   const id = parseInt(poolId);
+  const { enqueue } = useCelebration();
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -175,6 +203,14 @@ export default function PoolDetailPage() {
   const [comebackCoupon, setComebackCoupon] = useState<ActiveCouponJson | null>(null);
   const [showComebackModal, setShowComebackModal] = useState(false);
   const prevNearMissRef = useRef(false);
+  const pendingStreakMilestone = useRef<"3" | "5" | "10" | null>(null);
+
+  const flushPendingStreak = useCallback(() => {
+    const m = pendingStreakMilestone.current;
+    pendingStreakMilestone.current = null;
+    if (!m || !id || Number.isNaN(id)) return;
+    enqueue(streakCelebrationItem(m, id));
+  }, [enqueue, id]);
 
   const { data: pool, isLoading } = useGetPool(id, {
     query: { enabled: !!id, queryKey: getGetPoolQueryKey(id) },
@@ -272,6 +308,31 @@ export default function PoolDetailPage() {
   }, [id, user, pool, pool?.status, pool?.userJoined, poolDetails?.user_joined]);
 
   useEffect(() => {
+    if (!id || !user || !pool || pool.status !== "completed") return;
+    const joined = poolDetails?.user_joined ?? pool.userJoined;
+    if (!joined) return;
+    const key = `celebration_win_${id}`;
+    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(key)) return;
+    fetch(apiUrl(`/api/pools/${id}/my-draw-result`), { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { winner?: boolean; prize?: number; place?: number } | null) => {
+        if (!d?.winner || d.prize == null) return;
+        if (typeof sessionStorage !== "undefined") sessionStorage.setItem(key, "1");
+        const place = d.place === 1 || d.place === 2 || d.place === 3 ? d.place : undefined;
+        enqueue({
+          kind: "win",
+          title: "🎉 Congratulations!",
+          message: `You won ${d.prize} USDT!`,
+          amount: d.prize,
+          place,
+          dedupeKey: `win-pool-${id}`,
+          primaryLabel: "Claim prize",
+        });
+      })
+      .catch(() => {});
+  }, [id, user, pool, pool?.status, pool?.userJoined, poolDetails?.user_joined, enqueue]);
+
+  useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     if (prevNearMissRef.current && !nearMiss) {
       timer = setTimeout(() => {
@@ -324,6 +385,28 @@ export default function PoolDetailPage() {
         return;
       }
       const usedFree = Boolean((data as { usedFreeEntry?: boolean }).usedFreeEntry);
+      const streakData = (data as { streak?: { milestone?: string; currentStreak?: number } }).streak;
+      const mile = streakData?.milestone;
+      if (mile === "3" || mile === "5" || mile === "10") {
+        pendingStreakMilestone.current = mile;
+      }
+      const cs = streakData?.currentStreak;
+      if (!mile && cs === 2) {
+        toast({
+          title: "🔥 Streak: 2 draws",
+          description: "One more join within 7 days for +2 referral points!",
+        });
+      } else if (!mile && cs === 4) {
+        toast({
+          title: "🔥 Streak: 4 draws",
+          description: "One more join for a free pool entry (5-pool streak)!",
+        });
+      } else if (!mile && cs === 9) {
+        toast({
+          title: "🔥 Streak: 9 draws",
+          description: "One more join for 2 free entries (10-pool streak)!",
+        });
+      }
       const mr = (data as { mysteryReward?: { id: number; rewardType: string; rewardValue: number; poolJoinNumber: number } })
         .mysteryReward;
       if (mr) {
@@ -342,6 +425,7 @@ export default function PoolDetailPage() {
       if ((data as { tierUpdate?: { tierChanged?: boolean } }).tierUpdate?.tierChanged) {
         const t = (data as { tierUpdate: any }).tierUpdate;
         setTimeout(() => {
+          flushPendingStreak();
           setShowCelebration(false);
           setTierUpgrade({
             previousTier: t.previousTier,
@@ -392,6 +476,7 @@ export default function PoolDetailPage() {
           usedFreeEntry={celebrationUsedFree}
           onClose={() => {
             setShowCelebration(false);
+            flushPendingStreak();
             if (mysteryRef.current) setShowMystery(true);
           }}
         />

@@ -21,6 +21,14 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { trc20ValidationMessage, TRC20_ADDRESS_REGEX } from "@/lib/trc20";
+import { Switch } from "@/components/ui/switch";
+import {
+  getCelebrationEffectsEnabled,
+  getCelebrationSoundEnabled,
+  setCelebrationEffectsEnabled,
+  setCelebrationSoundEnabled,
+  subscribeCelebrationPrefs,
+} from "@/lib/celebration-preferences";
 
 type WalletApi = {
   address: string | null;
@@ -255,6 +263,18 @@ export default function ProfilePage() {
   }, [user]);
 
   const [hasLuckyBadge, setHasLuckyBadge] = useState(false);
+  const [celebrationEffects, setCelebrationEffects] = useState(() =>
+    typeof window !== "undefined" ? getCelebrationEffectsEnabled() : true,
+  );
+  const [celebrationSound, setCelebrationSound] = useState(() =>
+    typeof window !== "undefined" ? getCelebrationSoundEnabled() : false,
+  );
+  useEffect(() => {
+    return subscribeCelebrationPrefs(() => {
+      setCelebrationEffects(getCelebrationEffectsEnabled());
+      setCelebrationSound(getCelebrationSoundEnabled());
+    });
+  }, []);
   useEffect(() => {
     if (!user) return;
     fetch(apiUrl("/api/user/loyalty"), { credentials: "include" })
@@ -544,6 +564,41 @@ export default function ProfilePage() {
               {saving ? "Saving..." : "Save Changes"}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Celebrations</CardTitle>
+          <CardDescription>Reward popups when you win, hit streaks, or earn bonuses.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-0">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Celebration effects</p>
+              <p className="text-xs text-muted-foreground">Particles and motion (popup text stays on)</p>
+            </div>
+            <Switch
+              checked={celebrationEffects}
+              onCheckedChange={(v) => {
+                setCelebrationEffects(v);
+                setCelebrationEffectsEnabled(v);
+              }}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Celebration sound</p>
+              <p className="text-xs text-muted-foreground">Short chime when a celebration opens (off by default)</p>
+            </div>
+            <Switch
+              checked={celebrationSound}
+              onCheckedChange={(v) => {
+                setCelebrationSound(v);
+                setCelebrationSoundEnabled(v);
+              }}
+            />
+          </div>
         </CardContent>
       </Card>
 
