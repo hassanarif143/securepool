@@ -86,6 +86,9 @@ export default function WalletPage() {
   if (isLoading || !user) return null;
 
   const currentUser = user;
+  const bonusBal = currentUser.bonusBalance ?? 0;
+  const prizeBal = currentUser.prizeBalance ?? 0;
+  const cashBal = currentUser.cashBalance ?? 0;
 
   const txArr = transactions as any[];
   const pendingDeposit = txArr.find((t) => t.txType === "deposit" && t.status === "pending");
@@ -153,7 +156,12 @@ export default function WalletPage() {
       });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
 
-      setUser({ ...currentUser, walletBalance: currentUser.walletBalance - val });
+      const p0 = currentUser.prizeBalance ?? 0;
+      setUser({
+        ...currentUser,
+        walletBalance: currentUser.walletBalance - val,
+        prizeBalance: Math.max(0, p0 - val),
+      });
       setAmount(""); setNote("");
       queryClient.invalidateQueries({ queryKey: getGetUserTransactionsQueryKey(currentUser.id) });
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
@@ -195,12 +203,27 @@ export default function WalletPage() {
           </span>
         </div>
         <div className="px-5 py-6 sm:px-7 sm:py-7">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Available balance</p>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Total available (tickets)</p>
           <div className="mt-1 flex flex-wrap items-baseline gap-2">
             <span className="font-display text-5xl font-black tabular-nums tracking-tight sm:text-[3.25rem]" style={{ color: "hsl(152,72%,55%)" }}>
               {user.walletBalance.toFixed(2)}
             </span>
             <span className="text-xl font-bold text-muted-foreground">USDT</span>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-[hsl(217,28%,18%)] bg-[hsl(222,28%,11%)] px-4 py-3.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">🎁 Bonus balance</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-amber-200/95">{bonusBal.toFixed(2)} USDT</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Use for tickets only — not withdrawable</p>
+            </div>
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300/90">💰 Withdrawable balance</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-400">{prizeBal.toFixed(2)} USDT</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Referrals + draw wins{prizeBal <= 0 ? " — win a draw or earn referrals to withdraw" : ""}
+                {cashBal > 0 ? ` · Cash (deposits): ${cashBal.toFixed(2)} USDT — tickets only` : ""}
+              </p>
+            </div>
           </div>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Button className="min-h-12 w-full font-semibold shadow-md shadow-primary/20 sm:w-auto sm:min-w-[9rem]" asChild>
@@ -398,8 +421,8 @@ export default function WalletPage() {
             <div className="p-4 rounded-lg border border-[hsl(217,28%,20%)]" style={{ background: "hsl(217,28%,10%)" }}>
               <p className="text-xs font-semibold text-muted-foreground mb-1">How withdrawals work</p>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Submit your request below. Our admin team reviews and processes withdrawals within 24 hours.
-                Funds are sent to your registered wallet address.
+                You can only withdraw from your <span className="font-semibold text-foreground">withdrawable balance</span> (referral rewards and draw prizes).
+                Deposit funds and ticket-only bonuses cannot be cashed out here.
               </p>
               {user.cryptoAddress && (
                 <div className="mt-2 pt-2 border-t border-[hsl(217,28%,18%)]">
@@ -419,14 +442,14 @@ export default function WalletPage() {
                   type="number"
                   min="1"
                   step="0.01"
-                  max={user.walletBalance}
+                  max={prizeBal}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder={`Max: ${user.walletBalance.toFixed(2)}`}
+                  placeholder={prizeBal > 0 ? `Max: ${prizeBal.toFixed(2)}` : "No withdrawable balance"}
                   required
                   className="border-border/90 bg-muted/25 font-semibold tabular-nums"
                 />
-                <p className="text-[10px] text-muted-foreground">Available: {user.walletBalance.toFixed(2)} USDT</p>
+                <p className="text-[10px] text-muted-foreground">Withdrawable: {prizeBal.toFixed(2)} USDT</p>
               </div>
 
               <div className="space-y-2">
@@ -460,10 +483,10 @@ export default function WalletPage() {
               <Button
                 type="submit"
                 variant="secondary"
-                disabled={withdrawLoading || user.walletBalance <= 0}
+                disabled={withdrawLoading || prizeBal <= 0}
                 className="min-h-12 w-full border border-border font-semibold transition-transform duration-200 active:scale-[0.99] disabled:opacity-40"
               >
-                {withdrawLoading ? "Submitting…" : "Request withdrawal"}
+                {withdrawLoading ? "Submitting…" : prizeBal <= 0 ? "Win a draw to withdraw" : "Request withdrawal"}
               </Button>
             </form>
           </div>

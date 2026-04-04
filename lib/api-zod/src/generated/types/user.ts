@@ -11,6 +11,9 @@ export interface User {
   name: string;
   email: string;
   walletBalance: number;
+  bonusBalance?: number;
+  prizeBalance?: number;
+  cashBalance?: number;
   isAdmin: boolean;
   joinedAt: Date;
 }

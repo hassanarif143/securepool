@@ -17,6 +17,9 @@ interface UserType {
   phone?: string | null;
   city?: string | null;
   walletBalance: number;
+  bonusBalance?: number;
+  prizeBalance?: number;
+  cashBalance?: number;
   cryptoAddress: string | null;
   isAdmin: boolean;
   joinedAt: string;
@@ -63,7 +66,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const st = getErrorStatus(error);
       if (st === 401 || st === 403) return;
     }
-    setUser(data as UserType);
+    const d = data as UserType;
+    setUser({
+      ...d,
+      bonusBalance: d.bonusBalance ?? 0,
+      prizeBalance: d.prizeBalance ?? 0,
+      cashBalance: d.cashBalance ?? 0,
+    });
   }, [data, isError, error]);
 
   useLayoutEffect(() => {

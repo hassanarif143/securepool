@@ -4,11 +4,20 @@ import { db, usersTable, referralsTable, transactionsTable } from "@workspace/db
 import { notifyUser } from "../lib/notify";
 import { eq, desc } from "drizzle-orm";
 import { appendBonusGrant } from "../services/admin-wallet-service";
-import { recordBonusFromPlatform } from "../services/user-wallet-service";
+import {
+  recordTicketOnlyBonus,
+  recordWithdrawableCredit,
+} from "../services/user-wallet-service";
+import {
+  REFERRAL_INVITE_PRIZE_USDT,
+  REFERRAL_TIER_MILESTONES,
+  milestonesToJson,
+  parseMilestonesClaimed,
+  type MilestoneKey,
+} from "../lib/user-balances";
 
 const router: IRouter = Router();
 
-/* Generate a unique 8-char referral code for a user */
 function generateCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -18,15 +27,19 @@ function generateCode(): string {
   return code;
 }
 
-/* GET /api/referral/me — get or generate referral code + stats for current user */
 router.get("/me", async (req, res) => {
   const userId = (req as any).userId ?? (req as any).session?.userId;
-  if (!userId) { res.status(401).json({ error: "Not authenticated" }); return; }
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
 
-  /* Generate and persist code if missing */
   let code = user.referralCode;
   if (!code) {
     let attempts = 0;
@@ -40,14 +53,13 @@ router.get("/me", async (req, res) => {
     await db.update(usersTable).set({ referralCode: code }).where(eq(usersTable.id, userId));
   }
 
-  /* Fetch all referrals made by this user */
   const referrals = await db
     .select({
       id: referralsTable.id,
       referredId: referralsTable.referredId,
       status: referralsTable.status,
+      bonusGiven: referralsTable.bonusGiven,
       bonusReferrer: referralsTable.bonusReferrer,
-      bonusReferred: referralsTable.bonusReferred,
       creditedAt: referralsTable.creditedAt,
       createdAt: referralsTable.createdAt,
       referredName: usersTable.name,
@@ -58,23 +70,37 @@ router.get("/me", async (req, res) => {
     .where(eq(referralsTable.referrerId, userId))
     .orderBy(desc(referralsTable.createdAt));
 
-  const totalEarned = referrals
-    .filter((r) => r.status === "credited")
-    .reduce((sum, r) => sum + parseFloat(r.bonusReferrer), 0);
+  const successful = referrals.filter((r) => r.bonusGiven);
+  const referralEarningsUsdt = successful.length * REFERRAL_INVITE_PRIZE_USDT;
+  const pending = referrals.filter((r) => !r.bonusGiven).length;
+  const credited = successful.length;
 
-  const pending = referrals.filter((r) => r.status === "pending").length;
-  const credited = referrals.filter((r) => r.status === "credited").length;
+  const claimed = parseMilestonesClaimed(user.referralMilestonesClaimed);
+  const tierMilestones = REFERRAL_TIER_MILESTONES.map((m) => {
+    const key = String(m.at) as MilestoneKey;
+    const isClaimed = claimed[key] === true;
+    const need = Math.max(0, m.at - credited);
+    return {
+      referralsRequired: m.at,
+      bonusUsdt: m.usdt,
+      claimed: isClaimed,
+      referralsRemaining: isClaimed ? 0 : need,
+    };
+  });
 
   res.json({
     referralCode: code,
     referralPoints: user.referralPoints ?? 0,
     freeEntries: user.freeEntries ?? 0,
+    totalSuccessfulReferrals: user.totalSuccessfulReferrals ?? credited,
+    referralEarningsUsdt,
+    tierMilestones,
     referrals: referrals.map((r) => ({
       id: r.id,
       referredName: r.referredName,
-      referredEmail: r.referredEmail.replace(/(.{2}).+(@.+)/, "$1***$2"), // mask email
-      status: r.status,
-      bonus: parseFloat(r.bonusReferrer),
+      referredEmail: r.referredEmail.replace(/(.{2}).+(@.+)/, "$1***$2"),
+      status: r.bonusGiven ? "credited" : "pending",
+      bonus: REFERRAL_INVITE_PRIZE_USDT,
       creditedAt: r.creditedAt,
       joinedAt: r.createdAt,
     })),
@@ -82,77 +108,145 @@ router.get("/me", async (req, res) => {
       total: referrals.length,
       pending,
       credited,
-      totalEarned,
+      totalEarned: referralEarningsUsdt,
     },
   });
 });
 
-/* Internal helper — credit referral bonus when referred user joins first pool.
- * Called from pools.ts join route. Not exposed publicly. */
 export async function maybeCreditReferralBonus(referredUserId: number): Promise<void> {
   try {
-    /* Find if this user was referred */
     const [referral] = await db
       .select()
       .from(referralsTable)
       .where(eq(referralsTable.referredId, referredUserId))
       .limit(1);
 
-    if (!referral || referral.status === "credited") return; // already credited or no referral
+    if (!referral || referral.bonusGiven) return;
 
-    const bonusReferrer = parseFloat(referral.bonusReferrer);
-    const bonusReferred = parseFloat(referral.bonusReferred);
+    await db.transaction(async (trx) => {
+      const [lockedRef] = await trx
+        .select()
+        .from(referralsTable)
+        .where(eq(referralsTable.id, referral.id))
+        .limit(1);
+      if (!lockedRef || lockedRef.bonusGiven) return;
 
-    /* Credit referrer */
-    const [referrer] = await db.select().from(usersTable).where(eq(usersTable.id, referral.referrerId)).limit(1);
-    const [referredUser] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, referredUserId)).limit(1);
-    if (referrer && bonusReferrer > 0) {
-      const newBalance = parseFloat(referrer.walletBalance) + bonusReferrer;
-      await db.transaction(async (trx) => {
-        await trx.update(usersTable).set({ walletBalance: String(newBalance) }).where(eq(usersTable.id, referrer.id));
+      const [referrer] = await trx.select().from(usersTable).where(eq(usersTable.id, referral.referrerId)).limit(1);
+      if (!referrer) return;
+
+      const [referredUser] = await trx
+        .select({ name: usersTable.name })
+        .from(usersTable)
+        .where(eq(usersTable.id, referredUserId))
+        .limit(1);
+
+      let bonusB = parseFloat(String(referrer.bonusBalance ?? "0"));
+      let prizeB = parseFloat(String(referrer.prizeBalance ?? "0"));
+      let cashB = parseFloat(String(referrer.cashBalance ?? "0"));
+
+      prizeB += REFERRAL_INVITE_PRIZE_USDT;
+
+      const newTotalRefs = (referrer.totalSuccessfulReferrals ?? 0) + 1;
+      const milestones = parseMilestonesClaimed(referrer.referralMilestonesClaimed);
+      const tierGrants: { at: number; usdt: number }[] = [];
+
+      for (const m of REFERRAL_TIER_MILESTONES) {
+        const key = String(m.at) as MilestoneKey;
+        if (newTotalRefs >= m.at && !milestones[key]) {
+          milestones[key] = true;
+          bonusB += m.usdt;
+          tierGrants.push({ at: m.at, usdt: m.usdt });
+        }
+      }
+
+      const walletStr = (bonusB + prizeB + cashB).toFixed(2);
+      const walletNum = parseFloat(walletStr);
+
+      await trx
+        .update(usersTable)
+        .set({
+          bonusBalance: bonusB.toFixed(2),
+          prizeBalance: prizeB.toFixed(2),
+          cashBalance: cashB.toFixed(2),
+          walletBalance: walletStr,
+          totalSuccessfulReferrals: newTotalRefs,
+          referralMilestonesClaimed: milestonesToJson(milestones),
+        })
+        .where(eq(usersTable.id, referrer.id));
+
+      await trx.insert(transactionsTable).values({
+        userId: referrer.id,
+        txType: "reward",
+        amount: String(REFERRAL_INVITE_PRIZE_USDT),
+        status: "completed",
+        note: `Referral prize (withdrawable) — ${REFERRAL_INVITE_PRIZE_USDT} USDT — referred user #${referredUserId} first ticket`,
+      });
+
+      await appendBonusGrant(trx, {
+        amount: REFERRAL_INVITE_PRIZE_USDT,
+        userId: referrer.id,
+        description: `Referral invite prize — user #${referredUserId} first ticket — ${REFERRAL_INVITE_PRIZE_USDT} USDT`,
+      });
+      await recordWithdrawableCredit(trx, {
+        userId: referrer.id,
+        amount: REFERRAL_INVITE_PRIZE_USDT,
+        balanceAfter: walletNum,
+        description: `Referral invite — ${REFERRAL_INVITE_PRIZE_USDT} USDT to withdrawable balance`,
+        referenceType: "referral_invite",
+        referenceId: referral.id,
+      });
+
+      for (const g of tierGrants) {
         await trx.insert(transactionsTable).values({
           userId: referrer.id,
           txType: "reward",
-          amount: String(bonusReferrer),
+          amount: String(g.usdt),
           status: "completed",
-          note: `Referral bonus — ${referrer.name} referred a new user who joined their first pool`,
+          note: `[Tier] Referral milestone ${g.at} successful referrals — +${g.usdt} USDT ticket bonus (non-withdrawable)`,
         });
         await appendBonusGrant(trx, {
-          amount: bonusReferrer,
+          amount: g.usdt,
           userId: referrer.id,
-          description: `Referral bonus — referred user #${referredUserId} first pool join`,
+          description: `Referral tier milestone ${g.at} — ${g.usdt} USDT ticket bonus`,
         });
-        await recordBonusFromPlatform(trx, {
+        await recordTicketOnlyBonus(trx, {
           userId: referrer.id,
-          amount: bonusReferrer,
-          balanceAfter: newBalance,
-          description: `Referral bonus — ${bonusReferrer.toFixed(2)} USDT`,
-          referenceType: "referral",
+          amount: g.usdt,
+          balanceAfter: walletNum,
+          description: `Referral tier — ${g.at} referrals — ${g.usdt} USDT (tickets only)`,
+          referenceType: "referral_tier",
           referenceId: referral.id,
         });
-      });
+      }
+
+      await trx
+        .update(referralsTable)
+        .set({
+          bonusGiven: true,
+          referredFirstTicket: true,
+          status: "credited",
+          creditedAt: new Date(),
+        })
+        .where(eq(referralsTable.id, referral.id));
+    });
+
+    const [referrerOut] = await db.select().from(usersTable).where(eq(usersTable.id, referral.referrerId)).limit(1);
+    const [referredUser] = await db
+      .select({ name: usersTable.name })
+      .from(usersTable)
+      .where(eq(usersTable.id, referredUserId))
+      .limit(1);
+
+    if (referrerOut) {
       void notifyUser(
-        referrer.id,
-        "Referral Bonus! 🔗",
-        `You earned ${bonusReferrer} USDT because ${referredUser?.name ?? "your referral"} joined a pool!`,
+        referrerOut.id,
+        "Referral reward! 🔗",
+        `You earned ${REFERRAL_INVITE_PRIZE_USDT} USDT (withdrawable) because ${referredUser?.name ?? "your referral"} bought their first ticket.`,
         "referral",
       );
-      void notifyUser(
-        referredUserId,
-        "Welcome Bonus! 🎁",
-        `You received ${bonusReferred} USDT welcome bonus through a referral when you signed up. Your first pool join unlocked your referrer's ${bonusReferrer} USDT reward — thanks for playing!`,
-        "reward",
-      );
     }
-
-    /* Mark referral as credited */
-    await db
-      .update(referralsTable)
-      .set({ status: "credited", creditedAt: new Date() })
-      .where(eq(referralsTable.id, referral.id));
   } catch (err) {
     console.error("[referral] error crediting bonus:", err);
-    /* Non-fatal — pool join still succeeds */
   }
 }
 

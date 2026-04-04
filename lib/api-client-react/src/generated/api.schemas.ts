@@ -39,15 +39,25 @@ export interface User {
   name: string;
   email: string;
   walletBalance: number;
+  bonusBalance?: number;
+  prizeBalance?: number;
+  cashBalance?: number;
   isAdmin: boolean;
   joinedAt: string;
 }
+
+export type AdminUserReferralMilestonesClaimed = { [key: string]: unknown };
 
 export interface AdminUser {
   id: number;
   name: string;
   email: string;
   walletBalance: number;
+  bonusBalance?: number;
+  prizeBalance?: number;
+  cashBalance?: number;
+  totalSuccessfulReferrals?: number;
+  referralMilestonesClaimed?: AdminUserReferralMilestonesClaimed;
   isAdmin: boolean;
   joinedAt: string;
   totalDeposited: number;

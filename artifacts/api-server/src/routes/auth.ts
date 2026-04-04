@@ -20,8 +20,6 @@ declare module "express-session" {
   }
 }
 
-const SIGNUP_BONUS_USDT = 1; // bonus credited to new user when they sign up via referral
-
 const router: IRouter = Router();
 
 const SignupSchema = z
@@ -165,9 +163,6 @@ router.post("/signup", signupLimiter, async (req, res) => {
 
   const passwordHash = await bcrypt.hash(password, 12);
 
-  /* Credit new user with signup bonus if referred */
-  const startBalance = referrer ? SIGNUP_BONUS_USDT : 0;
-
   const [user] = await db
     .insert(usersTable)
     .values({
@@ -175,29 +170,24 @@ router.post("/signup", signupLimiter, async (req, res) => {
       email,
       cryptoAddress,
       passwordHash,
-      walletBalance: String(startBalance),
+      walletBalance: "0",
+      bonusBalance: "0",
+      prizeBalance: "0",
+      cashBalance: "0",
       referredBy: referrer?.id ?? undefined,
     })
     .returning();
 
-  /* Log the signup bonus transaction */
   if (referrer) {
-    await db.insert(transactionsTable).values({
-      userId: user.id,
-      txType: "reward",
-      amount: String(SIGNUP_BONUS_USDT),
-      status: "completed",
-      note: `Welcome bonus — joined via referral from ${referrer.name}`,
-    });
-
-    /* Create referral record (status: pending — becomes credited on first pool join) */
     try {
       await db.insert(referralsTable).values({
         referrerId: referrer.id,
         referredId: user.id,
         status: "pending",
         bonusReferrer: "2.00",
-        bonusReferred: String(SIGNUP_BONUS_USDT),
+        bonusReferred: "0",
+        bonusGiven: false,
+        referredFirstTicket: false,
       });
     } catch (_) {
       /* Ignore duplicate — safety guard */
@@ -214,14 +204,17 @@ router.post("/signup", signupLimiter, async (req, res) => {
       name: user.name,
       email: user.email,
       walletBalance: parseFloat(user.walletBalance),
+      bonusBalance: parseFloat(String(user.bonusBalance ?? "0")),
+      prizeBalance: parseFloat(String(user.prizeBalance ?? "0")),
+      cashBalance: parseFloat(String(user.cashBalance ?? "0")),
       cryptoAddress: user.cryptoAddress ?? null,
       isAdmin: user.isAdmin,
       joinedAt: user.joinedAt,
     },
     message: referrer
-      ? `Account created! You received ${SIGNUP_BONUS_USDT} USDT welcome bonus.`
+      ? "Account created! Your referrer earns 2 USDT (withdrawable) when you buy your first ticket."
       : "Account created successfully",
-    referralBonus: referrer ? SIGNUP_BONUS_USDT : 0,
+    referralBonus: 0,
   });
 
   // Fire-and-forget mail
@@ -245,18 +238,51 @@ router.post("/login", loginLimiter, async (req, res) => {
   const email = parse.data.email.toLowerCase();
   const { password } = parse.data;
 
-  const { rows } = await dbPool.query(
-    `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at,
-            COALESCE(is_demo, false) AS is_demo
-     FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
-    [email],
-  );
-  const user = rows[0] as typeof rows[0] & { is_demo?: boolean };
-  if (!user) {
+  let rows: any[];
+  try {
+    const r = await dbPool.query(
+      `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at,
+              COALESCE(is_demo, false) AS is_demo,
+              COALESCE(bonus_balance, 0) AS bonus_balance,
+              COALESCE(prize_balance, 0) AS prize_balance,
+              COALESCE(cash_balance, 0) AS cash_balance
+       FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+      [email],
+    );
+    rows = r.rows as any[];
+  } catch {
+    const r = await dbPool.query(
+      `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at,
+              COALESCE(is_demo, false) AS is_demo
+       FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+      [email],
+    );
+    rows = (r.rows as any[]).map((row) => ({
+      ...row,
+      bonus_balance: 0,
+      prize_balance: row.wallet_balance,
+      cash_balance: 0,
+    }));
+  }
+  if (!rows[0]) {
     logger.warn({ email, ip: req.ip }, "Failed login attempt — user not found");
     res.status(401).json({ error: "Invalid credentials", message: "Email or password is incorrect." });
     return;
   }
+  const user = rows[0] as {
+    id: number;
+    name: string;
+    email: string;
+    password_hash: string;
+    wallet_balance: string | number;
+    crypto_address: string | null;
+    is_admin: boolean;
+    joined_at: string | Date;
+    is_demo?: boolean;
+    bonus_balance?: string | number;
+    prize_balance?: string | number;
+    cash_balance?: string | number;
+  };
 
   const valid = await verifyAndUpgradePassword(user.id, user.password_hash, password);
   if (!valid) {
@@ -306,7 +332,10 @@ router.post("/login", loginLimiter, async (req, res) => {
       id: user.id,
       name: user.name,
       email: user.email,
-      walletBalance: parseFloat(user.wallet_balance),
+      walletBalance: parseFloat(String(user.wallet_balance)),
+      bonusBalance: parseFloat(String(user.bonus_balance ?? "0")),
+      prizeBalance: parseFloat(String(user.prize_balance ?? "0")),
+      cashBalance: parseFloat(String(user.cash_balance ?? "0")),
       cryptoAddress: user.crypto_address ?? null,
       isAdmin: user.is_admin,
       joinedAt: user.joined_at,
@@ -336,6 +365,9 @@ router.get("/me", async (req, res) => {
   try {
     const r = await dbPool.query(
       `SELECT id, name, email, wallet_balance, crypto_address, is_admin, joined_at,
+              COALESCE(bonus_balance, 0) AS bonus_balance,
+              COALESCE(prize_balance, 0) AS prize_balance,
+              COALESCE(cash_balance, 0) AS cash_balance,
               COALESCE(tier, 'aurora') AS tier, COALESCE(tier_points, 0) AS tier_points,
               COALESCE(pool_vip_tier, 'bronze') AS pool_vip_tier,
               COALESCE(total_wins, 0)::int AS total_wins,
@@ -353,6 +385,9 @@ router.get("/me", async (req, res) => {
     );
     rows = (r.rows as Array<Record<string, unknown>>).map((row) => ({
       ...row,
+      bonus_balance: 0,
+      prize_balance: row.wallet_balance,
+      cash_balance: 0,
       tier: "aurora",
       tier_points: 0,
       pool_vip_tier: "bronze",
@@ -391,6 +426,9 @@ router.get("/me", async (req, res) => {
     name: user.name,
     email: user.email,
     walletBalance: parseFloat(String(user.wallet_balance)),
+    bonusBalance: parseFloat(String((user as { bonus_balance?: unknown }).bonus_balance ?? "0")),
+    prizeBalance: parseFloat(String((user as { prize_balance?: unknown }).prize_balance ?? "0")),
+    cashBalance: parseFloat(String((user as { cash_balance?: unknown }).cash_balance ?? "0")),
     cryptoAddress: user.crypto_address ?? null,
     isAdmin: user.is_admin,
     joinedAt: user.joined_at,

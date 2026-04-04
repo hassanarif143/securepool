@@ -1806,8 +1806,18 @@ function UsersTab() {
                     Joined: {new Date(u.joinedAt).toLocaleDateString()} · Pools: {u.poolsJoined} · Dep: {u.totalDeposited?.toFixed?.(2) ?? u.totalDeposited} · Wd: {u.totalWithdrawn?.toFixed?.(2) ?? u.totalWithdrawn}
                   </p>
                 </div>
-                <div className="flex flex-row sm:flex-col justify-between sm:items-end gap-2 shrink-0 border-t border-border/50 pt-3 sm:border-t-0 sm:pt-0">
-                  <p className="font-bold text-primary text-base sm:text-lg tabular-nums">{u.walletBalance.toFixed(2)} USDT</p>
+                <div className="flex flex-row sm:flex-col justify-between sm:items-end gap-2 shrink-0 border-t border-border/50 pt-3 sm:border-t-0 sm:pt-0 text-right sm:text-right">
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-primary text-base sm:text-lg tabular-nums">{u.walletBalance.toFixed(2)} total</p>
+                    <p className="text-[10px] text-muted-foreground leading-tight">
+                      B {(u as { bonusBalance?: number }).bonusBalance?.toFixed?.(2) ?? "0.00"} · P{" "}
+                      {(u as { prizeBalance?: number }).prizeBalance?.toFixed?.(2) ?? "0.00"} · C{" "}
+                      {(u as { cashBalance?: number }).cashBalance?.toFixed?.(2) ?? "0.00"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Refs: {(u as { totalSuccessfulReferrals?: number }).totalSuccessfulReferrals ?? "—"}
+                    </p>
+                  </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button size="sm" variant="outline" className="h-9 w-9 sm:h-8 sm:w-8 p-0" aria-label="User actions">
@@ -1876,7 +1886,9 @@ function UsersTab() {
 
               {adjustingId === u.id && (
                 <div className="border rounded-lg p-3 bg-muted/30 space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground">Use positive amount to credit, negative to debit</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Adjusts <span className="font-semibold">cash balance</span> (deposit bucket). Bonus and prize buckets are not changed here.
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     <Input
                       type="number"
@@ -1977,11 +1989,19 @@ function UserProfileModal({ user, onClose }: { user: any; onClose: () => void })
         </div>
 
         <div className="p-5 border-b grid grid-cols-2 gap-3">
-          <div className="bg-muted/40 rounded-lg p-3">
-            <p className="text-xs text-muted-foreground">Wallet Balance</p>
-            <p className="font-bold text-primary text-xl">{user.walletBalance.toFixed(2)} USDT</p>
+          <div className="bg-muted/40 rounded-lg p-3 col-span-2">
+            <p className="text-xs text-muted-foreground">Balances (B=ticket bonus · P=withdrawable · C=cash)</p>
+            <p className="font-bold text-primary text-xl mt-1">{user.walletBalance.toFixed(2)} USDT total</p>
+            <p className="text-xs text-muted-foreground mt-1 tabular-nums">
+              Bonus {(user as { bonusBalance?: number }).bonusBalance?.toFixed(2) ?? "0.00"} · Prize{" "}
+              {(user as { prizeBalance?: number }).prizeBalance?.toFixed(2) ?? "0.00"} · Cash{" "}
+              {(user as { cashBalance?: number }).cashBalance?.toFixed(2) ?? "0.00"}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Successful referrals: {(user as { totalSuccessfulReferrals?: number }).totalSuccessfulReferrals ?? "—"}
+            </p>
           </div>
-          <div className="bg-muted/40 rounded-lg p-3">
+          <div className="bg-muted/40 rounded-lg p-3 col-span-2">
             <p className="text-xs text-muted-foreground">Total Deposited</p>
             <p className="font-bold text-lg">{user.totalDeposited.toFixed(2)} USDT</p>
           </div>

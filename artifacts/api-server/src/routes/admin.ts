@@ -36,7 +36,13 @@ import {
   activeUsersByDay,
   getDrawDesiredProfitUsdt,
 } from "../services/admin-wallet-service";
-import { mirrorAvailableFromUser, recordDepositApproved, recordWithdrawalCompleted } from "../services/user-wallet-service";
+import {
+  mirrorAvailableFromUser,
+  recordDepositApproved,
+  recordTicketOnlyBonus,
+  recordWithdrawalCompleted,
+} from "../services/user-wallet-service";
+import { FIRST_DEPOSIT_BONUS_USDT } from "../lib/user-balances";
 
 const router: IRouter = Router();
 
@@ -75,6 +81,11 @@ const SQL_ADMIN_USERS_LIST_FULL = `
         u.phone,
         u.city,
         u.wallet_balance,
+        COALESCE(u.bonus_balance, 0) AS bonus_balance,
+        COALESCE(u.prize_balance, 0) AS prize_balance,
+        COALESCE(u.cash_balance, 0) AS cash_balance,
+        COALESCE(u.total_successful_referrals, 0)::int AS total_successful_referrals,
+        u.referral_milestones_claimed,
         u.crypto_address,
         u.is_admin,
         u.joined_at,
@@ -124,6 +135,11 @@ const SQL_ADMIN_USERS_LIST_COMPAT = `
         u.phone,
         u.city,
         u.wallet_balance,
+        0::numeric AS bonus_balance,
+        u.wallet_balance AS prize_balance,
+        0::numeric AS cash_balance,
+        0::int AS total_successful_referrals,
+        '{}'::jsonb AS referral_milestones_claimed,
         u.crypto_address,
         u.is_admin,
         u.joined_at,
@@ -167,6 +183,11 @@ const SQL_ADMIN_USER_DETAIL_FULL = `
         u.phone,
         u.city,
         u.wallet_balance,
+        COALESCE(u.bonus_balance, 0) AS bonus_balance,
+        COALESCE(u.prize_balance, 0) AS prize_balance,
+        COALESCE(u.cash_balance, 0) AS cash_balance,
+        COALESCE(u.total_successful_referrals, 0)::int AS total_successful_referrals,
+        u.referral_milestones_claimed,
         u.crypto_address,
         u.is_admin,
         u.joined_at,
@@ -216,6 +237,11 @@ const SQL_ADMIN_USER_DETAIL_COMPAT = `
         u.phone,
         u.city,
         u.wallet_balance,
+        0::numeric AS bonus_balance,
+        u.wallet_balance AS prize_balance,
+        0::numeric AS cash_balance,
+        0::int AS total_successful_referrals,
+        '{}'::jsonb AS referral_milestones_claimed,
         u.crypto_address,
         u.is_admin,
         u.joined_at,
@@ -347,6 +373,11 @@ router.get("/users", async (req, res) => {
       phone: user.phone ?? null,
       city: user.city ?? null,
       walletBalance: parseFloat(String(user.wallet_balance ?? "0")),
+      bonusBalance: parseFloat(String(user.bonus_balance ?? "0")),
+      prizeBalance: parseFloat(String(user.prize_balance ?? "0")),
+      cashBalance: parseFloat(String(user.cash_balance ?? "0")),
+      totalSuccessfulReferrals: Number(user.total_successful_referrals ?? 0),
+      referralMilestonesClaimed: user.referral_milestones_claimed ?? {},
       cryptoAddress: user.crypto_address ?? null,
       isAdmin: user.is_admin,
       tier: user.tier,
@@ -461,6 +492,11 @@ router.get("/users/:id", async (req, res) => {
       phone: user.phone ?? null,
       city: user.city ?? null,
       walletBalance: parseFloat(String(user.wallet_balance ?? "0")),
+      bonusBalance: parseFloat(String(user.bonus_balance ?? "0")),
+      prizeBalance: parseFloat(String(user.prize_balance ?? "0")),
+      cashBalance: parseFloat(String(user.cash_balance ?? "0")),
+      totalSuccessfulReferrals: Number(user.total_successful_referrals ?? 0),
+      referralMilestonesClaimed: user.referral_milestones_claimed ?? {},
       cryptoAddress: user.crypto_address ?? null,
       isAdmin: user.is_admin,
       tier: user.tier,
@@ -698,6 +734,7 @@ router.post("/transactions/:id/approve", async (req, res) => {
   if (txn.status !== "pending") { res.status(400).json({ error: "Transaction is not pending" }); return; }
 
   const nextStatus = txn.txType === "withdraw" ? "under_review" : "completed";
+  const depositFlags = { grantedFirstTicketBonus: false };
 
   try {
     await db.transaction(async (trx) => {
@@ -705,7 +742,12 @@ router.post("/transactions/:id/approve", async (req, res) => {
 
       if (txn.txType === "deposit") {
         const [user] = await trx
-          .select({ walletBalance: usersTable.walletBalance })
+          .select({
+            bonusBalance: usersTable.bonusBalance,
+            prizeBalance: usersTable.prizeBalance,
+            cashBalance: usersTable.cashBalance,
+            firstDepositClaimed: usersTable.firstDepositClaimed,
+          })
           .from(usersTable)
           .where(eq(usersTable.id, txn.userId))
           .limit(1);
@@ -715,35 +757,64 @@ router.post("/transactions/:id/approve", async (req, res) => {
           throw e;
         }
         const depositAmt = parseFloat(txn.amount);
-        const newBalance = parseFloat(user.walletBalance) + depositAmt;
-        const bonusAmount = 2;
-        const newBalanceWithBonus = newBalance + bonusAmount;
-        await trx.update(usersTable).set({ walletBalance: String(newBalanceWithBonus) }).where(eq(usersTable.id, txn.userId));
-
-        await trx.insert(transactionsTable).values({
-          userId: txn.userId,
-          txType: "deposit",
-          amount: String(bonusAmount),
-          status: "completed",
-          note: "[System] Deposit bonus — 2 USDT reward for making a deposit",
-        });
+        let bonusB = parseFloat(String(user.bonusBalance ?? "0"));
+        const prizeB = parseFloat(String(user.prizeBalance ?? "0"));
+        let cashB = parseFloat(String(user.cashBalance ?? "0")) + depositAmt;
+        let firstDepositBonus = 0;
+        const alreadyClaimedFirst = user.firstDepositClaimed === true;
+        let nextFirstDepositClaimed = alreadyClaimedFirst;
+        if (!alreadyClaimedFirst) {
+          firstDepositBonus = FIRST_DEPOSIT_BONUS_USDT;
+          bonusB += firstDepositBonus;
+          nextFirstDepositClaimed = true;
+        }
+        const walletNum = bonusB + prizeB + cashB;
+        const walletStr = walletNum.toFixed(2);
+        await trx
+          .update(usersTable)
+          .set({
+            bonusBalance: bonusB.toFixed(2),
+            prizeBalance: prizeB.toFixed(2),
+            cashBalance: cashB.toFixed(2),
+            walletBalance: walletStr,
+            firstDepositClaimed: nextFirstDepositClaimed,
+          })
+          .where(eq(usersTable.id, txn.userId));
 
         await appendDepositFromTicketPurchase(trx, {
           amount: depositAmt,
           referenceId: txId,
           userId: txn.userId,
-          description: `Deposit approved — user tx #${txId} — ${depositAmt} USDT (excludes signup bonus)`,
+          description: `Deposit approved — user tx #${txId} — ${depositAmt} USDT to cash balance`,
         });
-        await appendBonusGrant(trx, {
-          amount: bonusAmount,
-          userId: txn.userId,
-          description: `Deposit match bonus — user tx #${txId} — ${bonusAmount} USDT`,
-        });
+        if (firstDepositBonus > 0) {
+          depositFlags.grantedFirstTicketBonus = true;
+          await trx.insert(transactionsTable).values({
+            userId: txn.userId,
+            txType: "reward",
+            amount: String(firstDepositBonus),
+            status: "completed",
+            note: "[System] First deposit bonus — 1 USDT (tickets only, non-withdrawable)",
+          });
+          await appendBonusGrant(trx, {
+            amount: firstDepositBonus,
+            userId: txn.userId,
+            description: `First deposit ticket bonus — user tx #${txId} — ${firstDepositBonus} USDT`,
+          });
+          await recordTicketOnlyBonus(trx, {
+            userId: txn.userId,
+            amount: firstDepositBonus,
+            balanceAfter: walletNum,
+            description: `First deposit bonus — ${firstDepositBonus} USDT (tickets only)`,
+            referenceType: "first_deposit",
+            referenceId: txId,
+          });
+        }
         await recordDepositApproved(trx, {
           userId: txn.userId,
           depositAmount: depositAmt,
-          bonusAmount,
-          balanceAfter: newBalanceWithBonus,
+          bonusAmount: firstDepositBonus,
+          balanceAfter: walletNum,
           depositTxId: txId,
         });
       }
@@ -778,15 +849,17 @@ router.post("/transactions/:id/approve", async (req, res) => {
       await notifyUser(
         txn.userId,
         "Deposit Approved! ✅",
-        `Your deposit of ${txn.amount} USDT has been approved and added to your wallet.`,
+        `Your deposit of ${txn.amount} USDT has been approved and added to your cash balance (for tickets).`,
         "success",
       );
-      await notifyUser(
-        txn.userId,
-        "Deposit Bonus! 🎉",
-        `You received a $2.00 USDT bonus for your deposit of ${txn.amount} USDT!`,
-        "reward",
-      );
+      if (depositFlags.grantedFirstTicketBonus) {
+        await notifyUser(
+          txn.userId,
+          "First deposit bonus 🎁",
+          `You received ${FIRST_DEPOSIT_BONUS_USDT} USDT ticket bonus on your first approved deposit (for pool entries only).`,
+          "reward",
+        );
+      }
     } else {
       await notifyUser(
         txn.userId,
@@ -885,10 +958,25 @@ router.post("/users/:id/adjust-balance", async (req, res) => {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
 
-  const newBalance = parseFloat(user.walletBalance) + amount;
+  let bonusB = parseFloat(String(user.bonusBalance ?? "0"));
+  let prizeB = parseFloat(String(user.prizeBalance ?? "0"));
+  let cashB = parseFloat(String(user.cashBalance ?? "0")) + amount;
+  if (bonusB < 0 || prizeB < 0 || cashB < 0) {
+    res.status(400).json({ error: "Balance cannot go below 0" });
+    return;
+  }
+  const newBalance = bonusB + prizeB + cashB;
   if (newBalance < 0) { res.status(400).json({ error: "Balance cannot go below 0" }); return; }
 
-  await db.update(usersTable).set({ walletBalance: String(newBalance) }).where(eq(usersTable.id, userId));
+  await db
+    .update(usersTable)
+    .set({
+      bonusBalance: bonusB.toFixed(2),
+      prizeBalance: prizeB.toFixed(2),
+      cashBalance: cashB.toFixed(2),
+      walletBalance: newBalance.toFixed(2),
+    })
+    .where(eq(usersTable.id, userId));
   await mirrorAvailableFromUser(db, userId);
 
   await db.insert(transactionsTable).values({
@@ -918,13 +1006,29 @@ router.post("/transactions/:id/reject", async (req, res) => {
 
   if (tx.txType === "withdraw") {
     const [user] = await db
-      .select({ walletBalance: usersTable.walletBalance })
+      .select({
+        bonusBalance: usersTable.bonusBalance,
+        prizeBalance: usersTable.prizeBalance,
+        cashBalance: usersTable.cashBalance,
+      })
       .from(usersTable)
       .where(eq(usersTable.id, tx.userId))
       .limit(1);
     if (user) {
-      const restored = parseFloat(user.walletBalance) + parseFloat(tx.amount);
-      await db.update(usersTable).set({ walletBalance: String(restored) }).where(eq(usersTable.id, tx.userId));
+      const amt = parseFloat(tx.amount);
+      const bonusB = parseFloat(String(user.bonusBalance ?? "0"));
+      const prizeB = parseFloat(String(user.prizeBalance ?? "0")) + amt;
+      const cashB = parseFloat(String(user.cashBalance ?? "0"));
+      const restored = bonusB + prizeB + cashB;
+      await db
+        .update(usersTable)
+        .set({
+          bonusBalance: bonusB.toFixed(2),
+          prizeBalance: prizeB.toFixed(2),
+          cashBalance: cashB.toFixed(2),
+          walletBalance: restored.toFixed(2),
+        })
+        .where(eq(usersTable.id, tx.userId));
     }
   }
 

@@ -648,6 +648,12 @@ components:
           type: string
         walletBalance:
           type: number
+        bonusBalance:
+          type: number
+        prizeBalance:
+          type: number
+        cashBalance:
+          type: number
         isAdmin:
           type: boolean
         joinedAt:
@@ -666,6 +672,17 @@ components:
           type: string
         walletBalance:
           type: number
+        bonusBalance:
+          type: number
+        prizeBalance:
+          type: number
+        cashBalance:
+          type: number
+        totalSuccessfulReferrals:
+          type: integer
+        referralMilestonesClaimed:
+          type: object
+          additionalProperties: true
         isAdmin:
           type: boolean
         joinedAt:

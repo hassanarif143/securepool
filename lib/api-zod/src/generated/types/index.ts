@@ -14,6 +14,7 @@ export * from "./adminFinanceOverview";
 export * from "./adminFinancePerDrawRow";
 export * from "./adminFinanceSettings";
 export * from "./adminUser";
+export * from "./adminUserReferralMilestonesClaimed";
 export * from "./adminWalletLedgerRow";
 export * from "./adminWalletLedgerRowTransactionType";
 export * from "./adminWalletLedgerRowType";

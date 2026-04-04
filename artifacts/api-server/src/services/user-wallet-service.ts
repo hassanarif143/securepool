@@ -176,6 +176,73 @@ export async function recordBonusFromPlatform(
   });
 }
 
+/** Credits prize_balance (withdrawable): referral rewards, etc. Does not increase totalBonus. */
+export async function recordWithdrawableCredit(
+  trx: DbTx,
+  opts: {
+    userId: number;
+    amount: number;
+    balanceAfter: number;
+    description: string;
+    referenceType?: string;
+    referenceId?: number | null;
+  },
+): Promise<void> {
+  await mirrorAvailableFromUser(trx, opts.userId);
+  await trx
+    .update(userWalletTable)
+    .set({
+      availableBalance: String(opts.balanceAfter),
+      updatedAt: new Date(),
+    })
+    .where(eq(userWalletTable.userId, opts.userId));
+
+  await trx.insert(userWalletTransactionsTable).values({
+    userId: opts.userId,
+    transactionType: "CREDIT",
+    category: "REFERRAL_PRIZE",
+    amount: String(opts.amount),
+    referenceType: opts.referenceType ?? "referral_prize",
+    referenceId: opts.referenceId ?? null,
+    description: opts.description,
+    balanceAfter: String(opts.balanceAfter),
+  });
+}
+
+/** Non-withdrawable bonus_balance grants (first deposit + tier milestones). Counts toward totalBonus. */
+export async function recordTicketOnlyBonus(
+  trx: DbTx,
+  opts: {
+    userId: number;
+    amount: number;
+    balanceAfter: number;
+    description: string;
+    referenceType?: string;
+    referenceId?: number | null;
+  },
+): Promise<void> {
+  await mirrorAvailableFromUser(trx, opts.userId);
+  await trx
+    .update(userWalletTable)
+    .set({
+      totalBonus: sql`${userWalletTable.totalBonus}::numeric + ${String(opts.amount)}::numeric`,
+      availableBalance: String(opts.balanceAfter),
+      updatedAt: new Date(),
+    })
+    .where(eq(userWalletTable.userId, opts.userId));
+
+  await trx.insert(userWalletTransactionsTable).values({
+    userId: opts.userId,
+    transactionType: "CREDIT",
+    category: "BONUS",
+    amount: String(opts.amount),
+    referenceType: opts.referenceType ?? "ticket_bonus",
+    referenceId: opts.referenceId ?? null,
+    description: opts.description,
+    balanceAfter: String(opts.balanceAfter),
+  });
+}
+
 export async function getUserWalletPayload(userId: number) {
   const [u] = await db
     .select({

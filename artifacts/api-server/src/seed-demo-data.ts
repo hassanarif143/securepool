@@ -101,6 +101,7 @@ async function main() {
       code = refCode();
     }
     const joinedAt = new Date(now - Math.random() * 30 * 24 * 60 * 60 * 1000);
+    const bal = (Math.random() * 50 + 5).toFixed(2);
     const [u] = await db
       .insert(usersTable)
       .values({
@@ -110,7 +111,10 @@ async function main() {
         cryptoAddress,
         referralCode: code,
         isDemo: true,
-        walletBalance: String((Math.random() * 50 + 5).toFixed(2)),
+        walletBalance: bal,
+        prizeBalance: bal,
+        bonusBalance: "0",
+        cashBalance: "0",
         joinedAt,
       })
       .returning({ id: usersTable.id });

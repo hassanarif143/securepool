@@ -11,6 +11,9 @@ export const poolParticipantsTable = pgTable("pool_participants", {
   drawPosition: integer("draw_position"),
   /** Actual USDT collected from user wallet on join (0 for free entry). */
   amountPaid: numeric("amount_paid", { precision: 18, scale: 2 }),
+  paidFromBonus: numeric("paid_from_bonus", { precision: 18, scale: 2 }),
+  paidFromPrize: numeric("paid_from_prize", { precision: 18, scale: 2 }),
+  paidFromCash: numeric("paid_from_cash", { precision: 18, scale: 2 }),
 });
 
 export type PoolParticipant = typeof poolParticipantsTable.$inferSelect;

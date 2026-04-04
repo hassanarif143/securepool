@@ -1,4 +1,4 @@
-import { pgTable, serial, text, boolean, numeric, timestamp, integer, date } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, numeric, timestamp, integer, date, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -9,6 +9,18 @@ export const usersTable = pgTable("users", {
   phone: text("phone").unique(),
   passwordHash: text("password_hash").notNull(),
   walletBalance: numeric("wallet_balance", { precision: 18, scale: 2 }).notNull().default("0"),
+  /** Non-withdrawable; ticket purchases only (first deposit + referral tier milestones). */
+  bonusBalance: numeric("bonus_balance", { precision: 18, scale: 2 }).notNull().default("0"),
+  /** Withdrawable (referral per-invite + draw wins) and usable for tickets. */
+  prizeBalance: numeric("prize_balance", { precision: 18, scale: 2 }).notNull().default("0"),
+  /** Approved deposits; usable for tickets, not withdrawable under current rules. */
+  cashBalance: numeric("cash_balance", { precision: 18, scale: 2 }).notNull().default("0"),
+  firstDepositClaimed: boolean("first_deposit_claimed").notNull().default(false),
+  referralMilestonesClaimed: jsonb("referral_milestones_claimed")
+    .$type<Record<string, boolean>>()
+    .notNull()
+    .default({ "5": false, "10": false, "15": false, "25": false, "50": false }),
+  totalSuccessfulReferrals: integer("total_successful_referrals").notNull().default(0),
   cryptoAddress: text("crypto_address"),
   city: text("city"),
   referralCode: text("referral_code").unique(),
@@ -42,6 +54,12 @@ export const insertUserSchema = createInsertSchema(usersTable).omit({
   joinedAt: true,
   isAdmin: true,
   walletBalance: true,
+  bonusBalance: true,
+  prizeBalance: true,
+  cashBalance: true,
+  firstDepositClaimed: true,
+  referralMilestonesClaimed: true,
+  totalSuccessfulReferrals: true,
   isBlocked: true,
   blockedAt: true,
   blockedReason: true,

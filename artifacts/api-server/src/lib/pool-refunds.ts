@@ -1,5 +1,6 @@
 import { db, poolParticipantsTable, usersTable, transactionsTable, poolsTable } from "@workspace/db";
 import { mirrorAvailableFromUser } from "../services/user-wallet-service";
+import { parseUserBuckets, walletBalanceFromBuckets } from "./user-balances";
 import { eq, and, desc, or } from "drizzle-orm";
 import { notifyUser } from "./notify";
 import { logActivity } from "../services/activity-service";
@@ -63,8 +64,27 @@ export async function refundAllPoolParticipants(
       );
     } else {
       const refundAmt = paidAmount > 0 ? paidAmount : parseFloat(pool.entryFee);
-      const newBal = parseFloat(user.walletBalance) + refundAmt;
-      await db.update(usersTable).set({ walletBalance: String(newBal) }).where(eq(usersTable.id, p.userId));
+      const buckets = parseUserBuckets(user);
+      const fb = parseFloat(String(p.paidFromBonus ?? "0"));
+      const fp = parseFloat(String(p.paidFromPrize ?? "0"));
+      const fc = parseFloat(String(p.paidFromCash ?? "0"));
+      const hasSplit = fb > 0 || fp > 0 || fc > 0;
+      if (hasSplit && Math.abs(fb + fp + fc - refundAmt) < 0.02) {
+        buckets.bonusBalance += fb;
+        buckets.prizeBalance += fp;
+        buckets.cashBalance += fc;
+      } else {
+        buckets.cashBalance += refundAmt;
+      }
+      await db
+        .update(usersTable)
+        .set({
+          bonusBalance: buckets.bonusBalance.toFixed(2),
+          prizeBalance: buckets.prizeBalance.toFixed(2),
+          cashBalance: buckets.cashBalance.toFixed(2),
+          walletBalance: walletBalanceFromBuckets(buckets),
+        })
+        .where(eq(usersTable.id, p.userId));
       await mirrorAvailableFromUser(db, p.userId);
       await db.insert(transactionsTable).values({
         userId: p.userId,

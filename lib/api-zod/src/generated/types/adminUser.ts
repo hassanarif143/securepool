@@ -5,12 +5,18 @@
  * USDTLuck API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AdminUserReferralMilestonesClaimed } from "./adminUserReferralMilestonesClaimed";
 
 export interface AdminUser {
   id: number;
   name: string;
   email: string;
   walletBalance: number;
+  bonusBalance?: number;
+  prizeBalance?: number;
+  cashBalance?: number;
+  totalSuccessfulReferrals?: number;
+  referralMilestonesClaimed?: AdminUserReferralMilestonesClaimed;
   isAdmin: boolean;
   joinedAt: Date;
   totalDeposited: number;

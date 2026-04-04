@@ -189,7 +189,14 @@ router.post("/withdraw", async (req, res) => {
     }
 
     const [user] = await db
-      .select({ id: usersTable.id, name: usersTable.name, walletBalance: usersTable.walletBalance })
+      .select({
+        id: usersTable.id,
+        name: usersTable.name,
+        walletBalance: usersTable.walletBalance,
+        bonusBalance: usersTable.bonusBalance,
+        prizeBalance: usersTable.prizeBalance,
+        cashBalance: usersTable.cashBalance,
+      })
       .from(usersTable)
       .where(eq(usersTable.id, userId))
       .limit(1);
@@ -199,16 +206,25 @@ router.post("/withdraw", async (req, res) => {
       return;
     }
 
-    const currentBalance = parseFloat(user.walletBalance);
-
-    if (currentBalance < amount) {
-      res.status(400).json({ error: `Insufficient balance. Current balance: ${currentBalance} USDT` });
+    const prizeBal = parseFloat(String(user.prizeBalance ?? "0"));
+    if (prizeBal < amount) {
+      res.status(400).json({
+        error: `You can only withdraw from your withdrawable balance (referrals + draw wins). Available: ${prizeBal.toFixed(2)} USDT.`,
+      });
       return;
     }
 
+    const bonusB = parseFloat(String(user.bonusBalance ?? "0"));
+    const cashB = parseFloat(String(user.cashBalance ?? "0"));
+    const newPrize = prizeBal - amount;
+    const newWallet = (bonusB + newPrize + cashB).toFixed(2);
+
     await db
       .update(usersTable)
-      .set({ walletBalance: String(currentBalance - amount) })
+      .set({
+        prizeBalance: newPrize.toFixed(2),
+        walletBalance: newWallet,
+      })
       .where(eq(usersTable.id, userId));
 
     await mirrorAvailableFromUser(db, userId);

@@ -13,6 +13,7 @@ import {
 } from "@workspace/db";
 import { eq, and, sql, desc, count } from "drizzle-orm";
 import { maybeCreditReferralBonus } from "./referral";
+import { deductForTicket, parseUserBuckets, totalWallet, walletBalanceFromBuckets } from "../lib/user-balances";
 import { notifyUser, notifyAllUsers } from "../lib/notify";
 import { CreatePoolBody, UpdatePoolBody } from "@workspace/api-zod";
 import { sendDrawResultEmail, sendTicketApprovedEmail, sendAdminDrawFinancialSummaryEmail } from "../lib/email";
@@ -806,7 +807,8 @@ router.post("/:poolId/join", async (req, res) => {
   }
 
   const entryFee = parseFloat(pool.entryFee);
-  const userBalance = parseFloat(user.walletBalance);
+  const buckets = parseUserBuckets(user);
+  const userBalance = totalWallet(buckets);
   const useFreeEntry = bodyParse.success && bodyParse.data.useFreeEntry === true;
   const freeAvail = user.freeEntries ?? 0;
   const applyComeback =
@@ -850,19 +852,39 @@ router.post("/:poolId/join", async (req, res) => {
       });
       return;
     }
+    const { next, fromBonus, fromPrize, fromCash } = deductForTicket(buckets, amountDue);
     await db
       .update(usersTable)
-      .set({ walletBalance: String(userBalance - amountDue) })
+      .set({
+        bonusBalance: next.bonusBalance.toFixed(2),
+        prizeBalance: next.prizeBalance.toFixed(2),
+        cashBalance: next.cashBalance.toFixed(2),
+        walletBalance: walletBalanceFromBuckets(next),
+      })
       .where(eq(usersTable.id, sessionUserId));
     await mirrorAvailableFromUser(db, sessionUserId);
+    await db.insert(poolParticipantsTable).values({
+      poolId,
+      userId: sessionUserId,
+      ticketCount: 1,
+      amountPaid: String(amountDue),
+      paidFromBonus: String(fromBonus),
+      paidFromPrize: String(fromPrize),
+      paidFromCash: String(fromCash),
+    });
   }
 
-  await db.insert(poolParticipantsTable).values({
-    poolId,
-    userId: sessionUserId,
-    ticketCount: 1,
-    amountPaid: useFreeEntry ? "0" : String(amountDue),
-  });
+  if (useFreeEntry) {
+    await db.insert(poolParticipantsTable).values({
+      poolId,
+      userId: sessionUserId,
+      ticketCount: 1,
+      amountPaid: "0",
+      paidFromBonus: "0",
+      paidFromPrize: "0",
+      paidFromCash: "0",
+    });
+  }
 
   await db.insert(transactionsTable).values({
     userId: sessionUserId,
@@ -1029,14 +1051,20 @@ async function executePoolDistribution(poolId: number) {
         throw e;
       }
 
-      const newBalance = parseFloat(user.walletBalance) + prize;
+      const bonusB = parseFloat(String(user.bonusBalance ?? "0"));
+      const prizeB = parseFloat(String(user.prizeBalance ?? "0")) + prize;
+      const cashB = parseFloat(String(user.cashBalance ?? "0"));
+      const newBalance = bonusB + prizeB + cashB;
       const prevWins = user.totalWins ?? 0;
       const nextWins = prevWins + 1;
       const isFirstWinEver = prevWins === 0;
       await tx
         .update(usersTable)
         .set({
-          walletBalance: String(newBalance),
+          bonusBalance: bonusB.toFixed(2),
+          prizeBalance: prizeB.toFixed(2),
+          cashBalance: cashB.toFixed(2),
+          walletBalance: newBalance.toFixed(2),
           totalWins: nextWins,
           firstWinAt: isFirstWinEver ? new Date() : user.firstWinAt,
         })
