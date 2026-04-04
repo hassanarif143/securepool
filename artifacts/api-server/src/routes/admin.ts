@@ -1252,6 +1252,12 @@ router.delete("/users/:id", async (req, res) => {
   try {
     await client.query("BEGIN");
 
+    const { rows: bucketCols } = await client.query(
+      `SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'cash_balance' LIMIT 1`,
+    );
+    const hasBalanceBuckets = bucketCols.length > 0;
+
     const { rows: parts } = await client.query(
       `SELECT pp.pool_id, p.entry_fee, p.status, p.title
        FROM pool_participants pp
@@ -1264,10 +1270,25 @@ router.delete("/users/:id", async (req, res) => {
       if (row.status !== "completed") {
         refundedPools += 1;
         const fee = parseFloat(row.entry_fee);
-        const urow = await client.query(`SELECT wallet_balance FROM users WHERE id = $1`, [targetId]);
-        const bal = parseFloat(urow.rows[0]?.wallet_balance ?? "0");
-        const newBal = bal + fee;
-        await client.query(`UPDATE users SET wallet_balance = $1 WHERE id = $2`, [String(newBal), targetId]);
+        if (hasBalanceBuckets) {
+          await client.query(
+            `UPDATE users SET
+               cash_balance = (COALESCE(cash_balance::numeric, 0) + $2::numeric)::numeric(18,2),
+               wallet_balance = (
+                 COALESCE(bonus_balance::numeric, 0) +
+                 COALESCE(prize_balance::numeric, 0) +
+                 COALESCE(cash_balance::numeric, 0) +
+                 $2::numeric
+               )::numeric(18,2)
+             WHERE id = $1`,
+            [targetId, fee],
+          );
+        } else {
+          const urow = await client.query(`SELECT wallet_balance FROM users WHERE id = $1`, [targetId]);
+          const bal = parseFloat(urow.rows[0]?.wallet_balance ?? "0");
+          const newBal = bal + fee;
+          await client.query(`UPDATE users SET wallet_balance = $1 WHERE id = $2`, [String(newBal), targetId]);
+        }
         await client.query(
           `INSERT INTO transactions (user_id, tx_type, amount, status, note)
            VALUES ($1, 'deposit', $2, 'completed', $3)`,
@@ -1283,6 +1304,25 @@ router.delete("/users/:id", async (req, res) => {
     await client.query(`DELETE FROM referrals WHERE referrer_id = $1 OR referred_id = $1`, [targetId]);
     await client.query(`DELETE FROM reviews WHERE user_id = $1`, [targetId]);
     await client.query(`DELETE FROM admin_actions WHERE admin_id = $1 OR (target_type = 'user' AND target_id = $1)`, [targetId]);
+
+    /* FK to users without ON DELETE — must clear before DELETE FROM users */
+    const ignoreOnlyMissingRelation = async (p: Promise<unknown>) => {
+      try {
+        await p;
+      } catch (e: unknown) {
+        const code = typeof e === "object" && e !== null && "code" in e ? String((e as { code?: string }).code) : "";
+        if (code !== "42P01") throw e;
+      }
+    };
+    await ignoreOnlyMissingRelation(
+      client.query(`UPDATE central_wallet_ledger SET user_id = NULL WHERE user_id = $1`, [targetId]),
+    );
+    await ignoreOnlyMissingRelation(
+      client.query(`UPDATE wallet_change_requests SET reviewed_by = NULL WHERE reviewed_by = $1`, [targetId]),
+    );
+    await ignoreOnlyMissingRelation(client.query(`DELETE FROM user_wallet_transactions WHERE user_id = $1`, [targetId]));
+    await ignoreOnlyMissingRelation(client.query(`DELETE FROM user_wallet WHERE user_id = $1`, [targetId]));
+
     await client.query(`UPDATE users SET referred_by = NULL WHERE referred_by = $1`, [targetId]);
     await client.query(`DELETE FROM users WHERE id = $1`, [targetId]);
 
@@ -1293,8 +1333,12 @@ router.delete("/users/:id", async (req, res) => {
     } catch {
       /* ignore */
     }
+    const pgMsg = err && typeof err === "object" && "message" in err ? String((err as { message?: string }).message) : String(err);
     console.error(err);
-    return res.status(500).json({ error: "Failed to delete user" });
+    return res.status(500).json({
+      error: "Failed to delete user",
+      message: pgMsg,
+    });
   } finally {
     client.release();
   }

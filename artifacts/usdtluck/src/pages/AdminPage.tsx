@@ -1545,7 +1545,10 @@ function UsersTab() {
               try {
                 const res = await fetch(apiUrl(`/api/admin/users/${deleteTarget.id}`), { method: "DELETE", credentials: "include" });
                 const j = await res.json().catch(() => ({}));
-                if (!res.ok) throw new Error(j.error);
+                if (!res.ok) {
+                  const detail = [j.error, j.message].filter(Boolean).join(": ");
+                  throw new Error(detail || `HTTP ${res.status}`);
+                }
                 toast({
                   title: "User deleted",
                   description:
