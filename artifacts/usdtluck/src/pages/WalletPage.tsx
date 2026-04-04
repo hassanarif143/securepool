@@ -24,7 +24,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const PLATFORM_ADDRESS = "TQn9Y2khEsLJW1ChVWFMSMeRDow5kBDaVR";
+/** USDT (TRC20) address users send deposits to — Deposit tab + copy button. */
+const PLATFORM_ADDRESS = "TBjGU8jfZvsfDVPpjJXVb47khVyKjQqjqp";
 const NETWORK = "TRC-20 (Tron)";
 
 function timeAgo(dateStr: string) {
