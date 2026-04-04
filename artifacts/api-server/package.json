@@ -11,7 +11,8 @@
     "seed:demo": "node --enable-source-maps ./dist/seed-demo-data.mjs",
     "seed:cleanup": "node --enable-source-maps ./dist/seed-cleanup.mjs",
     "reset-password": "node --enable-source-maps ./dist/reset-user-password.mjs",
-    "fresh:start": "node --enable-source-maps ./dist/fresh-database-admin.mjs"
+    "fresh:start": "node --enable-source-maps ./dist/fresh-database-admin.mjs",
+    "migrate:0011": "node ./scripts/run-migration-0011.mjs"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
