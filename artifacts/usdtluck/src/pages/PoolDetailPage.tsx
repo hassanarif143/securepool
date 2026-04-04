@@ -405,15 +405,6 @@ export default function PoolDetailPage() {
       if (!res.ok) {
         const d = data as { message?: string; error?: string; code?: string };
         const msg = d.message ?? d.error ?? "Could not join";
-        if (d.code === "EMAIL_NOT_VERIFIED") {
-          toast({
-            title: "Verify your email",
-            description: msg,
-            variant: "destructive",
-          });
-          navigate("/verify-email");
-          return;
-        }
         toast({
           title: "Could not join",
           description: msg,
@@ -505,11 +496,10 @@ export default function PoolDetailPage() {
   const totalDue = freeThisPurchase ? 0 : effectiveEntryDue * ticketQty;
   const canPayJoin = Boolean(user && (freeThisPurchase || Number(user.walletBalance) >= totalDue));
   const vipLocked = Boolean(poolDetails?.vip_locked);
-  const needsEmailVerify = Boolean(user && user.emailVerified === false);
   const poolFull = displayCount >= pool.maxUsers || spotsLeft <= 0;
   const canBuyMore = userJoinedEffective && !poolFull && pool.status === "open";
   const canFirstJoin = !userJoinedEffective && pool.status === "open" && !poolFull;
-  const showJoinActions = (canFirstJoin || canBuyMore) && !vipLocked && !needsEmailVerify;
+  const showJoinActions = (canFirstJoin || canBuyMore) && !vipLocked;
   const joinDisabled =
     joining ||
     !showJoinActions ||

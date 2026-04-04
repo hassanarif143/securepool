@@ -62,9 +62,10 @@ export default function VerifyEmailPage() {
     if (!isLoading && !user) navigate("/login");
   }, [user, isLoading, navigate]);
 
+  /* Email OTP disabled — keep route for bookmarks; send users to the app. */
   useEffect(() => {
-    if (user?.emailVerified) navigate("/dashboard");
-  }, [user?.emailVerified, navigate]);
+    if (!isLoading && user) navigate("/dashboard");
+  }, [user, isLoading, navigate]);
 
   const expiresAt = otpStatus?.expiresAt ? new Date(otpStatus.expiresAt).getTime() : null;
   const now = Date.now();

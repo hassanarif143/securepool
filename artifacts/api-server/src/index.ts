@@ -1,6 +1,5 @@
 import "dotenv/config";
 
-import { applySmtpEnvProfile, scheduleSmtpVerification } from "./lib/email";
 import { logConfiguredEnv } from "./lib/startup-env";
 import { runPendingSqlMigrations } from "./runMigrations";
 import { logger } from "./lib/logger";
@@ -34,7 +33,6 @@ async function main() {
   logConfiguredEnv();
   await runPendingSqlMigrations();
   const { default: app } = await import("./app");
-  applySmtpEnvProfile();
   app.listen(port, (err?: Error) => {
     if (err) {
       logger.error({ err }, "Error listening on port");
@@ -42,7 +40,6 @@ async function main() {
     }
 
     logger.info({ port }, "Server listening");
-    scheduleSmtpVerification();
     scheduleExpiredPoolJob();
     scheduleEngagementJobs();
   });

@@ -75,7 +75,7 @@ function authCookieOptions() {
     httpOnly: true,
     secure: isProd,
     sameSite: (isProd ? "none" : "lax") as "none" | "lax",
-    maxAge: 24 * 60 * 60 * 1000, // align with express-session cookie (cross-site SPA)
+    maxAge: 86_400_000, // 24h — align with express-session (cross-site SPA)
     path: "/",
   };
 }
@@ -190,7 +190,7 @@ router.post("/signup", signupLimiter, async (req, res) => {
       walletBalance: "0",
       bonusBalance: "0",
       withdrawableBalance: "0",
-      emailVerified: false,
+      emailVerified: true,
       referredBy: referrer?.id ?? undefined,
     })
     .returning();
@@ -216,14 +216,9 @@ router.post("/signup", signupLimiter, async (req, res) => {
   await persistSession(req);
   const accessToken = signAndSetJwtCookie(res, user.id, user.isAdmin);
 
-  const otpResult = await issueOtpEmail(user.id, { skipMinInterval: true });
-  if (!otpResult.ok) {
-    logger.warn({ userId: user.id, otpResult }, "Initial OTP email not sent after signup");
-  }
-
-  const defaultOkMessage = referrer
-    ? "Account created! Verify your email, then your referrer earns 2 USDT when you buy your first ticket."
-    : "Account created. We sent a verification code to your email.";
+  const welcomeMessage = referrer
+    ? "Account created! Your referrer earns 2 USDT when you join your first pool."
+    : "Welcome to SecurePool — you're signed in.";
 
   res.status(201).json({
     user: {
@@ -236,13 +231,11 @@ router.post("/signup", signupLimiter, async (req, res) => {
       cryptoAddress: user.cryptoAddress ?? null,
       isAdmin: user.isAdmin,
       joinedAt: user.joinedAt,
-      emailVerified: false,
+      emailVerified: true,
     },
     ...(accessToken ? { token: accessToken } : {}),
-    message: otpResult.ok ? defaultOkMessage : otpResult.message,
+    message: welcomeMessage,
     referralBonus: 0,
-    verificationEmailSent: otpResult.ok,
-    ...(otpResult.ok ? {} : { verificationEmailError: otpResult.code }),
   });
 
   void notifyUser(

@@ -157,19 +157,15 @@ export default function SignupPage() {
       }
       setUser((data as any).user as any);
       const bonus = (data as any).referralBonus;
-      const emailSent = (data as any).verificationEmailSent !== false;
       const serverMessage = typeof (data as any).message === "string" ? (data as any).message : null;
       toast({
-        title: emailSent ? "Account created!" : "Account created — email not sent",
-        description: emailSent
-          ? bonus
+        title: "Account created!",
+        description:
+          bonus && Number(bonus) > 0
             ? `Welcome to SecurePool! You received a ${bonus} USDT welcome bonus!`
-            : serverMessage ?? "Check your email for a 6-digit verification code."
-          : serverMessage ??
-            "Verification email could not be sent. Set SMTP_USER / SMTP_PASS on the API server, then use Resend on the verify page.",
-        variant: emailSent ? "default" : "destructive",
+            : serverMessage ?? "You're signed in.",
       });
-      navigate("/verify-email");
+      navigate(nextPath);
     } catch (err: any) {
       toast({
         title: "Signup failed",
@@ -316,7 +312,7 @@ export default function SignupPage() {
                     Referral code applied: <span className="font-mono">{referralCode}</span>
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Your referrer earns 2 USDT (withdrawable) when you verify email and join your first pool — not on signup alone.
+                    Your referrer earns 2 USDT (withdrawable) when you join your first pool — not on signup alone.
                   </p>
                 </div>
               </div>

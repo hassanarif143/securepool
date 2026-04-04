@@ -120,7 +120,7 @@ app.use(
       secure: sessionCookieCrossSite,
       sameSite: sessionCookieCrossSite ? "none" : "lax",
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
+      maxAge: 86_400_000, // 24h
       path: "/",
     },
   }),
