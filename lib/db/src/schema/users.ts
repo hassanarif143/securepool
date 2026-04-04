@@ -23,7 +23,7 @@ export const usersTable = pgTable("users", {
   city: text("city"),
   referralCode: text("referral_code").unique(),
   referredBy: integer("referred_by"),
-  emailVerified: boolean("email_verified").notNull().default(false),
+  emailVerified: boolean("email_verified").notNull().default(true),
   isAdmin: boolean("is_admin").notNull().default(false),
   isBlocked: boolean("is_blocked").notNull().default(false),
   blockedAt: timestamp("blocked_at", { withTimezone: true }),
