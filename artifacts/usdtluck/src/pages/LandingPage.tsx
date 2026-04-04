@@ -76,7 +76,7 @@ export default function LandingPage() {
   } | null>(null);
 
   useEffect(() => {
-    fetch(apiUrl("/api/stats/summary"), { credentials: "omit" })
+    fetch(apiUrl("/api/stats/summary"), { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then(setSummary)
       .catch(() => {});

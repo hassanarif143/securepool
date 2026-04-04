@@ -29,7 +29,7 @@ export function ActivityFeed({ limit = 18, className = "" }: { limit?: number; c
     let cancelled = false;
     async function load() {
       try {
-        const r = await fetch(apiUrl(`/api/activity/feed?limit=${limit}`), { credentials: "omit" });
+        const r = await fetch(apiUrl(`/api/activity/feed?limit=${limit}`), { credentials: "include" });
         const j = r.ok ? ((await r.json()) as Item[]) : [];
         if (!cancelled) setItems(Array.isArray(j) ? j : []);
       } catch {

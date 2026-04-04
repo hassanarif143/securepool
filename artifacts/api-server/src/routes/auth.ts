@@ -75,7 +75,7 @@ function authCookieOptions() {
     httpOnly: true,
     secure: isProd,
     sameSite: (isProd ? "none" : "lax") as "none" | "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // align with express-session + JWT exp
+    maxAge: 24 * 60 * 60 * 1000, // align with express-session cookie (cross-site SPA)
     path: "/",
   };
 }

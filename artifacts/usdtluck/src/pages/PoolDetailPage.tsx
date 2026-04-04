@@ -290,8 +290,8 @@ export default function PoolDetailPage() {
     async function poll() {
       try {
         const [vr, jr] = await Promise.all([
-          fetch(apiUrl(`/api/pools/${id}/viewers`)).then((r) => r.json()),
-          fetch(apiUrl(`/api/pools/${id}/recent-joiners?limit=6`)).then((r) => r.json()),
+          fetch(apiUrl(`/api/pools/${id}/viewers`), { credentials: "include" }).then((r) => r.json()),
+          fetch(apiUrl(`/api/pools/${id}/recent-joiners?limit=6`), { credentials: "include" }).then((r) => r.json()),
         ]);
         setViewersCount(typeof vr.count === "number" ? vr.count : 0);
         setRecentJoiners(Array.isArray(jr) ? jr : []);

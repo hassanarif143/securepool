@@ -18,7 +18,7 @@ export function RecentPayouts({ limit = 8, className = "" }: { limit?: number; c
 
   useEffect(() => {
     let cancelled = false;
-    fetch(apiUrl(`/api/winners/recent-payouts?limit=${limit}`), { credentials: "omit" })
+    fetch(apiUrl(`/api/winners/recent-payouts?limit=${limit}`), { credentials: "include" })
       .then((r) => (r.ok ? r.json() : []))
       .then((j) => {
         if (!cancelled && Array.isArray(j)) setRows(j);

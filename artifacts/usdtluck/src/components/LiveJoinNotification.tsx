@@ -10,7 +10,7 @@ export function LiveJoinNotification() {
 
   useEffect(() => {
     const id = setInterval(() => {
-      fetch(apiUrl("/api/activity/feed?types=user_joined&limit=12"))
+      fetch(apiUrl("/api/activity/feed?types=user_joined&limit=12"), { credentials: "include" })
         .then((r) => r.json())
         .then((rows: FeedItem[]) => {
           if (!Array.isArray(rows)) return;

@@ -13,21 +13,43 @@ function getCookie(name: string): string | null {
   return parts.pop()!.split(";").shift() ?? null;
 }
 
+function resolveRequestUrl(input: RequestInfo | URL): string {
+  if (typeof input === "string") return input;
+  if (typeof URL !== "undefined" && input instanceof URL) return input.href;
+  return (input as Request).url;
+}
+
+/** Cross-origin default is `same-origin` — cookies are dropped. Force include for our API host (and dev `/api` proxy). */
+function withApiCredentials(input: RequestInfo | URL, init?: RequestInit): RequestInit | undefined {
+  const base = getApiBaseUrl().replace(/\/+$/, "");
+  const url = resolveRequestUrl(input);
+  const targetsApi =
+    (base && url.startsWith(base)) ||
+    (!base && (url.startsWith("/api") || url.startsWith(`${window.location.origin}/api`)));
+  if (!targetsApi) return init;
+  if (init?.credentials != null && init.credentials !== "include") return init;
+  return { ...init, credentials: "include" };
+}
+
 const nativeFetch = window.fetch.bind(window);
 window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-  const method = (init?.method ?? (typeof input === "string" ? "GET" : (input as Request).method ?? "GET")).toUpperCase();
+  const mergedInit = withApiCredentials(input, init);
+  const method = (
+    mergedInit?.method ??
+    (typeof input === "string" ? "GET" : (input as Request).method ?? "GET")
+  ).toUpperCase();
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
-    return nativeFetch(input, init);
+    return nativeFetch(input, mergedInit);
   }
 
   const csrf = getCsrfToken() ?? getCookie("sp_csrf");
-  if (!csrf) return nativeFetch(input, init);
+  if (!csrf) return nativeFetch(input, mergedInit);
 
-  const headers = new Headers(init?.headers ?? {});
+  const headers = new Headers(mergedInit?.headers ?? {});
   headers.set("x-csrf-token", csrf);
 
   return nativeFetch(input, {
-    ...init,
+    ...mergedInit,
     headers,
   });
 };

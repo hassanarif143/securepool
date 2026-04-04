@@ -4,6 +4,7 @@ import crypto from "crypto";
 const CSRF_COOKIE = "sp_csrf";
 const CSRF_HEADER = "x-csrf-token";
 
+/** Cross-site SPA (Vercel → Railway): production must use SameSite=None + Secure or the cookie is not stored. */
 function csrfCookieOptions() {
   const isProd = process.env.NODE_ENV === "production";
   return {

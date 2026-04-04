@@ -14,8 +14,6 @@ import { attachAuth, rejectIfBlocked } from "./middleware/auth";
 import { csrfProtection, issueCsrfToken } from "./middleware/csrf";
 
 const app: Express = express();
-// Required on Railway/Render/Heroku-style proxies so secure cookies are set.
-app.set("trust proxy", 1);
 
 const PgStore = connectPgSimple(session);
 
@@ -56,6 +54,9 @@ app.use(
 
 app.use(cookieParser());
 
+/** Production SPA — must match browser Origin for credentialed cross-origin requests. */
+const PRODUCTION_FRONTEND_ORIGIN = "https://securepool-usdtluck.vercel.app";
+
 function buildAllowedOrigins(): string[] {
   const raw = process.env.FRONTEND_ORIGINS ?? process.env.FRONTEND_ORIGIN ?? "";
   const list = raw
@@ -66,7 +67,7 @@ function buildAllowedOrigins(): string[] {
   if (process.env.NODE_ENV !== "production") {
     list.push("http://localhost:5173", "http://127.0.0.1:5173");
   } else {
-    list.push("https://securepool-usdtluck.vercel.app");
+    list.push(PRODUCTION_FRONTEND_ORIGIN);
   }
   return Array.from(new Set(list));
 }
@@ -78,6 +79,12 @@ app.use(
   cors({
     origin(origin, cb) {
       if (!origin) return cb(null, true);
+      if (process.env.NODE_ENV === "production") {
+        if (origin === PRODUCTION_FRONTEND_ORIGIN) return cb(null, true);
+        if (allowedOrigins.includes(origin)) return cb(null, true);
+        logger.warn({ origin, allowedOrigins }, "[cors] blocked origin");
+        return cb(null, false);
+      }
       if (allowedOrigins.includes(origin)) return cb(null, true);
       logger.warn({ origin, allowedOrigins }, "[cors] blocked origin");
       return cb(null, false);
@@ -94,21 +101,26 @@ if (!sessionSecret) {
   throw new Error("SESSION_SECRET environment variable is required");
 }
 
+// Before session — required on Railway so `req.secure` / cookie behavior matches the client-facing HTTPS URL.
+app.set("trust proxy", 1);
+
+const sessionCookieCrossSite = process.env.NODE_ENV === "production";
+
 app.use(
   session({
     name: "connect.sid",
     store: new PgStore({
       pool,
     }),
-    proxy: process.env.NODE_ENV === "production",
+    proxy: sessionCookieCrossSite,
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: sessionCookieCrossSite,
+      sameSite: sessionCookieCrossSite ? "none" : "lax",
       httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 24 * 60 * 60 * 1000,
       path: "/",
     },
   }),

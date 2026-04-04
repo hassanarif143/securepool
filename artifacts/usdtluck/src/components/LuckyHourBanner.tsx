@@ -9,7 +9,7 @@ export function LuckyHourBanner() {
   useEffect(() => {
     let cancelled = false;
     function tick() {
-      fetch(apiUrl("/api/engagement/lucky-hour"))
+      fetch(apiUrl("/api/engagement/lucky-hour"), { credentials: "include" })
         .then((r) => r.json())
         .then((d: { active?: boolean; endsAt?: string | null; multiplier?: number }) => {
           if (cancelled) return;
