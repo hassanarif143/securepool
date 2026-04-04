@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useAuth } from "@/context/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
+import { getGetMeQueryKey } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { apiUrl } from "@/lib/api-base";
+import { setSessionAccessToken } from "@/lib/auth-token";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -13,6 +16,7 @@ export default function LoginPage() {
   const [, navigate] = useLocation();
   const search = useSearch();
   const { setUser } = useAuth();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -56,6 +60,9 @@ export default function LoginPage() {
         return;
       }
 
+      const bearer = typeof (data as any).token === "string" ? (data as any).token : null;
+      if (bearer) setSessionAccessToken(bearer);
+      await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       setUser((data as any).user as any);
       toast({ title: "Welcome back!", description: `Logged in as ${(data as any).user?.name ?? "user"}` });
       navigate(nextPath);

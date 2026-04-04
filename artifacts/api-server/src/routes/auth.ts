@@ -91,12 +91,15 @@ function clearJwtCookie(res: Response) {
   });
 }
 
-function trySetJwtCookie(res: any, userId: number, isAdmin: boolean) {
+/** Sets JWT cookie and returns the same string for JSON body (cross-site SPAs often need Bearer). */
+function signAndSetJwtCookie(res: Response, userId: number, isAdmin: boolean): string | null {
   try {
     const token = signUserJwt({ userId, isAdmin });
     res.cookie(getJwtCookieName(), token, authCookieOptions());
+    return token;
   } catch (err) {
     logger.warn({ err, userId }, "JWT cookie not set; using session auth fallback");
+    return null;
   }
 }
 
@@ -211,7 +214,7 @@ router.post("/signup", signupLimiter, async (req, res) => {
   // Back-compat session + JWT cookie (JWT is critical for Vercel → Railway; session cookie is often blocked cross-site)
   req.session.userId = user.id;
   await persistSession(req);
-  trySetJwtCookie(res, user.id, user.isAdmin);
+  const accessToken = signAndSetJwtCookie(res, user.id, user.isAdmin);
 
   const otpResult = await issueOtpEmail(user.id, { skipMinInterval: true });
   if (!otpResult.ok) {
@@ -235,6 +238,7 @@ router.post("/signup", signupLimiter, async (req, res) => {
       joinedAt: user.joinedAt,
       emailVerified: false,
     },
+    ...(accessToken ? { token: accessToken } : {}),
     message: otpResult.ok ? defaultOkMessage : otpResult.message,
     referralBonus: 0,
     verificationEmailSent: otpResult.ok,
@@ -347,9 +351,10 @@ router.post("/login", loginLimiter, async (req, res) => {
   // Back-compat session + JWT cookie (cross-site SPA)
   req.session.userId = user.id;
   await persistSession(req);
-  trySetJwtCookie(res, user.id, Boolean(user.is_admin));
+  const accessToken = signAndSetJwtCookie(res, user.id, Boolean(user.is_admin));
 
   res.json({
+    ...(accessToken ? { token: accessToken } : {}),
     user: {
       id: user.id,
       name: user.name,

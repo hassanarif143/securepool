@@ -1,10 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useAuth } from "@/context/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
+import { getGetMeQueryKey } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { apiUrl } from "@/lib/api-base";
+import { setSessionAccessToken } from "@/lib/auth-token";
 import { trc20ValidationMessage, TRC20_ADDRESS_REGEX } from "@/lib/trc20";
 
 function PasswordStrength({ password }: { password: string }) {
@@ -56,6 +59,7 @@ export default function SignupPage() {
   const [, navigate] = useLocation();
   const search = useSearch();
   const { setUser } = useAuth();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const nextParam = new URLSearchParams(search).get("next");
@@ -129,6 +133,9 @@ export default function SignupPage() {
         });
         return;
       }
+      const bearer = typeof (data as any).token === "string" ? (data as any).token : null;
+      if (bearer) setSessionAccessToken(bearer);
+      await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       setUser((data as any).user as any);
       const bonus = (data as any).referralBonus;
       const emailSent = (data as any).verificationEmailSent !== false;
