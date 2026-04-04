@@ -18,6 +18,7 @@ export function logConfiguredEnv(): void {
       FRONTEND_ORIGINS: process.env.FRONTEND_ORIGINS ?? process.env.FRONTEND_ORIGIN ?? "(using code fallback)",
       SMTP_USER: process.env.SMTP_USER || process.env.GMAIL_USER ? "set" : "MISSING",
       SMTP_PASS: smtpPassLen > 0 ? `set (normalized len ${smtpPassLen})` : "MISSING",
+      SMTP_GMAIL_TRANSPORT: process.env.SMTP_GMAIL_TRANSPORT ?? "(unset; auto try service then 465)",
       EMAIL_FROM: process.env.EMAIL_FROM ? "set" : "unset (falls back to SMTP user)",
       PORT: process.env.PORT ?? "(unset)",
     },

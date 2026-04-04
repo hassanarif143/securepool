@@ -24,7 +24,11 @@ if (Number.isNaN(port) || port <= 0) {
 async function main() {
   logConfiguredEnv();
   await runPendingSqlMigrations();
-  await verifySmtpAtStartup();
+  try {
+    await verifySmtpAtStartup();
+  } catch (err) {
+    logger.warn({ err }, "[smtp] verifySmtpAtStartup threw — continuing startup");
+  }
   const { default: app } = await import("./app");
   app.listen(port, (err?: Error) => {
     if (err) {

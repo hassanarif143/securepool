@@ -9,7 +9,12 @@ type SendEmailInput = {
   text?: string;
 };
 
+/** Option 1: nodemailer well-known "gmail". Option 2: explicit TLS on 465. */
+type GmailSmtpProfile = "service" | "explicit465";
+
 let transporter: nodemailer.Transporter | null = null;
+/** Set by startup verify or SMTP_GMAIL_TRANSPORT; drives getTransporter(). */
+let activeGmailProfile: GmailSmtpProfile = "service";
 
 function smtpUser(): string | undefined {
   const u = process.env.SMTP_USER?.trim() || process.env.GMAIL_USER?.trim();
@@ -22,14 +27,61 @@ function smtpPass(): string | undefined {
     process.env.GMAIL_APP_PASSWORD?.trim() ||
     process.env.GOOGLE_APP_PASSWORD?.trim();
   if (!raw) return undefined;
-  // Google shows app passwords as "abcd efgh ijkl mnop" — Gmail SMTP expects 16 chars without spaces.
   const normalized = raw.replace(/\s+/g, "");
   return normalized || undefined;
+}
+
+function envForcedProfile(): GmailSmtpProfile | undefined {
+  const v = process.env.SMTP_GMAIL_TRANSPORT?.trim().toLowerCase();
+  if (v === "465" || v === "ssl" || v === "explicit" || v === "explicit465") return "explicit465";
+  if (v === "service" || v === "gmail") return "service";
+  return undefined;
+}
+
+function createGmailTransport(profile: GmailSmtpProfile): nodemailer.Transporter {
+  const user = smtpUser()!;
+  const pass = smtpPass()!;
+  if (profile === "explicit465") {
+    return nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: { user, pass },
+    });
+  }
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: { user, pass },
+  });
+}
+
+async function closeTransport(t: nodemailer.Transporter): Promise<void> {
+  try {
+    const c = (t as { close?: (cb: (err?: Error) => void) => void }).close;
+    if (typeof c === "function") {
+      await new Promise<void>((resolve) => {
+        c.call(t, () => resolve());
+      });
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function verifyWithTimeout(t: nodemailer.Transporter, ms: number): Promise<void> {
+  return Promise.race([
+    t.verify().then(() => undefined),
+    new Promise<void>((_, reject) => setTimeout(() => reject(new Error(`SMTP verify ETIMEDOUT (${ms}ms)`)), ms)),
+  ]);
 }
 
 /** True when Gmail SMTP env vars are set (required for OTP and transactional mail). */
 export function isSmtpConfigured(): boolean {
   return Boolean(smtpUser() && smtpPass());
+}
+
+function resetCachedTransporter(): void {
+  transporter = null;
 }
 
 function getTransporter(): nodemailer.Transporter | null {
@@ -38,39 +90,90 @@ function getTransporter(): nodemailer.Transporter | null {
   const pass = smtpPass();
   if (!user || !pass) return null;
 
-  transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: { user, pass },
-  });
+  transporter = createGmailTransport(activeGmailProfile);
   return transporter;
 }
 
 /**
- * Verifies SMTP (non-fatal). Run once at startup; logs success or detailed error.
+ * Non-fatal. Tries Option 1 (service: gmail), then Option 2 (smtp.gmail.com:465).
+ * Never throws to caller — failures are warnings only.
  */
 export async function verifySmtpAtStartup(): Promise<void> {
-  const user = smtpUser();
-  const pass = smtpPass();
-  if (!user || !pass) {
-    logger.warn("[smtp] verify skipped — SMTP_USER / SMTP_PASS (or aliases) not set");
-    return;
-  }
-  const probe = nodemailer.createTransport({
-    service: "gmail",
-    auth: { user, pass },
-  });
   try {
-    await probe.verify();
-    logger.info({ user }, "[smtp] transporter.verify() succeeded");
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    logger.error(
-      { err, user, hint: "Use Gmail App Password (16 chars); remove spaces in Railway variable" },
-      "[smtp] transporter.verify() failed — OTP mail will not work until fixed",
-    );
-    logger.error({ verifyError: msg }, "[smtp] verify error detail");
-  } finally {
-    probe.close();
+    const user = smtpUser();
+    const pass = smtpPass();
+    if (!user || !pass) {
+      logger.warn("[smtp] verify skipped — SMTP_USER / SMTP_PASS (or aliases) not set");
+      return;
+    }
+
+    resetCachedTransporter();
+    const VERIFY_MS = 22_000;
+
+    const forced = envForcedProfile();
+    if (forced) {
+      activeGmailProfile = forced;
+      const probe = createGmailTransport(forced);
+      try {
+        await verifyWithTimeout(probe, VERIFY_MS);
+        logger.info({ profile: forced, user }, "[smtp] transporter.verify() OK (SMTP_GMAIL_TRANSPORT)");
+      } catch (err) {
+        logger.warn(
+          { err, profile: forced, user },
+          "[smtp] verify failed for forced SMTP_GMAIL_TRANSPORT — mail may not work",
+        );
+      } finally {
+        await closeTransport(probe);
+      }
+      return;
+    }
+
+    // Option 1 — exact shape user requested
+    const opt1 = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user, pass },
+    });
+    try {
+      await verifyWithTimeout(opt1, VERIFY_MS);
+      activeGmailProfile = "service";
+      logger.info({ user }, "[smtp] transporter.verify() OK (service: gmail)");
+      await closeTransport(opt1);
+      return;
+    } catch (err1) {
+      await closeTransport(opt1);
+      logger.warn(
+        { err: err1, code: err1 instanceof Error ? err1.message : String(err1) },
+        "[smtp] Option 1 (service:gmail) failed — trying Option 2 (smtp.gmail.com:465)",
+      );
+    }
+
+    // Option 2 — explicit 465
+    const opt2 = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: { user, pass },
+    });
+    try {
+      await verifyWithTimeout(opt2, VERIFY_MS);
+      activeGmailProfile = "explicit465";
+      resetCachedTransporter();
+      logger.info({ user }, "[smtp] transporter.verify() OK (smtp.gmail.com:465 secure)");
+    } catch (err2) {
+      activeGmailProfile = "service";
+      resetCachedTransporter();
+      logger.warn(
+        {
+          err: err2,
+          hint: "Railway may block all outbound SMTP; use a transactional HTTP API (Resend, SendGrid) or Gmail API",
+        },
+        "[smtp] Option 2 also failed — OTP email likely unavailable; server continues",
+      );
+    } finally {
+      await closeTransport(opt2);
+    }
+  } catch (unexpected) {
+    logger.warn({ err: unexpected }, "[smtp] verifySmtpAtStartup internal error — server continues");
   }
 }
 
@@ -122,8 +225,8 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
         ? String((err as { responseCode: unknown }).responseCode)
         : undefined;
     logger.error(
-      { err, to: input.to, subject: input.subject, code, responseCode },
-      "Failed to send email (check SMTP_USER, App Password without spaces, Gmail 2FA)",
+      { err, to: input.to, subject: input.subject, code, responseCode, profile: activeGmailProfile },
+      "Failed to send email (Gmail App Password; Railway SMTP blocks are common)",
     );
     return { ok: false, reason: responseCode ? `${reason} [smtp ${responseCode}]` : reason };
   }
@@ -221,4 +324,3 @@ export async function sendAdminDrawFinancialSummaryEmail(payload: DrawFinancialS
     html: brandTemplate("Draw financial summary", body),
   });
 }
-
