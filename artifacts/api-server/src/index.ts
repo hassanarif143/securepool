@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { verifySmtpAtStartup } from "./lib/email";
+import { logConfiguredEnv } from "./lib/startup-env";
 import { runPendingSqlMigrations } from "./runMigrations";
 import { logger } from "./lib/logger";
 import { scheduleExpiredPoolJob } from "./lib/pool-auto-close";
@@ -20,7 +22,9 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 async function main() {
+  logConfiguredEnv();
   await runPendingSqlMigrations();
+  await verifySmtpAtStartup();
   const { default: app } = await import("./app");
   app.listen(port, (err?: Error) => {
     if (err) {

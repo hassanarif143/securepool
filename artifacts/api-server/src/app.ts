@@ -51,6 +51,39 @@ app.use(
 
 app.use(cookieParser());
 
+function buildAllowedOrigins(): string[] {
+  const raw = process.env.FRONTEND_ORIGINS ?? process.env.FRONTEND_ORIGIN ?? "";
+  const list = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (process.env.NODE_ENV !== "production") {
+    list.push("http://localhost:5173", "http://127.0.0.1:5173");
+  } else {
+    list.push("https://securepool-usdtluck.vercel.app");
+  }
+  return Array.from(new Set(list));
+}
+
+const allowedOrigins = buildAllowedOrigins();
+
+// CORS must run before session/auth so OPTIONS preflight and credentialed responses get proper headers (Vercel → Railway).
+app.use(
+  cors({
+    origin(origin, cb) {
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      logger.warn({ origin, allowedOrigins }, "[cors] blocked origin");
+      return cb(null, false);
+    },
+    credentials: true,
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-csrf-token"],
+    optionsSuccessStatus: 204,
+  }),
+);
+
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
   throw new Error("SESSION_SECRET environment variable is required");
@@ -58,6 +91,7 @@ if (!sessionSecret) {
 
 app.use(
   session({
+    name: "connect.sid",
     store: new PgStore({
       pool,
     }),
@@ -70,6 +104,7 @@ app.use(
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000,
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
     },
   }),
 );
@@ -85,40 +120,6 @@ app.use(
     limit: 120,
     standardHeaders: true,
     legacyHeaders: false,
-  }),
-);
-
-function buildAllowedOrigins(): string[] {
-  const raw = process.env.FRONTEND_ORIGINS ?? process.env.FRONTEND_ORIGIN ?? "";
-  const list = raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  if (process.env.NODE_ENV !== "production") {
-    list.push("http://localhost:5173", "http://127.0.0.1:5173");
-  } else {
-    // Safe production fallback for current deployed frontend
-    list.push("https://securepool-usdtluck.vercel.app");
-  }
-  return Array.from(new Set(list));
-}
-
-const allowedOrigins = buildAllowedOrigins();
-
-app.use(
-  cors({
-    origin(origin, cb) {
-      // Allow same-origin / server-to-server / curl (no Origin header)
-      if (!origin) return cb(null, true);
-
-      if (allowedOrigins.includes(origin)) return cb(null, true);
-      return cb(new Error("CORS blocked"));
-    },
-    credentials: true,
-    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-csrf-token"],
-    optionsSuccessStatus: 204,
   }),
 );
 

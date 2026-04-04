@@ -17,11 +17,14 @@ function smtpUser(): string | undefined {
 }
 
 function smtpPass(): string | undefined {
-  const p =
+  const raw =
     process.env.SMTP_PASS?.trim() ||
     process.env.GMAIL_APP_PASSWORD?.trim() ||
     process.env.GOOGLE_APP_PASSWORD?.trim();
-  return p || undefined;
+  if (!raw) return undefined;
+  // Google shows app passwords as "abcd efgh ijkl mnop" — Gmail SMTP expects 16 chars without spaces.
+  const normalized = raw.replace(/\s+/g, "");
+  return normalized || undefined;
 }
 
 /** True when Gmail SMTP env vars are set (required for OTP and transactional mail). */
@@ -40,6 +43,35 @@ function getTransporter(): nodemailer.Transporter | null {
     auth: { user, pass },
   });
   return transporter;
+}
+
+/**
+ * Verifies SMTP (non-fatal). Run once at startup; logs success or detailed error.
+ */
+export async function verifySmtpAtStartup(): Promise<void> {
+  const user = smtpUser();
+  const pass = smtpPass();
+  if (!user || !pass) {
+    logger.warn("[smtp] verify skipped — SMTP_USER / SMTP_PASS (or aliases) not set");
+    return;
+  }
+  const probe = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user, pass },
+  });
+  try {
+    await probe.verify();
+    logger.info({ user }, "[smtp] transporter.verify() succeeded");
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error(
+      { err, user, hint: "Use Gmail App Password (16 chars); remove spaces in Railway variable" },
+      "[smtp] transporter.verify() failed — OTP mail will not work until fixed",
+    );
+    logger.error({ verifyError: msg }, "[smtp] verify error detail");
+  } finally {
+    probe.close();
+  }
 }
 
 function brandTemplate(title: string, body: string): string {
@@ -84,8 +116,16 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
     return { ok: true };
   } catch (err) {
     const reason = err instanceof Error ? err.message : "send_failed";
-    logger.error({ err, to: input.to, subject: input.subject }, "Failed to send email");
-    return { ok: false, reason };
+    const code = err && typeof err === "object" && "code" in err ? String((err as { code: unknown }).code) : undefined;
+    const responseCode =
+      err && typeof err === "object" && "responseCode" in err
+        ? String((err as { responseCode: unknown }).responseCode)
+        : undefined;
+    logger.error(
+      { err, to: input.to, subject: input.subject, code, responseCode },
+      "Failed to send email (check SMTP_USER, App Password without spaces, Gmail 2FA)",
+    );
+    return { ok: false, reason: responseCode ? `${reason} [smtp ${responseCode}]` : reason };
   }
 }
 
