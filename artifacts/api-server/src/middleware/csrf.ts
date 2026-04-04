@@ -37,12 +37,24 @@ function isAdminTransactionAction(path: string) {
   return /^\/api\/admin\/transactions\/\d+\/(approve|reject|complete)$/.test(path);
 }
 
+/**
+ * Vercel (or any) → Railway: `sp_csrf` often does not round-trip cross-site, so header ≠ regenerated cookie → 403.
+ * CORS + credentials already scope who can call these; exempt auth POSTs from double-submit CSRF.
+ */
+function isCrossOriginSafeAuthPost(path: string, method: string) {
+  if (method !== "POST") return false;
+  return /^\/api\/auth\/(signup|login|send-otp|resend-otp|verify-otp|logout)$/.test(path);
+}
+
 export function csrfProtection(req: Request, res: Response, next: NextFunction) {
   const method = req.method.toUpperCase();
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") return next();
 
   const pathOnly = req.originalUrl.split("?")[0];
   if (method === "POST" && isAdminTransactionAction(pathOnly)) {
+    return next();
+  }
+  if (isCrossOriginSafeAuthPost(pathOnly, method)) {
     return next();
   }
 
