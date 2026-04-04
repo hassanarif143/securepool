@@ -1,11 +1,20 @@
 import "dotenv/config";
 
-import { verifySmtpAtStartup } from "./lib/email";
+import { applySmtpEnvProfile, scheduleSmtpVerification } from "./lib/email";
 import { logConfiguredEnv } from "./lib/startup-env";
 import { runPendingSqlMigrations } from "./runMigrations";
 import { logger } from "./lib/logger";
 import { scheduleExpiredPoolJob } from "./lib/pool-auto-close";
 import { scheduleEngagementJobs } from "./lib/engagement-scheduler";
+
+process.on("unhandledRejection", (reason: unknown) => {
+  logger.warn({ reason }, "[process] unhandledRejection");
+});
+
+process.on("uncaughtException", (err: Error) => {
+  logger.fatal({ err }, "[process] uncaughtException — exiting");
+  process.exit(1);
+});
 
 const rawPort = process.env["PORT"];
 
@@ -24,12 +33,8 @@ if (Number.isNaN(port) || port <= 0) {
 async function main() {
   logConfiguredEnv();
   await runPendingSqlMigrations();
-  try {
-    await verifySmtpAtStartup();
-  } catch (err) {
-    logger.warn({ err }, "[smtp] verifySmtpAtStartup threw — continuing startup");
-  }
   const { default: app } = await import("./app");
+  applySmtpEnvProfile();
   app.listen(port, (err?: Error) => {
     if (err) {
       logger.error({ err }, "Error listening on port");
@@ -37,6 +42,7 @@ async function main() {
     }
 
     logger.info({ port }, "Server listening");
+    scheduleSmtpVerification();
     scheduleExpiredPoolJob();
     scheduleEngagementJobs();
   });

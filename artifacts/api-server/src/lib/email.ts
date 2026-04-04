@@ -80,6 +80,31 @@ export function isSmtpConfigured(): boolean {
   return Boolean(smtpUser() && smtpPass());
 }
 
+/**
+ * Apply `SMTP_GMAIL_TRANSPORT` synchronously so the first `sendMail` uses the intended profile
+ * before background `verifySmtpAtStartup()` finishes.
+ */
+export function applySmtpEnvProfile(): void {
+  const forced = envForcedProfile();
+  if (forced) {
+    activeGmailProfile = forced;
+    resetCachedTransporter();
+    logger.info({ profile: forced }, "[smtp] SMTP_GMAIL_TRANSPORT applied (verify runs in background)");
+  }
+}
+
+/**
+ * Queue SMTP probe after the event loop starts listening — never blocks HTTP bind.
+ * Failures are logged only; `sendEmail` already fails gracefully.
+ */
+export function scheduleSmtpVerification(): void {
+  setTimeout(() => {
+    void verifySmtpAtStartup().catch((err: unknown) => {
+      logger.warn({ err }, "[smtp] background verifySmtpAtStartup rejected — continuing");
+    });
+  }, 0);
+}
+
 function resetCachedTransporter(): void {
   transporter = null;
 }

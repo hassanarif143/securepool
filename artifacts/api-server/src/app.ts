@@ -21,6 +21,11 @@ const PgStore = connectPgSimple(session);
 
 app.disable("x-powered-by");
 
+// Fast liveness for Railway — no session, DB, or CSRF (must stay before heavy middleware).
+app.get("/health", (_req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
 app.use(
   pinoHttp({
     logger,

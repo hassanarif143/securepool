@@ -9,7 +9,8 @@ router.get("/healthz", (_req, res) => {
 });
 
 router.get("/health", (_req, res) => {
-  res.send("Server and DB working");
+  const data = HealthCheckResponse.parse({ status: "ok" });
+  res.json(data);
 });
 
 export default router;
