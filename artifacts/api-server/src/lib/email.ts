@@ -11,15 +11,28 @@ type SendEmailInput = {
 
 let transporter: nodemailer.Transporter | null = null;
 
+function smtpUser(): string | undefined {
+  const u = process.env.SMTP_USER?.trim() || process.env.GMAIL_USER?.trim();
+  return u || undefined;
+}
+
+function smtpPass(): string | undefined {
+  const p =
+    process.env.SMTP_PASS?.trim() ||
+    process.env.GMAIL_APP_PASSWORD?.trim() ||
+    process.env.GOOGLE_APP_PASSWORD?.trim();
+  return p || undefined;
+}
+
 /** True when Gmail SMTP env vars are set (required for OTP and transactional mail). */
 export function isSmtpConfigured(): boolean {
-  return Boolean(process.env.SMTP_USER?.trim() && process.env.SMTP_PASS?.trim());
+  return Boolean(smtpUser() && smtpPass());
 }
 
 function getTransporter(): nodemailer.Transporter | null {
   if (transporter) return transporter;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  const user = smtpUser();
+  const pass = smtpPass();
   if (!user || !pass) return null;
 
   transporter = nodemailer.createTransport({
@@ -59,7 +72,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
     return { ok: false, reason: "smtp_not_configured" };
   }
 
-  const from = process.env.EMAIL_FROM || process.env.SMTP_USER!;
+  const from = process.env.EMAIL_FROM?.trim() || smtpUser()!;
   try {
     await tx.sendMail({
       from,
@@ -144,7 +157,7 @@ export type DrawFinancialSummaryPayload = {
 };
 
 export async function sendAdminDrawFinancialSummaryEmail(payload: DrawFinancialSummaryPayload) {
-  const to = process.env.ADMIN_NOTIFY_EMAIL || process.env.ADMIN_EMAIL || process.env.SMTP_USER;
+  const to = process.env.ADMIN_NOTIFY_EMAIL || process.env.ADMIN_EMAIL || smtpUser();
   if (!to) return;
 
   const margin = payload.profitMarginPercent.toFixed(1);

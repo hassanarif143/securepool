@@ -99,7 +99,7 @@ export async function issueOtpEmail(
       ok: false,
       code: "SMTP_NOT_CONFIGURED",
       message:
-        "Verification email was not sent: SMTP_USER and SMTP_PASS are not set on the server. On Railway, add Gmail + App Password, redeploy, then use “Resend code” on the verify page.",
+        "Verification email was not sent: set SMTP_USER + SMTP_PASS on the API (Railway → Variables), or use GMAIL_USER + GMAIL_APP_PASSWORD. Use a Gmail App Password (not your normal password), redeploy, then tap “Resend code”.",
     };
   }
 
