@@ -377,9 +377,20 @@ export default function PoolDetailPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        const d = data as { message?: string; error?: string; code?: string };
+        const msg = d.message ?? d.error ?? "Could not join";
+        if (d.code === "EMAIL_NOT_VERIFIED") {
+          toast({
+            title: "Verify your email",
+            description: msg,
+            variant: "destructive",
+          });
+          navigate("/verify-email");
+          return;
+        }
         toast({
           title: "Could not join",
-          description: await readApiErrorMessage(res),
+          description: msg,
           variant: "destructive",
         });
         return;
@@ -458,12 +469,14 @@ export default function PoolDetailPage() {
   const effectiveEntryDue = poolDetails?.entry_pricing?.amountDue ?? pool.entryFee;
   const canPayJoin = Boolean(user && user.walletBalance >= effectiveEntryDue);
   const vipLocked = Boolean(poolDetails?.vip_locked);
+  const needsEmailVerify = Boolean(user && user.emailVerified === false);
   const joinDisabled =
     joining ||
     userJoinedEffective ||
     pool.status !== "open" ||
     displayCount >= pool.maxUsers ||
     vipLocked ||
+    needsEmailVerify ||
     (Boolean(user) && useFreeEntry && !canFreeJoin) ||
     (Boolean(user) && !useFreeEntry && !canPayJoin && !canFreeJoin);
 

@@ -135,9 +135,9 @@ export default function SignupPage() {
         title: "Account created!",
         description: bonus
           ? `Welcome to SecurePool! You received a ${bonus} USDT welcome bonus!`
-          : "Welcome to SecurePool.",
+          : "Check your email for a 6-digit verification code.",
       });
-      navigate(nextPath);
+      navigate("/verify-email");
     } catch (err: any) {
       toast({
         title: "Signup failed",

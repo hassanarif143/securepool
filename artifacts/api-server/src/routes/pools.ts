@@ -19,6 +19,7 @@ import { CreatePoolBody, UpdatePoolBody } from "@workspace/api-zod";
 import { sendDrawResultEmail, sendTicketApprovedEmail, sendAdminDrawFinancialSummaryEmail } from "../lib/email";
 import { logger } from "../lib/logger";
 import { getAuthedUserId } from "../middleware/auth";
+import { assertEmailVerified } from "../middleware/require-email-verified";
 import { computeDrawRanking, pickWinnersFromRanking } from "../services/draw-service";
 import { logActivity } from "../services/activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
@@ -488,6 +489,7 @@ router.post("/:poolId/predict", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
+  if (!(await assertEmailVerified(res, userId))) return;
   const poolId = parseInt(req.params.poolId, 10);
   if (isNaN(poolId)) {
     res.status(400).json({ error: "Invalid pool ID" });
@@ -757,6 +759,7 @@ router.post("/:poolId/join", async (req, res) => {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
+  if (!(await assertEmailVerified(res, sessionUserId))) return;
 
   const bodyParse = JoinPoolBody.safeParse(req.body ?? {});
 

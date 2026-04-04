@@ -121,6 +121,136 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/otp-status:
+    get:
+      operationId: getOtpStatus
+      tags: [auth]
+      summary: Email verification OTP status (expires, resend cooldown, blocks)
+      responses:
+        "200":
+          description: OTP status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OtpStatusResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/send-otp:
+    post:
+      operationId: sendOtp
+      tags: [auth]
+      summary: Send or refresh email verification code
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendOtpBody"
+      responses:
+        "200":
+          description: Code sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OtpSentResponse"
+        "400":
+          description: Validation or already verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/resend-otp:
+    post:
+      operationId: resendOtp
+      tags: [auth]
+      summary: Resend email verification code (invalidates previous)
+      responses:
+        "200":
+          description: Code sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OtpSentResponse"
+        "400":
+          description: Already verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/verify-otp:
+    post:
+      operationId: verifyOtp
+      tags: [auth]
+      summary: Verify email with 6-digit code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyOtpBody"
+      responses:
+        "200":
+          description: Verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyOtpResponse"
+        "400":
+          description: Wrong code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: Code expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many attempts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /user/wallet/transactions:
     get:
       operationId: listCurrentUserWalletLedger
@@ -659,6 +789,9 @@ components:
         joinedAt:
           type: string
           format: date-time
+        emailVerified:
+          type: boolean
+          description: When false, user must verify email before tickets, deposits, withdrawals
       required: [id, name, email, walletBalance, isAdmin, joinedAt]
 
     AdminUser:
@@ -725,7 +858,63 @@ components:
           nullable: true
         wins:
           type: integer
+        emailVerified:
+          type: boolean
       required: [id, name, email, walletBalance, isAdmin, joinedAt, totalDeposited, totalWithdrawn, poolsJoined]
+
+    OtpStatusResponse:
+      type: object
+      properties:
+        emailVerified:
+          type: boolean
+        hasPendingOtp:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        resendAvailableAt:
+          type: string
+          format: date-time
+          nullable: true
+        verifyBlockedUntil:
+          type: string
+          format: date-time
+          nullable: true
+      required: [emailVerified, hasPendingOtp]
+
+    SendOtpBody:
+      type: object
+      properties:
+        userId:
+          type: integer
+          description: Must match authenticated user if provided
+
+    OtpSentResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required: [message, expiresAt]
+
+    VerifyOtpBody:
+      type: object
+      properties:
+        otp_code:
+          type: string
+      required: [otp_code]
+
+    VerifyOtpResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        emailVerified:
+          type: boolean
+      required: [message, emailVerified]
 
     SignupBody:
       type: object
@@ -1233,4 +1422,21 @@ components:
               count:
                 type: integer
             required: [tier, count]
+        emailVerification:
+          type: object
+          nullable: true
+          properties:
+            verifiedUsers:
+              type: integer
+            unverifiedUsers:
+              type: integer
+            otpVerified24h:
+              type: integer
+            otpFailed24h:
+              type: integer
+            otpSent24h:
+              type: integer
+            otpSuccessRate24hPercent:
+              type: number
+              nullable: true
       required: [totalUsers, activePools, completedPools, totalRewardsDistributed, totalDeposits, totalWithdrawals, recentWinners]

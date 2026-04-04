@@ -111,6 +111,7 @@ async function main() {
         cryptoAddress,
         referralCode: code,
         isDemo: true,
+        emailVerified: true,
         walletBalance: bal,
         prizeBalance: bal,
         bonusBalance: "0",

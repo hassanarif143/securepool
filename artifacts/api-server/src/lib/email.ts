@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { logger } from "./logger";
+import { buildOtpEmailHtml } from "./load-otp-template";
 
 type SendEmailInput = {
   to: string;
@@ -72,6 +73,16 @@ export async function sendRegistrationEmail(to: string, name: string) {
     subject: "Welcome to SecurePool",
     html: brandTemplate("Registration Confirmed", body),
     text: `Hi ${name}, your account has been successfully registered on SecurePool.`,
+  });
+}
+
+export async function sendOtpVerificationEmail(to: string, otpPlain: string) {
+  const html = buildOtpEmailHtml(otpPlain);
+  await sendEmail({
+    to,
+    subject: "⚡ SecurePool - Verify Your Email",
+    html,
+    text: `Your SecurePool verification code is ${otpPlain}. It expires in 10 minutes. Never share this code.`,
   });
 }
 

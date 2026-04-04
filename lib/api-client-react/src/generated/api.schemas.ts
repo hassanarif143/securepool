@@ -44,6 +44,8 @@ export interface User {
   cashBalance?: number;
   isAdmin: boolean;
   joinedAt: string;
+  /** When false, user must verify email before tickets, deposits, withdrawals */
+  emailVerified?: boolean;
 }
 
 export type AdminUserReferralMilestonesClaimed = { [key: string]: unknown };
@@ -75,6 +77,34 @@ export interface AdminUser {
   referralCode?: string | null;
   referredBy?: number | null;
   wins?: number;
+  emailVerified?: boolean;
+}
+
+export interface OtpStatusResponse {
+  emailVerified: boolean;
+  hasPendingOtp: boolean;
+  expiresAt?: string | null;
+  resendAvailableAt?: string | null;
+  verifyBlockedUntil?: string | null;
+}
+
+export interface SendOtpBody {
+  /** Must match authenticated user if provided */
+  userId?: number;
+}
+
+export interface OtpSentResponse {
+  message: string;
+  expiresAt: string;
+}
+
+export interface VerifyOtpBody {
+  otp_code: string;
+}
+
+export interface VerifyOtpResponse {
+  message: string;
+  emailVerified: boolean;
 }
 
 export interface SignupBody {
@@ -428,6 +458,15 @@ export type DashboardStatsPoolVipBreakdownItem = {
   count: number;
 };
 
+export type DashboardStatsEmailVerification = {
+  verifiedUsers?: number;
+  unverifiedUsers?: number;
+  otpVerified24h?: number;
+  otpFailed24h?: number;
+  otpSent24h?: number;
+  otpSuccessRate24hPercent?: number | null;
+} | null;
+
 export interface DashboardStats {
   totalUsers: number;
   activePools: number;
@@ -438,6 +477,7 @@ export interface DashboardStats {
   recentWinners: Winner[];
   comebackCoupons?: DashboardStatsComebackCoupons;
   poolVipBreakdown?: DashboardStatsPoolVipBreakdownItem[];
+  emailVerification?: DashboardStatsEmailVerification;
 }
 
 export type ListCurrentUserWalletLedgerParams = {

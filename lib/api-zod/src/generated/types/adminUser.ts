@@ -34,4 +34,5 @@ export interface AdminUser {
   referralCode?: string | null;
   referredBy?: number | null;
   wins?: number;
+  emailVerified?: boolean;
 }

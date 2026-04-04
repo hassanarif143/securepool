@@ -438,6 +438,50 @@ function StatsTab() {
         ))}
       </div>
 
+      {stats.emailVerification != null && (
+        <Card className="border-border/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Email verification &amp; OTP</CardTitle>
+            <p className="text-xs text-muted-foreground font-normal">
+              User counts are all-time (non-demo). OTP metrics are from the last 24 hours (audit log).
+            </p>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 pt-0 text-sm">
+            <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
+              <p className="text-xs text-muted-foreground">Verified users</p>
+              <p className="text-xl font-bold tabular-nums mt-0.5">{stats.emailVerification.verifiedUsers ?? 0}</p>
+            </div>
+            <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
+              <p className="text-xs text-muted-foreground">Unverified users</p>
+              <p className="text-xl font-bold tabular-nums mt-0.5 text-amber-500/95">{stats.emailVerification.unverifiedUsers ?? 0}</p>
+            </div>
+            <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
+              <p className="text-xs text-muted-foreground">OTP success rate (24h)</p>
+              <p className="text-xl font-bold tabular-nums mt-0.5 text-primary">
+                {stats.emailVerification.otpSuccessRate24hPercent != null
+                  ? `${stats.emailVerification.otpSuccessRate24hPercent}%`
+                  : "—"}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Successful verifications ÷ (success + failed/blocked attempts)
+              </p>
+            </div>
+            <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
+              <p className="text-xs text-muted-foreground">Verifications succeeded (24h)</p>
+              <p className="text-xl font-bold tabular-nums mt-0.5">{stats.emailVerification.otpVerified24h ?? 0}</p>
+            </div>
+            <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
+              <p className="text-xs text-muted-foreground">Failed / blocked attempts (24h)</p>
+              <p className="text-xl font-bold tabular-nums mt-0.5 text-red-400/90">{stats.emailVerification.otpFailed24h ?? 0}</p>
+            </div>
+            <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5">
+              <p className="text-xs text-muted-foreground">OTP emails sent (24h)</p>
+              <p className="text-xl font-bold tabular-nums mt-0.5">{stats.emailVerification.otpSent24h ?? 0}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {(stats.comebackCoupons != null || (stats.poolVipBreakdown != null && stats.poolVipBreakdown.length > 0)) && (
         <div className="grid sm:grid-cols-2 gap-4">
           {stats.comebackCoupons != null && (

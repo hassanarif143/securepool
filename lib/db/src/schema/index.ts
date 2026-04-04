@@ -1,4 +1,5 @@
 export * from "./users";
+export * from "./emailOtp";
 export * from "./pools";
 export * from "./poolParticipants";
 export * from "./transactions";

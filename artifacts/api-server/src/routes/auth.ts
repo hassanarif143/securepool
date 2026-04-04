@@ -7,7 +7,7 @@ import { z } from "zod";
 import { getJwtCookieName, signUserJwt } from "../lib/jwt";
 import type { AuthedRequest } from "../middleware/auth";
 import { getAuthedUserId } from "../middleware/auth";
-import { sendRegistrationEmail } from "../lib/email";
+import { getOtpStatus, issueOtpEmail, verifyOtpCode } from "../services/otp-service";
 import { notifyUser } from "../lib/notify";
 import { sanitizeText } from "../lib/sanitize";
 import { logger } from "../lib/logger";
@@ -39,6 +39,14 @@ const SignupSchema = z
 const LoginSchema = z.object({
   email: z.string().trim().email(),
   password: z.string().min(1),
+});
+
+const SendOtpSchema = z.object({
+  userId: z.number().int().positive().optional(),
+});
+
+const VerifyOtpSchema = z.object({
+  otp_code: z.string().min(6).max(12),
 });
 
 const loginLimiter = rateLimit({
@@ -174,6 +182,7 @@ router.post("/signup", signupLimiter, async (req, res) => {
       bonusBalance: "0",
       prizeBalance: "0",
       cashBalance: "0",
+      emailVerified: false,
       referredBy: referrer?.id ?? undefined,
     })
     .returning();
@@ -210,15 +219,17 @@ router.post("/signup", signupLimiter, async (req, res) => {
       cryptoAddress: user.cryptoAddress ?? null,
       isAdmin: user.isAdmin,
       joinedAt: user.joinedAt,
+      emailVerified: false,
     },
     message: referrer
-      ? "Account created! Your referrer earns 2 USDT (withdrawable) when you buy your first ticket."
-      : "Account created successfully",
+      ? "Account created! Verify your email, then your referrer earns 2 USDT when you buy your first ticket."
+      : "Account created. We sent a verification code to your email.",
     referralBonus: 0,
   });
 
-  // Fire-and-forget mail
-  void sendRegistrationEmail(user.email, user.name);
+  void issueOtpEmail(user.id, { skipMinInterval: true }).then((r) => {
+    if (!r.ok) logger.warn({ userId: user.id, r }, "Initial OTP email not sent");
+  });
 
   void notifyUser(
     user.id,
@@ -245,7 +256,8 @@ router.post("/login", loginLimiter, async (req, res) => {
               COALESCE(is_demo, false) AS is_demo,
               COALESCE(bonus_balance, 0) AS bonus_balance,
               COALESCE(prize_balance, 0) AS prize_balance,
-              COALESCE(cash_balance, 0) AS cash_balance
+              COALESCE(cash_balance, 0) AS cash_balance,
+              COALESCE(email_verified, true) AS email_verified
        FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
       [email],
     );
@@ -253,7 +265,8 @@ router.post("/login", loginLimiter, async (req, res) => {
   } catch {
     const r = await dbPool.query(
       `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at,
-              COALESCE(is_demo, false) AS is_demo
+              COALESCE(is_demo, false) AS is_demo,
+              COALESCE(email_verified, true) AS email_verified
        FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
       [email],
     );
@@ -282,6 +295,7 @@ router.post("/login", loginLimiter, async (req, res) => {
     bonus_balance?: string | number;
     prize_balance?: string | number;
     cash_balance?: string | number;
+    email_verified?: boolean;
   };
 
   const valid = await verifyAndUpgradePassword(user.id, user.password_hash, password);
@@ -339,9 +353,111 @@ router.post("/login", loginLimiter, async (req, res) => {
       cryptoAddress: user.crypto_address ?? null,
       isAdmin: user.is_admin,
       joinedAt: user.joined_at,
+      emailVerified: user.email_verified !== false,
     },
     message: "Login successful",
   });
+});
+
+router.get("/otp-status", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  try {
+    const status = await getOtpStatus(userId);
+    res.json(status);
+  } catch (err) {
+    logger.warn({ err, userId }, "otp-status failed");
+    res.status(500).json({ error: "Could not load verification status" });
+  }
+});
+
+router.post("/send-otp", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const parse = SendOtpSchema.safeParse(req.body ?? {});
+  if (!parse.success) {
+    res.status(400).json({ error: "Validation error", message: parse.error.message });
+    return;
+  }
+  if (parse.data.userId != null && parse.data.userId !== userId) {
+    res.status(403).json({ error: "Forbidden", message: "You can only send a code to your own account." });
+    return;
+  }
+  const result = await issueOtpEmail(userId, { skipMinInterval: false });
+  if (!result.ok) {
+    const status =
+      result.code === "TOO_SOON" || result.code === "HOURLY_LIMIT" || result.code === "VERIFY_TEMP_BLOCK"
+        ? 429
+        : result.code === "ALREADY_VERIFIED"
+          ? 400
+          : 400;
+    res.status(status).json({
+      error: result.code,
+      message: result.message,
+      retryAfterSec: result.retryAfterSec,
+    });
+    return;
+  }
+  res.json({ message: "Verification code sent.", expiresAt: result.expiresAt.toISOString() });
+});
+
+router.post("/resend-otp", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const result = await issueOtpEmail(userId, { skipMinInterval: false });
+  if (!result.ok) {
+    const status =
+      result.code === "TOO_SOON" || result.code === "HOURLY_LIMIT" || result.code === "VERIFY_TEMP_BLOCK"
+        ? 429
+        : result.code === "ALREADY_VERIFIED"
+          ? 400
+          : 400;
+    res.status(status).json({
+      error: result.code,
+      message: result.message,
+      retryAfterSec: result.retryAfterSec,
+    });
+    return;
+  }
+  res.json({ message: "New verification code sent.", expiresAt: result.expiresAt.toISOString() });
+});
+
+router.post("/verify-otp", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const parse = VerifyOtpSchema.safeParse(req.body ?? {});
+  if (!parse.success) {
+    res.status(400).json({ error: "Validation error", message: parse.error.message });
+    return;
+  }
+  const result = await verifyOtpCode(userId, parse.data.otp_code);
+  if (!result.ok) {
+    const st =
+      result.code === "VERIFY_BLOCKED" || result.code === "LOCKED"
+        ? 429
+        : result.code === "EXPIRED"
+          ? 410
+          : 400;
+    res.status(st).json({
+      error: result.code,
+      message: result.message,
+      retryAfterSec: result.retryAfterSec,
+    });
+    return;
+  }
+  res.json({ message: "Email verified successfully.", emailVerified: true });
 });
 
 router.post("/logout", (req, res) => {
@@ -371,7 +487,8 @@ router.get("/me", async (req, res) => {
               COALESCE(tier, 'aurora') AS tier, COALESCE(tier_points, 0) AS tier_points,
               COALESCE(pool_vip_tier, 'bronze') AS pool_vip_tier,
               COALESCE(total_wins, 0)::int AS total_wins,
-              first_win_at
+              first_win_at,
+              COALESCE(email_verified, true) AS email_verified
        FROM users WHERE id = $1 LIMIT 1`,
       [userId],
     );
@@ -393,6 +510,7 @@ router.get("/me", async (req, res) => {
       pool_vip_tier: "bronze",
       total_wins: 0,
       first_win_at: null,
+      email_verified: true,
     }));
   }
 
@@ -432,6 +550,7 @@ router.get("/me", async (req, res) => {
     cryptoAddress: user.crypto_address ?? null,
     isAdmin: user.is_admin,
     joinedAt: user.joined_at,
+    emailVerified: (user as { email_verified?: boolean }).email_verified !== false,
     tier: (user.tier as string) ?? "aurora",
     tierPoints: parseInt(String(user.tier_points ?? "0"), 10),
     referralPoints,

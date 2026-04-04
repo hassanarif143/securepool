@@ -7,6 +7,7 @@ import path from "path";
 import { z } from "zod";
 import { sanitizeText } from "../lib/sanitize";
 import { getAuthedUserId } from "../middleware/auth";
+import { assertEmailVerified } from "../middleware/require-email-verified";
 import { logger } from "../lib/logger";
 import { getUploadsDir } from "../paths";
 import { notifyUser } from "../lib/notify";
@@ -85,6 +86,7 @@ router.post("/deposit", uploadScreenshot, async (req: Request, res: Response) =>
       res.status(401).json({ error: "Not authenticated" });
       return;
     }
+    if (!(await assertEmailVerified(res, userId))) return;
 
     const amount = parseFloat(req.body?.amount);
     if (!amount || amount <= 0) {
@@ -169,6 +171,7 @@ router.post("/withdraw", async (req, res) => {
       res.status(401).json({ error: "Not authenticated" });
       return;
     }
+    if (!(await assertEmailVerified(res, userId))) return;
 
     const WithdrawSchema = z.object({
       amount: z.coerce.number().positive(),

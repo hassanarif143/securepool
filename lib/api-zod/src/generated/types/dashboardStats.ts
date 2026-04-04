@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DashboardStatsComebackCoupons } from "./dashboardStatsComebackCoupons";
+import type { DashboardStatsEmailVerification } from "./dashboardStatsEmailVerification";
 import type { DashboardStatsPoolVipBreakdownItem } from "./dashboardStatsPoolVipBreakdownItem";
 import type { Winner } from "./winner";
 
@@ -19,4 +20,5 @@ export interface DashboardStats {
   recentWinners: Winner[];
   comebackCoupons?: DashboardStatsComebackCoupons;
   poolVipBreakdown?: DashboardStatsPoolVipBreakdownItem[];
+  emailVerification?: DashboardStatsEmailVerification;
 }

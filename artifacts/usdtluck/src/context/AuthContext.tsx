@@ -31,6 +31,7 @@ interface UserType {
   poolVipTier?: string;
   totalWins?: number;
   firstWinAt?: string | null;
+  emailVerified?: boolean;
 }
 
 interface AuthContextType {
@@ -72,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       bonusBalance: d.bonusBalance ?? 0,
       prizeBalance: d.prizeBalance ?? 0,
       cashBalance: d.cashBalance ?? 0,
+      emailVerified: d.emailVerified !== false,
     });
   }, [data, isError, error]);
 

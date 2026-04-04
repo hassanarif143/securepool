@@ -117,12 +117,14 @@ async function main() {
         name, email, password_hash, is_admin, wallet_balance,
         is_demo, is_blocked, referral_points, free_entries, pool_join_count,
         current_streak, longest_streak, mystery_lucky_badge, tier, tier_points,
-        free_tickets_claimed, login_streak_day, pool_vip_tier, total_wins
+        free_tickets_claimed, login_streak_day, pool_vip_tier, total_wins,
+        email_verified
       ) VALUES (
         $1, $2, $3, true, '0',
         false, false, 0, 0, 0,
         0, 0, false, 'aurora', 0,
-        '', 0, 'bronze', 0
+        '', 0, 'bronze', 0,
+        true
       )
       RETURNING id`,
       [name, email, passwordHash],

@@ -99,7 +99,8 @@ const SQL_ADMIN_USERS_LIST_FULL = `
         COALESCE(dep.total_dep, 0) AS total_deposited,
         COALESCE(wd.total_wd, 0) AS total_withdrawn,
         COALESCE(pp.cnt, 0)::int AS pools_joined,
-        COALESCE(wins.cnt, 0)::int AS wins
+        COALESCE(wins.cnt, 0)::int AS wins,
+        COALESCE(u.email_verified, true) AS email_verified
       FROM users u
       LEFT JOIN (
         SELECT user_id, SUM(amount) AS total_dep
@@ -153,7 +154,8 @@ const SQL_ADMIN_USERS_LIST_COMPAT = `
         COALESCE(dep.total_dep, 0) AS total_deposited,
         COALESCE(wd.total_wd, 0) AS total_withdrawn,
         COALESCE(pp.cnt, 0)::int AS pools_joined,
-        0::int AS wins
+        0::int AS wins,
+        true AS email_verified
       FROM users u
       LEFT JOIN (
         SELECT user_id, SUM(amount) AS total_dep
@@ -201,7 +203,8 @@ const SQL_ADMIN_USER_DETAIL_FULL = `
         COALESCE(dep.total_dep, 0) AS total_deposited,
         COALESCE(wd.total_wd, 0) AS total_withdrawn,
         COALESCE(pp.cnt, 0)::int AS pools_joined,
-        COALESCE(wins.cnt, 0)::int AS wins
+        COALESCE(wins.cnt, 0)::int AS wins,
+        COALESCE(u.email_verified, true) AS email_verified
       FROM users u
       LEFT JOIN (
         SELECT user_id, SUM(amount) AS total_dep
@@ -255,7 +258,8 @@ const SQL_ADMIN_USER_DETAIL_COMPAT = `
         COALESCE(dep.total_dep, 0) AS total_deposited,
         COALESCE(wd.total_wd, 0) AS total_withdrawn,
         COALESCE(pp.cnt, 0)::int AS pools_joined,
-        0::int AS wins
+        0::int AS wins,
+        true AS email_verified
       FROM users u
       LEFT JOIN (
         SELECT user_id, SUM(amount) AS total_dep
@@ -348,6 +352,48 @@ router.get("/stats", async (req, res) => {
     /* column missing */
   }
 
+  let emailVerification: {
+    verifiedUsers: number;
+    unverifiedUsers: number;
+    otpVerified24h: number;
+    otpFailed24h: number;
+    otpSent24h: number;
+    otpSuccessRate24hPercent: number | null;
+  } | null = null;
+  try {
+    const vr = await pgPool.query<{ verified: string; total: string }>(
+      `SELECT
+        COUNT(*) FILTER (WHERE COALESCE(is_demo, false) = false AND COALESCE(email_verified, true))::text AS verified,
+        COUNT(*) FILTER (WHERE COALESCE(is_demo, false) = false)::text AS total
+       FROM users`,
+    );
+    const er = await pgPool.query<{ ok: string; bad: string; sent: string }>(
+      `SELECT
+        COUNT(*) FILTER (WHERE event = 'verify_success')::text AS ok,
+        COUNT(*) FILTER (WHERE event IN ('verify_fail', 'verify_blocked') OR event LIKE 'verify_fail%')::text AS bad,
+        COUNT(*) FILTER (WHERE event = 'otp_sent')::text AS sent
+       FROM otp_event_logs
+       WHERE created_at > NOW() - INTERVAL '24 hours'`,
+    );
+    const v = vr.rows[0];
+    const e = er.rows[0];
+    const tot = parseInt(v?.total ?? "0", 10);
+    const ver = parseInt(v?.verified ?? "0", 10);
+    const ok = parseInt(e?.ok ?? "0", 10);
+    const bad = parseInt(e?.bad ?? "0", 10);
+    const denom = ok + bad;
+    emailVerification = {
+      verifiedUsers: ver,
+      unverifiedUsers: Math.max(0, tot - ver),
+      otpVerified24h: ok,
+      otpFailed24h: bad,
+      otpSent24h: parseInt(e?.sent ?? "0", 10),
+      otpSuccessRate24hPercent: denom > 0 ? Math.round((ok / denom) * 1000) / 10 : null,
+    };
+  } catch {
+    emailVerification = null;
+  }
+
   res.json({
     totalUsers: Number(totalUsers),
     activePools,
@@ -358,6 +404,7 @@ router.get("/stats", async (req, res) => {
     recentWinners: recentWinnersRaw.map((w) => ({ ...w, prize: parseFloat(w.prize) })),
     comebackCoupons,
     poolVipBreakdown,
+    emailVerification,
   });
 });
 
@@ -387,6 +434,7 @@ router.get("/users", async (req, res) => {
       isBlocked: user.is_blocked === true,
       blockedAt: user.blocked_at,
       blockedReason: user.blocked_reason ?? null,
+      emailVerified: user.email_verified !== false,
       joinedAt: user.joined_at,
       totalDeposited: parseFloat(String(user.total_deposited ?? "0")),
       totalWithdrawn: parseFloat(String(user.total_withdrawn ?? "0")),
@@ -506,6 +554,7 @@ router.get("/users/:id", async (req, res) => {
       isBlocked: user.is_blocked === true,
       blockedAt: user.blocked_at,
       blockedReason: user.blocked_reason ?? null,
+      emailVerified: user.email_verified !== false,
       joinedAt: user.joined_at,
       totalDeposited: parseFloat(String(user.total_deposited ?? "0")),
       totalWithdrawn: parseFloat(String(user.total_withdrawn ?? "0")),

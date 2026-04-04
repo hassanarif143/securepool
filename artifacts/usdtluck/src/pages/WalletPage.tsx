@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useSearch } from "wouter";
+import { Card, CardContent } from "@/components/ui/card";
 import { useGetUserTransactions, getGetUserTransactionsQueryKey, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -74,8 +75,18 @@ export default function WalletPage() {
 
   useEffect(() => {
     const q = new URLSearchParams(search).get("tab");
-    if (q === "deposit" || q === "withdraw" || q === "history") setTab(q);
-  }, [search]);
+    if (q === "deposit" || q === "withdraw" || q === "history") {
+      if (user?.emailVerified === false && (q === "deposit" || q === "withdraw")) {
+        setTab("history");
+        toast({
+          title: "Verify your email",
+          description: "Deposits and withdrawals unlock after email verification.",
+        });
+        return;
+      }
+      setTab(q);
+    }
+  }, [search, user?.emailVerified, toast]);
 
   useEffect(() => {
     if (user?.cryptoAddress && !withdrawWallet) {
@@ -83,9 +94,15 @@ export default function WalletPage() {
     }
   }, [user?.cryptoAddress, withdrawWallet]);
 
+  useEffect(() => {
+    if (user?.emailVerified !== false) return;
+    setTab((prev) => (prev === "deposit" || prev === "withdraw" ? "history" : prev));
+  }, [user?.id, user?.emailVerified]);
+
   if (isLoading || !user) return null;
 
   const currentUser = user;
+  const needsEmailVerify = currentUser.emailVerified === false;
   const bonusBal = currentUser.bonusBalance ?? 0;
   const prizeBal = currentUser.prizeBalance ?? 0;
   const cashBal = currentUser.cashBalance ?? 0;
@@ -226,12 +243,24 @@ export default function WalletPage() {
             </div>
           </div>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <Button className="min-h-12 w-full font-semibold shadow-md shadow-primary/20 sm:w-auto sm:min-w-[9rem]" asChild>
-              <Link href="/wallet?tab=deposit">Deposit</Link>
-            </Button>
-            <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[9rem]" asChild>
-              <Link href="/wallet?tab=withdraw">Withdraw</Link>
-            </Button>
+            {needsEmailVerify ? (
+              <Button className="min-h-12 w-full font-semibold shadow-md shadow-primary/20 sm:w-auto sm:min-w-[9rem]" asChild>
+                <Link href="/verify-email">Verify email to deposit</Link>
+              </Button>
+            ) : (
+              <Button className="min-h-12 w-full font-semibold shadow-md shadow-primary/20 sm:w-auto sm:min-w-[9rem]" asChild>
+                <Link href="/wallet?tab=deposit">Deposit</Link>
+              </Button>
+            )}
+            {needsEmailVerify ? (
+              <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[9rem]" asChild>
+                <Link href="/verify-email">Verify email to withdraw</Link>
+              </Button>
+            ) : (
+              <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[9rem]" asChild>
+                <Link href="/wallet?tab=withdraw">Withdraw</Link>
+              </Button>
+            )}
             <Button
               variant="secondary"
               className="min-h-12 w-full font-medium sm:w-auto sm:min-w-[9rem]"
@@ -249,25 +278,59 @@ export default function WalletPage() {
       {/* Tab bar */}
       <div className={`${box} overflow-hidden`}>
         <div className="flex border-b border-[hsl(217,28%,16%)]">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => { setTab(t.id); setAmount(""); setNote(""); }}
-              className={`flex-1 min-h-12 py-3 text-sm font-semibold transition-colors duration-200 ${
-                tab === t.id
-                  ? "text-foreground border-b-2 border-emerald-500"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              style={{ marginBottom: tab === t.id ? -1 : 0 }}
-            >
-              {t.label}
-            </button>
-          ))}
+          {tabs.map((t) => {
+            const blocked = needsEmailVerify && (t.id === "deposit" || t.id === "withdraw");
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  if (blocked) {
+                    toast({
+                      title: "Verify your email",
+                      description: "Deposits and withdrawals unlock after email verification.",
+                    });
+                    return;
+                  }
+                  setTab(t.id);
+                  setAmount("");
+                  setNote("");
+                }}
+                className={`flex-1 min-h-12 py-3 text-sm font-semibold transition-colors duration-200 ${
+                  tab === t.id
+                    ? "text-foreground border-b-2 border-emerald-500"
+                    : "text-muted-foreground hover:text-foreground"
+                } ${blocked ? "opacity-45 cursor-not-allowed hover:text-muted-foreground" : ""}`}
+                style={{ marginBottom: tab === t.id ? -1 : 0 }}
+                aria-disabled={blocked || undefined}
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* ── DEPOSIT TAB ── */}
-        {tab === "deposit" && (
+        {tab === "deposit" && needsEmailVerify && (
+          <div className="p-5">
+            <Card className="border border-cyan-500/20 bg-[hsl(222,28%,11%)] shadow-lg shadow-cyan-500/5">
+              <CardContent className="p-6 text-center space-y-3">
+                <p className="text-2xl" aria-hidden>
+                  ⚡
+                </p>
+                <p className="font-semibold text-foreground">Verify your email to deposit</p>
+                <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
+                  Enter the 6-digit code we sent you. After verification, you can submit deposit requests here.
+                </p>
+                <Button className="mt-2 min-h-11 font-semibold" asChild>
+                  <Link href="/verify-email">Go to verification</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {tab === "deposit" && !needsEmailVerify && (
           <div className="p-5 space-y-5">
 
             {/* Pending deposit banner */}
@@ -402,7 +465,26 @@ export default function WalletPage() {
         )}
 
         {/* ── WITHDRAW TAB ── */}
-        {tab === "withdraw" && (
+        {tab === "withdraw" && needsEmailVerify && (
+          <div className="p-5">
+            <Card className="border border-cyan-500/20 bg-[hsl(222,28%,11%)] shadow-lg shadow-cyan-500/5">
+              <CardContent className="p-6 text-center space-y-3">
+                <p className="text-2xl" aria-hidden>
+                  ⚡
+                </p>
+                <p className="font-semibold text-foreground">Verify your email to withdraw</p>
+                <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
+                  For your security, withdrawals are only available after your email is verified.
+                </p>
+                <Button className="mt-2 min-h-11 font-semibold" asChild>
+                  <Link href="/verify-email">Go to verification</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {tab === "withdraw" && !needsEmailVerify && (
           <div className="p-5 space-y-4">
             {!user.cryptoAddress && (
               <div className="flex items-start gap-3 p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/8">
@@ -564,7 +646,9 @@ export default function WalletPage() {
                   Make your first deposit to fund your wallet — then join pools and track every movement here.
                 </p>
                 <Button className="mt-5 min-h-11 font-semibold shadow-md shadow-primary/20" asChild>
-                  <Link href="/wallet?tab=deposit">Deposit now</Link>
+                  <Link href={needsEmailVerify ? "/verify-email" : "/wallet?tab=deposit"}>
+                    {needsEmailVerify ? "Verify email first" : "Deposit now"}
+                  </Link>
                 </Button>
               </div>
             ) : filteredTx.length === 0 ? (

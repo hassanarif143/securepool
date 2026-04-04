@@ -16,4 +16,6 @@ export interface User {
   cashBalance?: number;
   isAdmin: boolean;
   joinedAt: Date;
+  /** When false, user must verify email before tickets, deposits, withdrawals */
+  emailVerified?: boolean;
 }

@@ -648,6 +648,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
+      {user && user.emailVerified === false && (
+        <div
+          className="border-b px-4 py-2.5 text-center text-sm"
+          style={{
+            background: "linear-gradient(90deg, hsla(200,80%,45%,0.12), hsla(152,72%,40%,0.1))",
+            borderColor: "hsla(200,80%,55%,0.25)",
+            color: "hsl(210,40%,96%)",
+          }}
+        >
+          <span className="font-medium">Please verify your email to start playing.</span>{" "}
+          <Link href="/verify-email" className="text-cyan-400 hover:text-cyan-300 underline font-semibold">
+            Enter code
+          </Link>
+        </div>
+      )}
+
       {user ? <LuckyHourBanner /> : null}
 
       <main className={`flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${user ? "pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""}`}>

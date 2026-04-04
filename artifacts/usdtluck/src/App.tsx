@@ -19,6 +19,7 @@ import PoolDetailPage from "@/pages/PoolDetailPage";
 import WalletPage from "@/pages/WalletPage";
 import WinnersPage from "@/pages/WinnersPage";
 import ProfilePage from "@/pages/ProfilePage";
+import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import AdminPage from "@/pages/AdminPage";
 import ReferralPage from "@/pages/ReferralPage";
 import ReviewsPage from "@/pages/ReviewsPage";
@@ -125,6 +126,11 @@ function Router() {
         <Route path="/profile">
           <RequireAuth>
             <ProfilePage />
+          </RequireAuth>
+        </Route>
+        <Route path="/verify-email">
+          <RequireAuth>
+            <VerifyEmailPage />
           </RequireAuth>
         </Route>
         <Route path="/admin">

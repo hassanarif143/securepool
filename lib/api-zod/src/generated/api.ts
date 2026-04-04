@@ -46,6 +46,12 @@ export const LoginResponse = zod.object({
     cashBalance: zod.number().optional(),
     isAdmin: zod.boolean(),
     joinedAt: zod.coerce.date(),
+    emailVerified: zod
+      .boolean()
+      .optional()
+      .describe(
+        "When false, user must verify email before tickets, deposits, withdrawals",
+      ),
   }),
   message: zod.string(),
 });
@@ -70,6 +76,58 @@ export const GetMeResponse = zod.object({
   cashBalance: zod.number().optional(),
   isAdmin: zod.boolean(),
   joinedAt: zod.coerce.date(),
+  emailVerified: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When false, user must verify email before tickets, deposits, withdrawals",
+    ),
+});
+
+/**
+ * @summary Email verification OTP status (expires, resend cooldown, blocks)
+ */
+export const GetOtpStatusResponse = zod.object({
+  emailVerified: zod.boolean(),
+  hasPendingOtp: zod.boolean(),
+  expiresAt: zod.coerce.date().nullish(),
+  resendAvailableAt: zod.coerce.date().nullish(),
+  verifyBlockedUntil: zod.coerce.date().nullish(),
+});
+
+/**
+ * @summary Send or refresh email verification code
+ */
+export const SendOtpBody = zod.object({
+  userId: zod
+    .number()
+    .optional()
+    .describe("Must match authenticated user if provided"),
+});
+
+export const SendOtpResponse = zod.object({
+  message: zod.string(),
+  expiresAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Resend email verification code (invalidates previous)
+ */
+export const ResendOtpResponse = zod.object({
+  message: zod.string(),
+  expiresAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Verify email with 6-digit code
+ */
+export const VerifyOtpBody = zod.object({
+  otp_code: zod.string(),
+});
+
+export const VerifyOtpResponse = zod.object({
+  message: zod.string(),
+  emailVerified: zod.boolean(),
 });
 
 /**
@@ -116,6 +174,12 @@ export const GetUserResponse = zod.object({
   cashBalance: zod.number().optional(),
   isAdmin: zod.boolean(),
   joinedAt: zod.coerce.date(),
+  emailVerified: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When false, user must verify email before tickets, deposits, withdrawals",
+    ),
 });
 
 /**
@@ -139,6 +203,12 @@ export const UpdateUserResponse = zod.object({
   cashBalance: zod.number().optional(),
   isAdmin: zod.boolean(),
   joinedAt: zod.coerce.date(),
+  emailVerified: zod
+    .boolean()
+    .optional()
+    .describe(
+      "When false, user must verify email before tickets, deposits, withdrawals",
+    ),
 });
 
 /**
@@ -412,6 +482,16 @@ export const GetDashboardStatsResponse = zod.object({
       }),
     )
     .optional(),
+  emailVerification: zod
+    .object({
+      verifiedUsers: zod.number().optional(),
+      unverifiedUsers: zod.number().optional(),
+      otpVerified24h: zod.number().optional(),
+      otpFailed24h: zod.number().optional(),
+      otpSent24h: zod.number().optional(),
+      otpSuccessRate24hPercent: zod.number().nullish(),
+    })
+    .nullish(),
 });
 
 /**
@@ -443,6 +523,7 @@ export const ListAdminUsersResponseItem = zod.object({
   referralCode: zod.string().nullish(),
   referredBy: zod.number().nullish(),
   wins: zod.number().optional(),
+  emailVerified: zod.boolean().optional(),
 });
 export const ListAdminUsersResponse = zod.array(ListAdminUsersResponseItem);
 
