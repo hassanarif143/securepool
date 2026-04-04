@@ -2,6 +2,7 @@ export * from "./users";
 export * from "./emailOtp";
 export * from "./pools";
 export * from "./poolParticipants";
+export * from "./poolTickets";
 export * from "./transactions";
 export * from "./winners";
 export * from "./adminActions";

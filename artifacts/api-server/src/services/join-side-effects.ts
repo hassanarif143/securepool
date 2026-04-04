@@ -26,13 +26,24 @@ export async function runJoinSideEffects(opts: {
   participantCountAfterJoin: number;
   maxUsers: number;
   entryFeePaid?: number;
+  /** Extra tickets in a pool the user already entered — skip streak, join count, mystery, referrer pings. */
+  additionalTicketsOnly?: boolean;
 }): Promise<JoinSideEffectsResult> {
-  const { userId, joinerName, poolId, poolTitle, participantCountAfterJoin, maxUsers, entryFeePaid } = opts;
+  const {
+    userId,
+    joinerName,
+    poolId,
+    poolTitle,
+    participantCountAfterJoin,
+    maxUsers,
+    entryFeePaid,
+    additionalTicketsOnly,
+  } = opts;
   const who = privacyDisplayName(joinerName);
 
   await logActivity({
     type: "user_joined",
-    message: `${who} joined ${poolTitle}`,
+    message: additionalTicketsOnly ? `${who} bought more tickets in ${poolTitle}` : `${who} joined ${poolTitle}`,
     poolId,
     userId,
     metadata: { poolTitle },
@@ -53,6 +64,22 @@ export async function runJoinSideEffects(opts: {
       .update(poolsTable)
       .set({ filledAt: new Date(), avgFillTimeMinutes: fillMin })
       .where(eq(poolsTable.id, poolId));
+  }
+
+  if (additionalTicketsOnly) {
+    if (entryFeePaid != null && entryFeePaid > 0) {
+      const { applySquadCoPoolBonus } = await import("./squad-service");
+      await applySquadCoPoolBonus({ userId, poolId, poolTitle, entryFee: entryFeePaid });
+    }
+    const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    return {
+      mysteryReward: null,
+      streak: {
+        currentStreak: u?.currentStreak ?? 0,
+        longestStreak: u?.longestStreak ?? 0,
+        lostPreviousStreak: 0,
+      },
+    };
   }
 
   const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);

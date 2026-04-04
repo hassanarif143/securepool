@@ -162,6 +162,7 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
 
       const walletStr = (bonusB + wdB).toFixed(2);
       const walletNum = parseFloat(walletStr);
+      const balanceAfterReferralOnly = parseFloat((parseFloat(String(referrer.bonusBalance ?? "0")) + wdB).toFixed(2));
 
       await trx
         .update(usersTable)
@@ -190,13 +191,16 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
       await recordWithdrawableCredit(trx, {
         userId: referrer.id,
         amount: REFERRAL_INVITE_PRIZE_USDT,
-        balanceAfter: walletNum,
+        balanceAfter: balanceAfterReferralOnly,
         description: `Referral invite — ${REFERRAL_INVITE_PRIZE_USDT} USDT to withdrawable balance`,
         referenceType: "referral_invite",
         referenceId: referral.id,
       });
 
+      let runningBonusForLedger = parseFloat(String(referrer.bonusBalance ?? "0"));
       for (const g of tierGrants) {
+        runningBonusForLedger += g.usdt;
+        const balanceAfterTier = parseFloat((runningBonusForLedger + wdB).toFixed(2));
         await trx.insert(transactionsTable).values({
           userId: referrer.id,
           txType: "reward",
@@ -212,7 +216,7 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
         await recordTicketOnlyBonus(trx, {
           userId: referrer.id,
           amount: g.usdt,
-          balanceAfter: walletNum,
+          balanceAfter: balanceAfterTier,
           description: `Referral tier — ${g.at} referrals — ${g.usdt} USDT (tickets only)`,
           referenceType: "referral_tier",
           referenceId: referral.id,

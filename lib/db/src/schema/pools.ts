@@ -1,4 +1,5 @@
 import { pgTable, serial, text, integer, numeric, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -8,7 +9,7 @@ export const poolsTable = pgTable("pools", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   entryFee: numeric("entry_fee", { precision: 18, scale: 2 }).notNull().default("10"),
-  maxUsers: integer("max_users").notNull().default(100),
+  maxUsers: integer("max_users").notNull().default(28),
   startTime: timestamp("start_time", { withTimezone: true }).notNull(),
   endTime: timestamp("end_time", { withTimezone: true }).notNull(),
   status: poolStatusEnum("status").notNull().default("open"),
@@ -19,6 +20,10 @@ export const poolsTable = pgTable("pools", {
   filledAt: timestamp("filled_at", { withTimezone: true }),
   avgFillTimeMinutes: integer("avg_fill_time_minutes"),
   minPoolVipTier: text("min_pool_vip_tier").notNull().default("bronze"),
+  /** Set when draw completes: winning lucky digit (1-9999, display zero-padded). */
+  drawLuckyNumber: integer("draw_lucky_number"),
+  /** User who held a ticket matching draw_lucky_number (null if no match). */
+  luckyMatchUserId: integer("lucky_match_user_id").references(() => usersTable.id),
 });
 
 export const insertPoolSchema = createInsertSchema(poolsTable).omit({ id: true, createdAt: true });

@@ -98,3 +98,6 @@ export const STREAK_USDT_REWARDS: Record<number, number> = {
 
 /** Exact first-place prediction match bonus. */
 export const PREDICTION_EXACT_FIRST_USDT = 10;
+
+/** Ticket lucky number matches draw-wide lucky number (separate from prediction bonus). */
+export const LUCKY_TICKET_MATCH_USDT = 10;

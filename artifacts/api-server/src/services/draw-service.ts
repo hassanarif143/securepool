@@ -52,3 +52,15 @@ export function pickWinnersFromRanking<T extends { userId: number }>(shuffled: T
   }
   return picked;
 }
+
+/** Best (lowest) shuffle index + 1 per user when the draw list is expanded tickets. */
+export function computeBestDrawPositionByUserId<T extends { userId: number }>(shuffled: T[]): Map<number, number> {
+  const positionByUserId = new Map<number, number>();
+  for (let i = 0; i < shuffled.length; i++) {
+    const uid = shuffled[i]!.userId;
+    const pos = i + 1;
+    const prev = positionByUserId.get(uid);
+    if (prev === undefined || pos < prev) positionByUserId.set(uid, pos);
+  }
+  return positionByUserId;
+}

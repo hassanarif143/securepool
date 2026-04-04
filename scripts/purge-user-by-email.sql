@@ -23,6 +23,12 @@ BEGIN
 
   RAISE NOTICE 'Purging user id % (%)', uid, target_email;
 
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'pool_tickets'
+  ) THEN
+    DELETE FROM pool_tickets WHERE user_id = uid;
+  END IF;
   DELETE FROM pool_participants WHERE user_id = uid;
   DELETE FROM winners WHERE user_id = uid;
   DELETE FROM predictions WHERE user_id = uid OR predicted_user_id = uid;

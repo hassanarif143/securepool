@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import {
@@ -11,16 +12,28 @@ import {
   platformSettingsTable,
   pool as pgPool,
 } from "@workspace/db";
-import { eq, and, sql, desc, count } from "drizzle-orm";
+import { poolTicketsTable } from "@workspace/db/schema";
+import { eq, and, desc, asc, count } from "drizzle-orm";
 import { maybeCreditReferralBonus } from "./referral";
-import { deductForTicket, parseUserBuckets, totalWallet, walletBalanceFromBuckets } from "../lib/user-balances";
+import {
+  deductForTicket,
+  parseUserBuckets,
+  totalWallet,
+  walletBalanceFromBuckets,
+  LUCKY_TICKET_MATCH_USDT,
+} from "../lib/user-balances";
 import { notifyUser, notifyAllUsers } from "../lib/notify";
 import { CreatePoolBody, UpdatePoolBody } from "@workspace/api-zod";
 import { sendDrawResultEmail, sendTicketApprovedEmail, sendAdminDrawFinancialSummaryEmail } from "../lib/email";
 import { logger } from "../lib/logger";
-import { getAuthedUserId } from "../middleware/auth";
+import { getAuthedUserId, requireAdmin, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
-import { computeDrawRanking, pickWinnersFromRanking } from "../services/draw-service";
+import {
+  computeDrawRanking,
+  pickWinnersFromRanking,
+  secureShuffle,
+  computeBestDrawPositionByUserId,
+} from "../services/draw-service";
 import { logActivity } from "../services/activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { runJoinSideEffects } from "../services/join-side-effects";
@@ -46,10 +59,17 @@ import { getActiveComebackCoupon, markCouponUsed } from "../services/coupon-serv
 import { computeMinParticipantsToRunDraw } from "../services/draw-economics";
 import { appendPlatformFeeForDraw, getDrawDesiredProfitUsdt } from "../services/admin-wallet-service";
 import { mirrorAvailableFromUser, recordPrizeWon } from "../services/user-wallet-service";
+import { creditUserWithdrawableUsdt } from "../lib/credit-withdrawable-balance";
+import {
+  countPoolTickets,
+  insertPoolTicketsWithLuckyNumbers,
+  formatLuckyNumberDisplay,
+} from "../services/lucky-pool-ticket-service";
 
 const JoinPoolBody = z.object({
   useFreeEntry: z.boolean().optional(),
   applyComebackDiscount: z.boolean().optional(),
+  ticketQuantity: z.number().int().min(1).max(28).optional(),
 });
 
 const router: IRouter = Router();
@@ -101,12 +121,9 @@ router.get("/", async (req, res) => {
 
   const result = await Promise.all(
     pools.map(async (pool) => {
-      const [{ ct }] = await db
-        .select({ ct: count() })
-        .from(poolParticipantsTable)
-        .where(eq(poolParticipantsTable.poolId, pool.id));
-      return formatPool(pool, Number(ct), { desiredProfitUsdt });
-    })
+      const n = await countPoolTickets(pool.id);
+      return formatPool(pool, n, { desiredProfitUsdt });
+    }),
   );
 
   res.json(result);
@@ -117,11 +134,8 @@ router.get("/active", async (_req, res) => {
   const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
   const result = await Promise.all(
     pools.map(async (pool) => {
-      const [{ ct }] = await db
-        .select({ ct: count() })
-        .from(poolParticipantsTable)
-        .where(eq(poolParticipantsTable.poolId, pool.id));
-      return formatPool(pool, Number(ct), { desiredProfitUsdt });
+      const n = await countPoolTickets(pool.id);
+      return formatPool(pool, n, { desiredProfitUsdt });
     }),
   );
   res.json(result);
@@ -139,11 +153,8 @@ router.get("/completed", async (req, res) => {
   const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
   const result = await Promise.all(
     pools.map(async (pool) => {
-      const [{ ct }] = await db
-        .select({ ct: count() })
-        .from(poolParticipantsTable)
-        .where(eq(poolParticipantsTable.poolId, pool.id));
-      return formatPool(pool, Number(ct), { desiredProfitUsdt });
+      const n = await countPoolTickets(pool.id);
+      return formatPool(pool, n, { desiredProfitUsdt });
     }),
   );
   res.json(result);
@@ -160,11 +171,7 @@ router.get("/details/:poolId", async (req, res) => {
     res.status(404).json({ error: "Pool not found" });
     return;
   }
-  const [{ ct }] = await db
-    .select({ ct: count() })
-    .from(poolParticipantsTable)
-    .where(eq(poolParticipantsTable.poolId, poolId));
-  const currentEntries = Number(ct);
+  const currentEntries = await countPoolTickets(poolId);
   const entryFee = parseFloat(pool.entryFee);
   const p1 = parseFloat(pool.prizeFirst);
   const p2 = parseFloat(pool.prizeSecond);
@@ -181,6 +188,7 @@ router.get("/details/:poolId", async (req, res) => {
     .select({
       userName: usersTable.name,
       joinedAt: poolParticipantsTable.joinedAt,
+      ticketCount: poolParticipantsTable.ticketCount,
     })
     .from(poolParticipantsTable)
     .innerJoin(usersTable, eq(poolParticipantsTable.userId, usersTable.id))
@@ -198,8 +206,18 @@ router.get("/details/:poolId", async (req, res) => {
     userJoined = ex.length > 0;
   }
 
+  let myLuckyNumbers: string[] = [];
+  if (sessionUserId && userJoined) {
+    const ticks = await db
+      .select({ luckyNumber: poolTicketsTable.luckyNumber })
+      .from(poolTicketsTable)
+      .where(and(eq(poolTicketsTable.poolId, poolId), eq(poolTicketsTable.userId, sessionUserId)))
+      .orderBy(asc(poolTicketsTable.id));
+    myLuckyNumbers = ticks.map((t) => formatLuckyNumberDisplay(t.luckyNumber));
+  }
+
   const minTier = pool.minPoolVipTier ?? "bronze";
-  let joinBlocked = pool.status !== "open" || currentEntries >= pool.maxUsers || userJoined;
+  let joinBlocked = pool.status !== "open" || currentEntries >= pool.maxUsers;
   let vipLocked = false;
   let entryPricing: {
     baseFee: number;
@@ -211,17 +229,17 @@ router.get("/details/:poolId", async (req, res) => {
     hasActiveComebackCoupon: boolean;
   } | null = null;
 
-  if (sessionUserId && pool.status === "open" && !userJoined && currentEntries < pool.maxUsers) {
+  if (sessionUserId && pool.status === "open" && currentEntries < pool.maxUsers) {
     const [u] = await db
       .select({ poolVipTier: usersTable.poolVipTier })
       .from(usersTable)
       .where(eq(usersTable.id, sessionUserId))
       .limit(1);
-    if (u && !userMeetsPoolVipRequirement(u.poolVipTier ?? "bronze", minTier)) {
+    if (!userJoined && u && !userMeetsPoolVipRequirement(u.poolVipTier ?? "bronze", minTier)) {
       vipLocked = true;
       joinBlocked = true;
     }
-    if (u) {
+    if (u && !vipLocked) {
       const vipPct = entryDiscountPercentForTier(u.poolVipTier ?? "bronze");
       const c = await getActiveComebackCoupon(sessionUserId);
       const couponPct = c.hasCoupon ? (c.discountPercent ?? 10) : 0;
@@ -242,6 +260,9 @@ router.get("/details/:poolId", async (req, res) => {
     }
   }
 
+  const drawLuckyDisplay =
+    pool.drawLuckyNumber != null ? formatLuckyNumberDisplay(pool.drawLuckyNumber) : null;
+
   res.json({
     id: pool.id,
     name: pool.title,
@@ -259,6 +280,7 @@ router.get("/details/:poolId", async (req, res) => {
     participants: rows.map((r) => ({
       name: privacyDisplayName(r.userName),
       joined_at: r.joinedAt,
+      ticket_count: r.ticketCount ?? 1,
     })),
     user_joined: userJoined,
     join_blocked: joinBlocked,
@@ -273,10 +295,14 @@ router.get("/details/:poolId", async (req, res) => {
     min_participants_to_run_draw: minParticipantsToRunDraw,
     draw_ready: currentEntries >= minParticipantsToRunDraw,
     draw_desired_profit_usdt: desiredProfitUsdt,
+    my_lucky_numbers: myLuckyNumbers,
+    draw_lucky_number: drawLuckyDisplay,
+    lucky_match_user_id: pool.luckyMatchUserId,
+    user_won_lucky_match: Boolean(sessionUserId && pool.luckyMatchUserId === sessionUserId),
   });
 });
 
-router.post("/", async (req, res) => {
+router.post("/", (req, res, next) => void requireAdmin(req as AuthedRequest, res, next), async (req, res) => {
   const parse = CreatePoolBody.safeParse(req.body);
   if (!parse.success) {
     res.status(400).json({ error: "Validation error", message: parse.error.message });
@@ -324,7 +350,7 @@ router.get("/my-entries", async (req, res) => {
        p.id, p.title, p.status, p.end_time, p.prize_first, p.prize_second, p.prize_third,
        p.entry_fee, p.max_users,
        pp.joined_at,
-       (SELECT COUNT(*) FROM pool_participants pp2 WHERE pp2.pool_id = p.id)::int AS participant_count
+       (SELECT COUNT(*)::int FROM pool_tickets t WHERE t.pool_id = p.id) AS participant_count
      FROM pool_participants pp
      JOIN pools p ON p.id = pp.pool_id
      WHERE pp.user_id = $1
@@ -356,7 +382,7 @@ router.get("/my-active-pools", async (req, res) => {
   const { rows } = await pgPool.query(
     `SELECT
        p.id, p.title, p.status, p.created_at, p.max_users, p.entry_fee,
-       (SELECT COUNT(*)::int FROM pool_participants pp2 WHERE pp2.pool_id = p.id) AS participant_count
+       (SELECT COUNT(*)::int FROM pool_tickets t WHERE t.pool_id = p.id) AS participant_count
      FROM pool_participants pp
      JOIN pools p ON p.id = pp.pool_id
      WHERE pp.user_id = $1 AND p.status = 'open'
@@ -467,11 +493,7 @@ router.get("/:poolId/predict/participants", async (req, res) => {
     res.status(404).json({ error: "Pool not found" });
     return;
   }
-  const [{ ct }] = await db
-    .select({ ct: count() })
-    .from(poolParticipantsTable)
-    .where(eq(poolParticipantsTable.poolId, poolId));
-  const n = Number(ct);
+  const n = await countPoolTickets(poolId);
   const open = predictionOpen(n, pool.maxUsers);
   const locked = predictionLocked(n, pool.maxUsers);
   const participants = open ? await listPredictableParticipants(poolId) : [];
@@ -611,14 +633,20 @@ router.get("/:poolId/my-draw-result", async (req, res) => {
     .from(poolParticipantsTable)
     .where(and(eq(poolParticipantsTable.poolId, poolId), eq(poolParticipantsTable.userId, userId)))
     .limit(1);
-  const [{ ct }] = await db
-    .select({ ct: count() })
-    .from(poolParticipantsTable)
-    .where(eq(poolParticipantsTable.poolId, poolId));
-  const total = Number(ct);
+  const total = await countPoolTickets(poolId);
+  const drawLuck =
+    pool.drawLuckyNumber != null ? formatLuckyNumberDisplay(pool.drawLuckyNumber) : null;
   const pos = row?.drawPosition;
   if (pos == null) {
-    res.json({ poolId, total, position: null, winner: false, message: null });
+    res.json({
+      poolId,
+      total,
+      position: null,
+      winner: false,
+      message: null,
+      draw_lucky_number: drawLuck,
+      lucky_match: pool.luckyMatchUserId === userId,
+    });
     return;
   }
   const [won] = await db
@@ -635,6 +663,8 @@ router.get("/:poolId/my-draw-result", async (req, res) => {
       place: won.place,
       prize: parseFloat(String(won.prize)),
       message: `You placed ${won.place === 1 ? "1st" : won.place === 2 ? "2nd" : "3rd"}!`,
+      draw_lucky_number: drawLuck,
+      lucky_match: pool.luckyMatchUserId === userId,
     });
     return;
   }
@@ -652,7 +682,16 @@ router.get("/:poolId/my-draw-result", async (req, res) => {
   } else if (pos <= 20) {
     message = `You finished #${pos} of ${total}. Better luck next time!`;
   }
-  res.json({ poolId, total, position: pos, winner: false, tier, message });
+  res.json({
+    poolId,
+    total,
+    position: pos,
+    winner: false,
+    tier,
+    message,
+    draw_lucky_number: drawLuck,
+    lucky_match: pool.luckyMatchUserId === userId,
+  });
 });
 
 router.get("/:poolId", async (req, res) => {
@@ -668,11 +707,7 @@ router.get("/:poolId", async (req, res) => {
     return;
   }
 
-  const [{ ct }] = await db
-    .select({ ct: count() })
-    .from(poolParticipantsTable)
-    .where(eq(poolParticipantsTable.poolId, poolId));
-  const currentEntries = Number(ct);
+  const currentEntries = await countPoolTickets(poolId);
 
   const sessionUserId = getAuthedUserId(req);
   let userJoined = false;
@@ -695,7 +730,7 @@ router.get("/:poolId", async (req, res) => {
   res.json({ ...formatPool(pool, currentEntries, { desiredProfitUsdt }), userJoined, fillComparison });
 });
 
-router.patch("/:poolId", async (req, res) => {
+router.patch("/:poolId", (req, res, next) => void requireAdmin(req as AuthedRequest, res, next), async (req, res) => {
   const poolId = parseInt(req.params.poolId);
   if (isNaN(poolId)) {
     res.status(400).json({ error: "Invalid pool ID" });
@@ -722,11 +757,7 @@ router.patch("/:poolId", async (req, res) => {
 
   /* Refund if admin closes an open pool that never filled */
   if (parse.data.status === "closed" && existingPool.status === "open") {
-    const [{ ct }] = await db
-      .select({ ct: count() })
-      .from(poolParticipantsTable)
-      .where(eq(poolParticipantsTable.poolId, poolId));
-    const n = Number(ct);
+    const n = await countPoolTickets(poolId);
     if (n > 0 && n < existingPool.maxUsers) {
       await refundAllPoolParticipants(poolId, existingPool, "Pool closed before filling");
     }
@@ -738,13 +769,10 @@ router.patch("/:poolId", async (req, res) => {
     return;
   }
 
-  const [{ ct }] = await db
-    .select({ ct: count() })
-    .from(poolParticipantsTable)
-    .where(eq(poolParticipantsTable.poolId, poolId));
+  const tc = await countPoolTickets(poolId);
 
   const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
-  res.json(formatPool(pool, Number(ct), { desiredProfitUsdt }));
+  res.json(formatPool(pool, tc, { desiredProfitUsdt }));
 });
 
 router.post("/:poolId/join", async (req, res) => {
@@ -774,26 +802,25 @@ router.post("/:poolId/join", async (req, res) => {
     return;
   }
 
-  const [{ ct }] = await db
-    .select({ ct: count() })
-    .from(poolParticipantsTable)
-    .where(eq(poolParticipantsTable.poolId, poolId));
-
-  if (Number(ct) >= pool.maxUsers) {
+  const ticketsNow = await countPoolTickets(poolId);
+  const slotsLeft = pool.maxUsers - ticketsNow;
+  if (slotsLeft <= 0) {
     res.status(400).json({ error: "Pool is full" });
     return;
   }
+
+  let ticketQty = 1;
+  if (bodyParse.success && bodyParse.data.ticketQuantity != null) {
+    ticketQty = Math.min(28, Math.max(1, Math.floor(bodyParse.data.ticketQuantity)));
+  }
+  ticketQty = Math.min(ticketQty, slotsLeft);
 
   const existing = await db
     .select()
     .from(poolParticipantsTable)
     .where(and(eq(poolParticipantsTable.poolId, poolId), eq(poolParticipantsTable.userId, sessionUserId)))
     .limit(1);
-
-  if (existing.length > 0) {
-    res.status(400).json({ error: "You have already joined this pool" });
-    return;
-  }
+  const isFirstInPool = existing.length === 0;
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, sessionUserId)).limit(1);
   if (!user) {
@@ -802,7 +829,7 @@ router.post("/:poolId/join", async (req, res) => {
   }
 
   const minTierJoin = pool.minPoolVipTier ?? "bronze";
-  if (!userMeetsPoolVipRequirement(user.poolVipTier ?? "bronze", minTierJoin)) {
+  if (isFirstInPool && !userMeetsPoolVipRequirement(user.poolVipTier ?? "bronze", minTierJoin)) {
     res.status(403).json({
       error: "Reward status required",
       message: `This pool needs ${minTierJoin} activity tier or higher. Join more pools to unlock it.`,
@@ -818,20 +845,31 @@ router.post("/:poolId/join", async (req, res) => {
   const applyComeback =
     !bodyParse.success || bodyParse.data.applyComebackDiscount !== false;
 
+  if (useFreeEntry) {
+    if (!isFirstInPool) {
+      res.status(400).json({
+        error: "Free entry only applies to your first ticket in this pool.",
+      });
+      return;
+    }
+    if (ticketQty !== 1) {
+      res.status(400).json({ error: "Free entry covers one ticket only." });
+      return;
+    }
+    if (freeAvail < 1) {
+      res.status(400).json({
+        error: "No free entries available",
+        message: "You do not have a free pool entry to use.",
+      });
+      return;
+    }
+  }
+
   let amountDue = entryFee;
   let txNote = `Joined pool: ${pool.title}`;
   let couponIdToUse: number | undefined;
 
-  if (useFreeEntry) {
-    if (freeAvail < 1) {
-      res.status(400).json({ error: "No free entries available", message: "You do not have a free pool entry to use." });
-      return;
-    }
-    await db
-      .update(usersTable)
-      .set({ freeEntries: freeAvail - 1 })
-      .where(eq(usersTable.id, sessionUserId));
-  } else {
+  if (!useFreeEntry) {
     const vipPct = entryDiscountPercentForTier(user.poolVipTier ?? "bronze");
     let couponPct = 0;
     if (applyComeback) {
@@ -848,106 +886,167 @@ router.post("/:poolId/join", async (req, res) => {
     });
     amountDue = discountBreakdown.amountDue;
     if (discountBreakdown.savings > 0) {
-      txNote = `Joined pool: ${pool.title} — list ${entryFee} USDT; VIP −${discountBreakdown.vipDiscountPercent}% + comeback −${discountBreakdown.comebackDiscountPercent}% (max 25%); paid ${amountDue} USDT`;
+      txNote = `Joined pool: ${pool.title} — list ${entryFee} USDT; VIP −${discountBreakdown.vipDiscountPercent}% + comeback −${discountBreakdown.comebackDiscountPercent}% (max 25%); paid ${amountDue} USDT per ticket`;
     }
-    if (userBalance < amountDue) {
-      res.status(400).json({
-        error: `Insufficient balance. You need ${amountDue} USDT to join (after loyalty discounts). Current balance: ${userBalance} USDT.`,
-      });
-      return;
-    }
-    const { next, fromBonus, fromWithdrawable } = deductForTicket(buckets, amountDue);
-    await db
-      .update(usersTable)
-      .set({
-        bonusBalance: next.bonusBalance.toFixed(2),
-        withdrawableBalance: next.withdrawableBalance.toFixed(2),
-        walletBalance: walletBalanceFromBuckets(next),
-      })
-      .where(eq(usersTable.id, sessionUserId));
-    await mirrorAvailableFromUser(db, sessionUserId);
-    await db.insert(poolParticipantsTable).values({
-      poolId,
-      userId: sessionUserId,
-      ticketCount: 1,
-      amountPaid: String(amountDue),
-      paidFromBonus: String(fromBonus),
-      paidFromWithdrawable: String(fromWithdrawable),
-    });
   }
 
-  if (useFreeEntry) {
-    await db.insert(poolParticipantsTable).values({
-      poolId,
-      userId: sessionUserId,
-      ticketCount: 1,
-      amountPaid: "0",
-      paidFromBonus: "0",
-      paidFromWithdrawable: "0",
+  const totalDue = useFreeEntry ? 0 : amountDue * ticketQty;
+  if (!useFreeEntry && userBalance < totalDue) {
+    res.status(400).json({
+      error: `Insufficient balance. You need ${totalDue} USDT for ${ticketQty} ticket(s) (after discounts). Current balance: ${userBalance} USDT.`,
     });
+    return;
   }
+
+  let fromBonus = 0;
+  let fromWithdrawable = 0;
+  let nextBuckets = buckets;
+  if (!useFreeEntry) {
+    const d = deductForTicket(buckets, totalDue);
+    fromBonus = d.fromBonus;
+    fromWithdrawable = d.fromWithdrawable;
+    nextBuckets = d.next;
+  }
+
+  let luckyNumbers: number[] = [];
+  try {
+    await db.transaction(async (trx) => {
+      if (useFreeEntry) {
+        await trx
+          .update(usersTable)
+          .set({ freeEntries: freeAvail - 1 })
+          .where(eq(usersTable.id, sessionUserId));
+      } else {
+        await trx
+          .update(usersTable)
+          .set({
+            bonusBalance: nextBuckets.bonusBalance.toFixed(2),
+            withdrawableBalance: nextBuckets.withdrawableBalance.toFixed(2),
+            walletBalance: walletBalanceFromBuckets(nextBuckets),
+          })
+          .where(eq(usersTable.id, sessionUserId));
+        await mirrorAvailableFromUser(trx, sessionUserId);
+      }
+
+      if (isFirstInPool) {
+        await trx.insert(poolParticipantsTable).values({
+          poolId,
+          userId: sessionUserId,
+          ticketCount: ticketQty,
+          amountPaid: String(useFreeEntry ? 0 : totalDue),
+          paidFromBonus: String(fromBonus),
+          paidFromWithdrawable: String(fromWithdrawable),
+        });
+      } else {
+        const prev = existing[0]!;
+        const prevTc = prev.ticketCount ?? 1;
+        const prevPaid = parseFloat(String(prev.amountPaid ?? "0"));
+        const prevFb = parseFloat(String(prev.paidFromBonus ?? "0"));
+        const prevWd = parseFloat(String(prev.paidFromWithdrawable ?? "0"));
+        await trx
+          .update(poolParticipantsTable)
+          .set({
+            ticketCount: prevTc + ticketQty,
+            amountPaid: (prevPaid + (useFreeEntry ? 0 : totalDue)).toFixed(2),
+            paidFromBonus: (prevFb + fromBonus).toFixed(2),
+            paidFromWithdrawable: (prevWd + fromWithdrawable).toFixed(2),
+          })
+          .where(eq(poolParticipantsTable.id, prev.id));
+      }
+
+      luckyNumbers = await insertPoolTicketsWithLuckyNumbers(trx, poolId, sessionUserId, ticketQty);
+    });
+  } catch (err: unknown) {
+    const code = (err as { code?: string })?.code ?? "";
+    if (code === "LUCKY_NUMBER_EXHAUSTED") {
+      res.status(503).json({ error: (err as Error).message });
+      return;
+    }
+    throw err;
+  }
+
+  const txAmountStr = useFreeEntry ? "0" : String(totalDue);
+  const txNoteFinal =
+    ticketQty > 1 && !useFreeEntry
+      ? `${txNote} × ${ticketQty} tickets (${totalDue} USDT)`
+      : useFreeEntry
+        ? `Free entry — ${pool.title}`
+        : txNote;
 
   await db.insert(transactionsTable).values({
     userId: sessionUserId,
     txType: "pool_entry",
-    amount: useFreeEntry ? "0" : String(amountDue),
+    amount: txAmountStr,
     status: "completed",
-    note: useFreeEntry ? `Free entry — ${pool.title}` : txNote,
+    note: txNoteFinal,
   });
 
-  if (couponIdToUse != null && !useFreeEntry) {
+  if (couponIdToUse != null && !useFreeEntry && isFirstInPool) {
     await markCouponUsed(couponIdToUse, poolId);
   }
 
-  /* Check if this is the user's first pool join — if so, credit any pending referral bonus */
   const [{ totalJoins }] = await db
     .select({ totalJoins: count() })
     .from(poolParticipantsTable)
     .where(eq(poolParticipantsTable.userId, sessionUserId));
 
   if (Number(totalJoins) === 1) {
-    /* First ever pool join — trigger referral bonus for the referrer */
     await maybeCreditReferralBonus(sessionUserId);
   }
 
-  /* Award tier points for joining a pool */
   const { awardTierPoints, POINTS_POOL_JOIN } = await import("../lib/tier");
-  const tierResult = await awardTierPoints(sessionUserId, POINTS_POOL_JOIN);
+  const tierResult = isFirstInPool ? await awardTierPoints(sessionUserId, POINTS_POOL_JOIN) : null;
 
   if (user?.email) {
-    void sendTicketApprovedEmail(user.email, `TKT-${poolId}-${sessionUserId}`, `Draw #${poolId}`);
+    const luckStr = luckyNumbers.map(formatLuckyNumberDisplay).join(", ");
+    void sendTicketApprovedEmail(
+      user.email,
+      `TKT-${poolId}-${sessionUserId}`,
+      `Draw #${poolId} — lucky #${luckStr}`,
+    );
   }
 
+  const luckDisplay = luckyNumbers.map(formatLuckyNumberDisplay).join(", ");
   void notifyUser(
     sessionUserId,
-    "Pool joined",
-    `You've joined "${pool.title}". The fair draw runs when the pool closes or fills up.`,
+    ticketQty > 1 ? "Tickets added" : "Pool joined",
+    ticketQty > 1
+      ? `You bought ${ticketQty} tickets in "${pool.title}". Lucky numbers: ${luckDisplay}.`
+      : `You've joined "${pool.title}". Your lucky number: ${luckDisplay}.`,
     "pool",
   );
 
-  const newParticipantCount = Number(ct) + 1;
+  const ticketCountAfterJoin = ticketsNow + ticketQty;
   const engagement = await runJoinSideEffects({
     userId: sessionUserId,
     joinerName: user.name,
     poolId,
     poolTitle: pool.title,
-    participantCountAfterJoin: newParticipantCount,
+    participantCountAfterJoin: ticketCountAfterJoin,
     maxUsers: pool.maxUsers,
-    entryFeePaid: useFreeEntry ? undefined : entryFee,
+    entryFeePaid: useFreeEntry ? undefined : totalDue,
+    additionalTicketsOnly: !isFirstInPool,
   });
 
   res.json({
-    message: "Successfully joined the pool!",
+    message:
+      ticketQty > 1
+        ? `Successfully bought ${ticketQty} tickets!`
+        : "Successfully joined the pool!",
     usedFreeEntry: useFreeEntry,
-    amountPaid: useFreeEntry ? 0 : amountDue,
+    amountPaid: useFreeEntry ? 0 : totalDue,
+    ticketQuantity: ticketQty,
+    luckyNumbers: luckyNumbers.map(formatLuckyNumberDisplay),
     listEntryFee: entryFee,
-    tierUpdate: tierResult ? {
-      tier: tierResult.newTier,
-      tierPoints: tierResult.newPoints,
-      tierChanged: tierResult.tierChanged,
-      previousTier: tierResult.previousTier,
-      freeTicketGranted: tierResult.freeTicketGranted,
-    } : null,
+    tierUpdate: tierResult
+      ? {
+          tier: tierResult.newTier,
+          tierPoints: tierResult.newPoints,
+          tierChanged: tierResult.tierChanged,
+          previousTier: tierResult.previousTier,
+          freeTicketGranted: tierResult.freeTicketGranted,
+        }
+      : null,
     mysteryReward: engagement.mysteryReward
       ? {
           id: engagement.mysteryReward.id,
@@ -987,16 +1086,39 @@ async function executePoolDistribution(poolId: number) {
     const p3 = parseFloat(pool.prizeThird);
     const minRequired = computeMinParticipantsToRunDraw(entryFee, p1, p2, p3, desiredProfit);
 
-    if (participants.length < minRequired) {
+    const ticketRows = await tx
+      .select({
+        id: poolTicketsTable.id,
+        userId: poolTicketsTable.userId,
+        luckyNumber: poolTicketsTable.luckyNumber,
+      })
+      .from(poolTicketsTable)
+      .where(eq(poolTicketsTable.poolId, poolId));
+
+    const ticketTotal = ticketRows.length;
+    const effectiveTicketCount = ticketTotal > 0 ? ticketTotal : participants.length;
+
+    if (effectiveTicketCount < minRequired) {
       const e = new Error(
-        `Need at least ${minRequired} participants to run this draw (prizes + target profit at ${entryFee} USDT list price). Currently ${participants.length}.`,
+        `Need at least ${minRequired} tickets to run this draw (prizes + target profit at ${entryFee} USDT list price). Currently ${effectiveTicketCount}.`,
       );
       (e as { code?: string }).code = "MIN_PARTICIPANTS";
       throw e;
     }
 
-    const { shuffled, positionByUserId } = computeDrawRanking(participants);
-    const picked = pickWinnersFromRanking(shuffled, 3);
+    let positionByUserId: Map<number, number>;
+    let picked: { userId: number }[];
+
+    if (ticketTotal > 0) {
+      const list = ticketRows.map((t) => ({ userId: t.userId }));
+      const shuffled = secureShuffle(list);
+      positionByUserId = computeBestDrawPositionByUserId(shuffled);
+      picked = pickWinnersFromRanking(shuffled, 3);
+    } else {
+      const { shuffled, positionByUserId: posMap } = computeDrawRanking(participants);
+      positionByUserId = posMap;
+      picked = pickWinnersFromRanking(shuffled, 3);
+    }
 
     for (const row of participants) {
       const pos = positionByUserId.get(row.userId);
@@ -1031,13 +1153,13 @@ async function executePoolDistribution(poolId: number) {
     let w3name: string | null = null;
 
     for (let i = 0; i < 3; i++) {
-      const participant = picked[i];
-      if (!participant) break;
+      const winRow = picked[i];
+      if (!winRow) break;
       const { place, prize } = prizes[i]!;
 
       const [winner] = await tx
         .insert(winnersTable)
-        .values({ poolId, userId: participant.userId, place, prize: String(prize) })
+        .values({ poolId, userId: winRow.userId, place, prize: String(prize) })
         .returning();
       if (!winner) {
         const e = new Error("WINNER_INSERT_FAILED");
@@ -1045,7 +1167,7 @@ async function executePoolDistribution(poolId: number) {
         throw e;
       }
 
-      const [user] = await tx.select().from(usersTable).where(eq(usersTable.id, participant.userId)).limit(1);
+      const [user] = await tx.select().from(usersTable).where(eq(usersTable.id, winRow.userId)).limit(1);
       if (!user) {
         const e = new Error("PARTICIPANT_USER_MISSING");
         (e as { code?: string }).code = "PARTICIPANT_USER_MISSING";
@@ -1067,10 +1189,10 @@ async function executePoolDistribution(poolId: number) {
           totalWins: nextWins,
           firstWinAt: isFirstWinEver ? new Date() : user.firstWinAt,
         })
-        .where(eq(usersTable.id, participant.userId));
+        .where(eq(usersTable.id, winRow.userId));
 
       await recordPrizeWon(tx, {
-        userId: participant.userId,
+        userId: winRow.userId,
         amount: prize,
         poolId,
         place,
@@ -1078,10 +1200,10 @@ async function executePoolDistribution(poolId: number) {
         balanceAfter: newBalance,
       });
 
-      if (isFirstWinEver) firstWinUserIds.push(participant.userId);
+      if (isFirstWinEver) firstWinUserIds.push(winRow.userId);
 
       await tx.insert(transactionsTable).values({
-        userId: participant.userId,
+        userId: winRow.userId,
         txType: "reward",
         amount: String(prize),
         status: "completed",
@@ -1089,13 +1211,31 @@ async function executePoolDistribution(poolId: number) {
       });
 
       winnerRecords.push({ ...winner, userName: user.name, poolTitle: pool.title });
-      winnerUserIds.add(participant.userId);
+      winnerUserIds.add(winRow.userId);
       if (place === 1) w1name = user.name;
       else if (place === 2) w2name = user.name;
       else if (place === 3) w3name = user.name;
     }
 
-    const ticketsSold = participants.length;
+    let drawLuckyNumber: number | null = null;
+    let luckyMatchUserId: number | null = null;
+    if (ticketTotal > 0) {
+      drawLuckyNumber = randomInt(1, 9999);
+      const match = ticketRows.find((t) => t.luckyNumber === drawLuckyNumber);
+      if (match) {
+        luckyMatchUserId = match.userId;
+        await creditUserWithdrawableUsdt(tx, {
+          userId: match.userId,
+          amount: LUCKY_TICKET_MATCH_USDT,
+          rewardNote: `[System] Lucky number ${formatLuckyNumberDisplay(drawLuckyNumber)} matched in "${pool.title}" — ${LUCKY_TICKET_MATCH_USDT} USDT`,
+          ledgerDescription: `Lucky ticket match — pool #${poolId} — ${LUCKY_TICKET_MATCH_USDT} USDT withdrawable`,
+          referenceType: "lucky_ticket",
+          referenceId: poolId,
+        });
+      }
+    }
+
+    const ticketsSold = ticketTotal > 0 ? ticketTotal : participants.length;
     const ticketPrice = entryFee;
     let totalRevenue = 0;
     for (const p of participants) {
@@ -1132,7 +1272,14 @@ async function executePoolDistribution(poolId: number) {
       description: `Draw #${poolId} — platform fee (${totalRevenue.toFixed(2)} USDT paid revenue − ${totalPrizes.toFixed(2)} USDT prizes)`,
     });
 
-    await tx.update(poolsTable).set({ status: "completed" }).where(eq(poolsTable.id, poolId));
+    await tx
+      .update(poolsTable)
+      .set({
+        status: "completed",
+        drawLuckyNumber,
+        luckyMatchUserId,
+      })
+      .where(eq(poolsTable.id, poolId));
 
     return {
       pool,
@@ -1141,6 +1288,10 @@ async function executePoolDistribution(poolId: number) {
       winnerUserIds,
       winnerRecords,
       firstWinUserIds,
+      luckyDraw:
+        drawLuckyNumber != null
+          ? { number: drawLuckyNumber, matchUserId: luckyMatchUserId }
+          : null,
       financial: {
         ticketsSold,
         ticketPrice,
@@ -1160,7 +1311,7 @@ async function executePoolDistribution(poolId: number) {
   });
 }
 
-router.post("/:poolId/distribute", async (req, res) => {
+router.post("/:poolId/distribute", (req, res, next) => void requireAdmin(req as AuthedRequest, res, next), async (req, res) => {
   const poolId = parseInt(req.params.poolId);
   if (isNaN(poolId)) {
     res.status(400).json({ error: "Invalid pool ID" });
@@ -1193,10 +1344,18 @@ router.post("/:poolId/distribute", async (req, res) => {
     return;
   }
 
-  const { pool, participants, positionByUserId, winnerUserIds, winnerRecords, firstWinUserIds, financial } =
-    distributed;
+  const {
+    pool,
+    participants,
+    positionByUserId,
+    winnerUserIds,
+    winnerRecords,
+    firstWinUserIds,
+    financial,
+    luckyDraw,
+  } = distributed;
   const placeLabel = (n: number) => (n === 1 ? "1st" : n === 2 ? "2nd" : "3rd");
-  const totalN = participants.length;
+  const totalN = financial.ticketsSold;
 
   for (const uid of firstWinUserIds) {
     void grantAchievement(uid, "first_win");
@@ -1245,6 +1404,15 @@ router.post("/:poolId/distribute", async (req, res) => {
       body = `You finished #${pos} of ${totalN}. Thank you for participating in "${pool.title}".`;
     }
     void notifyUser(p.userId, title, body, "pool_update");
+  }
+
+  if (luckyDraw?.matchUserId != null) {
+    void notifyUser(
+      luckyDraw.matchUserId,
+      "Lucky number match! ⭐",
+      `Draw lucky number ${formatLuckyNumberDisplay(luckyDraw.number)} matched your ticket — ${LUCKY_TICKET_MATCH_USDT} USDT added to your withdrawable balance.`,
+      "lucky",
+    );
   }
 
   try {
@@ -1351,5 +1519,4 @@ router.get("/:poolId/participants", async (req, res) => {
   res.json(participants);
 });
 
-export { sql };
 export default router;

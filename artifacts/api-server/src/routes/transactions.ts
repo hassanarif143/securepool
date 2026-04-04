@@ -6,7 +6,7 @@ import multer from "multer";
 import path from "path";
 import { z } from "zod";
 import { sanitizeText } from "../lib/sanitize";
-import { getAuthedUserId } from "../middleware/auth";
+import { getAuthedUserId, requireAdmin, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
 import { logger } from "../lib/logger";
 import { getUploadsDir } from "../paths";
@@ -58,7 +58,7 @@ function formatTx(t: any) {
   };
 }
 
-router.get("/", async (req, res) => {
+router.get("/", (req, res, next) => void requireAdmin(req as AuthedRequest, res, next), async (_req, res) => {
   const txs = await db
     .select({
       id: transactionsTable.id,

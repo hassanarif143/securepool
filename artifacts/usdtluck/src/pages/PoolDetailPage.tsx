@@ -79,7 +79,11 @@ type PoolDetailsApi = {
   spots_remaining: number;
   user_joined: boolean;
   join_blocked: boolean;
-  participants: { name: string; joined_at: string }[];
+  participants: { name: string; joined_at: string; ticket_count?: number }[];
+  my_lucky_numbers?: string[];
+  draw_lucky_number?: string | null;
+  lucky_match_user_id?: number | null;
+  user_won_lucky_match?: boolean;
   fillComparison?: { message: string | null; fasterPercent: number | null; avgFillSeconds: number | null };
   min_pool_vip_tier?: string;
   vip_locked?: boolean;
@@ -186,6 +190,7 @@ export default function PoolDetailPage() {
   const [shareOk, setShareOk] = useState(false);
   const [poolDetails, setPoolDetails] = useState<PoolDetailsApi | null>(null);
   const [useFreeEntry, setUseFreeEntry] = useState(false);
+  const [ticketQty, setTicketQty] = useState(1);
   const [joining, setJoining] = useState(false);
   const [viewersCount, setViewersCount] = useState<number | undefined>(undefined);
   const [recentJoiners, setRecentJoiners] = useState<{ name: string; joined_at: string }[]>([]);
@@ -211,7 +216,7 @@ export default function PoolDetailPage() {
   const [comebackCoupon, setComebackCoupon] = useState<ActiveCouponJson | null>(null);
   const [showComebackModal, setShowComebackModal] = useState(false);
   const prevNearMissRef = useRef(false);
-  const pendingStreakMilestone = useRef<"3" | "5" | "10" | null>(null);
+  const pendingStreakMilestone = useRef<"3" | "5" | "10" | "20" | null>(null);
 
   const flushPendingStreak = useCallback(() => {
     const m = pendingStreakMilestone.current;
@@ -248,6 +253,12 @@ export default function PoolDetailPage() {
       clearInterval(t);
     };
   }, [id]);
+
+  useEffect(() => {
+    const left = poolDetails?.spots_remaining;
+    if (left == null || left <= 0) return;
+    setTicketQty((q) => Math.min(Math.max(1, q), Math.min(28, left)));
+  }, [poolDetails?.spots_remaining]);
 
   useEffect(() => {
     if (!id || !user) return;
@@ -380,7 +391,14 @@ export default function PoolDetailPage() {
           ...(token ? { "x-csrf-token": token } : {}),
         },
         body: JSON.stringify({
-          useFreeEntry: useFreeEntry && (user.freeEntries ?? 0) > 0,
+          useFreeEntry:
+            !(poolDetails?.user_joined ?? false) &&
+            useFreeEntry &&
+            (user.freeEntries ?? 0) > 0,
+          ticketQuantity:
+            !(poolDetails?.user_joined ?? false) && useFreeEntry && (user.freeEntries ?? 0) > 0
+              ? 1
+              : ticketQty,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -404,9 +422,16 @@ export default function PoolDetailPage() {
         return;
       }
       const usedFree = Boolean((data as { usedFreeEntry?: boolean }).usedFreeEntry);
+      const luck = (data as { luckyNumbers?: string[] }).luckyNumbers;
+      if (luck && luck.length > 0) {
+        toast({
+          title: luck.length > 1 ? "Your lucky numbers" : "Your lucky number",
+          description: luck.join(" · "),
+        });
+      }
       const streakData = (data as { streak?: { milestone?: string; currentStreak?: number } }).streak;
       const mile = streakData?.milestone;
-      if (mile === "3" || mile === "5" || mile === "10") {
+      if (mile === "3" || mile === "5" || mile === "10" || mile === "20") {
         pendingStreakMilestone.current = mile;
       }
       const cs = streakData?.currentStreak;
@@ -470,22 +495,26 @@ export default function PoolDetailPage() {
   if (!pool) return <p className="text-center text-muted-foreground py-12">Pool not found</p>;
 
   const displayCount = poolDetails?.current_entries ?? pool.participantCount;
+  const spotsLeft = poolDetails?.spots_remaining ?? Math.max(0, pool.maxUsers - displayCount);
   const totalPrize = pool.prizeFirst + pool.prizeSecond + pool.prizeThird;
   const userJoinedEffective = poolDetails?.user_joined ?? pool.userJoined;
 
   const canFreeJoin = Boolean(user && (user.freeEntries ?? 0) > 0);
   const effectiveEntryDue = poolDetails?.entry_pricing?.amountDue ?? pool.entryFee;
-  const canPayJoin = Boolean(user && user.walletBalance >= effectiveEntryDue);
+  const freeThisPurchase = Boolean(!userJoinedEffective && useFreeEntry && canFreeJoin);
+  const totalDue = freeThisPurchase ? 0 : effectiveEntryDue * ticketQty;
+  const canPayJoin = Boolean(user && (freeThisPurchase || Number(user.walletBalance) >= totalDue));
   const vipLocked = Boolean(poolDetails?.vip_locked);
   const needsEmailVerify = Boolean(user && user.emailVerified === false);
+  const poolFull = displayCount >= pool.maxUsers || spotsLeft <= 0;
+  const canBuyMore = userJoinedEffective && !poolFull && pool.status === "open";
+  const canFirstJoin = !userJoinedEffective && pool.status === "open" && !poolFull;
+  const showJoinActions = (canFirstJoin || canBuyMore) && !vipLocked && !needsEmailVerify;
   const joinDisabled =
     joining ||
-    userJoinedEffective ||
-    pool.status !== "open" ||
-    displayCount >= pool.maxUsers ||
-    vipLocked ||
-    needsEmailVerify ||
-    (Boolean(user) && useFreeEntry && !canFreeJoin) ||
+    !showJoinActions ||
+    poolFull ||
+    (Boolean(user) && useFreeEntry && !canFreeJoin && canFirstJoin) ||
     (Boolean(user) && !useFreeEntry && !canPayJoin && !canFreeJoin);
 
   return (
@@ -666,15 +695,39 @@ export default function PoolDetailPage() {
         {pool.status === "open" && (
           <Card className="border-primary/30" style={{ boxShadow: "0 0 20px rgba(34,197,94,0.05)" }}>
             <CardContent className="p-5">
-              {userJoinedEffective ? (
+              {userJoinedEffective && poolFull ? (
                 <div className="text-center space-y-2">
                   <div className="text-4xl">🎟️</div>
-                  <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30">You have joined this pool</Badge>
-                  <p className="text-sm text-muted-foreground">The fair draw runs when the pool closes or fills.</p>
+                  <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30">
+                    You&apos;re in — pool is full
+                  </Badge>
+                  <p className="text-sm text-muted-foreground">Waiting for the draw. Good luck!</p>
+                  {poolDetails?.my_lucky_numbers && poolDetails.my_lucky_numbers.length > 0 && (
+                    <p className="text-sm font-mono text-primary">
+                      Your lucky # — {poolDetails.my_lucky_numbers.join(" · ")}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {user && (user.freeEntries ?? 0) > 0 && (
+                  {userJoinedEffective && (
+                    <div className="text-center space-y-2 pb-2 border-b border-border/40">
+                      <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30">
+                        You have tickets in this pool
+                      </Badge>
+                      {poolDetails?.my_lucky_numbers && poolDetails.my_lucky_numbers.length > 0 ? (
+                        <p className="text-sm font-mono text-primary">
+                          Lucky # — {poolDetails.my_lucky_numbers.join(" · ")}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Lucky numbers load above when synced.</p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Up to {spotsLeft} more ticket{spotsLeft === 1 ? "" : "s"} available (max {pool.maxUsers} per draw).
+                      </p>
+                    </div>
+                  )}
+                  {!userJoinedEffective && user && (user.freeEntries ?? 0) > 0 && (
                     <label className="flex items-center gap-2 text-sm cursor-pointer rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
                       <input
                         type="checkbox"
@@ -686,6 +739,34 @@ export default function PoolDetailPage() {
                         Use free entry <span className="text-primary font-semibold">({user.freeEntries} available)</span>
                       </span>
                     </label>
+                  )}
+                  {showJoinActions && !freeThisPurchase && spotsLeft > 0 && (
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">Tickets</span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          disabled={ticketQty <= 1}
+                          onClick={() => setTicketQty((q) => Math.max(1, q - 1))}
+                        >
+                          −
+                        </Button>
+                        <span className="font-mono w-8 text-center">{ticketQty}</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          disabled={ticketQty >= Math.min(28, spotsLeft)}
+                          onClick={() => setTicketQty((q) => Math.min(Math.min(28, spotsLeft), q + 1))}
+                        >
+                          +
+                        </Button>
+                      </div>
+                    </div>
                   )}
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Your balance</span>
@@ -699,9 +780,9 @@ export default function PoolDetailPage() {
                       pools to unlock it.
                     </p>
                   )}
-                  {user && !useFreeEntry && !canPayJoin && !vipLocked && (
+                  {user && !freeThisPurchase && !canPayJoin && !vipLocked && showJoinActions && (
                     <p className="text-sm text-destructive">
-                      Insufficient balance. You need {effectiveEntryDue} USDT.{" "}
+                      Insufficient balance. You need {totalDue.toFixed(2)} USDT for {ticketQty} ticket(s).{" "}
                       <a href="/wallet" className="underline text-primary">Add funds</a>.
                     </p>
                   )}
@@ -713,9 +794,13 @@ export default function PoolDetailPage() {
                   >
                     {joining
                       ? "Joining..."
-                      : useFreeEntry && canFreeJoin
+                      : freeThisPurchase
                         ? "Join with free entry"
-                        : `Join pool — ${effectiveEntryDue} USDT`}
+                        : userJoinedEffective
+                          ? `Buy ${ticketQty} ticket(s) — ${totalDue.toFixed(2)} USDT`
+                          : ticketQty > 1
+                            ? `Join with ${ticketQty} tickets — ${totalDue.toFixed(2)} USDT`
+                            : `Join pool — ${effectiveEntryDue} USDT`}
                   </Button>
                   {!user && (
                     <p className="text-xs text-center text-muted-foreground">
@@ -724,6 +809,22 @@ export default function PoolDetailPage() {
                   )}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {pool.status === "completed" && poolDetails?.draw_lucky_number && (
+          <Card className="border-amber-500/25 bg-amber-500/5">
+            <CardContent className="p-4 text-sm space-y-1">
+              <p className="font-semibold text-amber-100">Draw lucky number</p>
+              <p className="font-mono text-lg text-primary">{poolDetails.draw_lucky_number}</p>
+              <p className="text-muted-foreground">
+                {poolDetails.user_won_lucky_match
+                  ? `You matched — +${10} USDT was added to your withdrawable balance.`
+                  : poolDetails.lucky_match_user_id != null
+                    ? "Another participant matched this number."
+                    : "No ticket matched this number."}
+              </p>
             </CardContent>
           </Card>
         )}

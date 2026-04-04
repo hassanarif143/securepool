@@ -223,7 +223,7 @@ export default function SignupPage() {
                 What you get
               </p>
               {[
-                { icon: "🎁", title: "Free welcome bonus", desc: "Instant USDT bonus when you join with a referral" },
+                { icon: "🎁", title: "First deposit perk", desc: "Up to 1 USDT ticket bonus after your first approved deposit (pools only)" },
                 { icon: "🎱", title: "Access to all pools", desc: "Join any open pool — 10 USDT entry, up to 100 USDT prize" },
                 { icon: "🥉", title: "Bronze tier instantly", desc: "Start earning tier points from your very first pool" },
                 { icon: "💰", title: "Withdraw anytime", desc: "Your wallet balance is always yours to withdraw" },
@@ -283,7 +283,9 @@ export default function SignupPage() {
                   <p className="text-sm font-semibold" style={{ color: "hsl(152,72%,55%)" }}>
                     Referral code applied: <span className="font-mono">{referralCode}</span>
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">+1 USDT welcome bonus will be added to your wallet on signup</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Your referrer earns 2 USDT (withdrawable) when you verify email and join your first pool — not on signup alone.
+                  </p>
                 </div>
               </div>
             )}
@@ -471,7 +473,9 @@ export default function SignupPage() {
                   )}
                 </div>
                 {hasRefCode && (
-                  <p className="text-xs" style={{ color: "hsl(152,72%,55%)" }}>✓ +1 USDT welcome bonus will be added to your wallet</p>
+                  <p className="text-xs" style={{ color: "hsl(152,72%,55%)" }}>
+                    ✓ Referral linked — rewards apply after email verification and first pool entry
+                  </p>
                 )}
               </div>
 

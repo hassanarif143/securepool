@@ -1,4 +1,5 @@
 import { db, poolParticipantsTable, usersTable, transactionsTable, poolsTable } from "@workspace/db";
+import { poolTicketsTable } from "@workspace/db/schema";
 import { mirrorAvailableFromUser } from "../services/user-wallet-service";
 import { parseUserBuckets, walletBalanceFromBuckets } from "./user-balances";
 import { eq, and, desc, or } from "drizzle-orm";
@@ -101,6 +102,7 @@ export async function refundAllPoolParticipants(
     refundedCount++;
   }
 
+  await db.delete(poolTicketsTable).where(eq(poolTicketsTable.poolId, poolId));
   await db.delete(poolParticipantsTable).where(eq(poolParticipantsTable.poolId, poolId));
 
   if (refundedCount > 0) {

@@ -1,6 +1,7 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, predictionsTable, poolParticipantsTable, usersTable, poolsTable, winnersTable } from "@workspace/db";
 import { privacyDisplayName } from "../lib/privacy-name";
+import { countPoolTickets } from "./lucky-pool-ticket-service";
 import { grantReferralPointsWithExpiry } from "./points-ledger-service";
 import { PREDICTION_EXACT_FIRST_USDT } from "../lib/user-balances";
 import { creditUserWithdrawableUsdt } from "../lib/credit-withdrawable-balance";
@@ -33,11 +34,7 @@ export async function submitPrediction(opts: { userId: number; poolId: number; p
   const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, opts.poolId)).limit(1);
   if (!pool || pool.status !== "open") return { ok: false as const, error: "Pool not open" };
 
-  const [{ ct }] = await db
-    .select({ ct: sql<number>`count(*)::int` })
-    .from(poolParticipantsTable)
-    .where(eq(poolParticipantsTable.poolId, opts.poolId));
-  const n = Number(ct);
+  const n = await countPoolTickets(opts.poolId);
   if (!predictionOpen(n, pool.maxUsers)) return { ok: false as const, error: "Predictions open at 75% capacity" };
   if (predictionLocked(n, pool.maxUsers)) return { ok: false as const, error: "Pool is full — predictions locked" };
 
