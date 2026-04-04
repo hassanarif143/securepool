@@ -12,8 +12,8 @@ export interface User {
   email: string;
   walletBalance: number;
   bonusBalance?: number;
-  prizeBalance?: number;
-  cashBalance?: number;
+  /** Deposits, prizes, referral invite, streaks, prediction bonus — can withdraw and buy tickets */
+  withdrawableBalance?: number;
   isAdmin: boolean;
   joinedAt: Date;
   /** When false, user must verify email before tickets, deposits, withdrawals */

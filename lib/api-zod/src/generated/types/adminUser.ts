@@ -13,8 +13,7 @@ export interface AdminUser {
   email: string;
   walletBalance: number;
   bonusBalance?: number;
-  prizeBalance?: number;
-  cashBalance?: number;
+  withdrawableBalance?: number;
   totalSuccessfulReferrals?: number;
   referralMilestonesClaimed?: AdminUserReferralMilestonesClaimed;
   isAdmin: boolean;

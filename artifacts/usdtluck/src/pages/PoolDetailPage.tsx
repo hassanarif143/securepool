@@ -37,13 +37,13 @@ import { PredictionPicker } from "@/components/PredictionPicker";
 import { PoolVipBadge } from "@/components/PoolVipBadge";
 import { useCelebration } from "@/context/CelebrationContext";
 
-function streakCelebrationItem(milestone: "3" | "5" | "10", poolId: number) {
+function streakCelebrationItem(milestone: "3" | "5" | "10" | "20", poolId: number) {
   const dedupeKey = `streak-${milestone}-pool-${poolId}`;
   if (milestone === "3") {
     return {
       kind: "streak" as const,
       title: "🔥 3 draw streak!",
-      message: "+2 referral points added — they count toward free entries and rewards.",
+      message: "+1 USDT added to your withdrawable balance.",
       dedupeKey,
     };
   }
@@ -51,14 +51,22 @@ function streakCelebrationItem(milestone: "3" | "5" | "10", poolId: number) {
     return {
       kind: "streak" as const,
       title: "🔥 5 draw streak!",
-      message: "You earned 1 free pool entry. Use it on any open pool.",
+      message: "+3 USDT added to your withdrawable balance.",
+      dedupeKey,
+    };
+  }
+  if (milestone === "10") {
+    return {
+      kind: "streak" as const,
+      title: "🔥 10 draw streak!",
+      message: "+7 USDT added to your withdrawable balance.",
       dedupeKey,
     };
   }
   return {
     kind: "streak" as const,
-    title: "🔥 10 draw streak!",
-    message: "You earned 2 free pool entries. You're on fire!",
+    title: "🔥 20 draw streak!",
+    message: "+15 USDT added to your withdrawable balance.",
     dedupeKey,
   };
 }

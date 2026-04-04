@@ -1857,9 +1857,8 @@ function UsersTab() {
                   <div className="space-y-0.5">
                     <p className="font-bold text-primary text-base sm:text-lg tabular-nums">{u.walletBalance.toFixed(2)} total</p>
                     <p className="text-[10px] text-muted-foreground leading-tight">
-                      B {(u as { bonusBalance?: number }).bonusBalance?.toFixed?.(2) ?? "0.00"} · P{" "}
-                      {(u as { prizeBalance?: number }).prizeBalance?.toFixed?.(2) ?? "0.00"} · C{" "}
-                      {(u as { cashBalance?: number }).cashBalance?.toFixed?.(2) ?? "0.00"}
+                      Bonus {(u as { bonusBalance?: number }).bonusBalance?.toFixed?.(2) ?? "0.00"} · Withdrawable{" "}
+                      {(u as { withdrawableBalance?: number }).withdrawableBalance?.toFixed?.(2) ?? "0.00"}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
                       Refs: {(u as { totalSuccessfulReferrals?: number }).totalSuccessfulReferrals ?? "—"}
@@ -2037,12 +2036,11 @@ function UserProfileModal({ user, onClose }: { user: any; onClose: () => void })
 
         <div className="p-5 border-b grid grid-cols-2 gap-3">
           <div className="bg-muted/40 rounded-lg p-3 col-span-2">
-            <p className="text-xs text-muted-foreground">Balances (B=ticket bonus · P=withdrawable · C=cash)</p>
-            <p className="font-bold text-primary text-xl mt-1">{user.walletBalance.toFixed(2)} USDT total</p>
+            <p className="text-xs text-muted-foreground">Bonus = tickets only · Withdrawable = can cash out</p>
+            <p className="font-bold text-primary text-xl mt-1">{user.walletBalance.toFixed(2)} USDT total (for tickets)</p>
             <p className="text-xs text-muted-foreground mt-1 tabular-nums">
-              Bonus {(user as { bonusBalance?: number }).bonusBalance?.toFixed(2) ?? "0.00"} · Prize{" "}
-              {(user as { prizeBalance?: number }).prizeBalance?.toFixed(2) ?? "0.00"} · Cash{" "}
-              {(user as { cashBalance?: number }).cashBalance?.toFixed(2) ?? "0.00"}
+              Bonus {(user as { bonusBalance?: number }).bonusBalance?.toFixed(2) ?? "0.00"} · Withdrawable{" "}
+              {(user as { withdrawableBalance?: number }).withdrawableBalance?.toFixed(2) ?? "0.00"}
             </p>
             <p className="text-[10px] text-muted-foreground mt-1">
               Successful referrals: {(user as { totalSuccessfulReferrals?: number }).totalSuccessfulReferrals ?? "—"}

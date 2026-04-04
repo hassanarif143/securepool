@@ -176,7 +176,7 @@ export async function recordBonusFromPlatform(
   });
 }
 
-/** Credits prize_balance (withdrawable): referral rewards, etc. Does not increase totalBonus. */
+/** Credits withdrawable balance: referral invite, promos, etc. Does not increase totalBonus. */
 export async function recordWithdrawableCredit(
   trx: DbTx,
   opts: {

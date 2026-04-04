@@ -143,10 +143,9 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
         .limit(1);
 
       let bonusB = parseFloat(String(referrer.bonusBalance ?? "0"));
-      let prizeB = parseFloat(String(referrer.prizeBalance ?? "0"));
-      let cashB = parseFloat(String(referrer.cashBalance ?? "0"));
+      let wdB = parseFloat(String(referrer.withdrawableBalance ?? "0"));
 
-      prizeB += REFERRAL_INVITE_PRIZE_USDT;
+      wdB += REFERRAL_INVITE_PRIZE_USDT;
 
       const newTotalRefs = (referrer.totalSuccessfulReferrals ?? 0) + 1;
       const milestones = parseMilestonesClaimed(referrer.referralMilestonesClaimed);
@@ -161,15 +160,14 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
         }
       }
 
-      const walletStr = (bonusB + prizeB + cashB).toFixed(2);
+      const walletStr = (bonusB + wdB).toFixed(2);
       const walletNum = parseFloat(walletStr);
 
       await trx
         .update(usersTable)
         .set({
           bonusBalance: bonusB.toFixed(2),
-          prizeBalance: prizeB.toFixed(2),
-          cashBalance: cashB.toFixed(2),
+          withdrawableBalance: wdB.toFixed(2),
           walletBalance: walletStr,
           totalSuccessfulReferrals: newTotalRefs,
           referralMilestonesClaimed: milestonesToJson(milestones),

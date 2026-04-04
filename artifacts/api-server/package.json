@@ -13,7 +13,8 @@
     "reset-password": "node --enable-source-maps ./dist/reset-user-password.mjs",
     "fresh:start": "node --enable-source-maps ./dist/fresh-database-admin.mjs",
     "migrate:0011": "node ./scripts/run-migration-0011.mjs",
-    "migrate:0012": "node ./scripts/run-migration-0012.mjs"
+    "migrate:0012": "node ./scripts/run-migration-0012.mjs",
+    "migrate:0013": "node ./scripts/run-migration-0013.mjs"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",

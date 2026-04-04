@@ -2,6 +2,8 @@ import { and, eq, sql } from "drizzle-orm";
 import { db, predictionsTable, poolParticipantsTable, usersTable, poolsTable, winnersTable } from "@workspace/db";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { grantReferralPointsWithExpiry } from "./points-ledger-service";
+import { PREDICTION_EXACT_FIRST_USDT } from "../lib/user-balances";
+import { creditUserWithdrawableUsdt } from "../lib/credit-withdrawable-balance";
 
 export function predictionOpen(currentEntries: number, maxUsers: number): boolean {
   if (maxUsers <= 0) return false;
@@ -105,6 +107,19 @@ export async function settlePredictionsForPool(poolId: number): Promise<void> {
           `Prediction result — pool #${poolId}`,
         );
       }
+    }
+
+    if (firstId != null && p.predictedUserId === firstId) {
+      await db.transaction(async (trx) => {
+        await creditUserWithdrawableUsdt(trx, {
+          userId: p.userId,
+          amount: PREDICTION_EXACT_FIRST_USDT,
+          rewardNote: `[System] Exact 1st-place prediction — ${PREDICTION_EXACT_FIRST_USDT} USDT`,
+          ledgerDescription: `Lucky prediction — exact winner pick — pool #${poolId}`,
+          referenceType: "prediction",
+          referenceId: poolId,
+        });
+      });
     }
   }
 }

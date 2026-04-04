@@ -2,19 +2,16 @@ import type { User } from "@workspace/db";
 
 export type UserBuckets = {
   bonusBalance: number;
-  prizeBalance: number;
-  cashBalance: number;
+  withdrawableBalance: number;
 };
 
 export function parseUserBuckets(row: {
   bonusBalance?: string | null;
-  prizeBalance?: string | null;
-  cashBalance?: string | null;
+  withdrawableBalance?: string | null;
 }): UserBuckets {
   return {
     bonusBalance: parseFloat(String(row.bonusBalance ?? "0")),
-    prizeBalance: parseFloat(String(row.prizeBalance ?? "0")),
-    cashBalance: parseFloat(String(row.cashBalance ?? "0")),
+    withdrawableBalance: parseFloat(String(row.withdrawableBalance ?? "0")),
   };
 }
 
@@ -23,7 +20,7 @@ export function bucketsFromUser(user: User): UserBuckets {
 }
 
 export function totalWallet(b: UserBuckets): number {
-  return b.bonusBalance + b.prizeBalance + b.cashBalance;
+  return b.bonusBalance + b.withdrawableBalance;
 }
 
 export function formatUsdt2(n: number): string {
@@ -34,18 +31,16 @@ export function walletBalanceFromBuckets(b: UserBuckets): string {
   return formatUsdt2(totalWallet(b));
 }
 
-/** Deduct paid ticket amount: bonus → prize → cash. */
+/** Deduct paid ticket amount: bonus first, then withdrawable (real money last). */
 export function deductForTicket(
   b: UserBuckets,
   amount: number,
-): { next: UserBuckets; fromBonus: number; fromPrize: number; fromCash: number } {
+): { next: UserBuckets; fromBonus: number; fromWithdrawable: number } {
   let remaining = amount;
   const fromBonus = Math.min(remaining, b.bonusBalance);
   remaining -= fromBonus;
-  const fromPrize = Math.min(remaining, b.prizeBalance);
-  remaining -= fromPrize;
-  const fromCash = Math.min(remaining, b.cashBalance);
-  remaining -= fromCash;
+  const fromWithdrawable = Math.min(remaining, b.withdrawableBalance);
+  remaining -= fromWithdrawable;
   if (remaining > 0.0001) {
     const err = new Error("INSUFFICIENT_BUCKET_BALANCE");
     (err as { code?: string }).code = "INSUFFICIENT_BUCKET_BALANCE";
@@ -54,12 +49,10 @@ export function deductForTicket(
   return {
     next: {
       bonusBalance: b.bonusBalance - fromBonus,
-      prizeBalance: b.prizeBalance - fromPrize,
-      cashBalance: b.cashBalance - fromCash,
+      withdrawableBalance: b.withdrawableBalance - fromWithdrawable,
     },
     fromBonus,
-    fromPrize,
-    fromCash,
+    fromWithdrawable,
   };
 }
 
@@ -94,3 +87,14 @@ export function parseMilestonesClaimed(raw: unknown): Record<MilestoneKey, boole
 export function milestonesToJson(m: Record<MilestoneKey, boolean>): Record<string, boolean> {
   return { ...m };
 }
+
+/** Draw-streak USDT milestones (consecutive pool joins within gap window). */
+export const STREAK_USDT_REWARDS: Record<number, number> = {
+  3: 1,
+  5: 3,
+  10: 7,
+  20: 15,
+};
+
+/** Exact first-place prediction match bonus. */
+export const PREDICTION_EXACT_FIRST_USDT = 10;

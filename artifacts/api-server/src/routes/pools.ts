@@ -856,13 +856,12 @@ router.post("/:poolId/join", async (req, res) => {
       });
       return;
     }
-    const { next, fromBonus, fromPrize, fromCash } = deductForTicket(buckets, amountDue);
+    const { next, fromBonus, fromWithdrawable } = deductForTicket(buckets, amountDue);
     await db
       .update(usersTable)
       .set({
         bonusBalance: next.bonusBalance.toFixed(2),
-        prizeBalance: next.prizeBalance.toFixed(2),
-        cashBalance: next.cashBalance.toFixed(2),
+        withdrawableBalance: next.withdrawableBalance.toFixed(2),
         walletBalance: walletBalanceFromBuckets(next),
       })
       .where(eq(usersTable.id, sessionUserId));
@@ -873,8 +872,7 @@ router.post("/:poolId/join", async (req, res) => {
       ticketCount: 1,
       amountPaid: String(amountDue),
       paidFromBonus: String(fromBonus),
-      paidFromPrize: String(fromPrize),
-      paidFromCash: String(fromCash),
+      paidFromWithdrawable: String(fromWithdrawable),
     });
   }
 
@@ -885,8 +883,7 @@ router.post("/:poolId/join", async (req, res) => {
       ticketCount: 1,
       amountPaid: "0",
       paidFromBonus: "0",
-      paidFromPrize: "0",
-      paidFromCash: "0",
+      paidFromWithdrawable: "0",
     });
   }
 
@@ -1056,9 +1053,8 @@ async function executePoolDistribution(poolId: number) {
       }
 
       const bonusB = parseFloat(String(user.bonusBalance ?? "0"));
-      const prizeB = parseFloat(String(user.prizeBalance ?? "0")) + prize;
-      const cashB = parseFloat(String(user.cashBalance ?? "0"));
-      const newBalance = bonusB + prizeB + cashB;
+      const wdB = parseFloat(String(user.withdrawableBalance ?? "0")) + prize;
+      const newBalance = bonusB + wdB;
       const prevWins = user.totalWins ?? 0;
       const nextWins = prevWins + 1;
       const isFirstWinEver = prevWins === 0;
@@ -1066,8 +1062,7 @@ async function executePoolDistribution(poolId: number) {
         .update(usersTable)
         .set({
           bonusBalance: bonusB.toFixed(2),
-          prizeBalance: prizeB.toFixed(2),
-          cashBalance: cashB.toFixed(2),
+          withdrawableBalance: wdB.toFixed(2),
           walletBalance: newBalance.toFixed(2),
           totalWins: nextWins,
           firstWinAt: isFirstWinEver ? new Date() : user.firstWinAt,

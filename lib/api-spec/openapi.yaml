@@ -780,10 +780,9 @@ components:
           type: number
         bonusBalance:
           type: number
-        prizeBalance:
+        withdrawableBalance:
           type: number
-        cashBalance:
-          type: number
+          description: Deposits, prizes, referral invite, streaks, prediction bonus — can withdraw and buy tickets
         isAdmin:
           type: boolean
         joinedAt:
@@ -807,9 +806,7 @@ components:
           type: number
         bonusBalance:
           type: number
-        prizeBalance:
-          type: number
-        cashBalance:
+        withdrawableBalance:
           type: number
         totalSuccessfulReferrals:
           type: integer

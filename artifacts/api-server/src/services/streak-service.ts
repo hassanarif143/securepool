@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 import { notifyUser } from "../lib/notify";
 import { logActivity } from "./activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
-import { grantReferralPointsWithExpiry } from "./points-ledger-service";
+import { STREAK_USDT_REWARDS } from "../lib/user-balances";
+import { creditUserWithdrawableUsdt } from "../lib/credit-withdrawable-balance";
 
 const STREAK_GAP_DAYS = 7;
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -12,7 +13,7 @@ export type StreakUpdateResult = {
   currentStreak: number;
   longestStreak: number;
   lostPreviousStreak: number;
-  milestone?: "3" | "5" | "10";
+  milestone?: "3" | "5" | "10" | "20";
 };
 
 /**
@@ -64,45 +65,33 @@ export async function applyStreakOnPoolJoin(userId: number, joinerDisplayName: s
 
   const who = privacyDisplayName(joinerDisplayName);
 
-  if (nextStreak === 3) {
-    milestone = "3";
-    const [ux] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-    if (ux) {
-      await db
-        .update(usersTable)
-        .set({ referralPoints: (ux.referralPoints ?? 0) + 2 })
-        .where(eq(usersTable.id, userId));
-    }
-    await grantReferralPointsWithExpiry(userId, 2, "streak_bonus", "3-pool streak bonus");
-    await logActivity({
-      type: "loyalty_bonus",
-      message: `${who} hit a 3-pool streak — +2 referral points.`,
-      userId,
+  const usdt = STREAK_USDT_REWARDS[nextStreak];
+  if (usdt != null && usdt > 0) {
+    if (nextStreak === 3) milestone = "3";
+    else if (nextStreak === 5) milestone = "5";
+    else if (nextStreak === 10) milestone = "10";
+    else if (nextStreak === 20) milestone = "20";
+
+    await db.transaction(async (trx) => {
+      await creditUserWithdrawableUsdt(trx, {
+        userId,
+        amount: usdt,
+        rewardNote: `[System] ${nextStreak}-draw streak bonus — ${usdt} USDT`,
+        ledgerDescription: `Streak milestone — ${nextStreak} consecutive draws — ${usdt} USDT`,
+        referenceType: "streak",
+        referenceId: null,
+      });
     });
-    void notifyUser(userId, "Streak milestone", "3-pool streak! +2 referral points added.", "success");
-  } else if (nextStreak === 5) {
-    milestone = "5";
-    const fe = (u.freeEntries ?? 0) + 1;
-    await db.update(usersTable).set({ freeEntries: fe }).where(eq(usersTable.id, userId));
+
     await logActivity({
       type: "loyalty_bonus",
-      message: `${who} hit a 5-pool streak — free pool entry granted.`,
-      userId,
-    });
-    void notifyUser(userId, "Streak milestone", "5-pool streak! You earned 1 free pool entry.", "success");
-  } else if (nextStreak === 10) {
-    milestone = "10";
-    const fe = (u.freeEntries ?? 0) + 2;
-    await db.update(usersTable).set({ freeEntries: fe }).where(eq(usersTable.id, userId));
-    await logActivity({
-      type: "loyalty_bonus",
-      message: `${who} hit a 10-pool streak — On Fire! 2 free entries.`,
+      message: `${who} hit a ${nextStreak}-pool streak — +${usdt} USDT withdrawable.`,
       userId,
     });
     void notifyUser(
       userId,
-      "On Fire! 🔥",
-      "10-pool streak! 2 free pool entries added. You're on fire!",
+      "Streak milestone",
+      `${nextStreak}-pool streak! ${usdt} USDT added to your withdrawable balance.`,
       "success",
     );
   }

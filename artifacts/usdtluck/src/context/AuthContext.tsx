@@ -18,8 +18,7 @@ interface UserType {
   city?: string | null;
   walletBalance: number;
   bonusBalance?: number;
-  prizeBalance?: number;
-  cashBalance?: number;
+  withdrawableBalance?: number;
   cryptoAddress: string | null;
   isAdmin: boolean;
   joinedAt: string;
@@ -71,8 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser({
       ...d,
       bonusBalance: d.bonusBalance ?? 0,
-      prizeBalance: d.prizeBalance ?? 0,
-      cashBalance: d.cashBalance ?? 0,
+      withdrawableBalance: d.withdrawableBalance ?? 0,
       emailVerified: d.emailVerified !== false,
     });
   }, [data, isError, error]);

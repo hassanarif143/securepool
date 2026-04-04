@@ -42,8 +42,12 @@ export const LoginResponse = zod.object({
     email: zod.string(),
     walletBalance: zod.number(),
     bonusBalance: zod.number().optional(),
-    prizeBalance: zod.number().optional(),
-    cashBalance: zod.number().optional(),
+    withdrawableBalance: zod
+      .number()
+      .optional()
+      .describe(
+        "Deposits, prizes, referral invite, streaks, prediction bonus — can withdraw and buy tickets",
+      ),
     isAdmin: zod.boolean(),
     joinedAt: zod.coerce.date(),
     emailVerified: zod
@@ -72,8 +76,12 @@ export const GetMeResponse = zod.object({
   email: zod.string(),
   walletBalance: zod.number(),
   bonusBalance: zod.number().optional(),
-  prizeBalance: zod.number().optional(),
-  cashBalance: zod.number().optional(),
+  withdrawableBalance: zod
+    .number()
+    .optional()
+    .describe(
+      "Deposits, prizes, referral invite, streaks, prediction bonus — can withdraw and buy tickets",
+    ),
   isAdmin: zod.boolean(),
   joinedAt: zod.coerce.date(),
   emailVerified: zod
@@ -170,8 +178,12 @@ export const GetUserResponse = zod.object({
   email: zod.string(),
   walletBalance: zod.number(),
   bonusBalance: zod.number().optional(),
-  prizeBalance: zod.number().optional(),
-  cashBalance: zod.number().optional(),
+  withdrawableBalance: zod
+    .number()
+    .optional()
+    .describe(
+      "Deposits, prizes, referral invite, streaks, prediction bonus — can withdraw and buy tickets",
+    ),
   isAdmin: zod.boolean(),
   joinedAt: zod.coerce.date(),
   emailVerified: zod
@@ -199,8 +211,12 @@ export const UpdateUserResponse = zod.object({
   email: zod.string(),
   walletBalance: zod.number(),
   bonusBalance: zod.number().optional(),
-  prizeBalance: zod.number().optional(),
-  cashBalance: zod.number().optional(),
+  withdrawableBalance: zod
+    .number()
+    .optional()
+    .describe(
+      "Deposits, prizes, referral invite, streaks, prediction bonus — can withdraw and buy tickets",
+    ),
   isAdmin: zod.boolean(),
   joinedAt: zod.coerce.date(),
   emailVerified: zod
@@ -503,8 +519,7 @@ export const ListAdminUsersResponseItem = zod.object({
   email: zod.string(),
   walletBalance: zod.number(),
   bonusBalance: zod.number().optional(),
-  prizeBalance: zod.number().optional(),
-  cashBalance: zod.number().optional(),
+  withdrawableBalance: zod.number().optional(),
   totalSuccessfulReferrals: zod.number().optional(),
   referralMilestonesClaimed: zod.record(zod.string(), zod.unknown()).optional(),
   isAdmin: zod.boolean(),

@@ -66,22 +66,19 @@ export async function refundAllPoolParticipants(
       const refundAmt = paidAmount > 0 ? paidAmount : parseFloat(pool.entryFee);
       const buckets = parseUserBuckets(user);
       const fb = parseFloat(String(p.paidFromBonus ?? "0"));
-      const fp = parseFloat(String(p.paidFromPrize ?? "0"));
-      const fc = parseFloat(String(p.paidFromCash ?? "0"));
-      const hasSplit = fb > 0 || fp > 0 || fc > 0;
-      if (hasSplit && Math.abs(fb + fp + fc - refundAmt) < 0.02) {
+      const fw = parseFloat(String(p.paidFromWithdrawable ?? "0"));
+      const hasSplit = fb > 0 || fw > 0;
+      if (hasSplit && Math.abs(fb + fw - refundAmt) < 0.02) {
         buckets.bonusBalance += fb;
-        buckets.prizeBalance += fp;
-        buckets.cashBalance += fc;
+        buckets.withdrawableBalance += fw;
       } else {
-        buckets.cashBalance += refundAmt;
+        buckets.withdrawableBalance += refundAmt;
       }
       await db
         .update(usersTable)
         .set({
           bonusBalance: buckets.bonusBalance.toFixed(2),
-          prizeBalance: buckets.prizeBalance.toFixed(2),
-          cashBalance: buckets.cashBalance.toFixed(2),
+          withdrawableBalance: buckets.withdrawableBalance.toFixed(2),
           walletBalance: walletBalanceFromBuckets(buckets),
         })
         .where(eq(usersTable.id, p.userId));

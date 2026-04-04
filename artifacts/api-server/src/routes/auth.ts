@@ -180,8 +180,7 @@ router.post("/signup", signupLimiter, async (req, res) => {
       passwordHash,
       walletBalance: "0",
       bonusBalance: "0",
-      prizeBalance: "0",
-      cashBalance: "0",
+      withdrawableBalance: "0",
       emailVerified: false,
       referredBy: referrer?.id ?? undefined,
     })
@@ -214,8 +213,7 @@ router.post("/signup", signupLimiter, async (req, res) => {
       email: user.email,
       walletBalance: parseFloat(user.walletBalance),
       bonusBalance: parseFloat(String(user.bonusBalance ?? "0")),
-      prizeBalance: parseFloat(String(user.prizeBalance ?? "0")),
-      cashBalance: parseFloat(String(user.cashBalance ?? "0")),
+      withdrawableBalance: parseFloat(String(user.withdrawableBalance ?? "0")),
       cryptoAddress: user.cryptoAddress ?? null,
       isAdmin: user.isAdmin,
       joinedAt: user.joinedAt,
@@ -255,8 +253,7 @@ router.post("/login", loginLimiter, async (req, res) => {
       `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at,
               COALESCE(is_demo, false) AS is_demo,
               COALESCE(bonus_balance, 0) AS bonus_balance,
-              COALESCE(prize_balance, 0) AS prize_balance,
-              COALESCE(cash_balance, 0) AS cash_balance,
+              COALESCE(withdrawable_balance, 0) AS withdrawable_balance,
               COALESCE(email_verified, true) AS email_verified
        FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
       [email],
@@ -273,8 +270,7 @@ router.post("/login", loginLimiter, async (req, res) => {
     rows = (r.rows as any[]).map((row) => ({
       ...row,
       bonus_balance: 0,
-      prize_balance: row.wallet_balance,
-      cash_balance: 0,
+      withdrawable_balance: row.wallet_balance,
     }));
   }
   if (!rows[0]) {
@@ -293,8 +289,7 @@ router.post("/login", loginLimiter, async (req, res) => {
     joined_at: string | Date;
     is_demo?: boolean;
     bonus_balance?: string | number;
-    prize_balance?: string | number;
-    cash_balance?: string | number;
+    withdrawable_balance?: string | number;
     email_verified?: boolean;
   };
 
@@ -348,8 +343,7 @@ router.post("/login", loginLimiter, async (req, res) => {
       email: user.email,
       walletBalance: parseFloat(String(user.wallet_balance)),
       bonusBalance: parseFloat(String(user.bonus_balance ?? "0")),
-      prizeBalance: parseFloat(String(user.prize_balance ?? "0")),
-      cashBalance: parseFloat(String(user.cash_balance ?? "0")),
+      withdrawableBalance: parseFloat(String(user.withdrawable_balance ?? "0")),
       cryptoAddress: user.crypto_address ?? null,
       isAdmin: user.is_admin,
       joinedAt: user.joined_at,
@@ -482,8 +476,7 @@ router.get("/me", async (req, res) => {
     const r = await dbPool.query(
       `SELECT id, name, email, wallet_balance, crypto_address, is_admin, joined_at,
               COALESCE(bonus_balance, 0) AS bonus_balance,
-              COALESCE(prize_balance, 0) AS prize_balance,
-              COALESCE(cash_balance, 0) AS cash_balance,
+              COALESCE(withdrawable_balance, 0) AS withdrawable_balance,
               COALESCE(tier, 'aurora') AS tier, COALESCE(tier_points, 0) AS tier_points,
               COALESCE(pool_vip_tier, 'bronze') AS pool_vip_tier,
               COALESCE(total_wins, 0)::int AS total_wins,
@@ -503,8 +496,7 @@ router.get("/me", async (req, res) => {
     rows = (r.rows as Array<Record<string, unknown>>).map((row) => ({
       ...row,
       bonus_balance: 0,
-      prize_balance: row.wallet_balance,
-      cash_balance: 0,
+      withdrawable_balance: row.wallet_balance,
       tier: "aurora",
       tier_points: 0,
       pool_vip_tier: "bronze",
@@ -545,8 +537,7 @@ router.get("/me", async (req, res) => {
     email: user.email,
     walletBalance: parseFloat(String(user.wallet_balance)),
     bonusBalance: parseFloat(String((user as { bonus_balance?: unknown }).bonus_balance ?? "0")),
-    prizeBalance: parseFloat(String((user as { prize_balance?: unknown }).prize_balance ?? "0")),
-    cashBalance: parseFloat(String((user as { cash_balance?: unknown }).cash_balance ?? "0")),
+    withdrawableBalance: parseFloat(String((user as { withdrawable_balance?: unknown }).withdrawable_balance ?? "0")),
     cryptoAddress: user.crypto_address ?? null,
     isAdmin: user.is_admin,
     joinedAt: user.joined_at,

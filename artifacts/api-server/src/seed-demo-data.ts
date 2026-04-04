@@ -113,9 +113,8 @@ async function main() {
         isDemo: true,
         emailVerified: true,
         walletBalance: bal,
-        prizeBalance: bal,
+        withdrawableBalance: bal,
         bonusBalance: "0",
-        cashBalance: "0",
         joinedAt,
       })
       .returning({ id: usersTable.id });

@@ -9,12 +9,10 @@ export const usersTable = pgTable("users", {
   phone: text("phone").unique(),
   passwordHash: text("password_hash").notNull(),
   walletBalance: numeric("wallet_balance", { precision: 18, scale: 2 }).notNull().default("0"),
-  /** Non-withdrawable; ticket purchases only (first deposit + referral tier milestones). */
+  /** Non-withdrawable; ticket purchases only (first deposit + referral count milestones). */
   bonusBalance: numeric("bonus_balance", { precision: 18, scale: 2 }).notNull().default("0"),
-  /** Withdrawable (referral per-invite + draw wins) and usable for tickets. */
-  prizeBalance: numeric("prize_balance", { precision: 18, scale: 2 }).notNull().default("0"),
-  /** Approved deposits; usable for tickets, not withdrawable under current rules. */
-  cashBalance: numeric("cash_balance", { precision: 18, scale: 2 }).notNull().default("0"),
+  /** Deposits, draw wins, referral per-invite, streak USDT, prediction match, activity-tier ticket credit — withdrawable & usable for tickets. */
+  withdrawableBalance: numeric("withdrawable_balance", { precision: 18, scale: 2 }).notNull().default("0"),
   firstDepositClaimed: boolean("first_deposit_claimed").notNull().default(false),
   referralMilestonesClaimed: jsonb("referral_milestones_claimed")
     .$type<Record<string, boolean>>()
@@ -56,8 +54,7 @@ export const insertUserSchema = createInsertSchema(usersTable).omit({
   isAdmin: true,
   walletBalance: true,
   bonusBalance: true,
-  prizeBalance: true,
-  cashBalance: true,
+  withdrawableBalance: true,
   firstDepositClaimed: true,
   referralMilestonesClaimed: true,
   totalSuccessfulReferrals: true,

@@ -14,6 +14,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, Inbox, Shield } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const PLATFORM_ADDRESS = "TQn9Y2khEsLJW1ChVWFMSMeRDow5kBDaVR";
 const NETWORK = "TRC-20 (Tron)";
@@ -41,6 +50,25 @@ function txMeta(type: string) {
   return TX_META[type] ?? { icon: "—", label: type.replace(/_/g, " "), sign: "", color: "#64748b", isCredit: false };
 }
 
+function BlockchainFeeWarningBox() {
+  return (
+    <div
+      className="rounded-xl border border-amber-400/45 bg-gradient-to-br from-amber-500/[0.14] to-amber-950/[0.35] px-4 py-3.5 text-left shadow-md shadow-amber-900/20"
+      role="status"
+    >
+      <p className="text-[11px] font-bold uppercase tracking-widest text-amber-200/95">Blockchain network fee</p>
+      <p className="mt-2 text-sm text-amber-50/90 leading-relaxed">
+        When you receive USDT, the blockchain network charges approximately <span className="font-semibold text-amber-100">1 USDT</span>{" "}
+        as a transaction fee. This is a standard crypto fee and is <span className="font-semibold text-amber-100">not</span> charged by
+        SecurePool.
+      </p>
+      <p className="mt-2.5 text-sm font-medium text-amber-200/95 leading-snug">
+        Example: You withdraw 10 USDT → You receive approximately 9 USDT after the network fee.
+      </p>
+    </div>
+  );
+}
+
 const box =
   "rounded-2xl border border-[hsl(217,28%,18%)] bg-[hsl(222,30%,9%)] shadow-xl shadow-black/25 ring-1 ring-white/[0.03]";
 const headerBar = "px-5 py-3 border-b border-[hsl(217,28%,16%)]";
@@ -62,6 +90,7 @@ export default function WalletPage() {
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [depositLoading, setDepositLoading] = useState(false);
   const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [withdrawConfirmOpen, setWithdrawConfirmOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -104,8 +133,7 @@ export default function WalletPage() {
   const currentUser = user;
   const needsEmailVerify = currentUser.emailVerified === false;
   const bonusBal = currentUser.bonusBalance ?? 0;
-  const prizeBal = currentUser.prizeBalance ?? 0;
-  const cashBal = currentUser.cashBalance ?? 0;
+  const withdrawableBal = currentUser.withdrawableBalance ?? 0;
 
   const txArr = transactions as any[];
   const pendingDeposit = txArr.find((t) => t.txType === "deposit" && t.status === "pending");
@@ -158,28 +186,51 @@ export default function WalletPage() {
     }
   }
 
-  async function handleWithdraw(e: React.FormEvent) {
+  function openWithdrawConfirm(e: React.FormEvent) {
     e.preventDefault();
     const val = parseFloat(amount);
-    if (!val || val <= 0) { toast({ title: "Invalid amount", variant: "destructive" }); return; }
-    if (!withdrawWallet) { toast({ title: "Wallet address required", variant: "destructive" }); return; }
+    if (!val || val <= 0) {
+      toast({ title: "Invalid amount", variant: "destructive" });
+      return;
+    }
+    if (!withdrawWallet) {
+      toast({ title: "Wallet address required", variant: "destructive" });
+      return;
+    }
+    if (val > withdrawableBal + 1e-6) {
+      toast({
+        title: "Amount too high",
+        description: `You can withdraw up to ${withdrawableBal.toFixed(2)} USDT from your withdrawable balance.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setWithdrawConfirmOpen(true);
+  }
+
+  async function confirmWithdraw() {
+    const val = parseFloat(amount);
+    if (!val || val <= 0) return;
 
     setWithdrawLoading(true);
     try {
       const res = await fetch(apiUrl("/api/transactions/withdraw"), {
-        method: "POST", credentials: "include",
+        method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: val, walletAddress: withdrawWallet, note }),
       });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
 
-      const p0 = currentUser.prizeBalance ?? 0;
+      const w0 = currentUser.withdrawableBalance ?? 0;
       setUser({
         ...currentUser,
         walletBalance: currentUser.walletBalance - val,
-        prizeBalance: Math.max(0, p0 - val),
+        withdrawableBalance: Math.max(0, w0 - val),
       });
-      setAmount(""); setNote("");
+      setAmount("");
+      setNote("");
+      setWithdrawConfirmOpen(false);
       queryClient.invalidateQueries({ queryKey: getGetUserTransactionsQueryKey(currentUser.id) });
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       toast({ title: "Withdrawal submitted", description: "Your request is pending admin review." });
@@ -219,28 +270,52 @@ export default function WalletPage() {
             Reviewed deposits
           </span>
         </div>
-        <div className="px-5 py-6 sm:px-7 sm:py-7">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Total available (tickets)</p>
-          <div className="mt-1 flex flex-wrap items-baseline gap-2">
-            <span className="font-display text-5xl font-black tabular-nums tracking-tight sm:text-[3.25rem]" style={{ color: "hsl(152,72%,55%)" }}>
-              {user.walletBalance.toFixed(2)}
-            </span>
-            <span className="text-xl font-bold text-muted-foreground">USDT</span>
+        <div className="px-5 py-6 sm:px-7 sm:py-7 space-y-5">
+          <div className="rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-b from-emerald-500/[0.14] to-[hsl(222,28%,10%)] px-5 py-5 shadow-lg shadow-emerald-950/40">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-200/90">Withdrawable balance</p>
+                <div className="mt-1 flex flex-wrap items-baseline gap-2">
+                  <span className="font-display text-4xl font-black tabular-nums tracking-tight text-emerald-300 sm:text-[2.85rem]">
+                    {withdrawableBal.toFixed(2)}
+                  </span>
+                  <span className="text-lg font-bold text-emerald-200/85">USDT</span>
+                </div>
+                <p className="mt-2 text-xs text-emerald-100/75 leading-relaxed max-w-md">
+                  Real balance — withdraw or buy tickets. Includes deposits, draw prizes, referrals, streak rewards, and more.
+                </p>
+              </div>
+              {!needsEmailVerify &&
+                (withdrawableBal <= 0 ? (
+                  <Button type="button" disabled className="min-h-12 shrink-0 font-semibold opacity-50">
+                    Withdraw
+                  </Button>
+                ) : (
+                  <Button className="min-h-12 shrink-0 font-semibold shadow-md shadow-emerald-500/25" asChild>
+                    <Link href="/wallet?tab=withdraw">Withdraw</Link>
+                  </Button>
+                ))}
+            </div>
           </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-[hsl(217,28%,18%)] bg-[hsl(222,28%,11%)] px-4 py-3.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">🎁 Bonus balance</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-amber-200/95">{bonusBal.toFixed(2)} USDT</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Use for tickets only — not withdrawable</p>
+
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground text-center">
+              Total for tickets (bonus + withdrawable)
+            </p>
+            <div className="mt-1 flex flex-wrap items-baseline justify-center gap-2">
+              <span className="font-display text-3xl font-black tabular-nums text-[hsl(152,72%,55%)]">
+                {user.walletBalance.toFixed(2)}
+              </span>
+              <span className="text-lg font-bold text-muted-foreground">USDT</span>
             </div>
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300/90">💰 Withdrawable balance</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-400">{prizeBal.toFixed(2)} USDT</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                Referrals + draw wins{prizeBal <= 0 ? " — win a draw or earn referrals to withdraw" : ""}
-                {cashBal > 0 ? ` · Cash (deposits): ${cashBal.toFixed(2)} USDT — tickets only` : ""}
-              </p>
-            </div>
+          </div>
+
+          <div className="rounded-xl border border-dashed border-amber-500/45 bg-amber-500/[0.07] px-4 py-4 ring-1 ring-amber-500/15">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-amber-200/90">Bonus balance</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-amber-200/95">{bonusBal.toFixed(2)} USDT</p>
+            <p className="text-[10px] text-amber-100/70 mt-1 leading-relaxed">
+              Can be used to buy tickets only — first-deposit bonus &amp; referral milestone rewards. Not withdrawable.
+            </p>
           </div>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             {needsEmailVerify ? (
@@ -499,12 +574,14 @@ export default function WalletPage() {
               </div>
             )}
 
+            <BlockchainFeeWarningBox />
+
             {/* Info box */}
             <div className="p-4 rounded-lg border border-[hsl(217,28%,20%)]" style={{ background: "hsl(217,28%,10%)" }}>
               <p className="text-xs font-semibold text-muted-foreground mb-1">How withdrawals work</p>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                You can only withdraw from your <span className="font-semibold text-foreground">withdrawable balance</span> (referral rewards and draw prizes).
-                Deposit funds and ticket-only bonuses cannot be cashed out here.
+                You can only withdraw from your <span className="font-semibold text-foreground">withdrawable balance</span>.{" "}
+                <span className="font-semibold text-foreground">Bonus balance</span> is for tickets only and cannot be cashed out.
               </p>
               {user.cryptoAddress && (
                 <div className="mt-2 pt-2 border-t border-[hsl(217,28%,18%)]">
@@ -514,7 +591,7 @@ export default function WalletPage() {
               )}
             </div>
 
-            <form onSubmit={handleWithdraw} className="space-y-4">
+            <form onSubmit={openWithdrawConfirm} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="withdraw-amount" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Amount (USDT)
@@ -524,14 +601,14 @@ export default function WalletPage() {
                   type="number"
                   min="1"
                   step="0.01"
-                  max={prizeBal}
+                  max={withdrawableBal}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder={prizeBal > 0 ? `Max: ${prizeBal.toFixed(2)}` : "No withdrawable balance"}
+                  placeholder={withdrawableBal > 0 ? `Max: ${withdrawableBal.toFixed(2)}` : "No withdrawable balance"}
                   required
                   className="border-border/90 bg-muted/25 font-semibold tabular-nums"
                 />
-                <p className="text-[10px] text-muted-foreground">Withdrawable: {prizeBal.toFixed(2)} USDT</p>
+                <p className="text-[10px] text-muted-foreground">Withdrawable: {withdrawableBal.toFixed(2)} USDT</p>
               </div>
 
               <div className="space-y-2">
@@ -562,15 +639,53 @@ export default function WalletPage() {
                 />
               </div>
 
+              <p className="text-center text-[11px] leading-snug text-amber-200/85 px-0.5">
+                Note: ~1 USDT network fee applies on all withdrawals (charged by blockchain, not SecurePool).
+              </p>
+
               <Button
                 type="submit"
                 variant="secondary"
-                disabled={withdrawLoading || prizeBal <= 0}
+                disabled={withdrawLoading || withdrawableBal <= 0}
                 className="min-h-12 w-full border border-border font-semibold transition-transform duration-200 active:scale-[0.99] disabled:opacity-40"
               >
-                {withdrawLoading ? "Submitting…" : prizeBal <= 0 ? "Win a draw to withdraw" : "Request withdrawal"}
+                {withdrawLoading ? "Submitting…" : withdrawableBal <= 0 ? "No withdrawable balance" : "Review withdrawal"}
               </Button>
             </form>
+
+            <AlertDialog open={withdrawConfirmOpen} onOpenChange={setWithdrawConfirmOpen}>
+              <AlertDialogContent className="border-amber-500/25 bg-[hsl(222,30%,10%)] max-w-md">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-foreground">Confirm withdrawal</AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-4 text-left text-muted-foreground">
+                      <p>
+                        Send{" "}
+                        <span className="font-semibold text-foreground tabular-nums">
+                          {parseFloat(amount || "0").toFixed(2)} USDT
+                        </span>{" "}
+                        to your TRC-20 address (first characters:{" "}
+                        <span className="font-mono text-foreground">{withdrawWallet.slice(0, 8)}…</span>).
+                      </p>
+                      <BlockchainFeeWarningBox />
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+                  <AlertDialogCancel disabled={withdrawLoading} className="mt-0">
+                    Cancel
+                  </AlertDialogCancel>
+                  <Button
+                    type="button"
+                    disabled={withdrawLoading}
+                    onClick={() => void confirmWithdraw()}
+                    className="min-h-10 bg-emerald-600 text-white hover:bg-emerald-500"
+                  >
+                    {withdrawLoading ? "Submitting…" : "Confirm withdrawal"}
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         )}
 

@@ -276,6 +276,6 @@ export async function verifyOtpCode(userId: number, rawCode: string): Promise<Ot
       .where(eq(otpRateLimitsTable.userId, userId));
   });
 
-  await logOtpEvent(userId, "verify_success", null);
+  await logOtpEvent(userId, "verify_success", undefined);
   return { ok: true };
 }
