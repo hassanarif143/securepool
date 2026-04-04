@@ -29,6 +29,13 @@ export const usersTable = pgTable("users", {
   blockedAt: timestamp("blocked_at", { withTimezone: true }),
   blockedReason: text("blocked_reason"),
   joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  /** Last pool (draw) the user participated in; optional streak / analytics hook. */
+  lastParticipatedPoolId: integer("last_participated_pool_id"),
+  streakMilestonesClaimed: jsonb("streak_milestones_claimed")
+    .$type<Record<string, boolean>>()
+    .notNull()
+    .default({ "3": false, "5": false, "10": false, "20": false }),
   isDemo: boolean("is_demo").notNull().default(false),
   referralPoints: integer("referral_points").notNull().default(0),
   freeEntries: integer("free_entries").notNull().default(0),
@@ -51,6 +58,9 @@ export const usersTable = pgTable("users", {
 export const insertUserSchema = createInsertSchema(usersTable).omit({
   id: true,
   joinedAt: true,
+  updatedAt: true,
+  lastParticipatedPoolId: true,
+  streakMilestonesClaimed: true,
   isAdmin: true,
   walletBalance: true,
   bonusBalance: true,

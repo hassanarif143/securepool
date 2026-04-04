@@ -206,6 +206,15 @@ router.post("/signup", signupLimiter, async (req, res) => {
   req.session.userId = user.id;
   trySetJwtCookie(res, user.id, user.isAdmin);
 
+  const otpResult = await issueOtpEmail(user.id, { skipMinInterval: true });
+  if (!otpResult.ok) {
+    logger.warn({ userId: user.id, otpResult }, "Initial OTP email not sent after signup");
+  }
+
+  const defaultOkMessage = referrer
+    ? "Account created! Verify your email, then your referrer earns 2 USDT when you buy your first ticket."
+    : "Account created. We sent a verification code to your email.";
+
   res.status(201).json({
     user: {
       id: user.id,
@@ -219,14 +228,10 @@ router.post("/signup", signupLimiter, async (req, res) => {
       joinedAt: user.joinedAt,
       emailVerified: false,
     },
-    message: referrer
-      ? "Account created! Verify your email, then your referrer earns 2 USDT when you buy your first ticket."
-      : "Account created. We sent a verification code to your email.",
+    message: otpResult.ok ? defaultOkMessage : otpResult.message,
     referralBonus: 0,
-  });
-
-  void issueOtpEmail(user.id, { skipMinInterval: true }).then((r) => {
-    if (!r.ok) logger.warn({ userId: user.id, r }, "Initial OTP email not sent");
+    verificationEmailSent: otpResult.ok,
+    ...(otpResult.ok ? {} : { verificationEmailError: otpResult.code }),
   });
 
   void notifyUser(
@@ -390,7 +395,9 @@ router.post("/send-otp", async (req, res) => {
         ? 429
         : result.code === "ALREADY_VERIFIED"
           ? 400
-          : 400;
+          : result.code === "SMTP_NOT_CONFIGURED" || result.code === "EMAIL_SEND_FAILED"
+            ? 503
+            : 400;
     res.status(status).json({
       error: result.code,
       message: result.message,
@@ -414,7 +421,9 @@ router.post("/resend-otp", async (req, res) => {
         ? 429
         : result.code === "ALREADY_VERIFIED"
           ? 400
-          : 400;
+          : result.code === "SMTP_NOT_CONFIGURED" || result.code === "EMAIL_SEND_FAILED"
+            ? 503
+            : 400;
     res.status(status).json({
       error: result.code,
       message: result.message,

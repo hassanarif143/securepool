@@ -14,7 +14,9 @@
     "fresh:start": "node --enable-source-maps ./dist/fresh-database-admin.mjs",
     "migrate:0011": "node ./scripts/run-migration-0011.mjs",
     "migrate:0012": "node ./scripts/run-migration-0012.mjs",
-    "migrate:0013": "node ./scripts/run-migration-0013.mjs"
+    "migrate:0013": "node ./scripts/run-migration-0013.mjs",
+    "cleanup:fresh-testing": "node ./scripts/run-fresh-testing-cleanup.mjs",
+    "migrate:sql": "node ./scripts/run-pending-migrations.mjs"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
@@ -33,6 +35,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.4",
+    "pg": "^8.20.0",
     "pino": "^9",
     "pino-http": "^10",
     "zod": "catalog:"

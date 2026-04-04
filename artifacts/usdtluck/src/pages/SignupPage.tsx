@@ -131,11 +131,17 @@ export default function SignupPage() {
       }
       setUser((data as any).user as any);
       const bonus = (data as any).referralBonus;
+      const emailSent = (data as any).verificationEmailSent !== false;
+      const serverMessage = typeof (data as any).message === "string" ? (data as any).message : null;
       toast({
-        title: "Account created!",
-        description: bonus
-          ? `Welcome to SecurePool! You received a ${bonus} USDT welcome bonus!`
-          : "Check your email for a 6-digit verification code.",
+        title: emailSent ? "Account created!" : "Account created — email not sent",
+        description: emailSent
+          ? bonus
+            ? `Welcome to SecurePool! You received a ${bonus} USDT welcome bonus!`
+            : serverMessage ?? "Check your email for a 6-digit verification code."
+          : serverMessage ??
+            "Verification email could not be sent. Set SMTP_USER / SMTP_PASS on the API server, then use Resend on the verify page.",
+        variant: emailSent ? "default" : "destructive",
       });
       navigate("/verify-email");
     } catch (err: any) {

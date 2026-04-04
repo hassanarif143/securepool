@@ -8,7 +8,7 @@ import {
   otpRateLimitsTable,
   otpEventLogsTable,
 } from "@workspace/db";
-import { sendOtpVerificationEmail } from "../lib/email";
+import { isSmtpConfigured, sendOtpVerificationEmail } from "../lib/email";
 import { logger } from "../lib/logger";
 
 const OTP_TTL_MS = 10 * 60 * 1000;
@@ -91,6 +91,16 @@ export async function issueOtpEmail(
   }
   if (user.emailVerified) {
     return { ok: false, code: "ALREADY_VERIFIED", message: "Email is already verified." };
+  }
+
+  if (!isSmtpConfigured()) {
+    await logOtpEvent(userId, "smtp_not_configured", "");
+    return {
+      ok: false,
+      code: "SMTP_NOT_CONFIGURED",
+      message:
+        "Verification email was not sent: SMTP_USER and SMTP_PASS are not set on the server. On Railway, add Gmail + App Password, redeploy, then use “Resend code” on the verify page.",
+    };
   }
 
   const now = new Date();
@@ -180,7 +190,17 @@ export async function issueOtpEmail(
       .where(eq(otpRateLimitsTable.userId, userId));
   });
 
-  await sendOtpVerificationEmail(user.email, plain);
+  const sendResult = await sendOtpVerificationEmail(user.email, plain);
+  if (!sendResult.ok) {
+    await logOtpEvent(userId, "otp_email_failed", sendResult.reason);
+    return {
+      ok: false,
+      code: "EMAIL_SEND_FAILED",
+      message:
+        "We could not send the email (SMTP error). Check Gmail App Password and Railway logs. You can try “Resend code” in about a minute.",
+    };
+  }
+
   await logOtpEvent(userId, "otp_sent", `expires ${expiresAt.toISOString()}`);
 
   return { ok: true, expiresAt };

@@ -11,6 +11,11 @@ type SendEmailInput = {
 
 let transporter: nodemailer.Transporter | null = null;
 
+/** True when Gmail SMTP env vars are set (required for OTP and transactional mail). */
+export function isSmtpConfigured(): boolean {
+  return Boolean(process.env.SMTP_USER?.trim() && process.env.SMTP_PASS?.trim());
+}
+
 function getTransporter(): nodemailer.Transporter | null {
   if (transporter) return transporter;
   const user = process.env.SMTP_USER;
@@ -45,11 +50,13 @@ function brandTemplate(title: string, body: string): string {
 </html>`;
 }
 
-export async function sendEmail(input: SendEmailInput): Promise<void> {
+export type SendEmailResult = { ok: true } | { ok: false; reason: string };
+
+export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const tx = getTransporter();
   if (!tx) {
     logger.warn({ to: input.to, subject: input.subject }, "SMTP not configured, skipping email");
-    return;
+    return { ok: false, reason: "smtp_not_configured" };
   }
 
   const from = process.env.EMAIL_FROM || process.env.SMTP_USER!;
@@ -61,14 +68,17 @@ export async function sendEmail(input: SendEmailInput): Promise<void> {
       html: input.html,
       text: input.text,
     });
+    return { ok: true };
   } catch (err) {
+    const reason = err instanceof Error ? err.message : "send_failed";
     logger.error({ err, to: input.to, subject: input.subject }, "Failed to send email");
+    return { ok: false, reason };
   }
 }
 
-export async function sendRegistrationEmail(to: string, name: string) {
+export async function sendRegistrationEmail(to: string, name: string): Promise<SendEmailResult> {
   const body = `Hi <b>${name}</b>,<br/><br/>Your account has been successfully registered on SecurePool. Welcome!`;
-  await sendEmail({
+  return sendEmail({
     to,
     subject: "Welcome to SecurePool",
     html: brandTemplate("Registration Confirmed", body),
@@ -76,9 +86,9 @@ export async function sendRegistrationEmail(to: string, name: string) {
   });
 }
 
-export async function sendOtpVerificationEmail(to: string, otpPlain: string) {
+export async function sendOtpVerificationEmail(to: string, otpPlain: string): Promise<SendEmailResult> {
   const html = buildOtpEmailHtml(otpPlain);
-  await sendEmail({
+  return sendEmail({
     to,
     subject: "⚡ SecurePool - Verify Your Email",
     html,
@@ -99,7 +109,7 @@ export async function sendWithdrawalStatusEmail(to: string, amount: string, stat
     title = "Withdrawal Rejected";
     body = `Your withdrawal of <b>${amount} USDT</b> was rejected.${reason ? `<br/><br/>Reason: <b>${reason}</b>` : ""}`;
   }
-  await sendEmail({ to, subject: title, html: brandTemplate(title, body) });
+  void sendEmail({ to, subject: title, html: brandTemplate(title, body) });
 }
 
 export async function sendDrawResultEmail(to: string, drawTitle: string, isWinner: boolean, prizeAmount?: string) {
@@ -107,13 +117,13 @@ export async function sendDrawResultEmail(to: string, drawTitle: string, isWinne
   const body = isWinner
     ? `Congratulations! You won <b>${prizeAmount} USDT</b> in <b>${drawTitle}</b>.`
     : `Results for <b>${drawTitle}</b> are out. Unfortunately you did not win this time. Better luck next draw!`;
-  await sendEmail({ to, subject: title, html: brandTemplate(title, body) });
+  void sendEmail({ to, subject: title, html: brandTemplate(title, body) });
 }
 
 export async function sendTicketApprovedEmail(to: string, ticketLabel: string, drawLabel: string) {
   const title = "Ticket Approved";
   const body = `Your ticket <b>${ticketLabel}</b> has been approved for <b>${drawLabel}</b>.`;
-  await sendEmail({ to, subject: title, html: brandTemplate(title, body) });
+  void sendEmail({ to, subject: title, html: brandTemplate(title, body) });
 }
 
 export type DrawFinancialSummaryPayload = {
@@ -152,7 +162,7 @@ export async function sendAdminDrawFinancialSummaryEmail(payload: DrawFinancialS
       <tr><td style="padding:6px 0;">Profit margin</td><td style="padding:6px 0;text-align:right">${margin}%</td></tr>
     </table>
   `;
-  await sendEmail({
+  void sendEmail({
     to,
     subject: `Draw #${payload.poolId} — financial summary`,
     html: brandTemplate("Draw financial summary", body),
