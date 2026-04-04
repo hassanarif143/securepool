@@ -1,5 +1,6 @@
 /** Default API origin when the SPA is on Vercel/custom domain and env is unset. Override with VITE_API_URL. */
-const DEFAULT_PRODUCTION_API_ORIGIN = "https://securepool-production.up.railway.app";
+/** Railway deploy URL (set VITE_API_URL on Vercel if your service host differs). */
+const DEFAULT_PRODUCTION_API_ORIGIN = "https://securepool-production-12e5.up.railway.app";
 
 /** Alias for `getApiBaseUrl` — prefer `apiUrl("/api/...")` for fetches. */
 export function getApiBase(): string {

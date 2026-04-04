@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
-import { getGetMeQueryKey } from "@workspace/api-client-react";
+import { getGetMeQueryKey, getMe } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
@@ -134,8 +134,27 @@ export default function SignupPage() {
         return;
       }
       const bearer = typeof (data as any).token === "string" ? (data as any).token : null;
-      if (bearer) setSessionAccessToken(bearer);
-      await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      if (bearer) {
+        setSessionAccessToken(bearer);
+        try {
+          await queryClient.fetchQuery({
+            queryKey: getGetMeQueryKey(),
+            queryFn: ({ signal }) => getMe({ signal }),
+          });
+        } catch {
+          toast({
+            title: "Could not sync session",
+            description: "Try refreshing the page. If this persists, redeploy API + frontend from latest main.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Auth token missing from server",
+          description: "Redeploy Railway API from latest GitHub main, then sign up again.",
+          variant: "destructive",
+        });
+      }
       setUser((data as any).user as any);
       const bonus = (data as any).referralBonus;
       const emailSent = (data as any).verificationEmailSent !== false;
