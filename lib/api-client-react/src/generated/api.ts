@@ -29,6 +29,7 @@ import type {
   CreateTransactionBody,
   DashboardStats,
   DistributeResult,
+  DistributeRewardsBody,
   ErrorResponse,
   HealthStatus,
   ListAdminWalletTransactionsParams,
@@ -1551,11 +1552,14 @@ export const getDistributeRewardsUrl = (poolId: number) => {
 
 export const distributeRewards = async (
   poolId: number,
+  distributeRewardsBody: DistributeRewardsBody,
   options?: RequestInit,
 ): Promise<DistributeResult> => {
   return customFetch<DistributeResult>(getDistributeRewardsUrl(poolId), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(distributeRewardsBody),
   });
 };
 
@@ -1566,14 +1570,14 @@ export const getDistributeRewardsMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof distributeRewards>>,
     TError,
-    { poolId: number },
+    { poolId: number; data: BodyType<DistributeRewardsBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof distributeRewards>>,
   TError,
-  { poolId: number },
+  { poolId: number; data: BodyType<DistributeRewardsBody> },
   TContext
 > => {
   const mutationKey = ["distributeRewards"];
@@ -1587,11 +1591,11 @@ export const getDistributeRewardsMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof distributeRewards>>,
-    { poolId: number }
+    { poolId: number; data: BodyType<DistributeRewardsBody> }
   > = (props) => {
-    const { poolId } = props ?? {};
+    const { poolId, data } = props ?? {};
 
-    return distributeRewards(poolId, requestOptions);
+    return distributeRewards(poolId, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -1600,7 +1604,7 @@ export const getDistributeRewardsMutationOptions = <
 export type DistributeRewardsMutationResult = NonNullable<
   Awaited<ReturnType<typeof distributeRewards>>
 >;
-
+export type DistributeRewardsMutationBody = BodyType<DistributeRewardsBody>;
 export type DistributeRewardsMutationError = ErrorType<ErrorResponse>;
 
 /**
@@ -1613,14 +1617,14 @@ export const useDistributeRewards = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof distributeRewards>>,
     TError,
-    { poolId: number },
+    { poolId: number; data: BodyType<DistributeRewardsBody> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof distributeRewards>>,
   TError,
-  { poolId: number },
+  { poolId: number; data: BodyType<DistributeRewardsBody> },
   TContext
 > => {
   return useMutation(getDistributeRewardsMutationOptions(options));

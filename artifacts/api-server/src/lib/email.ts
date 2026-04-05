@@ -320,6 +320,7 @@ export type DrawFinancialSummaryPayload = {
   winnerSecondName: string | null;
   winnerThirdName: string | null;
   totalPrizes: number;
+  totalLoserRefunds: number;
   platformFee: number;
   profitMarginPercent: number;
 };
@@ -339,7 +340,8 @@ export async function sendAdminDrawFinancialSummaryEmail(payload: DrawFinancialS
       <tr><td style="padding:6px 0;border-bottom:1px solid #374151;">2nd → ${payload.winnerSecondName ?? "—"}</td><td style="padding:6px 0;border-bottom:1px solid #374151;text-align:right">${payload.prizeSecond} USDT</td></tr>
       <tr><td style="padding:6px 0;border-bottom:1px solid #374151;">3rd → ${payload.winnerThirdName ?? "—"}</td><td style="padding:6px 0;border-bottom:1px solid #374151;text-align:right">${payload.prizeThird} USDT</td></tr>
       <tr><td style="padding:6px 0;border-bottom:1px solid #374151;">Total prizes</td><td style="padding:6px 0;border-bottom:1px solid #374151;text-align:right">${payload.totalPrizes.toFixed(2)} USDT</td></tr>
-      <tr><td style="padding:6px 0;border-bottom:1px solid #374151;"><b>Platform fee</b></td><td style="padding:6px 0;border-bottom:1px solid #374151;text-align:right"><b>${payload.platformFee.toFixed(2)} USDT</b></td></tr>
+      <tr><td style="padding:6px 0;border-bottom:1px solid #374151;">Loser refunds</td><td style="padding:6px 0;border-bottom:1px solid #374151;text-align:right">${payload.totalLoserRefunds.toFixed(2)} USDT</td></tr>
+      <tr><td style="padding:6px 0;border-bottom:1px solid #374151;"><b>Settlement remainder</b></td><td style="padding:6px 0;border-bottom:1px solid #374151;text-align:right"><b>${payload.platformFee.toFixed(2)} USDT</b></td></tr>
       <tr><td style="padding:6px 0;">Profit margin</td><td style="padding:6px 0;text-align:right">${margin}%</td></tr>
     </table>
   `;

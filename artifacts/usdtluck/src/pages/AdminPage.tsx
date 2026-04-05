@@ -595,6 +595,13 @@ function PoolsTab() {
   const [participants, setParticipants] = useState<any[]>([]);
   const [participantsLoading, setParticipantsLoading] = useState(false);
 
+  const [distributeModal, setDistributeModal] = useState<{ poolId: number; title: string } | null>(null);
+  const [distFirst, setDistFirst] = useState("");
+  const [distSecond, setDistSecond] = useState("");
+  const [distThird, setDistThird] = useState("");
+  const [distParticipants, setDistParticipants] = useState<{ userId: number; userName: string }[]>([]);
+  const [distLoading, setDistLoading] = useState(false);
+
   const [filterStatus, setFilterStatus] = useState<"all" | "open" | "closed" | "completed">("all");
 
   function startEdit(pool: any) {
@@ -664,11 +671,47 @@ function PoolsTab() {
     );
   }
 
-  function handleDistribute(poolId: number, poolTitle: string) {
+  async function openDistributeModal(poolId: number, poolTitle: string) {
+    setDistFirst("");
+    setDistSecond("");
+    setDistThird("");
+    setDistributeModal({ poolId, title: poolTitle });
+    setDistLoading(true);
+    try {
+      const res = await fetch(apiUrl(`/api/admin/pools/${poolId}/participants`), { credentials: "include" });
+      const rows = (await res.json()) as { userId?: number; userName?: string }[];
+      setDistParticipants(
+        rows
+          .filter((r) => r.userId != null && r.userId > 0)
+          .map((r) => ({ userId: r.userId!, userName: r.userName ?? `User #${r.userId}` })),
+      );
+    } catch {
+      setDistParticipants([]);
+      toast({ title: "Could not load participants", variant: "destructive" });
+    } finally {
+      setDistLoading(false);
+    }
+  }
+
+  function submitDistribute() {
+    if (!distributeModal) return;
+    const a = parseInt(distFirst, 10);
+    const b = parseInt(distSecond, 10);
+    const c = parseInt(distThird, 10);
+    if (![a, b, c].every((n) => Number.isFinite(n) && n > 0)) {
+      toast({ title: "Select 1st, 2nd, and 3rd place", variant: "destructive" });
+      return;
+    }
+    if (new Set([a, b, c]).size !== 3) {
+      toast({ title: "Winners must be three different users", variant: "destructive" });
+      return;
+    }
+    const poolTitle = distributeModal.title;
     distributeRewards.mutate(
-      { poolId },
+      { poolId: distributeModal.poolId, data: { winnerUserIds: [a, b, c] } },
       {
         onSuccess: (result: any) => {
+          setDistributeModal(null);
           queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetDashboardStatsQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetAdminFinanceOverviewQueryKey() });
@@ -677,7 +720,7 @@ function PoolsTab() {
           setShowCelebration(true);
         },
         onError: (err: any) => toast({ title: "Distribution failed", description: err?.message, variant: "destructive" }),
-      }
+      },
     );
   }
 
@@ -701,6 +744,83 @@ function PoolsTab() {
         onClose={() => setShowCelebration(false)}
       />
     )}
+
+    <Dialog open={distributeModal != null} onOpenChange={(o) => !o && setDistributeModal(null)}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Select winners</DialogTitle>
+          <DialogDescription>
+            Choose 1st, 2nd, and 3rd place for{" "}
+            <span className="text-foreground font-medium">{distributeModal?.title ?? "this pool"}</span>. Losers receive a
+            partial refund (list entry minus platform fee). Settlement must cover prizes and refunds.
+          </DialogDescription>
+        </DialogHeader>
+        {distLoading ? (
+          <p className="text-sm text-muted-foreground py-4">Loading participants…</p>
+        ) : distParticipants.length < 3 ? (
+          <p className="text-sm text-destructive py-2">Need at least three participants to assign podium places.</p>
+        ) : (
+          <div className="space-y-3 py-2">
+            <div>
+              <Label className="text-xs text-muted-foreground">1st place</Label>
+              <Select value={distFirst} onValueChange={setDistFirst}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {distParticipants.map((p) => (
+                    <SelectItem key={`1-${p.userId}`} value={String(p.userId)}>
+                      {p.userName} (ID {p.userId})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">2nd place</Label>
+              <Select value={distSecond} onValueChange={setDistSecond}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {distParticipants.map((p) => (
+                    <SelectItem key={`2-${p.userId}`} value={String(p.userId)}>
+                      {p.userName} (ID {p.userId})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">3rd place</Label>
+              <Select value={distThird} onValueChange={setDistThird}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {distParticipants.map((p) => (
+                    <SelectItem key={`3-${p.userId}`} value={String(p.userId)}>
+                      {p.userName} (ID {p.userId})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={() => setDistributeModal(null)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => submitDistribute()}
+            disabled={distLoading || distParticipants.length < 3 || distributeRewards.isPending}
+          >
+            {distributeRewards.isPending ? "Distributing…" : "Run distribution"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     {/* Delete confirm dialog */}
     {confirmDeleteId !== null && (
@@ -915,7 +1035,7 @@ function PoolsTab() {
                         </button>
                       )}
                       <button
-                        onClick={() => handleDistribute(pool.id, pool.title)}
+                        onClick={() => void openDistributeModal(pool.id, pool.title)}
                         disabled={distributeRewards.isPending || !drawReady}
                         title={!drawReady ? `Need at least ${minForDraw} participants` : undefined}
                         className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"

@@ -59,6 +59,14 @@ export function deductForTicket(
 export const REFERRAL_INVITE_PRIZE_USDT = 2;
 export const FIRST_DEPOSIT_BONUS_USDT = 1;
 
+/**
+ * Tiered platform fee from list entry amount (USDT).
+ * e.g. 10 → 2, 20 → 3, 25 → 3
+ */
+export function calculatePlatformFee(amount: number): number {
+  return Math.floor(amount / 10) + 1;
+}
+
 export const REFERRAL_TIER_MILESTONES = [
   { at: 5, usdt: 3 },
   { at: 10, usdt: 6 },

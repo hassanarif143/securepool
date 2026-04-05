@@ -21,6 +21,7 @@ import {
   totalWallet,
   walletBalanceFromBuckets,
   LUCKY_TICKET_MATCH_USDT,
+  calculatePlatformFee,
 } from "../lib/user-balances";
 import { notifyUser, notifyAllUsers } from "../lib/notify";
 import { CreatePoolBody, UpdatePoolBody } from "@workspace/api-zod";
@@ -28,12 +29,7 @@ import { sendDrawResultEmail, sendTicketApprovedEmail, sendAdminDrawFinancialSum
 import { logger } from "../lib/logger";
 import { getAuthedUserId, requireAdmin, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
-import {
-  computeDrawRanking,
-  pickWinnersFromRanking,
-  secureShuffle,
-  computeBestDrawPositionByUserId,
-} from "../services/draw-service";
+import { secureShuffle } from "../services/draw-service";
 import { logActivity } from "../services/activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { runJoinSideEffects } from "../services/join-side-effects";
@@ -57,7 +53,11 @@ import {
 import { computeEntryDiscount } from "../services/entry-discount-service";
 import { getActiveComebackCoupon, markCouponUsed } from "../services/coupon-service";
 import { computeMinParticipantsToRunDraw } from "../services/draw-economics";
-import { appendPlatformFeeForDraw, getDrawDesiredProfitUsdt } from "../services/admin-wallet-service";
+import {
+  appendPlatformFeeForDraw,
+  appendPoolJoinPlatformFee,
+  getDrawDesiredProfitUsdt,
+} from "../services/admin-wallet-service";
 import { mirrorAvailableFromUser, recordPrizeWon } from "../services/user-wallet-service";
 import { creditUserWithdrawableUsdt } from "../lib/credit-withdrawable-balance";
 import {
@@ -70,6 +70,14 @@ const JoinPoolBody = z.object({
   useFreeEntry: z.boolean().optional(),
   applyComebackDiscount: z.boolean().optional(),
   ticketQuantity: z.number().int().min(1).max(28).optional(),
+});
+
+const DistributeRewardsBody = z.object({
+  winnerUserIds: z
+    .tuple([z.number().int().positive(), z.number().int().positive(), z.number().int().positive()])
+    .refine(([a, b, c]) => new Set([a, b, c]).size === 3, {
+      message: "winnerUserIds must be three distinct user IDs (1st, 2nd, 3rd place).",
+    }),
 });
 
 const router: IRouter = Router();
@@ -227,6 +235,7 @@ router.get("/details/:poolId", async (req, res) => {
     vipDiscountPercent: number;
     comebackDiscountPercent: number;
     hasActiveComebackCoupon: boolean;
+    joinPlatformFeeUsdt: number;
   } | null = null;
 
   if (sessionUserId && pool.status === "open" && currentEntries < pool.maxUsers) {
@@ -256,6 +265,7 @@ router.get("/details/:poolId", async (req, res) => {
         vipDiscountPercent: br.vipDiscountPercent,
         comebackDiscountPercent: br.comebackDiscountPercent,
         hasActiveComebackCoupon: c.hasCoupon,
+        joinPlatformFeeUsdt: calculatePlatformFee(entryFee),
       };
     }
   }
@@ -890,10 +900,15 @@ router.post("/:poolId/join", async (req, res) => {
     }
   }
 
-  const totalDue = useFreeEntry ? 0 : amountDue * ticketQty;
-  if (!useFreeEntry && userBalance < totalDue) {
+  const grossTotal = useFreeEntry ? 0 : amountDue * ticketQty;
+  const feePerListEntry = calculatePlatformFee(entryFee);
+  const platformJoinFee =
+    useFreeEntry || grossTotal <= 0 ? 0 : Math.min(grossTotal, feePerListEntry * ticketQty);
+  const netDue = grossTotal - platformJoinFee;
+
+  if (!useFreeEntry && userBalance < netDue) {
     res.status(400).json({
-      error: `Insufficient balance. You need ${totalDue} USDT for ${ticketQty} ticket(s) (after discounts). Current balance: ${userBalance} USDT.`,
+      error: `Insufficient balance. Wallet deduction is ${netDue.toFixed(2)} USDT (${grossTotal.toFixed(2)} USDT tickets − ${platformJoinFee.toFixed(2)} USDT platform fee) for ${ticketQty} ticket(s). Current balance: ${userBalance.toFixed(2)} USDT.`,
     });
     return;
   }
@@ -902,7 +917,7 @@ router.post("/:poolId/join", async (req, res) => {
   let fromWithdrawable = 0;
   let nextBuckets = buckets;
   if (!useFreeEntry) {
-    const d = deductForTicket(buckets, totalDue);
+    const d = deductForTicket(buckets, netDue);
     fromBonus = d.fromBonus;
     fromWithdrawable = d.fromWithdrawable;
     nextBuckets = d.next;
@@ -926,6 +941,14 @@ router.post("/:poolId/join", async (req, res) => {
           })
           .where(eq(usersTable.id, sessionUserId));
         await mirrorAvailableFromUser(trx, sessionUserId);
+        if (platformJoinFee > 0) {
+          await appendPoolJoinPlatformFee(trx, {
+            poolId,
+            userId: sessionUserId,
+            amount: platformJoinFee,
+            description: `Pool join fee — pool #${poolId} (gross ${grossTotal.toFixed(2)} USDT, net wallet ${netDue.toFixed(2)} USDT)`,
+          });
+        }
       }
 
       if (isFirstInPool) {
@@ -933,7 +956,7 @@ router.post("/:poolId/join", async (req, res) => {
           poolId,
           userId: sessionUserId,
           ticketCount: ticketQty,
-          amountPaid: String(useFreeEntry ? 0 : totalDue),
+          amountPaid: String(useFreeEntry ? 0 : netDue),
           paidFromBonus: String(fromBonus),
           paidFromWithdrawable: String(fromWithdrawable),
         });
@@ -947,7 +970,7 @@ router.post("/:poolId/join", async (req, res) => {
           .update(poolParticipantsTable)
           .set({
             ticketCount: prevTc + ticketQty,
-            amountPaid: (prevPaid + (useFreeEntry ? 0 : totalDue)).toFixed(2),
+            amountPaid: (prevPaid + (useFreeEntry ? 0 : netDue)).toFixed(2),
             paidFromBonus: (prevFb + fromBonus).toFixed(2),
             paidFromWithdrawable: (prevWd + fromWithdrawable).toFixed(2),
           })
@@ -965,13 +988,17 @@ router.post("/:poolId/join", async (req, res) => {
     throw err;
   }
 
-  const txAmountStr = useFreeEntry ? "0" : String(totalDue);
+  const txAmountStr = useFreeEntry ? "0" : netDue.toFixed(2);
+  const txNoteWithPricing =
+    !useFreeEntry && platformJoinFee > 0
+      ? `${txNote} — gross ${grossTotal.toFixed(2)} USDT; platform fee ${platformJoinFee.toFixed(2)} USDT; wallet ${netDue.toFixed(2)} USDT`
+      : txNote;
   const txNoteFinal =
     ticketQty > 1 && !useFreeEntry
-      ? `${txNote} × ${ticketQty} tickets (${totalDue} USDT)`
+      ? `${txNoteWithPricing} × ${ticketQty} tickets`
       : useFreeEntry
         ? `Free entry — ${pool.title}`
-        : txNote;
+        : txNoteWithPricing;
 
   await db.insert(transactionsTable).values({
     userId: sessionUserId,
@@ -1024,7 +1051,7 @@ router.post("/:poolId/join", async (req, res) => {
     poolTitle: pool.title,
     participantCountAfterJoin: ticketCountAfterJoin,
     maxUsers: pool.maxUsers,
-    entryFeePaid: useFreeEntry ? undefined : totalDue,
+    entryFeePaid: useFreeEntry ? undefined : netDue,
     additionalTicketsOnly: !isFirstInPool,
   });
 
@@ -1034,7 +1061,15 @@ router.post("/:poolId/join", async (req, res) => {
         ? `Successfully bought ${ticketQty} tickets!`
         : "Successfully joined the pool!",
     usedFreeEntry: useFreeEntry,
-    amountPaid: useFreeEntry ? 0 : totalDue,
+    amountPaid: useFreeEntry ? 0 : netDue,
+    paymentBreakdown:
+      useFreeEntry || grossTotal <= 0
+        ? undefined
+        : {
+            grossTotal,
+            platformFee: platformJoinFee,
+            netDeductedFromWallet: netDue,
+          },
     ticketQuantity: ticketQty,
     luckyNumbers: luckyNumbers.map(formatLuckyNumberDisplay),
     listEntryFee: entryFee,
@@ -1059,7 +1094,7 @@ router.post("/:poolId/join", async (req, res) => {
   });
 });
 
-async function executePoolDistribution(poolId: number) {
+async function executePoolDistribution(poolId: number, manualWinnerUserIds: [number, number, number]) {
   return db.transaction(async (tx) => {
     const [pool] = await tx.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
     if (!pool) {
@@ -1106,19 +1141,20 @@ async function executePoolDistribution(poolId: number) {
       throw e;
     }
 
-    let positionByUserId: Map<number, number>;
-    let picked: { userId: number }[];
-
-    if (ticketTotal > 0) {
-      const list = ticketRows.map((t) => ({ userId: t.userId }));
-      const shuffled = secureShuffle(list);
-      positionByUserId = computeBestDrawPositionByUserId(shuffled);
-      picked = pickWinnersFromRanking(shuffled, 3);
-    } else {
-      const { shuffled, positionByUserId: posMap } = computeDrawRanking(participants);
-      positionByUserId = posMap;
-      picked = pickWinnersFromRanking(shuffled, 3);
+    const participantUserIds = new Set(participants.map((p) => p.userId));
+    for (const uid of manualWinnerUserIds) {
+      if (!participantUserIds.has(uid)) {
+        const e = new Error(`User ${uid} is not a participant in this pool.`);
+        (e as { code?: string }).code = "INVALID_WINNERS";
+        throw e;
+      }
     }
+
+    const picked = manualWinnerUserIds.map((userId) => ({ userId }));
+    const positionByUserId = new Map<number, number>();
+    manualWinnerUserIds.forEach((uid, i) => positionByUserId.set(uid, i + 1));
+    const loserUserIds = participants.filter((p) => !manualWinnerUserIds.includes(p.userId)).map((p) => p.userId);
+    secureShuffle(loserUserIds).forEach((uid, i) => positionByUserId.set(uid, i + 4));
 
     for (const row of participants) {
       const pos = positionByUserId.get(row.userId);
@@ -1128,6 +1164,43 @@ async function executePoolDistribution(poolId: number) {
           .set({ drawPosition: pos })
           .where(eq(poolParticipantsTable.id, row.id));
       }
+    }
+
+    let totalRevenue = 0;
+    for (const p of participants) {
+      const paid =
+        p.amountPaid != null && String(p.amountPaid).trim() !== ""
+          ? parseFloat(String(p.amountPaid))
+          : entryFee;
+      totalRevenue += paid;
+    }
+
+    const feePerListEntry = calculatePlatformFee(entryFee);
+    const stakeReturnPerTicket = Math.max(0, entryFee - feePerListEntry);
+    const loserRefundByUserId = new Map<number, number>();
+    let totalLoserRefunds = 0;
+    const winnerIdSet = new Set(manualWinnerUserIds);
+
+    for (const row of participants) {
+      if (winnerIdSet.has(row.userId)) continue;
+      const paid = parseFloat(String(row.amountPaid ?? "0"));
+      if (paid <= 0) continue;
+      const tc = row.ticketCount ?? 1;
+      const theoretical = tc * stakeReturnPerTicket;
+      const refundAmount = Number(Math.min(paid, theoretical).toFixed(2));
+      if (refundAmount <= 0) continue;
+      loserRefundByUserId.set(row.userId, refundAmount);
+      totalLoserRefunds += refundAmount;
+    }
+
+    const totalPrizes = p1 + p2 + p3;
+    const settlementRemainder = totalRevenue - totalPrizes - totalLoserRefunds;
+    if (settlementRemainder < -0.02) {
+      const e = new Error(
+        `Pool settlement is short by ${Math.abs(settlementRemainder).toFixed(2)} USDT (wallet revenue ${totalRevenue.toFixed(2)} vs ${totalPrizes.toFixed(2)} prizes + ${totalLoserRefunds.toFixed(2)} loser refunds). Lower prizes or adjust entries.`,
+      );
+      (e as { code?: string }).code = "INSUFFICIENT_SETTLEMENT";
+      throw e;
     }
 
     const prizes = [
@@ -1146,7 +1219,7 @@ async function executePoolDistribution(poolId: number) {
       userName: string;
       poolTitle: string;
     }> = [];
-    const winnerUserIds = new Set<number>();
+    const winnerUserIds = new Set<number>(manualWinnerUserIds);
     const firstWinUserIds: number[] = [];
     let w1name: string | null = null;
     let w2name: string | null = null;
@@ -1211,10 +1284,21 @@ async function executePoolDistribution(poolId: number) {
       });
 
       winnerRecords.push({ ...winner, userName: user.name, poolTitle: pool.title });
-      winnerUserIds.add(winRow.userId);
       if (place === 1) w1name = user.name;
       else if (place === 2) w2name = user.name;
       else if (place === 3) w3name = user.name;
+    }
+
+    for (const [userId, amt] of loserRefundByUserId) {
+      await creditUserWithdrawableUsdt(tx, {
+        userId,
+        amount: amt,
+        rewardNote: `Pool loser refund — ${pool.title} — ${amt} USDT (list entry ${entryFee} USDT − ${feePerListEntry} USDT platform fee per ticket)`,
+        ledgerDescription: `Loser refund — pool #${poolId} — ${amt} USDT withdrawable`,
+        referenceType: "pool_loser_refund",
+        referenceId: poolId,
+      });
+      await mirrorAvailableFromUser(tx, userId);
     }
 
     let drawLuckyNumber: number | null = null;
@@ -1237,16 +1321,7 @@ async function executePoolDistribution(poolId: number) {
 
     const ticketsSold = ticketTotal > 0 ? ticketTotal : participants.length;
     const ticketPrice = entryFee;
-    let totalRevenue = 0;
-    for (const p of participants) {
-      const paid =
-        p.amountPaid != null && String(p.amountPaid).trim() !== ""
-          ? parseFloat(String(p.amountPaid))
-          : entryFee;
-      totalRevenue += paid;
-    }
-    const totalPrizes = p1 + p2 + p3;
-    const platformFee = totalRevenue - totalPrizes;
+    const platformFee = settlementRemainder;
     const profitMarginPercent = totalRevenue > 0 ? (platformFee / totalRevenue) * 100 : 0;
 
     await tx.insert(poolDrawFinancialsTable).values({
@@ -1269,7 +1344,7 @@ async function executePoolDistribution(poolId: number) {
     await appendPlatformFeeForDraw(tx, {
       poolId,
       platformFee,
-      description: `Draw #${poolId} — platform fee (${totalRevenue.toFixed(2)} USDT paid revenue − ${totalPrizes.toFixed(2)} USDT prizes)`,
+      description: `Draw #${poolId} — settlement (${totalRevenue.toFixed(2)} revenue − ${totalPrizes.toFixed(2)} prizes − ${totalLoserRefunds.toFixed(2)} loser refunds)`,
     });
 
     await tx
@@ -1288,6 +1363,7 @@ async function executePoolDistribution(poolId: number) {
       winnerUserIds,
       winnerRecords,
       firstWinUserIds,
+      loserRefundByUserId,
       luckyDraw:
         drawLuckyNumber != null
           ? { number: drawLuckyNumber, matchUserId: luckyMatchUserId }
@@ -1303,6 +1379,7 @@ async function executePoolDistribution(poolId: number) {
         winnerSecondName: w2name,
         winnerThirdName: w3name,
         totalPrizes,
+        totalLoserRefunds,
         platformFee,
         profitMarginPercent,
         minRequired,
@@ -1318,9 +1395,18 @@ router.post("/:poolId/distribute", (req, res, next) => void requireAdmin(req as 
     return;
   }
 
+  const bodyParse = DistributeRewardsBody.safeParse(req.body ?? {});
+  if (!bodyParse.success) {
+    res.status(400).json({
+      error: "Invalid request body",
+      message: bodyParse.error.issues[0]?.message ?? bodyParse.error.message,
+    });
+    return;
+  }
+
   let distributed: Awaited<ReturnType<typeof executePoolDistribution>>;
   try {
-    distributed = await executePoolDistribution(poolId);
+    distributed = await executePoolDistribution(poolId, bodyParse.data.winnerUserIds);
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code ?? "";
     if (code === "POOL_NOT_FOUND") {
@@ -1332,6 +1418,14 @@ router.post("/:poolId/distribute", (req, res, next) => void requireAdmin(req as 
       return;
     }
     if (code === "MIN_PARTICIPANTS") {
+      res.status(400).json({ error: (err as Error).message });
+      return;
+    }
+    if (code === "INVALID_WINNERS") {
+      res.status(400).json({ error: (err as Error).message });
+      return;
+    }
+    if (code === "INSUFFICIENT_SETTLEMENT") {
       res.status(400).json({ error: (err as Error).message });
       return;
     }
@@ -1353,6 +1447,7 @@ router.post("/:poolId/distribute", (req, res, next) => void requireAdmin(req as 
     firstWinUserIds,
     financial,
     luckyDraw,
+    loserRefundByUserId,
   } = distributed;
   const placeLabel = (n: number) => (n === 1 ? "1st" : n === 2 ? "2nd" : "3rd");
   const totalN = financial.ticketsSold;
@@ -1386,8 +1481,12 @@ router.post("/:poolId/distribute", (req, res, next) => void requireAdmin(req as 
   for (const p of participants) {
     if (winnerUserIds.has(p.userId)) continue;
     const pos = positionByUserId.get(p.userId) ?? totalN;
+    const refundGot = loserRefundByUserId.get(p.userId) ?? 0;
     let title = "Draw complete";
-    let body = `The fair draw for "${pool.title}" has finished. Thank you for participating.`;
+    let body = `The draw for "${pool.title}" has finished. Thank you for participating.`;
+    if (refundGot > 0) {
+      body += ` ${refundGot.toFixed(2)} USDT was credited to your wallet (list entry minus platform fee).`;
+    }
     if (pos <= 5 && pos > 3) {
       title = "So close!";
       body =
@@ -1433,9 +1532,9 @@ router.post("/:poolId/distribute", (req, res, next) => void requireAdmin(req as 
 
   await logActivity({
     type: "winner_drawn",
-    message: `Fair draw finished for ${pool.title} — results are final.`,
+    message: `Draw settled for ${pool.title} — admin-selected winners; losers refunded where applicable.`,
     poolId,
-    metadata: { drawCompleted: true },
+    metadata: { drawCompleted: true, totalLoserRefunds: financial.totalLoserRefunds },
   });
 
   void sendAdminDrawFinancialSummaryEmail({
@@ -1451,6 +1550,7 @@ router.post("/:poolId/distribute", (req, res, next) => void requireAdmin(req as 
     winnerSecondName: financial.winnerSecondName,
     winnerThirdName: financial.winnerThirdName,
     totalPrizes: financial.totalPrizes,
+    totalLoserRefunds: financial.totalLoserRefunds,
     platformFee: financial.platformFee,
     profitMarginPercent: financial.profitMarginPercent,
   });
@@ -1479,6 +1579,7 @@ router.post("/:poolId/distribute", (req, res, next) => void requireAdmin(req as 
       ticketPrice: financial.ticketPrice,
       totalRevenue: financial.totalRevenue,
       totalPrizes: financial.totalPrizes,
+      totalLoserRefunds: financial.totalLoserRefunds,
       platformFee: financial.platformFee,
       profitMarginPercent: financial.profitMarginPercent,
     },

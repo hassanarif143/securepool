@@ -430,6 +430,15 @@ export interface CreateTransactionBody {
   note?: string;
 }
 
+export interface DistributeRewardsBody {
+  /**
+   * User IDs for 1st, 2nd, and 3rd place (must be distinct pool participants)
+   * @minItems 3
+   * @maxItems 3
+   */
+  winnerUserIds: number[];
+}
+
 export interface Winner {
   id: number;
   poolId: number;

@@ -461,6 +461,12 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DistributeRewardsBody"
       responses:
         "200":
           description: Rewards distributed
@@ -1347,6 +1353,18 @@ components:
         note:
           type: string
       required: [txType, amount]
+
+    DistributeRewardsBody:
+      type: object
+      properties:
+        winnerUserIds:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            type: integer
+          description: User IDs for 1st, 2nd, and 3rd place (must be distinct pool participants)
+      required: [winnerUserIds]
 
     DistributeResult:
       type: object

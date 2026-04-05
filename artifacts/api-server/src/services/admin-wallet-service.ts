@@ -160,6 +160,23 @@ export async function appendPlatformFeeForDraw(
   });
 }
 
+/** Flat fee on pool join (checkout) — credited to central ledger as platform revenue. */
+export async function appendPoolJoinPlatformFee(
+  tx: DbTx,
+  opts: { poolId: number; userId: number; amount: number; description: string },
+): Promise<void> {
+  if (opts.amount <= 0) return;
+  await appendLedger(tx, {
+    transactionType: "CREDIT",
+    category: CAT.PLATFORM_FEE,
+    amount: opts.amount,
+    referenceType: "pool_join",
+    referenceId: opts.poolId,
+    userId: opts.userId,
+    description: opts.description,
+  });
+}
+
 /** Central DEBIT when platform credits a user (referral / tier / etc.) — USDT obligation leaves treasury model. */
 export async function appendBonusGrant(tx: DbTx, opts: { amount: number; userId: number; description: string }): Promise<void> {
   if (opts.amount <= 0) return;

@@ -28,6 +28,7 @@ export * from "./dashboardStatsComebackCoupons";
 export * from "./dashboardStatsEmailVerification";
 export * from "./dashboardStatsPoolVipBreakdownItem";
 export * from "./distributeResult";
+export * from "./distributeRewardsBody";
 export * from "./errorResponse";
 export * from "./healthStatus";
 export * from "./listAdminWalletTransactionsParams";

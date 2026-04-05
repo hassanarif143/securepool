@@ -7,6 +7,7 @@ import { useListWinners, useListPools } from "@workspace/api-client-react";
 import { apiUrl } from "@/lib/api-base";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { RecentPayouts } from "@/components/RecentPayouts";
+import { MoneySafeExplainerSection } from "@/components/MoneySafeExplainerSection";
 
 function useAnimatedInt(target: number, duration = 1400) {
   const [v, setV] = useState(0);
@@ -85,10 +86,9 @@ export default function LandingPage() {
   const activePools = pools?.filter((p) => p.status === "open") ?? [];
 
   const jumpLinks = [
+    { href: "#your-money-safe", label: "Your money" },
     { href: "#live-stats", label: "Live stats" },
     ...(winners && winners.length > 0 ? [{ href: "#winners-ticker" as const, label: "Winners" }] : []),
-    { href: "#trust", label: "Trust" },
-    { href: "#how-steps", label: "How it works" },
     ...(activePools.length > 0 ? [{ href: "#active-pools" as const, label: "Pools" }] : []),
     { href: "#join-cta", label: "Get started" },
   ];
@@ -192,6 +192,8 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <MoneySafeExplainerSection />
+
       {/* Live stats */}
       <motion.section id="live-stats" className="max-w-4xl mx-auto scroll-mt-28 px-2 sm:px-0" {...sectionReveal}>
         <p className="text-center text-xs font-semibold uppercase tracking-[0.22em] text-primary/90 mb-4">Platform pulse</p>
@@ -263,65 +265,6 @@ export default function LandingPage() {
           </div>
         </motion.section>
       )}
-
-      {/* Trust strip */}
-      <motion.section
-        id="trust"
-        className="max-w-4xl mx-auto scroll-mt-28 px-2 sm:px-0"
-        {...sectionReveal}
-      >
-        <p className="text-center text-xs font-semibold uppercase tracking-[0.22em] text-primary/90 mb-4">Why members stay</p>
-        <div className="grid sm:grid-cols-3 gap-3 sm:gap-4">
-          {[
-            { icon: "🔍", t: "Transparent rules", d: "Prize breakdown visible before you join." },
-            { icon: "🔐", t: "Verified flow", d: "Deposits and withdrawals checked by the team." },
-            { icon: "✅", t: "Reviewed payouts", d: "Every transaction leaves a clear history." },
-          ].map((x) => (
-            <div
-              key={x.t}
-              className="rounded-2xl border border-border/60 bg-card/40 p-5 text-left hover:border-primary/20 transition-colors shadow-md shadow-black/15"
-            >
-              <span className="text-2xl">{x.icon}</span>
-              <p className="font-display font-semibold text-foreground mt-3">{x.t}</p>
-              <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{x.d}</p>
-            </div>
-          ))}
-        </div>
-      </motion.section>
-
-      {/* How it works */}
-      <motion.section id="how-steps" className="max-w-4xl mx-auto scroll-mt-28 px-2 sm:px-0" {...sectionReveal}>
-        <p className="text-center text-xs font-semibold uppercase tracking-[0.22em] text-primary/90 mb-2">Simple flow</p>
-        <h2 className="font-display text-2xl sm:text-3xl font-bold text-center mb-3 tracking-tight">How it works</h2>
-        <p className="text-center text-sm text-muted-foreground max-w-lg mx-auto mb-8 sm:mb-10 leading-relaxed">
-          Three steps from signup to your first draw — no hidden steps.
-        </p>
-        <div className="grid md:grid-cols-3 gap-x-5 gap-y-10 sm:gap-y-8 md:gap-6 relative pt-1">
-          <div className="hidden md:block absolute top-16 left-[16%] right-[16%] h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent pointer-events-none" aria-hidden />
-          {[
-            { step: "01", icon: "👤", title: "Create account", desc: "Sign up and complete your profile in under two minutes." },
-            { step: "02", icon: "💳", title: "Deposit & join", desc: "Add USDT to your wallet, then join any open pool for 10 USDT." },
-            { step: "03", icon: "🎉", title: "Win rewards", desc: "When the pool closes, three winners are drawn fairly and paid to their wallets." },
-          ].map((item) => (
-            <Card
-              key={item.step}
-              className="group relative overflow-visible text-center border-border/70 transition-all duration-300 hover:border-primary/35 hover:shadow-lg hover:shadow-primary/5"
-            >
-              <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-1 rounded-t-2xl bg-gradient-to-r from-primary/0 via-primary/50 to-primary/0 opacity-40 group-hover:opacity-100 transition-opacity" />
-              <CardContent className="relative z-10 px-5 pb-8 pt-9 sm:pt-10">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner ring-1 ring-primary/10"
-                  style={{ background: "linear-gradient(145deg, hsla(152,72%,44%,0.18), hsla(152,72%,44%,0.05))" }}
-                >
-                  {item.icon}
-                </div>
-                <div className="text-[11px] tracking-widest text-primary font-semibold mb-2">{item.step}</div>
-                <h3 className="font-display font-semibold text-lg mb-2">{item.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </motion.section>
 
       {/* Active Pools */}
       {activePools.length > 0 && (

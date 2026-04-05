@@ -95,6 +95,7 @@ type PoolDetailsApi = {
     vipDiscountPercent: number;
     comebackDiscountPercent: number;
     hasActiveComebackCoupon: boolean;
+    joinPlatformFeeUsdt: number;
   } | null;
 };
 
@@ -413,6 +414,15 @@ export default function PoolDetailPage() {
         return;
       }
       const usedFree = Boolean((data as { usedFreeEntry?: boolean }).usedFreeEntry);
+      const breakdown = (data as {
+        paymentBreakdown?: { grossTotal: number; platformFee: number; netDeductedFromWallet: number };
+      }).paymentBreakdown;
+      if (!usedFree && breakdown && breakdown.grossTotal > 0) {
+        toast({
+          title: "Payment",
+          description: `Total ${breakdown.grossTotal.toFixed(2)} USDT · Platform fee ${breakdown.platformFee.toFixed(2)} USDT · From wallet ${breakdown.netDeductedFromWallet.toFixed(2)} USDT`,
+        });
+      }
       const luck = (data as { luckyNumbers?: string[] }).luckyNumbers;
       if (luck && luck.length > 0) {
         toast({
@@ -492,9 +502,15 @@ export default function PoolDetailPage() {
 
   const canFreeJoin = Boolean(user && (user.freeEntries ?? 0) > 0);
   const effectiveEntryDue = poolDetails?.entry_pricing?.amountDue ?? pool.entryFee;
+  const feePerListEntry = poolDetails?.entry_pricing?.joinPlatformFeeUsdt ?? Math.floor(pool.entryFee / 10) + 1;
   const freeThisPurchase = Boolean(!userJoinedEffective && useFreeEntry && canFreeJoin);
-  const totalDue = freeThisPurchase ? 0 : effectiveEntryDue * ticketQty;
-  const canPayJoin = Boolean(user && (freeThisPurchase || Number(user.walletBalance) >= totalDue));
+  const grossTicketTotal = freeThisPurchase ? 0 : effectiveEntryDue * ticketQty;
+  const platformFeeThisCheckout =
+    freeThisPurchase || grossTicketTotal <= 0
+      ? 0
+      : Math.min(grossTicketTotal, feePerListEntry * ticketQty);
+  const netFromWallet = Math.max(0, grossTicketTotal - platformFeeThisCheckout);
+  const canPayJoin = Boolean(user && (freeThisPurchase || Number(user.walletBalance) >= netFromWallet));
   const vipLocked = Boolean(poolDetails?.vip_locked);
   const poolFull = displayCount >= pool.maxUsers || spotsLeft <= 0;
   const canBuyMore = userJoinedEffective && !poolFull && pool.status === "open";
@@ -730,6 +746,22 @@ export default function PoolDetailPage() {
                       </span>
                     </label>
                   )}
+                  {showJoinActions && !freeThisPurchase && spotsLeft > 0 && grossTicketTotal > 0 && (
+                    <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-xs space-y-1">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground">Ticket total</span>
+                        <span className="font-mono">{grossTicketTotal.toFixed(2)} USDT</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground">Platform fee ({feePerListEntry} USDT × tickets, capped)</span>
+                        <span className="font-mono">−{platformFeeThisCheckout.toFixed(2)} USDT</span>
+                      </div>
+                      <div className="flex justify-between gap-2 font-medium text-foreground border-t border-border/40 pt-1">
+                        <span>Deducted from wallet</span>
+                        <span className="font-mono text-primary">{netFromWallet.toFixed(2)} USDT</span>
+                      </div>
+                    </div>
+                  )}
                   {showJoinActions && !freeThisPurchase && spotsLeft > 0 && (
                     <div className="flex items-center justify-between gap-3 text-sm">
                       <span className="text-muted-foreground">Tickets</span>
@@ -772,7 +804,9 @@ export default function PoolDetailPage() {
                   )}
                   {user && !freeThisPurchase && !canPayJoin && !vipLocked && showJoinActions && (
                     <p className="text-sm text-destructive">
-                      Insufficient balance. You need {totalDue.toFixed(2)} USDT for {ticketQty} ticket(s).{" "}
+                      Insufficient balance. Wallet deduction is {netFromWallet.toFixed(2)} USDT (
+                      {grossTicketTotal.toFixed(2)} USDT tickets − {platformFeeThisCheckout.toFixed(2)} USDT platform fee) for{" "}
+                      {ticketQty} ticket(s).{" "}
                       <a href="/wallet" className="underline text-primary">Add funds</a>.
                     </p>
                   )}
@@ -787,10 +821,10 @@ export default function PoolDetailPage() {
                       : freeThisPurchase
                         ? "Join with free entry"
                         : userJoinedEffective
-                          ? `Buy ${ticketQty} ticket(s) — ${totalDue.toFixed(2)} USDT`
+                          ? `Buy ${ticketQty} ticket(s) — ${netFromWallet.toFixed(2)} USDT from wallet`
                           : ticketQty > 1
-                            ? `Join with ${ticketQty} tickets — ${totalDue.toFixed(2)} USDT`
-                            : `Join pool — ${effectiveEntryDue} USDT`}
+                            ? `Join with ${ticketQty} tickets — ${netFromWallet.toFixed(2)} USDT from wallet`
+                            : `Join pool — ${netFromWallet.toFixed(2)} USDT from wallet`}
                   </Button>
                   {!user && (
                     <p className="text-xs text-center text-muted-foreground">

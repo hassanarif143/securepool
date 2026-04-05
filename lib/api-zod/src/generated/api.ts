@@ -387,6 +387,19 @@ export const DistributeRewardsParams = zod.object({
   poolId: zod.coerce.number(),
 });
 
+export const distributeRewardsBodyWinnerUserIdsMin = 3;
+export const distributeRewardsBodyWinnerUserIdsMax = 3;
+
+export const DistributeRewardsBody = zod.object({
+  winnerUserIds: zod
+    .array(zod.number())
+    .min(distributeRewardsBodyWinnerUserIdsMin)
+    .max(distributeRewardsBodyWinnerUserIdsMax)
+    .describe(
+      "User IDs for 1st, 2nd, and 3rd place (must be distinct pool participants)",
+    ),
+});
+
 export const DistributeRewardsResponse = zod.object({
   message: zod.string(),
   winners: zod.array(
