@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, numeric, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, numeric, timestamp, pgEnum, boolean } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -28,6 +28,10 @@ export const poolsTable = pgTable("pools", {
   drawLuckyNumber: integer("draw_lucky_number"),
   /** User who held a ticket matching draw_lucky_number (null if no match). */
   luckyMatchUserId: integer("lucky_match_user_id").references(() => usersTable.id),
+  /** Admin safety lock: frozen pools cannot accept new joins. */
+  isFrozen: boolean("is_frozen").notNull().default(false),
+  /** Optional admin-selected winner ids (comma-separated), used before final distribute action. */
+  selectedWinnerUserIds: text("selected_winner_user_ids"),
 });
 
 export const insertPoolSchema = createInsertSchema(poolsTable).omit({ id: true, createdAt: true });

@@ -26,6 +26,8 @@ import { isValidTrc20Address } from "../lib/trc20";
 import { logActivity } from "../services/activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { refundAllPoolParticipants } from "../lib/pool-refunds";
+import { distributePoolWithWinners } from "./pools";
+import { platformFeePerJoinUsdt } from "../lib/user-balances";
 import {
   appendDepositFromTicketPurchase,
   appendWithdrawalForPayout,
@@ -744,6 +746,304 @@ router.get("/pools/:id/participants", async (req, res) => {
     .orderBy(desc(poolParticipantsTable.joinedAt));
 
   res.json(participants);
+});
+
+const AdminPoolCreateBody = z.object({
+  title: z.string().min(3).max(120),
+  entryFee: z.number().positive(),
+  maxUsers: z.number().int().min(2).max(500),
+  startTime: z.string().datetime(),
+  endTime: z.string().datetime(),
+  prizeFirst: z.number().nonnegative(),
+  prizeSecond: z.number().nonnegative(),
+  prizeThird: z.number().nonnegative(),
+  minPoolVipTier: z.enum(["bronze", "silver", "gold", "diamond"]).optional(),
+  winnerCount: z.number().int().min(1).max(3).optional(),
+  platformFeePerJoin: z.number().nonnegative().optional(),
+});
+
+const AdminSelectWinnersBody = z.object({
+  winnerUserIds: z.array(z.number().int().positive()).min(1).max(3),
+});
+
+const DEFAULT_POOL_BLUEPRINTS: Array<{
+  title: string;
+  entryFee: number;
+  maxUsers: number;
+  prizeFirst: number;
+  prizeSecond: number;
+  prizeThird: number;
+  winnerCount: 1 | 2 | 3;
+}> = [
+  { title: "Starter 5 USDT", entryFee: 5, maxUsers: 50, prizeFirst: 80, prizeSecond: 30, prizeThird: 20, winnerCount: 3 },
+  { title: "Classic 10 USDT", entryFee: 10, maxUsers: 60, prizeFirst: 220, prizeSecond: 90, prizeThird: 50, winnerCount: 3 },
+  { title: "Prime 15 USDT", entryFee: 15, maxUsers: 60, prizeFirst: 360, prizeSecond: 120, prizeThird: 70, winnerCount: 3 },
+  { title: "Power 20 USDT", entryFee: 20, maxUsers: 70, prizeFirst: 560, prizeSecond: 180, prizeThird: 100, winnerCount: 3 },
+  { title: "Turbo 25 USDT", entryFee: 25, maxUsers: 70, prizeFirst: 760, prizeSecond: 240, prizeThird: 140, winnerCount: 3 },
+  { title: "Single Winner 10 USDT", entryFee: 10, maxUsers: 45, prizeFirst: 260, prizeSecond: 0, prizeThird: 0, winnerCount: 1 },
+  { title: "Single Winner 20 USDT", entryFee: 20, maxUsers: 45, prizeFirst: 540, prizeSecond: 0, prizeThird: 0, winnerCount: 1 },
+  { title: "2 Winner Pro 15 USDT", entryFee: 15, maxUsers: 55, prizeFirst: 420, prizeSecond: 180, prizeThird: 0, winnerCount: 2 },
+  { title: "2 Winner Pro 25 USDT", entryFee: 25, maxUsers: 55, prizeFirst: 760, prizeSecond: 320, prizeThird: 0, winnerCount: 2 },
+  { title: "Mega 50 USDT", entryFee: 50, maxUsers: 80, prizeFirst: 2500, prizeSecond: 700, prizeThird: 350, winnerCount: 3 },
+];
+
+router.post("/pool/create", async (req, res) => {
+  const parsed = AdminPoolCreateBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid payload" });
+    return;
+  }
+  const body = parsed.data;
+  const [created] = await db
+    .insert(poolsTable)
+    .values({
+      title: sanitizeText(body.title),
+      entryFee: body.entryFee.toFixed(2),
+      maxUsers: body.maxUsers,
+      startTime: new Date(body.startTime),
+      endTime: new Date(body.endTime),
+      status: "open",
+      prizeFirst: body.prizeFirst.toFixed(2),
+      prizeSecond: body.prizeSecond.toFixed(2),
+      prizeThird: body.prizeThird.toFixed(2),
+      minPoolVipTier: body.minPoolVipTier ?? "bronze",
+      winnerCount: body.winnerCount ?? 3,
+      platformFeePerJoin:
+        body.platformFeePerJoin != null ? body.platformFeePerJoin.toFixed(2) : null,
+      isFrozen: false,
+      selectedWinnerUserIds: null,
+    })
+    .returning();
+  await logAction(getAdminId(req), "pool", created?.id ?? null, "create_pool", `Created pool "${body.title}"`);
+  res.json({ message: "Pool created", poolId: created?.id ?? null });
+});
+
+router.post("/pool/:id/select-winners", async (req, res) => {
+  const poolId = parseInt(req.params.id, 10);
+  if (Number.isNaN(poolId)) {
+    res.status(400).json({ error: "Invalid pool ID" });
+    return;
+  }
+  const parsed = AdminSelectWinnersBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid payload" });
+    return;
+  }
+  const winnerIds = parsed.data.winnerUserIds;
+  const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  if (!pool) {
+    res.status(404).json({ error: "Pool not found" });
+    return;
+  }
+  const distinct = new Set(winnerIds);
+  if (distinct.size !== winnerIds.length) {
+    res.status(400).json({ error: "Winner IDs must be unique" });
+    return;
+  }
+  const participantRows = await db
+    .select({ userId: poolParticipantsTable.userId })
+    .from(poolParticipantsTable)
+    .where(eq(poolParticipantsTable.poolId, poolId));
+  const participantsSet = new Set(participantRows.map((r) => r.userId));
+  for (const id of winnerIds) {
+    if (!participantsSet.has(id)) {
+      res.status(400).json({ error: `User ${id} is not in this pool` });
+      return;
+    }
+  }
+  if (winnerIds.length !== (pool.winnerCount ?? 3)) {
+    res.status(400).json({ error: `Pool requires exactly ${pool.winnerCount ?? 3} winner(s)` });
+    return;
+  }
+  await db
+    .update(poolsTable)
+    .set({ selectedWinnerUserIds: winnerIds.join(",") })
+    .where(eq(poolsTable.id, poolId));
+  await logAction(getAdminId(req), "pool", poolId, "select_winners", `Selected winners: ${winnerIds.join(", ")}`);
+  res.json({ message: "Winners selected", winnerUserIds: winnerIds });
+});
+
+router.post("/pool/:id/distribute", async (req, res) => {
+  const poolId = parseInt(req.params.id, 10);
+  if (Number.isNaN(poolId)) {
+    res.status(400).json({ error: "Invalid pool ID" });
+    return;
+  }
+  const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  if (!pool) {
+    res.status(404).json({ error: "Pool not found" });
+    return;
+  }
+  const fromBody = AdminSelectWinnersBody.safeParse(req.body ?? {});
+  const winnerUserIds =
+    fromBody.success && fromBody.data.winnerUserIds.length > 0
+      ? fromBody.data.winnerUserIds
+      : String(pool.selectedWinnerUserIds ?? "")
+          .split(",")
+          .map((s) => parseInt(s.trim(), 10))
+          .filter((n) => Number.isInteger(n) && n > 0);
+  if (winnerUserIds.length === 0) {
+    res.status(400).json({ error: "No winners selected. Use /admin/pool/:id/select-winners first." });
+    return;
+  }
+
+  try {
+    const distributed = await distributePoolWithWinners(poolId, winnerUserIds);
+    await db.update(poolsTable).set({ selectedWinnerUserIds: null }).where(eq(poolsTable.id, poolId));
+    await logAction(getAdminId(req), "pool", poolId, "distribute_pool", `Distributed pool with winners: ${winnerUserIds.join(", ")}`);
+    res.json({
+      message: "Pool distributed successfully",
+      winners: distributed.winnerRecords.map((w) => ({
+        userId: w.userId,
+        userName: w.userName,
+        place: w.place,
+        prize: parseFloat(w.prize),
+      })),
+      profitSummary: {
+        revenue: distributed.financial.totalRevenue,
+        prizes: distributed.financial.totalPrizes,
+        loserRefunds: distributed.financial.totalLoserRefunds,
+        platformFee: distributed.financial.platformFee,
+      },
+    });
+  } catch (err: unknown) {
+    const code = (err as { code?: string }).code;
+    if (code) {
+      res.status(400).json({ error: (err as Error).message });
+      return;
+    }
+    res.status(500).json({ error: "Failed to distribute pool" });
+  }
+});
+
+router.post("/pool/:id/end", async (req, res) => {
+  const poolId = parseInt(req.params.id, 10);
+  if (Number.isNaN(poolId)) {
+    res.status(400).json({ error: "Invalid pool ID" });
+    return;
+  }
+  const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  if (!pool) {
+    res.status(404).json({ error: "Pool not found" });
+    return;
+  }
+  const participants = await db
+    .select({ userId: poolParticipantsTable.userId })
+    .from(poolParticipantsTable)
+    .where(eq(poolParticipantsTable.poolId, poolId));
+  if (participants.length < 2) {
+    res.status(400).json({ error: "Pool must have at least 2 participants to end." });
+    return;
+  }
+  await db
+    .update(poolsTable)
+    .set({ endTime: new Date(), status: "closed" })
+    .where(eq(poolsTable.id, poolId));
+  await logAction(getAdminId(req), "pool", poolId, "end_pool", `Manually ended pool "${pool.title}"`);
+  res.json({ message: "Pool ended", poolId });
+});
+
+router.post("/pool/:id/cancel", async (req, res) => {
+  const poolId = parseInt(req.params.id, 10);
+  if (Number.isNaN(poolId)) {
+    res.status(400).json({ error: "Invalid pool ID" });
+    return;
+  }
+  const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  if (!pool) {
+    res.status(404).json({ error: "Pool not found" });
+    return;
+  }
+  if (pool.status === "completed") {
+    res.status(400).json({ error: "Completed pool cannot be canceled" });
+    return;
+  }
+  const { refundedCount } = await refundAllPoolParticipants(poolId, pool, `[Admin] Pool "${pool.title}" canceled`);
+  await db.update(poolsTable).set({ status: "closed", isFrozen: true }).where(eq(poolsTable.id, poolId));
+  await logAction(getAdminId(req), "pool", poolId, "cancel_pool", `Canceled pool "${pool.title}" and refunded ${refundedCount} participant(s)`);
+  res.json({ message: "Pool canceled and participants refunded", refundedCount });
+});
+
+router.post("/pool/:id/freeze", async (req, res) => {
+  const poolId = parseInt(req.params.id, 10);
+  if (Number.isNaN(poolId)) {
+    res.status(400).json({ error: "Invalid pool ID" });
+    return;
+  }
+  const freeze = Boolean((req.body ?? {}).freeze ?? true);
+  const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  if (!pool) {
+    res.status(404).json({ error: "Pool not found" });
+    return;
+  }
+  await db.update(poolsTable).set({ isFrozen: freeze }).where(eq(poolsTable.id, poolId));
+  await logAction(getAdminId(req), "pool", poolId, freeze ? "freeze_pool" : "unfreeze_pool", `${freeze ? "Froze" : "Unfroze"} pool "${pool.title}"`);
+  res.json({ message: freeze ? "Pool frozen" : "Pool unfrozen", isFrozen: freeze });
+});
+
+router.get("/pool/:id/participants", async (req, res) => {
+  const poolId = parseInt(req.params.id, 10);
+  if (Number.isNaN(poolId)) {
+    res.status(400).json({ error: "Invalid pool ID" });
+    return;
+  }
+  const participants = await db
+    .select({
+      id: poolParticipantsTable.id,
+      userId: poolParticipantsTable.userId,
+      userName: usersTable.name,
+      userEmail: usersTable.email,
+      ticketCount: poolParticipantsTable.ticketCount,
+      joinedAt: poolParticipantsTable.joinedAt,
+      amountPaid: poolParticipantsTable.amountPaid,
+    })
+    .from(poolParticipantsTable)
+    .innerJoin(usersTable, eq(poolParticipantsTable.userId, usersTable.id))
+    .where(eq(poolParticipantsTable.poolId, poolId))
+    .orderBy(desc(poolParticipantsTable.joinedAt));
+  const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  const entryFee = parseFloat(String(pool?.entryFee ?? "0"));
+  const fee = platformFeePerJoinUsdt(entryFee, pool?.platformFeePerJoin ?? null);
+  const totalPaid = participants.reduce((acc, p) => acc + parseFloat(String(p.amountPaid ?? "0")), 0);
+  res.json({
+    participants,
+    summary: {
+      participantCount: participants.length,
+      totalPaid: Number(totalPaid.toFixed(2)),
+      winnerCount: pool?.winnerCount ?? 3,
+      loserRefundPerTicket: Number(Math.max(0, entryFee - fee).toFixed(2)),
+    },
+  });
+});
+
+router.post("/pool/seed-defaults", async (_req, res) => {
+  const now = new Date();
+  let created = 0;
+  for (let i = 0; i < DEFAULT_POOL_BLUEPRINTS.length; i++) {
+    const bp = DEFAULT_POOL_BLUEPRINTS[i]!;
+    const title = `[Default] ${bp.title}`;
+    const existing = await db.select({ id: poolsTable.id }).from(poolsTable).where(eq(poolsTable.title, title)).limit(1);
+    if (existing.length > 0) continue;
+    const start = new Date(now.getTime() + i * 5 * 60_000);
+    const end = new Date(start.getTime() + 24 * 60 * 60_000);
+    await db.insert(poolsTable).values({
+      title,
+      entryFee: bp.entryFee.toFixed(2),
+      maxUsers: bp.maxUsers,
+      startTime: start,
+      endTime: end,
+      status: "open",
+      prizeFirst: bp.prizeFirst.toFixed(2),
+      prizeSecond: bp.prizeSecond.toFixed(2),
+      prizeThird: bp.prizeThird.toFixed(2),
+      winnerCount: bp.winnerCount,
+      minPoolVipTier: "bronze",
+      isFrozen: false,
+      selectedWinnerUserIds: null,
+    });
+    created++;
+  }
+  res.json({ message: "Default pools seeded", created, total: DEFAULT_POOL_BLUEPRINTS.length });
 });
 
 router.get("/transactions/pending", async (req, res) => {

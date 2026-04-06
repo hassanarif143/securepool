@@ -6,7 +6,6 @@ import {
   useListPools,
   useCreatePool,
   useUpdatePool,
-  useDistributeRewards,
   useListTransactions,
   useGetAdminFinanceOverview,
   useGetAdminFinanceSettings,
@@ -577,7 +576,6 @@ function PoolStatusChip({ status }: { status: string }) {
 function PoolsTab() {
   const { data: pools } = useListPools({ query: { queryKey: getListPoolsQueryKey() } });
   const updatePool = useUpdatePool();
-  const distributeRewards = useDistributeRewards();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -690,9 +688,28 @@ function PoolsTab() {
     setParticipantsPoolId(poolId);
     setParticipantsLoading(true);
     try {
-      const res = await fetch(apiUrl(`/api/admin/pools/${poolId}/participants`), { credentials: "include" });
-      setParticipants(await res.json());
+      const res = await fetch(apiUrl(`/api/admin/pool/${poolId}/participants`), { credentials: "include" });
+      const json = await res.json();
+      const rows = Array.isArray(json) ? json : (json?.participants ?? []);
+      setParticipants(rows);
     } finally { setParticipantsLoading(false); }
+  }
+
+  async function adminPoolAction(path: string, successTitle: string, body?: unknown) {
+    const res = await fetch(apiUrl(path), {
+      method: "POST",
+      credentials: "include",
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+      const msg = await readApiErrorMessage(res);
+      throw new Error(msg || "Request failed");
+    }
+    toast({ title: successTitle });
+    void queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getGetDashboardStatsQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getGetAdminFinanceOverviewQueryKey() });
   }
 
   function handleStatusChange(poolId: number, status: "open" | "closed" | "completed") {
@@ -715,8 +732,9 @@ function PoolsTab() {
     setDistributeModal({ poolId, title: poolTitle, winnerCount });
     setDistLoading(true);
     try {
-      const res = await fetch(apiUrl(`/api/admin/pools/${poolId}/participants`), { credentials: "include" });
-      const rows = (await res.json()) as { userId?: number; userName?: string }[];
+      const res = await fetch(apiUrl(`/api/admin/pool/${poolId}/participants`), { credentials: "include" });
+      const json = await res.json();
+      const rows = (Array.isArray(json) ? json : (json?.participants ?? [])) as { userId?: number; userName?: string }[];
       setDistParticipants(
         rows
           .filter((r) => r.userId != null && r.userId > 0)
@@ -743,21 +761,31 @@ function PoolsTab() {
       return;
     }
     const poolTitle = distributeModal.title;
-    distributeRewards.mutate(
-      { poolId: distributeModal.poolId, data: { winnerUserIds: raw } },
-      {
-        onSuccess: (result: any) => {
-          setDistributeModal(null);
-          queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetDashboardStatsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetAdminFinanceOverviewQueryKey() });
-          setCelebrationWinners(result.winners ?? []);
-          setCelebrationPool(poolTitle);
-          setShowCelebration(true);
-        },
-        onError: (err: any) => toast({ title: "Distribution failed", description: err?.message, variant: "destructive" }),
-      },
-    );
+    (async () => {
+      try {
+        await adminPoolAction(`/api/admin/pool/${distributeModal.poolId}/select-winners`, "Winners selected", {
+          winnerUserIds: raw,
+        });
+        const res = await fetch(apiUrl(`/api/admin/pool/${distributeModal.poolId}/distribute`), {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ winnerUserIds: raw }),
+        });
+        if (!res.ok) throw new Error(await readApiErrorMessage(res));
+        const result = await res.json();
+        setDistributeModal(null);
+        setCelebrationWinners(result.winners ?? []);
+        setCelebrationPool(poolTitle);
+        setShowCelebration(true);
+        toast({ title: "Distribution complete" });
+        void queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
+        void queryClient.invalidateQueries({ queryKey: getGetDashboardStatsQueryKey() });
+        void queryClient.invalidateQueries({ queryKey: getGetAdminFinanceOverviewQueryKey() });
+      } catch (err: any) {
+        toast({ title: "Distribution failed", description: err?.message, variant: "destructive" });
+      }
+    })();
   }
 
   const filteredPools = (pools ?? []).filter(
@@ -860,11 +888,10 @@ function PoolsTab() {
             onClick={() => submitDistribute()}
             disabled={
               distLoading ||
-              distParticipants.length < (distributeModal?.winnerCount ?? 3) ||
-              distributeRewards.isPending
+              distParticipants.length < (distributeModal?.winnerCount ?? 3)
             }
           >
-            {distributeRewards.isPending ? "Distributing…" : "Run distribution"}
+            Run distribution
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1032,6 +1059,11 @@ function PoolsTab() {
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <p className={`font-bold text-base ${isCompleted ? "text-muted-foreground" : ""}`}>{pool.title}</p>
                       <PoolStatusChip status={pool.status} />
+                      {(pool as any).isFrozen ? (
+                        <Badge variant="outline" className="text-[10px] border-blue-500/40 text-blue-200/90">
+                          Frozen
+                        </Badge>
+                      ) : null}
                       {pool.minPoolVipTier && pool.minPoolVipTier !== "bronze" && (
                         <Badge variant="outline" className="text-[10px] capitalize border-amber-500/40 text-amber-200/90">
                           Min tier: {pool.minPoolVipTier}
@@ -1124,11 +1156,52 @@ function PoolsTab() {
                       )}
                       <button
                         onClick={() => void openDistributeModal(pool.id, pool.title, wc)}
-                        disabled={distributeRewards.isPending || !drawReady}
+                        disabled={!drawReady}
                         title={!drawReady ? `Need at least ${minForDraw} participants` : undefined}
                         className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
                         style={{ background: "hsl(152,72%,36%)", color: "white" }}>
                         🎉 Distribute Rewards
+                      </button>
+                      <button
+                        onClick={() =>
+                          void adminPoolAction(
+                            `/api/admin/pool/${pool.id}/freeze`,
+                            (pool as any).isFrozen ? "Pool unfrozen" : "Pool frozen",
+                            { freeze: !(pool as any).isFrozen },
+                          ).catch((err) =>
+                            toast({ title: "Freeze action failed", description: String(err?.message ?? err), variant: "destructive" }),
+                          )
+                        }
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                        style={{
+                          background: (pool as any).isFrozen ? "hsla(152,72%,44%,0.08)" : "hsla(220,20%,50%,0.12)",
+                          color: (pool as any).isFrozen ? "hsl(152,72%,55%)" : "hsl(220,15%,75%)",
+                          border: "1px solid hsla(220,20%,50%,0.25)",
+                        }}
+                      >
+                        {(pool as any).isFrozen ? "🔓 Unfreeze" : "❄️ Freeze"}
+                      </button>
+                      <button
+                        onClick={() =>
+                          void adminPoolAction(`/api/admin/pool/${pool.id}/end`, "Pool ended").catch((err) =>
+                            toast({ title: "End failed", description: String(err?.message ?? err), variant: "destructive" }),
+                          )
+                        }
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                        style={{ background: "hsla(38,100%,55%,0.08)", color: "hsl(38,100%,60%)", border: "1px solid hsla(38,100%,55%,0.2)" }}
+                      >
+                        ⏹ End
+                      </button>
+                      <button
+                        onClick={() =>
+                          void adminPoolAction(`/api/admin/pool/${pool.id}/cancel`, "Pool canceled").catch((err) =>
+                            toast({ title: "Cancel failed", description: String(err?.message ?? err), variant: "destructive" }),
+                          )
+                        }
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                        style={{ background: "hsla(0,72%,44%,0.06)", color: "hsl(0,72%,55%)", border: "1px solid hsla(0,72%,44%,0.15)" }}
+                      >
+                        ↩ Cancel + Refund
                       </button>
                     </>
                   )}
@@ -1314,8 +1387,31 @@ function CreatePoolTab() {
     );
   }
 
+  async function seedDefaultPools() {
+    try {
+      const res = await fetch(apiUrl("/api/admin/pool/seed-defaults"), {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      const data = await res.json();
+      toast({
+        title: "Default pools seeded",
+        description: `${data.created ?? 0} created (total blueprint ${data.total ?? 10}).`,
+      });
+      void queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
+    } catch (err: any) {
+      toast({ title: "Seed failed", description: err?.message, variant: "destructive" });
+    }
+  }
+
   return (
     <div className="mt-4">
+      <div className="mb-4 flex items-center justify-end">
+        <Button type="button" variant="outline" onClick={() => void seedDefaultPools()}>
+          Seed 10 Default Pools
+        </Button>
+      </div>
       <form onSubmit={handleSubmit}>
         <div className="grid lg:grid-cols-5 gap-6">
           {/* ── Left: Form ── */}

@@ -106,6 +106,7 @@ function formatPool(
     startTime: pool.startTime,
     endTime: pool.endTime,
     status: pool.status,
+    isFrozen: Boolean(pool.isFrozen),
     prizeFirst,
     prizeSecond,
     prizeThird,
@@ -243,7 +244,7 @@ router.get("/details/:poolId", async (req, res) => {
   }
 
   const minTier = pool.minPoolVipTier ?? "bronze";
-  let joinBlocked = pool.status !== "open" || currentEntries >= pool.maxUsers;
+  let joinBlocked = pool.status !== "open" || currentEntries >= pool.maxUsers || !!pool.isFrozen;
   let vipLocked = false;
   let entryPricing: {
     baseFee: number;
@@ -256,7 +257,7 @@ router.get("/details/:poolId", async (req, res) => {
     joinPlatformFeeUsdt: number;
   } | null = null;
 
-  if (sessionUserId && pool.status === "open" && currentEntries < pool.maxUsers) {
+  if (sessionUserId && pool.status === "open" && currentEntries < pool.maxUsers && !pool.isFrozen) {
     const [u] = await db
       .select({ poolVipTier: usersTable.poolVipTier })
       .from(usersTable)
@@ -857,6 +858,10 @@ router.post("/:poolId/join", async (req, res) => {
 
   if (pool.status !== "open") {
     res.status(400).json({ error: "Pool is not open for joining" });
+    return;
+  }
+  if (pool.isFrozen) {
+    res.status(400).json({ error: "Pool is frozen by admin" });
     return;
   }
 
@@ -1667,6 +1672,15 @@ async function finalizePoolDistribution(
   }
 }
 
+export async function distributePoolWithWinners(
+  poolId: number,
+  winnerUserIds: number[],
+): Promise<DistributedPoolResult> {
+  const distributed = await executePoolDistribution(poolId, winnerUserIds);
+  await finalizePoolDistribution(poolId, distributed, "admin-selected");
+  return distributed;
+}
+
 export async function autoDistributePool(poolId: number): Promise<DistributedPoolResult> {
   const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
   if (!pool) {
@@ -1710,7 +1724,7 @@ router.post("/:poolId/distribute", (req, res, next) => void requireAdmin(req as 
 
   let distributed: Awaited<ReturnType<typeof executePoolDistribution>>;
   try {
-    distributed = await executePoolDistribution(poolId, bodyParse.data.winnerUserIds);
+    distributed = await distributePoolWithWinners(poolId, bodyParse.data.winnerUserIds);
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code ?? "";
     if (code === "POOL_NOT_FOUND") {
@@ -1745,8 +1759,6 @@ router.post("/:poolId/distribute", (req, res, next) => void requireAdmin(req as 
     });
     return;
   }
-
-  await finalizePoolDistribution(poolId, distributed, "admin-selected");
 
   const { financial, winnerRecords } = distributed;
 
