@@ -94,19 +94,6 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
           </div>
         </div>
 
-        <div
-          className="rounded-xl flex items-center justify-between gap-3 px-3.5 py-3 border"
-          style={{
-            borderColor: "rgba(34, 197, 94, 0.35)",
-            background: "rgba(34, 197, 94, 0.06)",
-          }}
-        >
-          <span className="text-sm text-muted-foreground">Your profit</span>
-          <span className="text-base font-bold tabular-nums" style={{ color: "#22c55e" }}>
-            +${refund.toFixed(0)} USDT
-          </span>
-        </div>
-
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
           <Link href={`/pools/${pool.id}`} className="flex-1 min-w-0 w-full sm:w-auto">
             <Button

@@ -351,22 +351,6 @@ router.post("/", (req, res, next) => void requireAdmin(req as AuthedRequest, res
   } = parse.data;
   const winnerCount =
     bodyWinnerCount != null && [1, 2, 3].includes(bodyWinnerCount) ? bodyWinnerCount : 3;
-  const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
-  const feeForDraw = platformFeePerJoinUsdt(entryFee, platformFeePerJoin != null ? String(platformFeePerJoin) : null);
-  const minParticipantsToRunDraw = computeMinParticipantsToRunDraw(
-    entryFee,
-    prizeFirst,
-    prizeSecond,
-    prizeThird,
-    desiredProfitUsdt,
-    { platformFeePerJoinUsdt: feeForDraw, winnerCount },
-  );
-  if (maxUsers < minParticipantsToRunDraw) {
-    res.status(400).json({
-      error: `Pool economics invalid: max participants ${maxUsers} is below minimum draw requirement ${minParticipantsToRunDraw}. Increase max users, reduce prizes, or lower fees.`,
-    });
-    return;
-  }
 
   const [pool] = await db
     .insert(poolsTable)
@@ -395,6 +379,7 @@ router.post("/", (req, res, next) => void requireAdmin(req as AuthedRequest, res
     "pool",
   );
 
+  const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
   res.status(201).json(formatPool(pool, 0, { desiredProfitUsdt }));
 });
 
@@ -826,35 +811,6 @@ router.patch("/:poolId", (req, res, next) => void requireAdmin(req as AuthedRequ
     }
     updates.winnerCount = parse.data.winnerCount;
   }
-  const candidateEntryFee = parseFloat(existingPool.entryFee);
-  const candidatePrizeFirst = parseFloat(existingPool.prizeFirst);
-  const candidatePrizeSecond = parseFloat(existingPool.prizeSecond);
-  const candidatePrizeThird = parseFloat(existingPool.prizeThird);
-  const candidateMaxUsers = existingPool.maxUsers;
-  const candidateWinnerCount =
-    updates.winnerCount != null ? Number(updates.winnerCount) : existingPool.winnerCount ?? 3;
-  const candidatePlatformFeePerJoin =
-    updates.platformFeePerJoin !== undefined ? updates.platformFeePerJoin : existingPool.platformFeePerJoin;
-  const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
-  const feeForDraw = platformFeePerJoinUsdt(
-    candidateEntryFee,
-    candidatePlatformFeePerJoin != null ? String(candidatePlatformFeePerJoin) : null,
-  );
-  const minParticipantsToRunDraw = computeMinParticipantsToRunDraw(
-    candidateEntryFee,
-    candidatePrizeFirst,
-    candidatePrizeSecond,
-    candidatePrizeThird,
-    desiredProfitUsdt,
-    { platformFeePerJoinUsdt: feeForDraw, winnerCount: candidateWinnerCount },
-  );
-  if (candidateMaxUsers < minParticipantsToRunDraw) {
-    res.status(400).json({
-      error: `Pool economics invalid after update: max participants ${candidateMaxUsers} is below minimum draw requirement ${minParticipantsToRunDraw}.`,
-    });
-    return;
-  }
-
   /* Refund if admin closes an open pool that never filled */
   if (parse.data.status === "closed" && existingPool.status === "open") {
     const n = await countPoolTickets(poolId);
@@ -871,6 +827,7 @@ router.patch("/:poolId", (req, res, next) => void requireAdmin(req as AuthedRequ
 
   const tc = await countPoolTickets(poolId);
 
+  const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
   res.json(formatPool(pool, tc, { desiredProfitUsdt }));
 });
 
@@ -1002,18 +959,10 @@ router.post("/:poolId/join", async (req, res) => {
     return;
   }
 
-  let fromBonus = 0;
-  let fromWithdrawable = 0;
-  let nextBuckets = buckets;
-  if (!useFreeEntry) {
-    const d = deductForTicket(buckets, netDue);
-    fromBonus = d.fromBonus;
-    fromWithdrawable = d.fromWithdrawable;
-    nextBuckets = d.next;
-  }
-
   let luckyNumbers: number[] = [];
   try {
+    let fromBonus = 0;
+    let fromWithdrawable = 0;
     await db.transaction(async (trx) => {
       if (useFreeEntry) {
         await trx
@@ -1021,12 +970,29 @@ router.post("/:poolId/join", async (req, res) => {
           .set({ freeEntries: freeAvail - 1 })
           .where(eq(usersTable.id, sessionUserId));
       } else {
+        // Re-read inside transaction to avoid race where stale UI/session balance still passes.
+        const [freshUser] = await trx.select().from(usersTable).where(eq(usersTable.id, sessionUserId)).limit(1);
+        if (!freshUser) {
+          const e = new Error("USER_NOT_FOUND");
+          (e as { code?: string }).code = "USER_NOT_FOUND";
+          throw e;
+        }
+        const freshBuckets = parseUserBuckets(freshUser);
+        const freshTotal = totalWallet(freshBuckets);
+        if (freshTotal < netDue) {
+          const e = new Error("INSUFFICIENT_BALANCE");
+          (e as { code?: string }).code = "INSUFFICIENT_BALANCE";
+          throw e;
+        }
+        const d = deductForTicket(freshBuckets, netDue);
+        fromBonus = d.fromBonus;
+        fromWithdrawable = d.fromWithdrawable;
         await trx
           .update(usersTable)
           .set({
-            bonusBalance: nextBuckets.bonusBalance.toFixed(2),
-            withdrawableBalance: nextBuckets.withdrawableBalance.toFixed(2),
-            walletBalance: walletBalanceFromBuckets(nextBuckets),
+            bonusBalance: d.next.bonusBalance.toFixed(2),
+            withdrawableBalance: d.next.withdrawableBalance.toFixed(2),
+            walletBalance: walletBalanceFromBuckets(d.next),
           })
           .where(eq(usersTable.id, sessionUserId));
         await mirrorAvailableFromUser(trx, sessionUserId);
@@ -1072,6 +1038,12 @@ router.post("/:poolId/join", async (req, res) => {
     const code = (err as { code?: string })?.code ?? "";
     if (code === "LUCKY_NUMBER_EXHAUSTED") {
       res.status(503).json({ error: (err as Error).message });
+      return;
+    }
+    if (code === "INSUFFICIENT_BALANCE" || code === "INSUFFICIENT_BUCKET_BALANCE") {
+      res.status(400).json({
+        error: `Insufficient balance. Wallet deduction is ${netDue.toFixed(2)} USDT for ${ticketQty} ticket(s).`,
+      });
       return;
     }
     throw err;
