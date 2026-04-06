@@ -412,6 +412,8 @@ export const TransactionTxType = {
   withdraw: "withdraw",
   reward: "reward",
   pool_entry: "pool_entry",
+  stake_lock: "stake_lock",
+  stake_release: "stake_release",
 } as const;
 
 export type TransactionStatus =

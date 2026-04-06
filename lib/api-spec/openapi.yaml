@@ -1381,7 +1381,7 @@ components:
           type: string
         txType:
           type: string
-          enum: [deposit, withdraw, reward, pool_entry]
+          enum: [deposit, withdraw, reward, pool_entry, stake_lock, stake_release]
         amount:
           type: number
         status:

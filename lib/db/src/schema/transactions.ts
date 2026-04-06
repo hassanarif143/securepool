@@ -1,7 +1,14 @@
 import { pgTable, serial, integer, numeric, text, timestamp, pgEnum } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
-export const txTypeEnum = pgEnum("tx_type", ["deposit", "withdraw", "reward", "pool_entry"]);
+export const txTypeEnum = pgEnum("tx_type", [
+  "deposit",
+  "withdraw",
+  "reward",
+  "pool_entry",
+  "stake_lock",
+  "stake_release",
+]);
 export const txStatusEnum = pgEnum("tx_status", ["pending", "under_review", "completed", "rejected", "failed"]);
 
 export const transactionsTable = pgTable("transactions", {

@@ -4,6 +4,7 @@ export * from "./pools";
 export * from "./poolParticipants";
 export * from "./poolTickets";
 export * from "./transactions";
+export * from "./usdtStakes";
 export * from "./winners";
 export * from "./adminActions";
 export * from "./referrals";

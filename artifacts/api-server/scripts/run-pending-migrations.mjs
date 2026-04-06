@@ -1,17 +1,18 @@
 #!/usr/bin/env node
 /**
  * Applies lib/db/migrations/*.sql once each (schema_migrations), same rules as src/runMigrations.ts.
- * Usage: DATABASE_URL=... node ./scripts/run-pending-migrations.mjs
- * Cwd: artifacts/api-server
+ * Usage: from artifacts/api-server with .env, or DATABASE_URL=... node ./scripts/run-pending-migrations.mjs
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import dotenv from "dotenv";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const apiRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(apiRoot, "../..");
+dotenv.config({ path: path.join(apiRoot, ".env") });
 const migDir = path.join(repoRoot, "lib/db/migrations");
 
 if (!process.env.DATABASE_URL) {

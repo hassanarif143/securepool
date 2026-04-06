@@ -55,13 +55,27 @@ Set **`DATABASE_URL`**, **`SESSION_SECRET`**, and **`JWT_SECRET`** in **`artifac
 
 ## Database migrations (wallet / demo flags)
 
-The API runs pending SQL migrations on startup (`runPendingSqlMigrations`). Ensure these migrations have been applied on the target database:
+The API **automatically runs all pending** `lib/db/migrations/*.sql` files **on every boot** (`runPendingSqlMigrations`), tracked in `schema_migrations`. To run the same step manually (e.g. CI or before first deploy), from repo root with `DATABASE_URL` set:
+
+```bash
+pnpm run migrate:sql
+```
+
+(`artifacts/api-server` loads `.env` if you `cd` there first.) Set `SKIP_DB_MIGRATIONS=1` only if you intentionally disable auto-migrate.
+
+Ensure these migrations have been applied on the target database (or let the API apply them on startup):
 
 - **`0005_wallet_change_demo.sql`** — `wallet_change_requests`, `users.is_demo`, `winners.payment_status`
 - **`0006_activity_loyalty.sql`** — `activity_logs`, `users.referral_points`, `users.free_entries`, `users.pool_join_count` (and backfill join counts)
 - **`0007`–`0008`** — engagement / retention columns and related tables (see `lib/db/migrations/`)
 - **`0009_admin_wallet_and_draw_financials.sql`** — legacy `admin_wallet_transactions`, `platform_settings`, `pool_draw_financials`, `pool_participants.amount_paid`
 - **`0010_central_wallet_user_wallets.sql`** — **`central_wallet_ledger`** (canonical treasury ledger), **`user_wallet`**, **`user_wallet_transactions`**; one-time backfill from legacy admin wallet + user aggregates. New writes go to `central_wallet_ledger` only.
+- **`0017_pool_platform_fee_override.sql`** — optional per-pool platform fee override.
+- **`0018_usdt_stakes.sql`** — **`usdt_stakes`** table and `tx_type` values `stake_lock` / `stake_release` (in-app **USDT Stake** page: 15-day lock, 10% reward on principal).
+
+**Pools:** each draw has **three prize places** (1st, 2nd, 3rd). Amounts are set in **Admin → Create pool** (`prizeFirst`, `prizeSecond`, `prizeThird`).
+
+**Admin → Users** only lists rows in the **`users`** table. A JSON file of names (e.g. under `artifacts/`) does **not** create accounts; users must **sign up** (or you run a custom import/seed against Postgres).
 
 **API (finance):** `GET /api/admin/finance/overview` (full dashboard payload), `GET /api/admin/wallet/balance` and `GET /api/admin/wallet/summary` (headline + period totals). **User:** `GET /api/user/wallet` (includes balance breakdown fields), `GET /api/user/wallet/transactions`. Regenerate clients after OpenAPI changes: **`pnpm --filter @workspace/api-spec run codegen`**.
 

@@ -243,6 +243,66 @@ export async function recordTicketOnlyBonus(
   });
 }
 
+export async function recordStakeLockDebit(
+  trx: DbTx,
+  opts: { userId: number; amount: number; balanceAfter: number; stakeId: number },
+): Promise<void> {
+  await mirrorAvailableFromUser(trx, opts.userId);
+  await trx
+    .insert(userWalletTable)
+    .values({
+      userId: opts.userId,
+      availableBalance: String(opts.balanceAfter),
+    })
+    .onConflictDoUpdate({
+      target: userWalletTable.userId,
+      set: { availableBalance: String(opts.balanceAfter), updatedAt: new Date() },
+    });
+
+  await trx.insert(userWalletTransactionsTable).values({
+    userId: opts.userId,
+    transactionType: "DEBIT",
+    category: "USDT_STAKE_LOCK",
+    amount: String(opts.amount),
+    referenceType: "stake",
+    referenceId: opts.stakeId,
+    description: `USDT stake locked (#${opts.stakeId}) — ${opts.amount.toFixed(2)} USDT (15-day lock)`,
+    balanceAfter: String(opts.balanceAfter),
+  });
+}
+
+export async function recordStakeReturnCredit(
+  trx: DbTx,
+  opts: {
+    userId: number;
+    principal: number;
+    reward: number;
+    balanceAfter: number;
+    stakeId: number;
+  },
+): Promise<void> {
+  const total = opts.principal + opts.reward;
+  await mirrorAvailableFromUser(trx, opts.userId);
+  await trx
+    .update(userWalletTable)
+    .set({
+      availableBalance: String(opts.balanceAfter),
+      updatedAt: new Date(),
+    })
+    .where(eq(userWalletTable.userId, opts.userId));
+
+  await trx.insert(userWalletTransactionsTable).values({
+    userId: opts.userId,
+    transactionType: "CREDIT",
+    category: "USDT_STAKE_RETURN",
+    amount: String(total),
+    referenceType: "stake",
+    referenceId: opts.stakeId,
+    description: `USDT stake #${opts.stakeId} released — ${opts.principal.toFixed(2)} + ${opts.reward.toFixed(2)} reward USDT`,
+    balanceAfter: String(opts.balanceAfter),
+  });
+}
+
 export async function getUserWalletPayload(userId: number) {
   const [u] = await db
     .select({

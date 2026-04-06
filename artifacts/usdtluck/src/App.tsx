@@ -25,6 +25,7 @@ import ReferralPage from "@/pages/ReferralPage";
 import ReviewsPage from "@/pages/ReviewsPage";
 import LeaderboardPage from "@/pages/LeaderboardPage";
 import HowItWorksPage from "@/pages/HowItWorksPage";
+import StakingPage from "@/pages/StakingPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -151,6 +152,11 @@ function Router() {
         <Route path="/leaderboard">
           <RequireAuth>
             <LeaderboardPage />
+          </RequireAuth>
+        </Route>
+        <Route path="/staking">
+          <RequireAuth>
+            <StakingPage />
           </RequireAuth>
         </Route>
         <Route path="/how-it-works" component={HowItWorksPage} />

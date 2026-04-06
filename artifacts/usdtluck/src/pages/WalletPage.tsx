@@ -42,6 +42,8 @@ const TX_META: Record<string, { icon: string; label: string; sign: string; color
   reward:           { icon: "★", label: "Prize Won",    sign: "+", color: "#10b981", isCredit: true  },
   withdrawal:       { icon: "↓", label: "Withdrawal",   sign: "-", color: "#f87171", isCredit: false },
   pool_entry:       { icon: "◉", label: "Pool Entry",   sign: "-", color: "#f87171", isCredit: false },
+  stake_lock:       { icon: "🔒", label: "Stake lock",   sign: "-", color: "#fbbf24", isCredit: false },
+  stake_release:    { icon: "🔓", label: "Stake return", sign: "+", color: "#10b981", isCredit: true  },
   referral_bonus:   { icon: "⊕", label: "Referral",     sign: "+", color: "#10b981", isCredit: true  },
   tier_free_ticket: { icon: "◈", label: "Tier Bonus",   sign: "+", color: "#10b981", isCredit: true  },
   withdraw:         { icon: "↓", label: "Withdrawal",   sign: "-", color: "#f87171", isCredit: false },
@@ -82,7 +84,7 @@ export default function WalletPage() {
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<"deposit" | "withdraw" | "history">("deposit");
-  const [txFilter, setTxFilter] = useState<"all" | "deposit" | "withdraw" | "reward" | "pool_entry">("all");
+  const [txFilter, setTxFilter] = useState<"all" | "deposit" | "withdraw" | "reward" | "pool_entry" | "stake">("all");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [withdrawWallet, setWithdrawWallet] = useState(user?.cryptoAddress ?? "");
@@ -131,6 +133,7 @@ export default function WalletPage() {
     if (txFilter === "withdraw") return t.txType === "withdraw" || t.txType === "withdrawal";
     if (txFilter === "reward") return t.txType === "reward" || t.txType === "referral_bonus" || t.txType === "tier_free_ticket";
     if (txFilter === "pool_entry") return t.txType === "pool_entry";
+    if (txFilter === "stake") return t.txType === "stake_lock" || t.txType === "stake_release";
     return true;
   }
 
@@ -630,7 +633,7 @@ export default function WalletPage() {
             )}
             <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-[hsl(217,28%,14%)]" style={{ background: "hsl(222,30%,10%)" }}>
               <div className="flex flex-wrap gap-2">
-                {(["all", "deposit", "withdraw", "reward", "pool_entry"] as const).map((f) => (
+                {(["all", "deposit", "withdraw", "reward", "pool_entry", "stake"] as const).map((f) => (
                   <button
                     key={f}
                     type="button"
@@ -639,7 +642,17 @@ export default function WalletPage() {
                       txFilter === f ? "border-primary text-primary bg-primary/10" : "border-transparent text-muted-foreground hover:bg-white/5"
                     }`}
                   >
-                    {f === "all" ? "All" : f === "deposit" ? "Deposits" : f === "withdraw" ? "Withdrawals" : f === "reward" ? "Rewards" : "Pool Entries"}
+                    {f === "all"
+                      ? "All"
+                      : f === "deposit"
+                        ? "Deposits"
+                        : f === "withdraw"
+                          ? "Withdrawals"
+                          : f === "reward"
+                            ? "Rewards"
+                            : f === "pool_entry"
+                              ? "Pool Entries"
+                              : "Stake"}
                   </button>
                 ))}
               </div>

@@ -520,6 +520,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   /* Secondary links — tucked into "More" dropdown on desktop */
   const secondaryLinks = user ? [
     { href: "/how-it-works", label: "How It Works", icon: "📘" },
+    { href: "/staking", label: "USDT Stake", icon: "🔒" },
     { href: "/leaderboard", label: "Leaderboard", icon: "📊" },
     { href: "/reviews",    label: "Reviews",    icon: "💬" },
     { href: "/referral",   label: "Referral",   icon: "🔗" },
