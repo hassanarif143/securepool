@@ -49,6 +49,11 @@ const faqs = [
   { q: "Can I join multiple pools?", a: "Yes, as long as you have enough balance for each entry." },
   { q: "What payment methods are accepted?", a: "Currently USDT on the TRC-20 network." },
   { q: "How do I contact support?", a: "Use the contact options in your profile or reach out to an administrator." },
+  {
+    q: "What is USDT staking on SecurePool?",
+    a: "You can lock USDT for a fixed term (currently 15 days). If you wait until maturity, you receive principal plus the published reward rate. If you unstake early, you get your principal back only — no reward.",
+  },
+  { q: "Is staked USDT still in my wallet balance?", a: "While a stake is active, that amount is locked separately from your spendable balance. After claim or early unstake, funds return according to the rules shown on the Staking page." },
 ];
 
 export default function HowItWorksPage() {
@@ -139,6 +144,26 @@ export default function HowItWorksPage() {
             </Link>
           </CardContent>
         </Card>
+      </section>
+
+      <section className="rounded-2xl border border-amber-500/20 p-6 md:p-8" style={{ background: "linear-gradient(135deg, hsla(38,90%,55%,0.06), hsla(222,30%,8%,1))" }}>
+        <h2 className="text-2xl font-bold mb-2 text-center">USDT staking</h2>
+        <p className="text-sm text-muted-foreground text-center mb-6 max-w-xl mx-auto leading-relaxed">
+          Optional fixed-term lock: earn the advertised rate if you hold to maturity, or exit early anytime for your principal only.
+        </p>
+        <div className="flex flex-wrap justify-center gap-3">
+          <Link href="/staking">
+            <Button size="lg" className="font-semibold min-h-11" variant="default" style={{ background: "linear-gradient(135deg, #ca8a04, #a16207)" }}>
+              Open staking
+            </Button>
+          </Link>
+          <Link href="/signup">
+            <Button size="lg" variant="outline" className="min-h-11">
+              Create account
+            </Button>
+          </Link>
+        </div>
+        <p className="text-xs text-muted-foreground text-center mt-4">Minimum and rates are shown in the app and may change; always check the Staking page before you confirm.</p>
       </section>
 
       <section>

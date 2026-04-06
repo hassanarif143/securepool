@@ -23,7 +23,7 @@ import { PoolVipBadge } from "@/components/PoolVipBadge";
 import { TransactionStatusBadge } from "@/components/TransactionStatusBadge";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Inbox } from "lucide-react";
+import { ArrowRight, Inbox, Lock } from "lucide-react";
 import { TrustStrip } from "@/components/TrustStrip";
 
 interface TierInfo {
@@ -87,6 +87,8 @@ const TX_META: Record<
   pool_entry: { icon: "◉", label: "Pool entry", desc: "Joined a pool", color: "#f87171", sign: "-", isCredit: false },
   referral_bonus: { icon: "⊕", label: "Referral", desc: "Friend joined", color: "#10b981", sign: "+", isCredit: true },
   tier_free_ticket: { icon: "◈", label: "Tier bonus", desc: "Tier upgrade reward", color: "#10b981", sign: "+", isCredit: true },
+  stake_lock: { icon: "🔒", label: "Stake lock", desc: "USDT locked for staking", color: "#fbbf24", sign: "-", isCredit: false },
+  stake_release: { icon: "🔓", label: "Stake return", desc: "Principal or stake payout", color: "#10b981", sign: "+", isCredit: true },
 };
 function txMeta(type: string) {
   return (
@@ -236,6 +238,16 @@ export default function DashboardPage() {
             </Button>
             <Button variant="secondary" className="min-h-12 w-full font-medium sm:w-auto sm:min-w-[9rem]" asChild>
               <Link href="/wallet">Wallet</Link>
+            </Button>
+            <Button
+              variant="outline"
+              className="min-h-12 w-full border-amber-500/25 bg-amber-500/[0.06] font-medium text-foreground hover:bg-amber-500/10 sm:w-auto sm:min-w-[9rem]"
+              asChild
+            >
+              <Link href="/staking">
+                <Lock className="h-4 w-4 text-amber-400/90" aria-hidden />
+                Staking
+              </Link>
             </Button>
           </div>
         </div>

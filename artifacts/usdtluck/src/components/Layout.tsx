@@ -711,7 +711,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
             <Link href="/how-it-works" className="hover:text-foreground transition-colors">How It Works</Link>
             <span className="opacity-30 hidden sm:inline">·</span>
-            <a href="#" className="hover:text-foreground transition-colors" onClick={(e) => e.preventDefault()}>Terms</a>
+            <span className="opacity-50 cursor-default" title="Terms of service — contact support for details">
+              Terms
+            </span>
             <span className="opacity-30 hidden sm:inline">·</span>
             <a href="mailto:support@securepool.app" className="hover:text-foreground transition-colors">Support</a>
           </div>
