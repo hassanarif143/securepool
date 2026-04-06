@@ -34,10 +34,14 @@ export async function runExpiredPoolRefunds(): Promise<void> {
       continue;
     } catch (err) {
       const code = (err as { code?: string })?.code ?? "";
-      if (code === "MIN_PARTICIPANTS" || code === "INVALID_WINNER_COUNT") {
+      if (
+        code === "MIN_PARTICIPANTS" ||
+        code === "INVALID_WINNER_COUNT" ||
+        code === "INSUFFICIENT_SETTLEMENT"
+      ) {
         await refundAllPoolParticipants(pool.id, pool, "Pool end time reached — not eligible for draw");
         await db.update(poolsTable).set({ status: "closed" }).where(eq(poolsTable.id, pool.id));
-        logger.info({ poolId: pool.id }, "[pool-auto-close] pool refunded and closed at end time");
+        logger.info({ poolId: pool.id, code }, "[pool-auto-close] pool refunded and closed at end time");
         continue;
       }
       if (code === "ALREADY_COMPLETED") continue;
@@ -50,5 +54,5 @@ export function scheduleExpiredPoolJob(): void {
   void runExpiredPoolRefunds().catch((err) => logger.warn({ err }, "[pool-auto-close] initial run failed"));
   setInterval(() => {
     void runExpiredPoolRefunds().catch((err) => logger.warn({ err }, "[pool-auto-close] tick failed"));
-  }, 120_000);
+  }, 30_000);
 }

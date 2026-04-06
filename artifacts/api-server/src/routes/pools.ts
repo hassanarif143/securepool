@@ -351,6 +351,22 @@ router.post("/", (req, res, next) => void requireAdmin(req as AuthedRequest, res
   } = parse.data;
   const winnerCount =
     bodyWinnerCount != null && [1, 2, 3].includes(bodyWinnerCount) ? bodyWinnerCount : 3;
+  const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
+  const feeForDraw = platformFeePerJoinUsdt(entryFee, platformFeePerJoin != null ? String(platformFeePerJoin) : null);
+  const minParticipantsToRunDraw = computeMinParticipantsToRunDraw(
+    entryFee,
+    prizeFirst,
+    prizeSecond,
+    prizeThird,
+    desiredProfitUsdt,
+    { platformFeePerJoinUsdt: feeForDraw, winnerCount },
+  );
+  if (maxUsers < minParticipantsToRunDraw) {
+    res.status(400).json({
+      error: `Pool economics invalid: max participants ${maxUsers} is below minimum draw requirement ${minParticipantsToRunDraw}. Increase max users, reduce prizes, or lower fees.`,
+    });
+    return;
+  }
 
   const [pool] = await db
     .insert(poolsTable)
@@ -379,7 +395,6 @@ router.post("/", (req, res, next) => void requireAdmin(req as AuthedRequest, res
     "pool",
   );
 
-  const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
   res.status(201).json(formatPool(pool, 0, { desiredProfitUsdt }));
 });
 
@@ -811,6 +826,34 @@ router.patch("/:poolId", (req, res, next) => void requireAdmin(req as AuthedRequ
     }
     updates.winnerCount = parse.data.winnerCount;
   }
+  const candidateEntryFee = parseFloat(existingPool.entryFee);
+  const candidatePrizeFirst = parseFloat(existingPool.prizeFirst);
+  const candidatePrizeSecond = parseFloat(existingPool.prizeSecond);
+  const candidatePrizeThird = parseFloat(existingPool.prizeThird);
+  const candidateMaxUsers = existingPool.maxUsers;
+  const candidateWinnerCount =
+    updates.winnerCount != null ? Number(updates.winnerCount) : existingPool.winnerCount ?? 3;
+  const candidatePlatformFeePerJoin =
+    updates.platformFeePerJoin !== undefined ? updates.platformFeePerJoin : existingPool.platformFeePerJoin;
+  const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
+  const feeForDraw = platformFeePerJoinUsdt(
+    candidateEntryFee,
+    candidatePlatformFeePerJoin != null ? String(candidatePlatformFeePerJoin) : null,
+  );
+  const minParticipantsToRunDraw = computeMinParticipantsToRunDraw(
+    candidateEntryFee,
+    candidatePrizeFirst,
+    candidatePrizeSecond,
+    candidatePrizeThird,
+    desiredProfitUsdt,
+    { platformFeePerJoinUsdt: feeForDraw, winnerCount: candidateWinnerCount },
+  );
+  if (candidateMaxUsers < minParticipantsToRunDraw) {
+    res.status(400).json({
+      error: `Pool economics invalid after update: max participants ${candidateMaxUsers} is below minimum draw requirement ${minParticipantsToRunDraw}.`,
+    });
+    return;
+  }
 
   /* Refund if admin closes an open pool that never filled */
   if (parse.data.status === "closed" && existingPool.status === "open") {
@@ -828,7 +871,6 @@ router.patch("/:poolId", (req, res, next) => void requireAdmin(req as AuthedRequ
 
   const tc = await countPoolTickets(poolId);
 
-  const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
   res.json(formatPool(pool, tc, { desiredProfitUsdt }));
 });
 
