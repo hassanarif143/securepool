@@ -31,7 +31,7 @@ export async function creditUserWithdrawableUsdt(
     .where(eq(usersTable.id, opts.userId));
   await trx.insert(transactionsTable).values({
     userId: opts.userId,
-    txType: "reward",
+    txType: "promo_credit",
     amount: String(opts.amount),
     status: "completed",
     note: opts.rewardNote,

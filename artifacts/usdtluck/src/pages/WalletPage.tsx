@@ -40,6 +40,8 @@ function timeAgo(dateStr: string) {
 const TX_META: Record<string, { icon: string; label: string; sign: string; color: string; isCredit: boolean }> = {
   deposit:          { icon: "↑", label: "Deposit",      sign: "+", color: "#10b981", isCredit: true  },
   reward:           { icon: "★", label: "Prize Won",    sign: "+", color: "#10b981", isCredit: true  },
+  pool_refund:      { icon: "↩", label: "Pool refund",  sign: "+", color: "#34d399", isCredit: true  },
+  promo_credit:     { icon: "✦", label: "Credit",       sign: "+", color: "#10b981", isCredit: true  },
   withdrawal:       { icon: "↓", label: "Withdrawal",   sign: "-", color: "#f87171", isCredit: false },
   pool_entry:       { icon: "◉", label: "Pool Entry",   sign: "-", color: "#f87171", isCredit: false },
   stake_lock:       { icon: "🔒", label: "Stake lock",   sign: "-", color: "#fbbf24", isCredit: false },
@@ -50,6 +52,18 @@ const TX_META: Record<string, { icon: string; label: string; sign: string; color
 };
 function txMeta(type: string) {
   return TX_META[type] ?? { icon: "—", label: type.replace(/_/g, " "), sign: "", color: "#64748b", isCredit: false };
+}
+
+/** Pool prizes use note `Winner - Place…`; other legacy `reward` rows are not podium wins. */
+function rowTxMeta(tx: { txType: string; note?: string | null }) {
+  if (tx.txType === "reward") {
+    const n = tx.note ?? "";
+    if (n.startsWith("Winner - Place")) return txMeta("reward");
+    if (n.startsWith("Referral")) return txMeta("referral_bonus");
+    if (n.startsWith("[Tier]")) return txMeta("tier_free_ticket");
+    return { ...txMeta("promo_credit"), label: "Reward" };
+  }
+  return txMeta(tx.txType);
 }
 
 function BlockchainFeeWarningBox() {
@@ -84,7 +98,9 @@ export default function WalletPage() {
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<"deposit" | "withdraw" | "history">("deposit");
-  const [txFilter, setTxFilter] = useState<"all" | "deposit" | "withdraw" | "reward" | "pool_entry" | "stake">("all");
+  const [txFilter, setTxFilter] = useState<
+    "all" | "deposit" | "withdraw" | "reward" | "pool_entry" | "stake" | "credits"
+  >("all");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [withdrawWallet, setWithdrawWallet] = useState(user?.cryptoAddress ?? "");
@@ -129,9 +145,23 @@ export default function WalletPage() {
 
   function matchesFilter(t: any) {
     if (txFilter === "all") return true;
-    if (txFilter === "deposit") return t.txType === "deposit";
+    if (txFilter === "deposit") return t.txType === "deposit" || t.txType === "pool_refund";
     if (txFilter === "withdraw") return t.txType === "withdraw" || t.txType === "withdrawal";
-    if (txFilter === "reward") return t.txType === "reward" || t.txType === "referral_bonus" || t.txType === "tier_free_ticket";
+    if (txFilter === "reward") {
+      return (
+        t.txType === "reward" &&
+        typeof t.note === "string" &&
+        t.note.startsWith("Winner - Place")
+      );
+    }
+    if (txFilter === "credits") {
+      return (
+        t.txType === "promo_credit" ||
+        t.txType === "referral_bonus" ||
+        t.txType === "tier_free_ticket" ||
+        (t.txType === "reward" && typeof t.note === "string" && !t.note.startsWith("Winner - Place"))
+      );
+    }
     if (txFilter === "pool_entry") return t.txType === "pool_entry";
     if (txFilter === "stake") return t.txType === "stake_lock" || t.txType === "stake_release";
     return true;
@@ -633,7 +663,7 @@ export default function WalletPage() {
             )}
             <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-[hsl(217,28%,14%)]" style={{ background: "hsl(222,30%,10%)" }}>
               <div className="flex flex-wrap gap-2">
-                {(["all", "deposit", "withdraw", "reward", "pool_entry", "stake"] as const).map((f) => (
+                {(["all", "deposit", "withdraw", "reward", "credits", "pool_entry", "stake"] as const).map((f) => (
                   <button
                     key={f}
                     type="button"
@@ -645,14 +675,16 @@ export default function WalletPage() {
                     {f === "all"
                       ? "All"
                       : f === "deposit"
-                        ? "Deposits"
+                        ? "Deposits + refunds"
                         : f === "withdraw"
                           ? "Withdrawals"
                           : f === "reward"
-                            ? "Rewards"
-                            : f === "pool_entry"
-                              ? "Pool Entries"
-                              : "Stake"}
+                            ? "Prizes"
+                            : f === "credits"
+                              ? "Credits"
+                              : f === "pool_entry"
+                                ? "Pool Entries"
+                                : "Stake"}
                   </button>
                 ))}
               </div>
@@ -706,7 +738,7 @@ export default function WalletPage() {
             ) : (
               <div className="divide-y divide-[hsl(217,28%,13%)]">
                 {filteredTx.map((tx) => {
-                  const meta = txMeta(tx.txType);
+                  const meta = rowTxMeta(tx);
                   return (
                     <div key={tx.id} className="flex items-center gap-0 hover:bg-white/[0.01] transition-colors">
                       <div className="w-1 self-stretch shrink-0" style={{ background: meta.isCredit ? "#10b981" : "#f87171", minHeight: 52 }} />

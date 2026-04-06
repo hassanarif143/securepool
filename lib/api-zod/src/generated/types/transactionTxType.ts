@@ -16,4 +16,6 @@ export const TransactionTxType = {
   pool_entry: "pool_entry",
   stake_lock: "stake_lock",
   stake_release: "stake_release",
+  pool_refund: "pool_refund",
+  promo_credit: "promo_credit",
 } as const;

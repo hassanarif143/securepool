@@ -2,20 +2,14 @@ import { db, poolParticipantsTable, usersTable, transactionsTable, poolsTable } 
 import { poolTicketsTable } from "@workspace/db/schema";
 import { mirrorAvailableFromUser } from "../services/user-wallet-service";
 import { parseUserBuckets, walletBalanceFromBuckets } from "./user-balances";
-import { eq, and, desc, or } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { notifyUser } from "./notify";
 import { logActivity } from "../services/activity-service";
 
-function poolEntryNotes(title: string) {
-  return {
-    joined: `Joined pool: ${title}`,
-    free: `Free entry — ${title}`,
-  };
-}
-
 /**
- * Refunds everyone in a pool: paid entries → wallet + deposit tx; free entries → free_entries += 1.
- * Removes all pool_participants rows for this pool.
+ * Refunds everyone in a pool using participant rows (source of truth — not pool_entry note matching).
+ * Paid entries → wallet buckets + `pool_refund` tx; free entries → free_entries += 1 + `pool_refund` (0 USDT).
+ * Removes all pool_participants / pool_tickets for this pool.
  */
 export async function refundAllPoolParticipants(
   poolId: number,
@@ -23,36 +17,22 @@ export async function refundAllPoolParticipants(
   reasonNote: string,
 ): Promise<{ refundedCount: number }> {
   const participants = await db.select().from(poolParticipantsTable).where(eq(poolParticipantsTable.poolId, poolId));
-  const { joined, free } = poolEntryNotes(pool.title);
   let refundedCount = 0;
+  const listEntryFee = parseFloat(pool.entryFee);
 
   for (const p of participants) {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, p.userId)).limit(1);
     if (!user) continue;
 
-    const [entryTx] = await db
-      .select()
-      .from(transactionsTable)
-      .where(
-        and(
-          eq(transactionsTable.userId, p.userId),
-          eq(transactionsTable.txType, "pool_entry"),
-          or(eq(transactionsTable.note, joined), eq(transactionsTable.note, free)),
-        ),
-      )
-      .orderBy(desc(transactionsTable.createdAt))
-      .limit(1);
-
-    const paidAmount = entryTx ? parseFloat(String(entryTx.amount)) : parseFloat(pool.entryFee);
-    const isFreeEntry =
-      entryTx != null && (paidAmount <= 0 || (typeof entryTx.note === "string" && entryTx.note.startsWith("Free entry")));
+    const amountPaid = parseFloat(String(p.amountPaid ?? "0"));
+    const isFreeEntry = !Number.isFinite(amountPaid) || amountPaid < 0.005;
 
     if (isFreeEntry) {
       const nextFree = (user.freeEntries ?? 0) + 1;
       await db.update(usersTable).set({ freeEntries: nextFree }).where(eq(usersTable.id, p.userId));
       await db.insert(transactionsTable).values({
         userId: p.userId,
-        txType: "reward",
+        txType: "pool_refund",
         amount: "0",
         status: "completed",
         note: `Free entry restored — ${reasonNote} — ${pool.title}`,
@@ -64,7 +44,10 @@ export async function refundAllPoolParticipants(
         "info",
       );
     } else {
-      const refundAmt = paidAmount > 0 ? paidAmount : parseFloat(pool.entryFee);
+      const refundAmt =
+        amountPaid > 0 ? Number(amountPaid.toFixed(2)) : Number.isFinite(listEntryFee) && listEntryFee > 0 ? listEntryFee : 0;
+      if (refundAmt <= 0) continue;
+
       const buckets = parseUserBuckets(user);
       const fb = parseFloat(String(p.paidFromBonus ?? "0"));
       const fw = parseFloat(String(p.paidFromWithdrawable ?? "0"));
@@ -86,7 +69,7 @@ export async function refundAllPoolParticipants(
       await mirrorAvailableFromUser(db, p.userId);
       await db.insert(transactionsTable).values({
         userId: p.userId,
-        txType: "deposit",
+        txType: "pool_refund",
         amount: String(refundAmt),
         status: "completed",
         note: `Refund — ${reasonNote} — ${pool.title}`,

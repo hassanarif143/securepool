@@ -2390,7 +2390,15 @@ function UserProfileModal({ user, onClose }: { user: any; onClose: () => void })
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`font-bold ${txColor(tx.txType)}`}>{tx.txType === "deposit" || tx.txType === "reward" ? "+" : "-"}{tx.amount.toFixed(2)} USDT</span>
+                    <span className={`font-bold ${txColor(tx.txType)}`}>
+                      {tx.txType === "deposit" ||
+                      tx.txType === "reward" ||
+                      tx.txType === "pool_refund" ||
+                      tx.txType === "promo_credit"
+                        ? "+"
+                        : "-"}
+                      {tx.amount.toFixed(2)} USDT
+                    </span>
                     <span className="text-xs text-muted-foreground capitalize">{tx.txType.replace("_", " ")}</span>
                     {tx.status === "pending" && <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">Pending</Badge>}
                     {tx.status === "under_review" && <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">Under review</Badge>}

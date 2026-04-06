@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, poolsTable, transactionsTable } from "@workspace/db";
-import { eq, count, sum, and } from "drizzle-orm";
+import { eq, count, sum, and, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -12,7 +12,13 @@ router.get("/summary", async (_req, res) => {
   const rewardTxs = await db
     .select({ total: sum(transactionsTable.amount) })
     .from(transactionsTable)
-    .where(and(eq(transactionsTable.txType, "reward"), eq(transactionsTable.status, "completed")));
+    .where(
+      and(
+        eq(transactionsTable.txType, "reward"),
+        eq(transactionsTable.status, "completed"),
+        sql`${transactionsTable.note} LIKE 'Winner - Place%'`,
+      ),
+    );
 
   res.json({
     totalUsers: Number(totalUsers),

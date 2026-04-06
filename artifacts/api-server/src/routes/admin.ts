@@ -299,7 +299,13 @@ router.get("/stats", async (req, res) => {
   const rewardTxs = await db
     .select({ total: sum(transactionsTable.amount) })
     .from(transactionsTable)
-    .where(and(eq(transactionsTable.txType, "reward"), eq(transactionsTable.status, "completed")));
+    .where(
+      and(
+        eq(transactionsTable.txType, "reward"),
+        eq(transactionsTable.status, "completed"),
+        sql`${transactionsTable.note} LIKE 'Winner - Place%'`,
+      ),
+    );
   const totalRewardsDistributed = parseFloat(rewardTxs[0]?.total ?? "0");
 
   const depositTxs = await db

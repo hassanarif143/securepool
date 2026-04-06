@@ -84,6 +84,8 @@ const TX_META: Record<
 > = {
   deposit: { icon: "↑", label: "Deposit", desc: "Added to wallet", color: "#10b981", sign: "+", isCredit: true },
   reward: { icon: "★", label: "Prize won", desc: "Pool reward", color: "#10b981", sign: "+", isCredit: true },
+  pool_refund: { icon: "↩", label: "Pool refund", desc: "Cancelled pool entry returned", color: "#34d399", sign: "+", isCredit: true },
+  promo_credit: { icon: "✦", label: "Credit", desc: "Balance credit", color: "#10b981", sign: "+", isCredit: true },
   withdrawal: { icon: "↓", label: "Withdrawal", desc: "Sent to address", color: "#f87171", sign: "-", isCredit: false },
   pool_entry: { icon: "◉", label: "Pool entry", desc: "Joined a pool", color: "#f87171", sign: "-", isCredit: false },
   referral_bonus: { icon: "⊕", label: "Referral", desc: "Friend joined", color: "#10b981", sign: "+", isCredit: true },
@@ -102,6 +104,21 @@ function txMeta(type: string) {
       isCredit: false,
     }
   );
+}
+
+function isPoolPrizeWinTx(t: { txType?: string; note?: string | null }) {
+  return t.txType === "reward" && typeof t.note === "string" && t.note.startsWith("Winner - Place");
+}
+
+function rowTxMetaForDashboard(tx: { txType: string; note?: string | null }) {
+  if (tx.txType === "reward") {
+    const n = tx.note ?? "";
+    if (n.startsWith("Winner - Place")) return txMeta("reward");
+    if (n.startsWith("Referral")) return txMeta("referral_bonus");
+    if (n.startsWith("[Tier]")) return txMeta("tier_free_ticket");
+    return { ...txMeta("promo_credit"), label: "Reward", desc: "Balance credit" };
+  }
+  return txMeta(tx.txType);
 }
 
 const box =
@@ -138,7 +155,7 @@ export default function DashboardPage() {
   const animBalance = useAnimatedNumber(user?.walletBalance ?? 0);
 
   const openPoolCount = pools?.filter((p) => p.status === "open").length ?? 0;
-  const winCount = transactions?.filter((t) => t.txType === "reward").length ?? 0;
+  const winCount = transactions?.filter(isPoolPrizeWinTx).length ?? 0;
   const activeEntryCount = user ? myEntries.filter((e) => e.status === "open").length : 0;
   const animOpenPools = useAnimatedNumber(openPoolCount);
   const animWins = useAnimatedNumber(winCount);
@@ -188,7 +205,7 @@ export default function DashboardPage() {
 
   const activePools = pools?.filter((p) => p.status === "open") ?? [];
   const recentTxs = transactions?.slice(0, 8) ?? [];
-  const totalWins = transactions?.filter((t) => t.txType === "reward").length ?? 0;
+  const totalWins = transactions?.filter(isPoolPrizeWinTx).length ?? 0;
 
   const tierCurrent = getTier(user.tier ?? "aurora");
   const tierNext = getNextTier(user.tier ?? "aurora");
@@ -570,7 +587,7 @@ export default function DashboardPage() {
           ) : (
             <div className="divide-y divide-[hsl(217,28%,13%)] flex-1">
               {recentTxs.map((tx) => {
-                const meta = txMeta(tx.txType);
+                const meta = rowTxMetaForDashboard(tx);
                 const showStatus = tx.txType === "deposit" || tx.txType === "withdraw";
                 return (
                   <div key={tx.id} className="flex items-stretch transition-colors hover:bg-white/[0.02]">
