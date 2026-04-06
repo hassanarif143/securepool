@@ -5,6 +5,15 @@ export type UserBuckets = {
   withdrawableBalance: number;
 };
 
+export type PoolEntryDeduction = {
+  before: UserBuckets;
+  after: UserBuckets;
+  fromBonus: number;
+  fromWithdrawable: number;
+  amount: number;
+  bonusCapApplied: number;
+};
+
 export function parseUserBuckets(row: {
   bonusBalance?: string | null;
   withdrawableBalance?: string | null;
@@ -31,29 +40,97 @@ export function walletBalanceFromBuckets(b: UserBuckets): string {
   return formatUsdt2(totalWallet(b));
 }
 
-/** Deduct paid ticket amount: bonus first, then withdrawable (real money last). */
+function assertNonNegativeBuckets(next: UserBuckets): void {
+  if (next.bonusBalance < -0.0001 || next.withdrawableBalance < -0.0001) {
+    const err = new Error("NEGATIVE_BALANCE_GUARD");
+    (err as { code?: string }).code = "NEGATIVE_BALANCE_GUARD";
+    throw err;
+  }
+}
+
+/**
+ * Pool entry deduction:
+ * 1) bonus first (optionally capped by entry %)
+ * 2) remaining from withdrawable
+ *
+ * Strict dual-wallet guarantees:
+ * - Never over-deduct
+ * - Never go negative
+ * - Throws if withdrawable can't cover remaining amount
+ */
+export function deductForPoolEntry(
+  b: UserBuckets,
+  amount: number,
+  opts?: { maxBonusShare?: number; allowBonus?: boolean },
+): PoolEntryDeduction {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    const err = new Error("INVALID_ENTRY_AMOUNT");
+    (err as { code?: string }).code = "INVALID_ENTRY_AMOUNT";
+    throw err;
+  }
+  const maxBonusShare = opts?.maxBonusShare ?? 0.5;
+  const allowBonus = opts?.allowBonus !== false;
+  const bonusCapApplied = allowBonus ? Math.max(0, Math.min(amount, amount * Math.max(0, Math.min(1, maxBonusShare)))) : 0;
+  const fromBonus = allowBonus ? Math.min(amount, b.bonusBalance, bonusCapApplied) : 0;
+  const remaining = amount - fromBonus;
+  if (remaining - b.withdrawableBalance > 0.0001) {
+    const err = new Error("INSUFFICIENT_WITHDRAWABLE_AFTER_BONUS");
+    (err as { code?: string }).code = "INSUFFICIENT_WITHDRAWABLE_AFTER_BONUS";
+    throw err;
+  }
+  const fromWithdrawable = Math.max(0, Math.min(remaining, b.withdrawableBalance));
+  const after: UserBuckets = {
+    bonusBalance: Number((b.bonusBalance - fromBonus).toFixed(2)),
+    withdrawableBalance: Number((b.withdrawableBalance - fromWithdrawable).toFixed(2)),
+  };
+  assertNonNegativeBuckets(after);
+  return {
+    before: { bonusBalance: b.bonusBalance, withdrawableBalance: b.withdrawableBalance },
+    after,
+    fromBonus: Number(fromBonus.toFixed(2)),
+    fromWithdrawable: Number(fromWithdrawable.toFixed(2)),
+    amount: Number(amount.toFixed(2)),
+    bonusCapApplied: Number(bonusCapApplied.toFixed(2)),
+  };
+}
+
+/** 100% of pool winnings goes to withdrawable balance. */
+export function distributeWinnings(b: UserBuckets, amount: number): UserBuckets {
+  if (!Number.isFinite(amount) || amount < 0) {
+    const err = new Error("INVALID_WIN_AMOUNT");
+    (err as { code?: string }).code = "INVALID_WIN_AMOUNT";
+    throw err;
+  }
+  const next: UserBuckets = {
+    bonusBalance: Number(b.bonusBalance.toFixed(2)),
+    withdrawableBalance: Number((b.withdrawableBalance + amount).toFixed(2)),
+  };
+  assertNonNegativeBuckets(next);
+  return next;
+}
+
+/** Refunds always return to withdrawable balance (bonus remains consumed). */
+export function processRefund(b: UserBuckets, amount: number): UserBuckets {
+  if (!Number.isFinite(amount) || amount < 0) {
+    const err = new Error("INVALID_REFUND_AMOUNT");
+    (err as { code?: string }).code = "INVALID_REFUND_AMOUNT";
+    throw err;
+  }
+  const next: UserBuckets = {
+    bonusBalance: Number(b.bonusBalance.toFixed(2)),
+    withdrawableBalance: Number((b.withdrawableBalance + amount).toFixed(2)),
+  };
+  assertNonNegativeBuckets(next);
+  return next;
+}
+
+/** Backward compatibility wrapper (existing callers). */
 export function deductForTicket(
   b: UserBuckets,
   amount: number,
 ): { next: UserBuckets; fromBonus: number; fromWithdrawable: number } {
-  let remaining = amount;
-  const fromBonus = Math.min(remaining, b.bonusBalance);
-  remaining -= fromBonus;
-  const fromWithdrawable = Math.min(remaining, b.withdrawableBalance);
-  remaining -= fromWithdrawable;
-  if (remaining > 0.0001) {
-    const err = new Error("INSUFFICIENT_BUCKET_BALANCE");
-    (err as { code?: string }).code = "INSUFFICIENT_BUCKET_BALANCE";
-    throw err;
-  }
-  return {
-    next: {
-      bonusBalance: b.bonusBalance - fromBonus,
-      withdrawableBalance: b.withdrawableBalance - fromWithdrawable,
-    },
-    fromBonus,
-    fromWithdrawable,
-  };
+  const d = deductForPoolEntry(b, amount, { maxBonusShare: 1 });
+  return { next: d.after, fromBonus: d.fromBonus, fromWithdrawable: d.fromWithdrawable };
 }
 
 export const REFERRAL_INVITE_PRIZE_USDT = 2;

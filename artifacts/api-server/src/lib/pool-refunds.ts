@@ -1,10 +1,11 @@
 import { db, poolParticipantsTable, usersTable, transactionsTable, poolsTable } from "@workspace/db";
 import { poolTicketsTable } from "@workspace/db/schema";
 import { mirrorAvailableFromUser } from "../services/user-wallet-service";
-import { parseUserBuckets, walletBalanceFromBuckets } from "./user-balances";
+import { parseUserBuckets, processRefund, walletBalanceFromBuckets } from "./user-balances";
 import { eq } from "drizzle-orm";
 import { notifyUser } from "./notify";
 import { logActivity } from "../services/activity-service";
+import { logger } from "./logger";
 
 /**
  * Refunds everyone in a pool using participant rows (source of truth — not pool_entry note matching).
@@ -48,22 +49,24 @@ export async function refundAllPoolParticipants(
         amountPaid > 0 ? Number(amountPaid.toFixed(2)) : Number.isFinite(listEntryFee) && listEntryFee > 0 ? listEntryFee : 0;
       if (refundAmt <= 0) continue;
 
-      const buckets = parseUserBuckets(user);
-      const fb = parseFloat(String(p.paidFromBonus ?? "0"));
-      const fw = parseFloat(String(p.paidFromWithdrawable ?? "0"));
-      const hasSplit = fb > 0 || fw > 0;
-      if (hasSplit && Math.abs(fb + fw - refundAmt) < 0.02) {
-        buckets.bonusBalance += fb;
-        buckets.withdrawableBalance += fw;
-      } else {
-        buckets.withdrawableBalance += refundAmt;
-      }
+      const beforeBuckets = parseUserBuckets(user);
+      const afterBuckets = processRefund(beforeBuckets, refundAmt);
+      logger.info(
+        {
+          poolId,
+          userId: p.userId,
+          refundAmount: refundAmt,
+          before: beforeBuckets,
+          after: afterBuckets,
+        },
+        "[wallet] process refund (pool cancelled)",
+      );
       await db
         .update(usersTable)
         .set({
-          bonusBalance: buckets.bonusBalance.toFixed(2),
-          withdrawableBalance: buckets.withdrawableBalance.toFixed(2),
-          walletBalance: walletBalanceFromBuckets(buckets),
+          bonusBalance: afterBuckets.bonusBalance.toFixed(2),
+          withdrawableBalance: afterBuckets.withdrawableBalance.toFixed(2),
+          walletBalance: walletBalanceFromBuckets(afterBuckets),
         })
         .where(eq(usersTable.id, p.userId));
       await mirrorAvailableFromUser(db, p.userId);

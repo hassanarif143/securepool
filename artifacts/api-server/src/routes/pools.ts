@@ -16,8 +16,10 @@ import { poolTicketsTable } from "@workspace/db/schema";
 import { eq, and, desc, asc, count } from "drizzle-orm";
 import { maybeCreditReferralBonus } from "./referral";
 import {
-  deductForTicket,
+  deductForPoolEntry,
+  distributeWinnings,
   parseUserBuckets,
+  processRefund,
   totalWallet,
   walletBalanceFromBuckets,
   LUCKY_TICKET_MATCH_USDT,
@@ -984,15 +986,28 @@ router.post("/:poolId/join", async (req, res) => {
           (e as { code?: string }).code = "INSUFFICIENT_BALANCE";
           throw e;
         }
-        const d = deductForTicket(freshBuckets, netDue);
+        const d = deductForPoolEntry(freshBuckets, netDue, { maxBonusShare: 0.5 });
+        logger.info(
+          {
+            poolId,
+            userId: sessionUserId,
+            before: d.before,
+            after: d.after,
+            amount: d.amount,
+            bonusCapApplied: d.bonusCapApplied,
+            fromBonus: d.fromBonus,
+            fromWithdrawable: d.fromWithdrawable,
+          },
+          "[wallet] pool entry deduction",
+        );
         fromBonus = d.fromBonus;
         fromWithdrawable = d.fromWithdrawable;
         await trx
           .update(usersTable)
           .set({
-            bonusBalance: d.next.bonusBalance.toFixed(2),
-            withdrawableBalance: d.next.withdrawableBalance.toFixed(2),
-            walletBalance: walletBalanceFromBuckets(d.next),
+            bonusBalance: d.after.bonusBalance.toFixed(2),
+            withdrawableBalance: d.after.withdrawableBalance.toFixed(2),
+            walletBalance: walletBalanceFromBuckets(d.after),
           })
           .where(eq(usersTable.id, sessionUserId));
         await mirrorAvailableFromUser(trx, sessionUserId);
@@ -1328,9 +1343,21 @@ async function executePoolDistribution(
         throw e;
       }
 
-      const bonusB = parseFloat(String(user.bonusBalance ?? "0"));
-      const wdB = parseFloat(String(user.withdrawableBalance ?? "0")) + prize;
+      const beforeBuckets = parseUserBuckets(user);
+      const afterBuckets = distributeWinnings(beforeBuckets, prize);
+      const bonusB = afterBuckets.bonusBalance;
+      const wdB = afterBuckets.withdrawableBalance;
       const newBalance = bonusB + wdB;
+      logger.info(
+        {
+          poolId,
+          userId: winRow.userId,
+          prize,
+          before: beforeBuckets,
+          after: afterBuckets,
+        },
+        "[wallet] distribute winnings",
+      );
       const prevWins = user.totalWins ?? 0;
       const nextWins = prevWins + 1;
       const isFirstWinEver = prevWins === 0;
@@ -1371,13 +1398,34 @@ async function executePoolDistribution(
     }
 
     for (const [userId, amt] of loserRefundByUserId) {
-      await creditUserWithdrawableUsdt(tx, {
+      const [u] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      if (!u) continue;
+      const beforeBuckets = parseUserBuckets(u);
+      const afterBuckets = processRefund(beforeBuckets, amt);
+      logger.info(
+        {
+          poolId,
+          userId,
+          refundAmount: amt,
+          before: beforeBuckets,
+          after: afterBuckets,
+        },
+        "[wallet] process refund",
+      );
+      await tx
+        .update(usersTable)
+        .set({
+          bonusBalance: afterBuckets.bonusBalance.toFixed(2),
+          withdrawableBalance: afterBuckets.withdrawableBalance.toFixed(2),
+          walletBalance: walletBalanceFromBuckets(afterBuckets),
+        })
+        .where(eq(usersTable.id, userId));
+      await tx.insert(transactionsTable).values({
         userId,
-        amount: amt,
-        rewardNote: `Pool loser refund — ${pool.title} — ${amt} USDT (list entry ${entryFee} USDT − ${feePerListEntry} USDT platform fee per ticket)`,
-        ledgerDescription: `Loser refund — pool #${poolId} — ${amt} USDT withdrawable`,
-        referenceType: "pool_loser_refund",
-        referenceId: poolId,
+        txType: "pool_refund",
+        amount: String(amt),
+        status: "completed",
+        note: `Pool loser refund — ${pool.title} — ${amt} USDT (list entry ${entryFee} USDT − ${feePerListEntry} USDT platform fee per ticket)`,
       });
       await mirrorAvailableFromUser(tx, userId);
     }
