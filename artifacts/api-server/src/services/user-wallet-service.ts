@@ -291,6 +291,11 @@ export async function recordStakeReturnCredit(
     })
     .where(eq(userWalletTable.userId, opts.userId));
 
+  const desc =
+    opts.reward > 0.0001
+      ? `USDT stake #${opts.stakeId} matured — ${opts.principal.toFixed(2)} + ${opts.reward.toFixed(2)} USDT reward`
+      : `USDT stake #${opts.stakeId} early unstake — ${opts.principal.toFixed(2)} USDT returned (no reward)`;
+
   await trx.insert(userWalletTransactionsTable).values({
     userId: opts.userId,
     transactionType: "CREDIT",
@@ -298,7 +303,7 @@ export async function recordStakeReturnCredit(
     amount: String(total),
     referenceType: "stake",
     referenceId: opts.stakeId,
-    description: `USDT stake #${opts.stakeId} released — ${opts.principal.toFixed(2)} + ${opts.reward.toFixed(2)} reward USDT`,
+    description: desc,
     balanceAfter: String(opts.balanceAfter),
   });
 }

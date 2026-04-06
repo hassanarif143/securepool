@@ -1,11 +1,20 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { apiUrl } from "@/lib/api-base";
 import { getCsrfToken } from "@/lib/csrf";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
@@ -21,15 +30,30 @@ type StakeRow = {
 };
 
 type MeResponse = {
-  config: { lockDays: number; rewardRatePercent: number; minAmountUsdt: number };
+  config: {
+    lockDays: number;
+    rewardRatePercent: number;
+    minAmountUsdt: number;
+    earlyUnstakeForfeitsReward?: boolean;
+  };
   stakes: StakeRow[];
 };
 
-function formatUnlock(iso: string) {
+function formatShort(iso: string) {
   return new Date(iso).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
+}
+
+function stakeProgressPct(s: StakeRow, now: number) {
+  const start = new Date(s.lockedAt).getTime();
+  const end = new Date(s.unlockAt).getTime();
+  if (end <= start) return 100;
+  if (now >= end) return 100;
+  return Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
 }
 
 export default function StakingPage() {
@@ -40,8 +64,10 @@ export default function StakingPage() {
   const [loading, setLoading] = useState(true);
   const [amountStr, setAmountStr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [claimingId, setClaimingId] = useState<number | null>(null);
+  const [actionId, setActionId] = useState<number | null>(null);
+  const [actionKind, setActionKind] = useState<"claim" | "unstake" | null>(null);
   const [tick, setTick] = useState(0);
+  const [unstakeTarget, setUnstakeTarget] = useState<StakeRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -66,11 +92,34 @@ export default function StakingPage() {
     return () => clearInterval(t);
   }, []);
 
+  const wallet = user?.walletBalance ?? 0;
+  const cfg = data?.config;
+  const stakes = data?.stakes ?? [];
+  const minAmt = cfg?.minAmountUsdt ?? 10;
+
+  const activeStakes = useMemo(() => stakes.filter((s) => s.status === "active"), [stakes]);
+  const totalActivePrincipal = useMemo(
+    () => activeStakes.reduce((a, s) => a + s.principalUsdt, 0),
+    [activeStakes],
+  );
+
+  const now = Date.now();
+  void tick;
+
+  function setQuickPct(pct: number) {
+    const v = Math.floor((wallet * pct) / 100 * 100) / 100;
+    if (v >= minAmt) setAmountStr(String(v));
+    else setAmountStr(wallet >= minAmt ? String(minAmt) : "");
+  }
+
   async function createStake() {
     const amt = parseFloat(amountStr);
-    const min = data?.config.minAmountUsdt ?? 10;
-    if (!Number.isFinite(amt) || amt < min) {
-      toast({ title: `Enter at least ${min} USDT`, variant: "destructive" });
+    if (!Number.isFinite(amt) || amt < minAmt) {
+      toast({ title: `Minimum ${minAmt} USDT`, variant: "destructive" });
+      return;
+    }
+    if (amt > wallet + 0.0001) {
+      toast({ title: "Amount exceeds wallet", variant: "destructive" });
       return;
     }
     setBusy(true);
@@ -86,10 +135,10 @@ export default function StakingPage() {
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) {
-        toast({ title: j.error ?? "Stake failed", variant: "destructive" });
+        toast({ title: j.error ?? "Could not stake", variant: "destructive" });
         return;
       }
-      toast({ title: "Stake locked", description: `${amt} USDT for ${data?.config.lockDays ?? 15} days.` });
+      toast({ title: "Staked", description: `${amt} USDT is now earning ${cfg?.rewardRatePercent ?? 10}% after ${cfg?.lockDays ?? 15} days.` });
       setAmountStr("");
       await load();
       void queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
@@ -99,7 +148,8 @@ export default function StakingPage() {
   }
 
   async function claim(id: number) {
-    setClaimingId(id);
+    setActionId(id);
+    setActionKind("claim");
     try {
       const r = await fetch(apiUrl(`/api/staking/${id}/claim`), {
         method: "POST",
@@ -112,152 +162,357 @@ export default function StakingPage() {
         return;
       }
       toast({
-        title: "Released to wallet",
-        description: `${Number(j.totalUsdt ?? 0).toFixed(2)} USDT (principal + reward).`,
+        title: "Reward claimed",
+        description: `${Number(j.totalUsdt ?? 0).toFixed(2)} USDT added to your wallet (principal + bonus).`,
       });
       await load();
       void queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
     } finally {
-      setClaimingId(null);
+      setActionId(null);
+      setActionKind(null);
     }
   }
 
-  const cfg = data?.config;
-  const stakes = data?.stakes ?? [];
-  const example100 = cfg ? Math.round(100 * (cfg.rewardRatePercent / 100) * 100) / 100 : 10;
-  const example1000 = cfg ? Math.round(1000 * (cfg.rewardRatePercent / 100) * 100) / 100 : 100;
+  async function confirmUnstake() {
+    const id = unstakeTarget?.id;
+    if (id == null) return;
+    setUnstakeTarget(null);
+    setActionId(id);
+    setActionKind("unstake");
+    try {
+      const r = await fetch(apiUrl(`/api/staking/${id}/unstake`), {
+        method: "POST",
+        credentials: "include",
+        headers: { "x-csrf-token": getCsrfToken() ?? "" },
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        toast({ title: j.error ?? "Unstake failed", variant: "destructive" });
+        return;
+      }
+      toast({
+        title: "Unstaked",
+        description: `${Number(j.principalUsdt ?? 0).toFixed(2)} USDT returned. No reward on early exit.`,
+      });
+      await load();
+      void queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+    } finally {
+      setActionId(null);
+      setActionKind(null);
+    }
+  }
+
+  const exampleReward = (p: number) =>
+    cfg ? Math.round(p * (cfg.rewardRatePercent / 100) * 100) / 100 : p * 0.1;
 
   if (loading && !data) {
     return (
-      <div className="max-w-lg mx-auto space-y-4">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-64 rounded-xl" />
+      <div className="max-w-3xl mx-auto space-y-6 px-1">
+        <Skeleton className="h-40 w-full rounded-2xl" />
+        <Skeleton className="h-56 w-full rounded-2xl" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-lg mx-auto space-y-6 pb-10">
-      <div>
-        <h1 className="text-2xl font-bold font-display tracking-tight">USDT staking</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Lock USDT for {cfg?.lockDays ?? 15} days — earn {cfg?.rewardRatePercent ?? 10}% on the amount you lock (e.g. 100 →{" "}
-          {example100} USDT reward, 1000 → {example1000} USDT).
-        </p>
-      </div>
-
-      <Card className="border-primary/20">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">New stake</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            Uses your wallet the same way as pool tickets (bonus balance first, then withdrawable). Minimum{" "}
-            {cfg?.minAmountUsdt ?? 10} USDT.
+    <div className="max-w-3xl mx-auto pb-12 px-1 sm:px-0 space-y-8">
+      {/* Hero */}
+      <section
+        className="relative overflow-hidden rounded-2xl border px-5 py-8 sm:px-8 sm:py-10"
+        style={{
+          borderColor: "rgba(34, 197, 94, 0.22)",
+          background:
+            "linear-gradient(145deg, hsl(220, 18%, 8%) 0%, hsl(220, 22%, 5%) 45%, hsl(152, 40%, 6%) 100%)",
+          boxShadow: "0 24px 80px -32px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.04)",
+        }}
+      >
+        <div
+          className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full opacity-25 blur-3xl"
+          style={{ background: "radial-gradient(circle, rgba(34,197,94,0.5), transparent 70%)" }}
+        />
+        <div className="relative">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-400/90 mb-2">Earn on idle USDT</p>
+          <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white mb-2">Staking vault</h1>
+          <p className="text-sm text-muted-foreground max-w-xl leading-relaxed">
+            Commit funds for <span className="text-foreground font-medium">{cfg?.lockDays ?? 15} days</span> and receive{" "}
+            <span className="text-emerald-400 font-semibold">{cfg?.rewardRatePercent ?? 10}%</span> on your principal when the
+            term ends. You can <span className="text-foreground font-medium">unstake anytime</span> and get your principal
+            back — <span className="text-amber-200/90">the bonus is only paid if you stay until maturity</span>.
           </p>
-          <div className="flex gap-2">
-            <Input
-              type="number"
-              min={cfg?.minAmountUsdt ?? 10}
-              step="1"
-              placeholder="Amount (USDT)"
-              value={amountStr}
-              onChange={(e) => setAmountStr(e.target.value)}
-              className="font-mono"
-            />
-            <Button onClick={() => void createStake()} disabled={busy} className="shrink-0">
-              {busy ? "…" : "Lock"}
-            </Button>
+          <div className="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
+            <div
+              className="rounded-xl border px-3 py-3 text-center"
+              style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.25)" }}
+            >
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">On maturity</p>
+              <p className="text-lg font-bold text-emerald-400 tabular-nums">{cfg?.rewardRatePercent ?? 10}%</p>
+              <p className="text-[10px] text-muted-foreground">reward</p>
+            </div>
+            <div
+              className="rounded-xl border px-3 py-3 text-center"
+              style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.25)" }}
+            >
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Term</p>
+              <p className="text-lg font-bold text-white tabular-nums">{cfg?.lockDays ?? 15}</p>
+              <p className="text-[10px] text-muted-foreground">days</p>
+            </div>
+            <div
+              className="rounded-xl border px-3 py-3 text-center"
+              style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.25)" }}
+            >
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Active</p>
+              <p className="text-lg font-bold text-white tabular-nums">{activeStakes.length}</p>
+              <p className="text-[10px] text-muted-foreground">positions</p>
+            </div>
           </div>
-          {user != null && (
-            <p className="text-xs text-muted-foreground">
-              Available wallet: <span className="text-foreground font-mono">{user.walletBalance.toFixed(2)} USDT</span>
-            </p>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <div>
-        <h2 className="text-sm font-semibold mb-2">Your stakes</h2>
-        {stakes.length === 0 ? (
-          <p className="text-sm text-muted-foreground border border-dashed border-border rounded-xl p-6 text-center">
-            No stakes yet. Lock USDT above to start earning.
+      {/* New stake */}
+      <section
+        className="rounded-2xl border p-5 sm:p-6 space-y-5"
+        style={{
+          borderColor: "hsl(217, 28%, 16%)",
+          background: "hsl(222, 30%, 9%)",
+        }}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Add to vault</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Min {minAmt} USDT · uses bonus balance first, then withdrawable (same as pools)
+            </p>
+          </div>
+          <p className="text-sm">
+            <span className="text-muted-foreground">Available</span>{" "}
+            <span className="font-mono font-semibold text-emerald-400 tabular-nums">{wallet.toFixed(2)} USDT</span>
           </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Input
+            type="number"
+            min={minAmt}
+            step="1"
+            placeholder="Amount"
+            value={amountStr}
+            onChange={(e) => setAmountStr(e.target.value)}
+            className="h-11 font-mono text-base border-white/10 bg-black/30 flex-1"
+          />
+          <Button
+            onClick={() => void createStake()}
+            disabled={busy}
+            className="h-11 px-8 font-semibold shrink-0"
+            style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
+          >
+            {busy ? "Processing…" : "Stake USDT"}
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className="text-[10px] text-muted-foreground w-full sm:w-auto sm:mr-1 self-center">Quick fill</span>
+          {[
+            { label: "25%", fn: () => setQuickPct(25) },
+            { label: "50%", fn: () => setQuickPct(50) },
+            { label: "75%", fn: () => setQuickPct(75) },
+            { label: "Max", fn: () => setQuickPct(100) },
+          ].map((q) => (
+            <button
+              key={q.label}
+              type="button"
+              onClick={q.fn}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-white/10 bg-white/[0.04] text-muted-foreground hover:text-foreground hover:border-emerald-500/30 transition-colors"
+            >
+              {q.label}
+            </button>
+          ))}
+        </div>
+        {amountStr && Number.parseFloat(amountStr) >= minAmt && (
+          <p className="text-xs text-muted-foreground">
+            If you hold to maturity: estimated reward{" "}
+            <span className="text-emerald-400 font-mono font-medium">
+              +{exampleReward(Number.parseFloat(amountStr) || 0).toFixed(2)} USDT
+            </span>
+          </p>
+        )}
+      </section>
+
+      {/* Positions */}
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">Your positions</h2>
+          {totalActivePrincipal > 0 && (
+            <span className="text-xs text-muted-foreground">
+              <span className="text-foreground font-mono font-medium tabular-nums">{totalActivePrincipal.toFixed(2)}</span>{" "}
+              USDT staked
+            </span>
+          )}
+        </div>
+
+        {stakes.length === 0 ? (
+          <div
+            className="rounded-2xl border border-dashed py-14 px-6 text-center"
+            style={{ borderColor: "hsl(217, 28%, 20%)", background: "hsl(222, 28%, 7%)" }}
+          >
+            <p className="text-3xl mb-3 opacity-40">◇</p>
+            <p className="text-sm font-medium text-foreground">No positions yet</p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+              Stake USDT above to start the timer. Early exit is always available without penalty to principal.
+            </p>
+          </div>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-4">
             {stakes.map((s) => {
               const unlockMs = new Date(s.unlockAt).getTime();
-              const leftMs = Math.max(0, unlockMs - Date.now());
-              const canClaim = s.status === "active" && leftMs <= 0;
+              const leftMs = Math.max(0, unlockMs - now);
+              const matured = s.status === "active" && leftMs <= 0;
+              const pct = stakeProgressPct(s, now);
               const d = Math.floor(leftMs / 86400000);
               const h = Math.floor((leftMs % 86400000) / 3600000);
               const m = Math.floor((leftMs % 3600000) / 60000);
               const sec = Math.floor((leftMs % 60000) / 1000);
+              const busyHere = actionId === s.id;
 
               return (
-                <li key={s.id}>
-                  <Card className={s.status === "completed" ? "opacity-80 border-border" : "border-emerald-500/20"}>
-                    <CardContent className="p-4 space-y-2 text-sm">
-                      <div className="flex justify-between gap-2">
-                        <span className="font-mono font-semibold">#{s.id}</span>
+                <li
+                  key={s.id}
+                  className="rounded-2xl border overflow-hidden"
+                  style={{
+                    borderColor: s.status === "active" ? "rgba(34, 197, 94, 0.2)" : "hsl(217, 28%, 14%)",
+                    background: "linear-gradient(180deg, hsl(222, 28%, 10%) 0%, hsl(222, 30%, 8%) 100%)",
+                  }}
+                >
+                  <div className="p-4 sm:p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Position</p>
+                        <p className="font-mono text-lg font-bold text-white tabular-nums">
+                          {s.principalUsdt.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">USDT</span>
+                        </p>
+                      </div>
+                      <div className="text-right">
                         <span
-                          className={`text-xs uppercase font-bold ${
-                            s.status === "active" ? "text-emerald-400" : "text-muted-foreground"
+                          className={`inline-flex text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border ${
+                            s.status === "active"
+                              ? "border-emerald-500/35 bg-emerald-500/10 text-emerald-300"
+                              : "border-border text-muted-foreground"
                           }`}
                         >
                           {s.status}
                         </span>
+                        {s.status === "active" && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Maturity reward{" "}
+                            <span className="text-emerald-400 font-mono font-semibold">+{s.rewardUsdt.toFixed(2)} USDT</span>
+                          </p>
+                        )}
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <p className="text-muted-foreground">Locked</p>
-                          <p className="font-mono">{s.principalUsdt.toFixed(2)} USDT</p>
+                    </div>
+
+                    {s.status === "active" && (
+                      <>
+                        <div className="mb-2 flex justify-between text-[11px] text-muted-foreground">
+                          <span>Progress to maturity</span>
+                          <span>{Math.round(pct)}%</span>
                         </div>
-                        <div>
-                          <p className="text-muted-foreground">Reward</p>
-                          <p className="font-mono text-emerald-400">+{s.rewardUsdt.toFixed(2)} USDT</p>
+                        <div className="h-1.5 rounded-full bg-black/40 overflow-hidden mb-3">
+                          <div
+                            className="h-full rounded-full transition-[width] duration-500"
+                            style={{
+                              width: `${pct}%`,
+                              background: matured
+                                ? "linear-gradient(90deg, #22c55e, #4ade80)"
+                                : "linear-gradient(90deg, rgba(34,197,94,0.5), #22c55e)",
+                            }}
+                          />
                         </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Unlocks {formatUnlock(s.unlockAt)}</p>
-                      {s.status === "active" && leftMs > 0 && (
-                        <p className="text-xs font-mono text-amber-200/90" data-tick={tick}>
-                          Unlocks in {d}d {String(h).padStart(2, "0")}:{String(m).padStart(2, "0")}:{String(sec).padStart(2, "0")}
+                        <p className="text-xs text-muted-foreground mb-1">
+                          Unlocks <span className="text-foreground/90">{formatShort(s.unlockAt)}</span>
                         </p>
-                      )}
-                      {canClaim && (
-                        <Button
-                          size="sm"
-                          className="w-full mt-1"
-                          onClick={() => void claim(s.id)}
-                          disabled={claimingId === s.id}
-                        >
-                          {claimingId === s.id ? "Claiming…" : "Claim principal + reward"}
-                        </Button>
-                      )}
-                      {s.status === "completed" && s.completedAt && (
-                        <p className="text-xs text-muted-foreground">Completed {formatUnlock(s.completedAt)}</p>
-                      )}
-                    </CardContent>
-                  </Card>
+                        {!matured && (
+                          <p className="text-xs font-mono text-amber-200/80 mb-4" data-tick={tick}>
+                            {d}d {String(h).padStart(2, "0")}:{String(m).padStart(2, "0")}:{String(sec).padStart(2, "0")}{" "}
+                            remaining
+                          </p>
+                        )}
+                        {matured && <div className="mb-4" />}
+
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Button
+                            className="flex-1 font-semibold h-10"
+                            style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
+                            disabled={!matured || busyHere}
+                            onClick={() => void claim(s.id)}
+                          >
+                            {busyHere && actionKind === "claim"
+                              ? "Claiming…"
+                              : matured
+                                ? `Claim ${(s.principalUsdt + s.rewardUsdt).toFixed(2)} USDT`
+                                : "Claim at maturity"}
+                          </Button>
+                          {!matured && (
+                            <Button
+                              variant="outline"
+                              className="flex-1 h-10 border-amber-500/35 text-amber-100/90 hover:bg-amber-500/10 hover:text-amber-50"
+                              disabled={busyHere}
+                              onClick={() => setUnstakeTarget(s)}
+                            >
+                              Unstake early (no reward)
+                            </Button>
+                          )}
+                        </div>
+                        {matured && (
+                          <p className="text-[11px] text-center text-muted-foreground mt-2">
+                            Term complete — claim above to receive principal + bonus.
+                          </p>
+                        )}
+                      </>
+                    )}
+
+                    {s.status === "completed" && s.completedAt && (
+                      <p className="text-xs text-muted-foreground">Closed {formatShort(s.completedAt)}</p>
+                    )}
+                  </div>
                 </li>
               );
             })}
           </ul>
         )}
-      </div>
+      </section>
 
-      <Card className="border-border/60 bg-muted/20">
-        <CardContent className="p-4 text-xs text-muted-foreground space-y-2">
-          <p>
-            <span className="text-foreground font-medium">Pools:</span> each draw has three prize ranks (1st, 2nd, 3rd) — amounts
-            are set when an admin creates the pool.
-          </p>
-          <p>
-            <span className="text-foreground font-medium">Users list:</span> only accounts that exist in the database appear in
-            Admin → Users. Names in a JSON file are not imported until those users sign up (or you run a seed/import script).
-          </p>
-        </CardContent>
-      </Card>
+      <p className="text-[11px] text-center text-muted-foreground/80 max-w-md mx-auto leading-relaxed">
+        Staking is optional liquidity for your balance. Early unstake returns your principal only; the quoted percentage applies
+        only after the full term.
+      </p>
+
+      <AlertDialog open={unstakeTarget != null} onOpenChange={(o) => !o && setUnstakeTarget(null)}>
+        <AlertDialogContent className="border-border bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unstake early?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 text-left">
+              <span>
+                You will receive <strong className="text-foreground">{unstakeTarget?.principalUsdt.toFixed(2)} USDT</strong> back
+                to your wallet.
+              </span>
+              <span className="block text-amber-200/90">
+                You will <strong>not</strong> receive the maturity reward of{" "}
+                <strong>{unstakeTarget?.rewardUsdt.toFixed(2)} USDT</strong>.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmUnstake();
+              }}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              Return principal only
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

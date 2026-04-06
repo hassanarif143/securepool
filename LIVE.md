@@ -71,7 +71,7 @@ Ensure these migrations have been applied on the target database (or let the API
 - **`0009_admin_wallet_and_draw_financials.sql`** — legacy `admin_wallet_transactions`, `platform_settings`, `pool_draw_financials`, `pool_participants.amount_paid`
 - **`0010_central_wallet_user_wallets.sql`** — **`central_wallet_ledger`** (canonical treasury ledger), **`user_wallet`**, **`user_wallet_transactions`**; one-time backfill from legacy admin wallet + user aggregates. New writes go to `central_wallet_ledger` only.
 - **`0017_pool_platform_fee_override.sql`** — optional per-pool platform fee override.
-- **`0018_usdt_stakes.sql`** — **`usdt_stakes`** table and `tx_type` values `stake_lock` / `stake_release` (in-app **USDT Stake** page: 15-day lock, 10% reward on principal).
+- **`0018_usdt_stakes.sql`** — **`usdt_stakes`** table and `tx_type` values `stake_lock` / `stake_release` (in-app **USDT Stake** page: 15-day term, 10% reward on principal **if held to maturity**; early **unstake** returns principal only via `POST /api/staking/:id/unstake`).
 
 **Pools:** each draw has **three prize places** (1st, 2nd, 3rd). Amounts are set in **Admin → Create pool** (`prizeFirst`, `prizeSecond`, `prizeThird`).
 

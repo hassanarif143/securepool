@@ -26,6 +26,7 @@ router.get("/config", (_req, res) => {
     lockDays: STAKE_LOCK_DAYS,
     rewardRatePercent: STAKE_REWARD_RATE * 100,
     minAmountUsdt: STAKE_MIN_USDT,
+    earlyUnstakeForfeitsReward: true,
   });
 });
 
@@ -48,6 +49,7 @@ router.get("/me", async (req, res) => {
       lockDays: STAKE_LOCK_DAYS,
       rewardRatePercent: STAKE_REWARD_RATE * 100,
       minAmountUsdt: STAKE_MIN_USDT,
+      earlyUnstakeForfeitsReward: true,
     },
     stakes: stakes.map((s) => ({
       id: s.id,
@@ -237,7 +239,7 @@ router.post("/:stakeId/claim", async (req, res) => {
         txType: "stake_release",
         amount: total.toFixed(2),
         status: "completed",
-        note: `USDT stake #${stakeId} released — principal ${principal.toFixed(2)} + reward ${reward.toFixed(2)} USDT`,
+        note: `USDT stake #${stakeId} matured — ${principal.toFixed(2)} + ${reward.toFixed(2)} USDT reward`,
       });
 
       await recordStakeReturnCredit(trx, {
@@ -270,6 +272,123 @@ router.post("/:stakeId/claim", async (req, res) => {
     }
     if (code === "NOT_MATURE") {
       res.status(400).json({ error: "Stake is still locked — come back after the unlock date" });
+      return;
+    }
+    throw err;
+  }
+});
+
+/** Return principal only before unlock; no reward. After unlock use POST .../claim instead. */
+router.post("/:stakeId/unstake", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const stakeId = parseInt(String(req.params.stakeId), 10);
+  if (isNaN(stakeId) || stakeId <= 0) {
+    res.status(400).json({ error: "Invalid stake id" });
+    return;
+  }
+
+  const now = new Date();
+
+  try {
+    const out = await db.transaction(async (trx) => {
+      const [stake] = await trx
+        .select()
+        .from(usdtStakesTable)
+        .where(and(eq(usdtStakesTable.id, stakeId), eq(usdtStakesTable.userId, userId)))
+        .limit(1);
+
+      if (!stake) {
+        const e = new Error("NOT_FOUND");
+        (e as { code?: string }).code = "NOT_FOUND";
+        throw e;
+      }
+      if (stake.status !== "active") {
+        const e = new Error("NOT_ACTIVE");
+        (e as { code?: string }).code = "NOT_ACTIVE";
+        throw e;
+      }
+      if (now >= new Date(stake.unlockAt)) {
+        const e = new Error("USE_CLAIM");
+        (e as { code?: string }).code = "USE_CLAIM";
+        throw e;
+      }
+
+      const principal = parseFloat(String(stake.principalUsdt));
+      const reward = 0;
+
+      const [user] = await trx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      if (!user) {
+        const e = new Error("USER_NOT_FOUND");
+        (e as { code?: string }).code = "USER_NOT_FOUND";
+        throw e;
+      }
+
+      const bonusB = parseFloat(String(user.bonusBalance ?? "0"));
+      const wdB = parseFloat(String(user.withdrawableBalance ?? "0")) + principal;
+      const walletNum = bonusB + wdB;
+
+      await trx
+        .update(usersTable)
+        .set({
+          withdrawableBalance: wdB.toFixed(2),
+          walletBalance: walletNum.toFixed(2),
+          updatedAt: new Date(),
+        })
+        .where(eq(usersTable.id, userId));
+
+      await trx
+        .update(usdtStakesTable)
+        .set({
+          status: "completed",
+          completedAt: now,
+        })
+        .where(eq(usdtStakesTable.id, stakeId));
+
+      await trx.insert(transactionsTable).values({
+        userId,
+        txType: "stake_release",
+        amount: principal.toFixed(2),
+        status: "completed",
+        note: `USDT stake #${stakeId} early unstake — ${principal.toFixed(2)} USDT (reward forfeited)`,
+      });
+
+      await recordStakeReturnCredit(trx, {
+        userId,
+        principal,
+        reward,
+        balanceAfter: walletNum,
+        stakeId,
+      });
+
+      return { principal, reward, walletNum };
+    });
+
+    res.json({
+      message: "Unstaked — principal returned; no reward",
+      principalUsdt: out.principal,
+      rewardUsdt: 0,
+      totalUsdt: out.principal,
+      walletBalance: out.walletNum,
+    });
+  } catch (err: unknown) {
+    const code = (err as { code?: string })?.code ?? "";
+    if (code === "NOT_FOUND") {
+      res.status(404).json({ error: "Stake not found" });
+      return;
+    }
+    if (code === "NOT_ACTIVE") {
+      res.status(400).json({ error: "This stake is already completed" });
+      return;
+    }
+    if (code === "USE_CLAIM") {
+      res.status(400).json({
+        error: "Term complete — use Claim to receive principal + reward",
+      });
       return;
     }
     throw err;
