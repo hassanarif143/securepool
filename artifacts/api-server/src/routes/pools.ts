@@ -1141,7 +1141,11 @@ router.post("/:poolId/join", async (req, res) => {
   });
 });
 
-async function executePoolDistribution(poolId: number, manualWinnerUserIds: number[]) {
+async function executePoolDistribution(
+  poolId: number,
+  manualWinnerUserIds: number[],
+  opts?: { skipMinParticipantsCheck?: boolean },
+) {
   return db.transaction(async (tx) => {
     const [pool] = await tx.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
     if (!pool) {
@@ -1196,7 +1200,7 @@ async function executePoolDistribution(poolId: number, manualWinnerUserIds: numb
     const ticketTotal = ticketRows.length;
     const effectiveTicketCount = ticketTotal > 0 ? ticketTotal : participants.length;
 
-    if (effectiveTicketCount < minRequired) {
+    if (!opts?.skipMinParticipantsCheck && effectiveTicketCount < minRequired) {
       const e = new Error(
         `Need at least ${minRequired} tickets to run this draw (prizes + target profit at ${entryFee} USDT list price). Currently ${effectiveTicketCount}.`,
       );
@@ -1614,7 +1618,9 @@ export async function autoDistributePool(poolId: number): Promise<DistributedPoo
     (e as { code?: string }).code = "INVALID_WINNER_COUNT";
     throw e;
   }
-  const distributed = await executePoolDistribution(poolId, picked);
+  // End-time auto-settlement should not block on "target profit" threshold.
+  // If prizes + refund math is feasible, draw should still complete.
+  const distributed = await executePoolDistribution(poolId, picked, { skipMinParticipantsCheck: true });
   await finalizePoolDistribution(poolId, distributed, "auto-expiry");
   return distributed;
 }
