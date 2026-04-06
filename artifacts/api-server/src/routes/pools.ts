@@ -1204,6 +1204,11 @@ async function executePoolDistribution(
       .select()
       .from(poolParticipantsTable)
       .where(eq(poolParticipantsTable.poolId, poolId));
+    if (participants.length < 2) {
+      const e = new Error("Pool must have at least 2 participants before draw settlement.");
+      (e as { code?: string }).code = "MIN_PARTICIPANTS";
+      throw e;
+    }
 
     const [settings] = await tx.select().from(platformSettingsTable).where(eq(platformSettingsTable.id, 1)).limit(1);
     const desiredProfit = settings ? parseFloat(settings.drawDesiredProfitUsdt) : 100;
