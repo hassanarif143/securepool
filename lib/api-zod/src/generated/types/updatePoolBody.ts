@@ -13,4 +13,9 @@ export interface UpdatePoolBody {
   status?: UpdatePoolBodyStatus;
   endTime?: Date;
   minPoolVipTier?: UpdatePoolBodyMinPoolVipTier;
+  /**
+   * Set per-join fee; null clears override (default formula)
+   * @minimum 0
+   */
+  platformFeePerJoin?: number | null;
 }

@@ -18,4 +18,9 @@ export interface CreatePoolBody {
   prizeThird: number;
   /** Optional minimum activity tier for this pool */
   minPoolVipTier?: CreatePoolBodyMinPoolVipTier;
+  /**
+   * Optional USDT platform fee per join; omit for default formula
+   * @minimum 0
+   */
+  platformFeePerJoin?: number;
 }

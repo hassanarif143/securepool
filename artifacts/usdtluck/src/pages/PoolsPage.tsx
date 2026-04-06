@@ -37,7 +37,7 @@ export default function PoolsPage() {
                 <p className="text-muted-foreground py-8 text-center">No open pools right now</p>
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                  {open.map((pool) => <PoolCard key={pool.id} pool={pool as any} />)}
+                  {open.map((pool) => <PoolCard key={pool.id} pool={pool} />)}
                 </div>
               )}
             </TabsContent>
@@ -55,7 +55,7 @@ export default function PoolsPage() {
                 <p className="text-muted-foreground py-8 text-center">No completed pools</p>
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                  {completed.map((pool) => <PoolCard key={pool.id} pool={pool as any} />)}
+                  {completed.map((pool) => <PoolCard key={pool.id} pool={pool} />)}
                 </div>
               )}
             </TabsContent>

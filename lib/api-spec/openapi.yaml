@@ -999,7 +999,27 @@ components:
         drawReady:
           type: boolean
           description: True when participant count meets minParticipantsToRunDraw
-      required: [id, title, entryFee, maxUsers, participantCount, startTime, endTime, status, prizeFirst, prizeSecond, prizeThird, createdAt]
+        loserRefundIfNotWinListUsdt:
+          type: number
+          description: List entry minus per-join platform fee; approximate refund if not winning (list-price story)
+        platformFeePerJoinOverride:
+          type: number
+          nullable: true
+          description: Admin-set fee per join for this pool; null means default formula applies
+      required:
+        - id
+        - title
+        - entryFee
+        - maxUsers
+        - participantCount
+        - startTime
+        - endTime
+        - status
+        - prizeFirst
+        - prizeSecond
+        - prizeThird
+        - createdAt
+        - loserRefundIfNotWinListUsdt
 
     AdminFinanceOverview:
       type: object
@@ -1256,7 +1276,30 @@ components:
           type: string
           enum: [bronze, silver, gold, diamond]
           description: Minimum activity tier required to join (default bronze)
-      required: [id, title, entryFee, maxUsers, participantCount, startTime, endTime, status, prizeFirst, prizeSecond, prizeThird, createdAt, userJoined]
+        minParticipantsToRunDraw:
+          type: integer
+        drawReady:
+          type: boolean
+        loserRefundIfNotWinListUsdt:
+          type: number
+        platformFeePerJoinOverride:
+          type: number
+          nullable: true
+      required:
+        - id
+        - title
+        - entryFee
+        - maxUsers
+        - participantCount
+        - startTime
+        - endTime
+        - status
+        - prizeFirst
+        - prizeSecond
+        - prizeThird
+        - createdAt
+        - userJoined
+        - loserRefundIfNotWinListUsdt
 
     CreatePoolBody:
       type: object
@@ -1283,6 +1326,10 @@ components:
           type: string
           enum: [bronze, silver, gold, diamond]
           description: Optional minimum activity tier for this pool
+        platformFeePerJoin:
+          type: number
+          minimum: 0
+          description: Optional USDT platform fee per join; omit for default formula
       required: [title, entryFee, maxUsers, startTime, endTime, prizeFirst, prizeSecond, prizeThird]
 
     UpdatePoolBody:
@@ -1299,6 +1346,11 @@ components:
         minPoolVipTier:
           type: string
           enum: [bronze, silver, gold, diamond]
+        platformFeePerJoin:
+          type: number
+          minimum: 0
+          nullable: true
+          description: Set per-join fee; null clears override (default formula)
 
     Participant:
       type: object

@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { useListWinners, useListPools } from "@workspace/api-client-react";
+import { PoolCard } from "@/components/PoolCard";
 import { apiUrl } from "@/lib/api-base";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { RecentPayouts } from "@/components/RecentPayouts";
@@ -282,33 +282,7 @@ export default function LandingPage() {
           </div>
           <div className="grid md:grid-cols-2 gap-4">
             {activePools.slice(0, 4).map((pool) => (
-              <Card
-                key={pool.id}
-                className="hover:border-primary/35 transition-all duration-300 overflow-hidden group hover:shadow-lg hover:shadow-black/20"
-              >
-                <div className="h-1 bg-gradient-to-r from-primary/60 via-emerald-400/40 to-blue-500/50 opacity-70 group-hover:opacity-100 transition-opacity" />
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between gap-3 mb-4">
-                    <div className="min-w-0">
-                      <p className="font-display font-semibold text-base leading-snug">{pool.title}</p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Entry <span className="text-primary font-semibold tabular-nums">{pool.entryFee} USDT</span>
-                      </p>
-                    </div>
-                    <span className="text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-2.5 py-1 rounded-full shrink-0">
-                      Open
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm pt-3 border-t border-border/50">
-                    <span className="text-muted-foreground tabular-nums">
-                      {pool.participantCount}/{pool.maxUsers} joined
-                    </span>
-                    <span className="font-semibold text-primary tabular-nums">
-                      {pool.prizeFirst + pool.prizeSecond + pool.prizeThird} USDT prizes
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
+              <PoolCard key={pool.id} pool={pool} />
             ))}
           </div>
         </motion.section>

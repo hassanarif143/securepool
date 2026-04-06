@@ -168,6 +168,10 @@ export interface Pool {
   minParticipantsToRunDraw?: number;
   /** True when participant count meets minParticipantsToRunDraw */
   drawReady?: boolean;
+  /** List entry minus per-join platform fee; approximate refund if not winning (list-price story) */
+  loserRefundIfNotWinListUsdt: number;
+  /** Admin-set fee per join for this pool; null means default formula applies */
+  platformFeePerJoinOverride?: number | null;
 }
 
 export interface AdminFinancePerDrawRow {
@@ -323,6 +327,10 @@ export interface PoolDetail {
   userJoined: boolean;
   /** Minimum activity tier required to join (default bronze) */
   minPoolVipTier?: PoolDetailMinPoolVipTier;
+  minParticipantsToRunDraw?: number;
+  drawReady?: boolean;
+  loserRefundIfNotWinListUsdt: number;
+  platformFeePerJoinOverride?: number | null;
 }
 
 /**
@@ -349,6 +357,11 @@ export interface CreatePoolBody {
   prizeThird: number;
   /** Optional minimum activity tier for this pool */
   minPoolVipTier?: CreatePoolBodyMinPoolVipTier;
+  /**
+   * Optional USDT platform fee per join; omit for default formula
+   * @minimum 0
+   */
+  platformFeePerJoin?: number;
 }
 
 export type UpdatePoolBodyStatus =
@@ -375,6 +388,11 @@ export interface UpdatePoolBody {
   status?: UpdatePoolBodyStatus;
   endTime?: string;
   minPoolVipTier?: UpdatePoolBodyMinPoolVipTier;
+  /**
+   * Set per-join fee; null clears override (default formula)
+   * @minimum 0
+   */
+  platformFeePerJoin?: number | null;
 }
 
 export interface Participant {

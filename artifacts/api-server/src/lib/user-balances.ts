@@ -69,6 +69,26 @@ export function calculatePlatformFee(listEntryFeeUsdt: number): number {
   return Math.ceil(e / 5);
 }
 
+/**
+ * Per-ticket join fee: admin override on the pool, or {@link calculatePlatformFee}.
+ * Override is capped at list entry (cannot exceed one ticket price).
+ */
+export function platformFeePerJoinUsdt(
+  listEntryFeeUsdt: number,
+  adminOverride: string | number | null | undefined,
+): number {
+  const entry = Number(listEntryFeeUsdt);
+  const raw =
+    adminOverride != null && !(typeof adminOverride === "string" && String(adminOverride).trim() === "")
+      ? parseFloat(String(adminOverride))
+      : NaN;
+  if (Number.isFinite(raw) && raw >= 0) {
+    const cap = Number.isFinite(entry) && entry > 0 ? entry : raw;
+    return Math.min(raw, cap);
+  }
+  return calculatePlatformFee(entry);
+}
+
 export const REFERRAL_TIER_MILESTONES = [
   { at: 5, usdt: 3 },
   { at: 10, usdt: 6 },

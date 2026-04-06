@@ -21,7 +21,7 @@ import {
   totalWallet,
   walletBalanceFromBuckets,
   LUCKY_TICKET_MATCH_USDT,
-  calculatePlatformFee,
+  platformFeePerJoinUsdt,
 } from "../lib/user-balances";
 import { notifyUser, notifyAllUsers } from "../lib/notify";
 import { CreatePoolBody, UpdatePoolBody } from "@workspace/api-zod";
@@ -91,6 +91,13 @@ function formatPool(
   const prizeFirst = parseFloat(pool.prizeFirst);
   const prizeSecond = parseFloat(pool.prizeSecond);
   const prizeThird = parseFloat(pool.prizeThird);
+  const joinFee = platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin);
+  const loserRefundIfNotWinListUsdt = Math.max(0, Number((entryFee - joinFee).toFixed(2)));
+  const overrideRaw = pool.platformFeePerJoin;
+  const platformFeePerJoinOverride =
+    overrideRaw != null && String(overrideRaw).trim() !== ""
+      ? parseFloat(String(overrideRaw))
+      : null;
   const base = {
     id: pool.id,
     title: pool.title,
@@ -105,6 +112,11 @@ function formatPool(
     prizeThird,
     createdAt: pool.createdAt,
     minPoolVipTier: pool.minPoolVipTier ?? "bronze",
+    loserRefundIfNotWinListUsdt,
+    platformFeePerJoinOverride:
+      platformFeePerJoinOverride != null && Number.isFinite(platformFeePerJoinOverride)
+        ? platformFeePerJoinOverride
+        : null,
   };
   if (drawEconomics) {
     const minParticipantsToRunDraw = computeMinParticipantsToRunDraw(
@@ -113,6 +125,7 @@ function formatPool(
       prizeSecond,
       prizeThird,
       drawEconomics.desiredProfitUsdt,
+      { platformFeePerJoinUsdt: joinFee },
     );
     return {
       ...base,
@@ -185,12 +198,15 @@ router.get("/details/:poolId", async (req, res) => {
   const p2 = parseFloat(pool.prizeSecond);
   const p3 = parseFloat(pool.prizeThird);
   const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
-  const minParticipantsToRunDraw = computeMinParticipantsToRunDraw(entryFee, p1, p2, p3, desiredProfitUsdt);
+  const joinFeeDetails = platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin);
+  const minParticipantsToRunDraw = computeMinParticipantsToRunDraw(entryFee, p1, p2, p3, desiredProfitUsdt, {
+    platformFeePerJoinUsdt: joinFeeDetails,
+  });
   const totalPoolAmount = entryFee * currentEntries;
-  const prizeSum = p1 + p2 + p3;
-  const platformFee = Math.max(0, totalPoolAmount - prizeSum);
-  const platformFeePercent =
-    totalPoolAmount > 0 ? `${Math.round((platformFee / totalPoolAmount) * 100)}%` : "0%";
+  const loserRefundIfNotWinListUsdt = Math.max(
+    0,
+    Number((entryFee - joinFeeDetails).toFixed(2)),
+  );
 
   const rows = await db
     .select({
@@ -265,7 +281,7 @@ router.get("/details/:poolId", async (req, res) => {
         vipDiscountPercent: br.vipDiscountPercent,
         comebackDiscountPercent: br.comebackDiscountPercent,
         hasActiveComebackCoupon: c.hasCoupon,
-        joinPlatformFeeUsdt: calculatePlatformFee(entryFee),
+        joinPlatformFeeUsdt: platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin),
       };
     }
   }
@@ -282,8 +298,7 @@ router.get("/details/:poolId", async (req, res) => {
     spots_remaining: Math.max(0, pool.maxUsers - currentEntries),
     total_pool_amount: totalPoolAmount,
     prize_breakdown: { "1st": p1, "2nd": p2, "3rd": p3 },
-    platform_fee: platformFee,
-    platform_fee_percent: platformFeePercent,
+    loser_refund_if_not_win_list_usdt: loserRefundIfNotWinListUsdt,
     status: pool.status,
     start_time: pool.startTime,
     end_time: pool.endTime,
@@ -321,7 +336,8 @@ router.post("/", (req, res, next) => void requireAdmin(req as AuthedRequest, res
 
   const minTier = parse.data.minPoolVipTier ?? "bronze";
 
-  const { title, entryFee, maxUsers, startTime, endTime, prizeFirst, prizeSecond, prizeThird } = parse.data;
+  const { title, entryFee, maxUsers, startTime, endTime, prizeFirst, prizeSecond, prizeThird, platformFeePerJoin } =
+    parse.data;
 
   const [pool] = await db
     .insert(poolsTable)
@@ -336,6 +352,10 @@ router.post("/", (req, res, next) => void requireAdmin(req as AuthedRequest, res
       prizeThird: String(prizeThird),
       status: "open",
       minPoolVipTier: minTier,
+      platformFeePerJoin:
+        platformFeePerJoin != null && Number.isFinite(platformFeePerJoin) && platformFeePerJoin >= 0
+          ? String(platformFeePerJoin)
+          : null,
     })
     .returning();
 
@@ -764,6 +784,12 @@ router.patch("/:poolId", (req, res, next) => void requireAdmin(req as AuthedRequ
   if (parse.data.status) updates.status = parse.data.status;
   if (parse.data.endTime) updates.endTime = new Date(parse.data.endTime);
   if (parse.data.minPoolVipTier != null) updates.minPoolVipTier = parse.data.minPoolVipTier;
+  if (parse.data.platformFeePerJoin !== undefined) {
+    updates.platformFeePerJoin =
+      parse.data.platformFeePerJoin == null
+        ? null
+        : String(Math.max(0, parse.data.platformFeePerJoin));
+  }
 
   /* Refund if admin closes an open pool that never filled */
   if (parse.data.status === "closed" && existingPool.status === "open") {
@@ -901,7 +927,7 @@ router.post("/:poolId/join", async (req, res) => {
   }
 
   const grossTotal = useFreeEntry ? 0 : amountDue * ticketQty;
-  const feePerListEntry = calculatePlatformFee(entryFee);
+  const feePerListEntry = platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin);
   const platformJoinFee =
     useFreeEntry || grossTotal <= 0 ? 0 : Math.min(grossTotal, feePerListEntry * ticketQty);
   const netDue = grossTotal - platformJoinFee;
@@ -1119,7 +1145,10 @@ async function executePoolDistribution(poolId: number, manualWinnerUserIds: [num
     const p1 = parseFloat(pool.prizeFirst);
     const p2 = parseFloat(pool.prizeSecond);
     const p3 = parseFloat(pool.prizeThird);
-    const minRequired = computeMinParticipantsToRunDraw(entryFee, p1, p2, p3, desiredProfit);
+    const feeForDraw = platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin);
+    const minRequired = computeMinParticipantsToRunDraw(entryFee, p1, p2, p3, desiredProfit, {
+      platformFeePerJoinUsdt: feeForDraw,
+    });
 
     const ticketRows = await tx
       .select({
@@ -1175,7 +1204,7 @@ async function executePoolDistribution(poolId: number, manualWinnerUserIds: [num
       totalRevenue += paid;
     }
 
-    const feePerListEntry = calculatePlatformFee(entryFee);
+    const feePerListEntry = platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin);
     const stakeReturnPerTicket = Math.max(0, entryFee - feePerListEntry);
     const loserRefundByUserId = new Map<number, number>();
     let totalLoserRefunds = 0;

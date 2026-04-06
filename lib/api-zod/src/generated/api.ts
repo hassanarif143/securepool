@@ -278,12 +278,25 @@ export const ListPoolsResponseItem = zod.object({
     .boolean()
     .optional()
     .describe("True when participant count meets minParticipantsToRunDraw"),
+  loserRefundIfNotWinListUsdt: zod
+    .number()
+    .describe(
+      "List entry minus per-join platform fee; approximate refund if not winning (list-price story)",
+    ),
+  platformFeePerJoinOverride: zod
+    .number()
+    .nullish()
+    .describe(
+      "Admin-set fee per join for this pool; null means default formula applies",
+    ),
 });
 export const ListPoolsResponse = zod.array(ListPoolsResponseItem);
 
 /**
  * @summary Create a new pool (admin)
  */
+export const createPoolBodyPlatformFeePerJoinMin = 0;
+
 export const CreatePoolBody = zod.object({
   title: zod.string(),
   entryFee: zod.number(),
@@ -297,6 +310,11 @@ export const CreatePoolBody = zod.object({
     .enum(["bronze", "silver", "gold", "diamond"])
     .optional()
     .describe("Optional minimum activity tier for this pool"),
+  platformFeePerJoin: zod
+    .number()
+    .min(createPoolBodyPlatformFeePerJoinMin)
+    .optional()
+    .describe("Optional USDT platform fee per join; omit for default formula"),
 });
 
 /**
@@ -324,6 +342,10 @@ export const GetPoolResponse = zod.object({
     .enum(["bronze", "silver", "gold", "diamond"])
     .optional()
     .describe("Minimum activity tier required to join (default bronze)"),
+  minParticipantsToRunDraw: zod.number().optional(),
+  drawReady: zod.boolean().optional(),
+  loserRefundIfNotWinListUsdt: zod.number(),
+  platformFeePerJoinOverride: zod.number().nullish(),
 });
 
 /**
@@ -333,11 +355,18 @@ export const UpdatePoolParams = zod.object({
   poolId: zod.coerce.number(),
 });
 
+export const updatePoolBodyPlatformFeePerJoinMin = 0;
+
 export const UpdatePoolBody = zod.object({
   title: zod.string().optional(),
   status: zod.enum(["open", "closed", "completed"]).optional(),
   endTime: zod.coerce.date().optional(),
   minPoolVipTier: zod.enum(["bronze", "silver", "gold", "diamond"]).optional(),
+  platformFeePerJoin: zod
+    .number()
+    .min(updatePoolBodyPlatformFeePerJoinMin)
+    .nullish()
+    .describe("Set per-join fee; null clears override (default formula)"),
 });
 
 export const UpdatePoolResponse = zod.object({
@@ -367,6 +396,17 @@ export const UpdatePoolResponse = zod.object({
     .boolean()
     .optional()
     .describe("True when participant count meets minParticipantsToRunDraw"),
+  loserRefundIfNotWinListUsdt: zod
+    .number()
+    .describe(
+      "List entry minus per-join platform fee; approximate refund if not winning (list-price story)",
+    ),
+  platformFeePerJoinOverride: zod
+    .number()
+    .nullish()
+    .describe(
+      "Admin-set fee per join for this pool; null means default formula applies",
+    ),
 });
 
 /**

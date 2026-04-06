@@ -20,6 +20,7 @@ import {
   getGetAdminFinanceSettingsQueryKey,
   getGetAdminDrawFinancialsQueryKey,
 } from "@workspace/api-client-react";
+import type { UpdatePoolBody } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -587,6 +588,8 @@ function PoolsTab() {
   const [editTitle, setEditTitle] = useState("");
   const [editEndTime, setEditEndTime] = useState("");
   const [editMinPoolVipTier, setEditMinPoolVipTier] = useState<ActivityTier>("bronze");
+  const [editPlatformFeePerJoin, setEditPlatformFeePerJoin] = useState("");
+  const [initialPlatformFeePerJoin, setInitialPlatformFeePerJoin] = useState("");
   const [saving, setSaving] = useState(false);
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
@@ -613,26 +616,50 @@ function PoolsTab() {
     setEditEndTime(dt.toISOString().slice(0, 16));
     const t = pool.minPoolVipTier as ActivityTier | undefined;
     setEditMinPoolVipTier(t && ["bronze", "silver", "gold", "diamond"].includes(t) ? t : "bronze");
+    const raw =
+      pool.platformFeePerJoinOverride != null && pool.platformFeePerJoinOverride !== undefined
+        ? String(pool.platformFeePerJoinOverride)
+        : "";
+    const s = raw.trim();
+    setEditPlatformFeePerJoin(s);
+    setInitialPlatformFeePerJoin(s);
   }
 
   async function saveEdit(poolId: number) {
     setSaving(true);
     try {
-      await fetch(apiUrl(`/api/pools/${poolId}`), {
-        method: "PATCH", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: editTitle,
-          endTime: new Date(editEndTime).toISOString(),
-          minPoolVipTier: editMinPoolVipTier,
-        }),
-      });
+      const data: UpdatePoolBody = {
+        title: editTitle,
+        endTime: new Date(editEndTime).toISOString(),
+        minPoolVipTier: editMinPoolVipTier,
+      };
+      const cur = editPlatformFeePerJoin.trim();
+      const init = initialPlatformFeePerJoin.trim();
+      if (cur !== init) {
+        if (cur === "") {
+          data.platformFeePerJoin = null;
+        } else {
+          const n = parseFloat(cur);
+          if (!Number.isFinite(n) || n < 0) {
+            toast({
+              title: "Invalid platform fee",
+              description: "Use a non-negative number or leave empty for the default formula.",
+              variant: "destructive",
+            });
+            return;
+          }
+          data.platformFeePerJoin = n;
+        }
+      }
+      await updatePool.mutateAsync({ poolId, data });
       toast({ title: "Pool updated" });
       setEditingId(null);
       queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
     } catch {
       toast({ title: "Update failed", variant: "destructive" });
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function deletePool(poolId: number) {
@@ -928,6 +955,21 @@ function PoolsTab() {
                       Only members at or above this tier can join (loyalty discounts still apply).
                     </p>
                   </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">
+                      Platform fee per join (USDT)
+                    </Label>
+                    <Input
+                      value={editPlatformFeePerJoin}
+                      onChange={(e) => setEditPlatformFeePerJoin(e.target.value)}
+                      className="h-9"
+                      placeholder="Empty = default formula"
+                      inputMode="decimal"
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Override per-join fee for this pool only. Clear the field and save to use the default formula again.
+                    </p>
+                  </div>
                 </div>
                 <div className="flex gap-2 pt-1">
                   <Button size="sm" onClick={() => saveEdit(pool.id)} disabled={saving}
@@ -1136,6 +1178,7 @@ function CreatePoolTab() {
     prizeSecond: 50,
     prizeThird: 30,
     minPoolVipTier: "bronze" as ActivityTier,
+    platformFeePerJoinStr: "",
   });
   const [submitted, setSubmitted] = useState(false);
 
@@ -1147,8 +1190,14 @@ function CreatePoolTab() {
 
   const totalPrize = (form.prizeFirst || 0) + (form.prizeSecond || 0) + (form.prizeThird || 0);
   const poolRevenue = (form.entryFee || 0) * (form.maxUsers || 0);
-  const platformFeePerJoin = platformFeeUsdtForPoolEntry(form.entryFee || 0);
-  const netToPoolPerTicket = Math.max(0, (form.entryFee || 0) - platformFeePerJoin);
+  const entryForFee = form.entryFee || 0;
+  const customFeeRaw = form.platformFeePerJoinStr.trim();
+  const parsedCustomFee = customFeeRaw === "" ? null : parseFloat(customFeeRaw);
+  const platformFeePerJoin =
+    parsedCustomFee != null && Number.isFinite(parsedCustomFee)
+      ? Math.min(entryForFee, Math.max(0, parsedCustomFee))
+      : platformFeeUsdtForPoolEntry(entryForFee);
+  const netToPoolPerTicket = Math.max(0, entryForFee - platformFeePerJoin);
   const maxNetCollected = netToPoolPerTicket * (form.maxUsers || 0);
   const totalPlatformFeesIfFull = platformFeePerJoin * (form.maxUsers || 0);
   const estimatedPoolMargin = maxNetCollected - totalPrize;
@@ -1158,6 +1207,22 @@ function CreatePoolTab() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitted(true);
+    let optionalPlatformFee: number | undefined;
+    const fs = form.platformFeePerJoinStr.trim();
+    if (fs !== "") {
+      const n = parseFloat(fs);
+      if (!Number.isFinite(n) || n < 0) {
+        toast({ title: "Invalid platform fee", description: "Enter a non-negative number or leave empty.", variant: "destructive" });
+        setSubmitted(false);
+        return;
+      }
+      if (n > form.entryFee) {
+        toast({ title: "Fee too high", description: "Per-join fee cannot exceed the list entry fee.", variant: "destructive" });
+        setSubmitted(false);
+        return;
+      }
+      optionalPlatformFee = n;
+    }
     createPool.mutate(
       {
         data: {
@@ -1170,6 +1235,7 @@ function CreatePoolTab() {
           prizeSecond: form.prizeSecond,
           prizeThird: form.prizeThird,
           minPoolVipTier: form.minPoolVipTier,
+          ...(optionalPlatformFee !== undefined ? { platformFeePerJoin: optionalPlatformFee } : {}),
         },
       },
       {
@@ -1188,6 +1254,7 @@ function CreatePoolTab() {
             prizeSecond: 50,
             prizeThird: 30,
             minPoolVipTier: "bronze",
+            platformFeePerJoinStr: "",
           });
           setSubmitted(false);
         },
@@ -1275,12 +1342,33 @@ function CreatePoolTab() {
                 </p>
               </div>
 
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">
+                  Platform fee per join (optional override)
+                </Label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={form.platformFeePerJoinStr}
+                  onChange={(e) => setForm({ ...form, platformFeePerJoinStr: e.target.value })}
+                  placeholder="Leave empty for default formula"
+                  className="h-10"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  Default is ceil(entry ÷ 5) USDT per join. Set a value here to lock a custom fee for this pool only.
+                </p>
+              </div>
+
               <div className="rounded-xl px-3 py-3 space-y-2 text-xs"
                 style={{ background: "hsl(222,28%,11%)", border: "1px solid hsl(217,28%,16%)" }}>
-                <p className="font-semibold text-foreground/90">Platform fee (this entry price)</p>
+                <p className="font-semibold text-foreground/90">Fee preview (this entry price)</p>
                 <p className="text-muted-foreground leading-relaxed">
                   Fee per join: <span className="text-primary font-mono font-semibold">{platformFeePerJoin} USDT</span>
-                  {" "}· +1 USDT per 5 USDT list price (formula: ceil(entry ÷ 5) — e.g. 21–25 → 5, 26–30 → 6, keeps going).
+                  {parsedCustomFee != null && Number.isFinite(parsedCustomFee) ? (
+                    <> · custom override (capped at list entry).</>
+                  ) : (
+                    <> · default formula (ceil(entry ÷ 5)).</>
+                  )}
                 </p>
                 <p className="text-muted-foreground">
                   Net to pool (per ticket, list − fee):{" "}

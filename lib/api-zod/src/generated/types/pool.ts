@@ -27,4 +27,8 @@ export interface Pool {
   minParticipantsToRunDraw?: number;
   /** True when participant count meets minParticipantsToRunDraw */
   drawReady?: boolean;
+  /** List entry minus per-join platform fee; approximate refund if not winning (list-price story) */
+  loserRefundIfNotWinListUsdt: number;
+  /** Admin-set fee per join for this pool; null means default formula applies */
+  platformFeePerJoinOverride?: number | null;
 }

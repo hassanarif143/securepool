@@ -19,7 +19,6 @@ import confetti from "canvas-confetti";
 import { TierUpgradeModal } from "@/components/TierUpgradeModal";
 import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
 import { platformFeeUsdtForPoolEntry } from "@/lib/platform-fee";
-import { PlatformFeeRuleExplainer } from "@/components/PlatformFeeRuleExplainer";
 import { PoolStatusBar } from "@/components/PoolStatusBar";
 
 function timeAgoShort(iso: string) {
@@ -75,8 +74,7 @@ function streakCelebrationItem(milestone: "3" | "5" | "10" | "20", poolId: numbe
 
 type PoolDetailsApi = {
   current_entries: number;
-  platform_fee: number;
-  platform_fee_percent: string;
+  loser_refund_if_not_win_list_usdt?: number;
   total_pool_amount: number;
   spots_remaining: number;
   user_joined: boolean;
@@ -422,7 +420,7 @@ export default function PoolDetailPage() {
       if (!usedFree && breakdown && breakdown.grossTotal > 0) {
         toast({
           title: "Payment",
-          description: `Total ${breakdown.grossTotal.toFixed(2)} USDT · Platform fee ${breakdown.platformFee.toFixed(2)} USDT · From wallet ${breakdown.netDeductedFromWallet.toFixed(2)} USDT`,
+          description: `${breakdown.netDeductedFromWallet.toFixed(2)} USDT charged from your wallet (ticket total ${breakdown.grossTotal.toFixed(2)} USDT).`,
         });
       }
       const luck = (data as { luckyNumbers?: string[] }).luckyNumbers;
@@ -515,6 +513,10 @@ export default function PoolDetailPage() {
   const netFromWallet = Math.max(0, grossTicketTotal - platformFeeThisCheckout);
   const canPayJoin = Boolean(user && (freeThisPurchase || Number(user.walletBalance) >= netFromWallet));
   const vipLocked = Boolean(poolDetails?.vip_locked);
+  const listRefundUsdt =
+    poolDetails?.loser_refund_if_not_win_list_usdt ??
+    pool.loserRefundIfNotWinListUsdt ??
+    Math.max(0, pool.entryFee - platformFeeUsdtForPoolEntry(pool.entryFee));
   const poolFull = displayCount >= pool.maxUsers || spotsLeft <= 0;
   const canBuyMore = userJoinedEffective && !poolFull && pool.status === "open";
   const canFirstJoin = !userJoinedEffective && pool.status === "open" && !poolFull;
@@ -619,6 +621,11 @@ export default function PoolDetailPage() {
             ) : (
               <>Join for {pool.entryFee} USDT per ticket</>
             )}
+            {pool.status === "open" && (
+              <span className="text-xs text-muted-foreground">
+                · Non-winners get up to {listRefundUsdt.toFixed(0)} USDT back per list-priced ticket
+              </span>
+            )}
             {poolDetails?.min_pool_vip_tier && poolDetails.min_pool_vip_tier !== "bronze" && (
               <PoolVipBadge tier={poolDetails.min_pool_vip_tier} className="text-[9px]" />
             )}
@@ -639,13 +646,6 @@ export default function PoolDetailPage() {
             <p className="text-sm text-center text-muted-foreground">
               Prize total (1st–3rd): <span className="font-semibold text-primary">{totalPrize} USDT</span>
             </p>
-            {poolDetails != null && poolDetails.platform_fee > 0 && (
-              <p className="text-xs text-center text-muted-foreground border-t border-border/40 pt-3 mt-3">
-                Transparent operations share:{" "}
-                <span className="font-medium text-foreground">{poolDetails.platform_fee.toFixed(2)} USDT</span>{" "}
-                ({poolDetails.platform_fee_percent} of collected entries at current fill)
-              </p>
-            )}
           </CardContent>
         </Card>
 
@@ -672,12 +672,7 @@ export default function PoolDetailPage() {
             )}
 
             {pool.status === "open" && (
-              <div className="rounded-xl py-4 px-3 border border-amber-500/20 bg-amber-500/5">
-                <p className="text-xs text-amber-200/80 mb-3 uppercase tracking-wider font-semibold text-center">
-                  Draw countdown
-                </p>
-                <CountdownTimer endTime={pool.endTime} className="flex w-full justify-center text-2xl" />
-              </div>
+              <CountdownTimer endTime={pool.endTime} variant="fomo" className="w-full" />
             )}
 
             <div className="flex justify-between text-sm">
@@ -755,17 +750,12 @@ export default function PoolDetailPage() {
                         <span className="text-muted-foreground">Ticket total</span>
                         <span className="font-mono">{grossTicketTotal.toFixed(2)} USDT</span>
                       </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-muted-foreground">Platform fee ({feePerListEntry} USDT × tickets, capped)</span>
-                        <span className="font-mono">−{platformFeeThisCheckout.toFixed(2)} USDT</span>
-                      </div>
                       <div className="flex justify-between gap-2 font-medium text-foreground border-t border-border/40 pt-1">
-                        <span>Deducted from wallet</span>
+                        <span>From your wallet</span>
                         <span className="font-mono text-primary">{netFromWallet.toFixed(2)} USDT</span>
                       </div>
                     </div>
                   )}
-                  <PlatformFeeRuleExplainer variant="compact" />
                   {showJoinActions && !freeThisPurchase && spotsLeft > 0 && (
                     <div className="flex items-center justify-between gap-3 text-sm">
                       <span className="text-muted-foreground">Tickets</span>
@@ -808,9 +798,8 @@ export default function PoolDetailPage() {
                   )}
                   {user && !freeThisPurchase && !canPayJoin && !vipLocked && showJoinActions && (
                     <p className="text-sm text-destructive">
-                      Insufficient balance. Wallet deduction is {netFromWallet.toFixed(2)} USDT (
-                      {grossTicketTotal.toFixed(2)} USDT tickets − {platformFeeThisCheckout.toFixed(2)} USDT platform fee) for{" "}
-                      {ticketQty} ticket(s).{" "}
+                      Insufficient balance. You need {netFromWallet.toFixed(2)} USDT from your wallet for {ticketQty} ticket
+                      {ticketQty === 1 ? "" : "s"} (ticket total {grossTicketTotal.toFixed(2)} USDT).{" "}
                       <a href="/wallet" className="underline text-primary">Add funds</a>.
                     </p>
                   )}

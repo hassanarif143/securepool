@@ -24,4 +24,8 @@ export interface PoolDetail {
   userJoined: boolean;
   /** Minimum activity tier required to join (default bronze) */
   minPoolVipTier?: PoolDetailMinPoolVipTier;
+  minParticipantsToRunDraw?: number;
+  drawReady?: boolean;
+  loserRefundIfNotWinListUsdt: number;
+  platformFeePerJoinOverride?: number | null;
 }
