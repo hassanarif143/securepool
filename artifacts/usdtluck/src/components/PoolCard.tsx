@@ -4,6 +4,7 @@ import { CountdownTimer } from "./CountdownTimer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { platformFeeUsdtForPoolEntry } from "@/lib/platform-fee";
+import { poolWinnerCount } from "@/lib/pool-winners";
 
 interface PoolCardProps {
   pool: Pool;
@@ -31,6 +32,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
 
   const fillPercent = pool.maxUsers > 0 ? Math.round((pool.participantCount / pool.maxUsers) * 100) : 0;
   const almostFull = fillPercent > 80;
+  const wc = poolWinnerCount(pool);
 
   return (
     <div
@@ -83,11 +85,12 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
           <p className="text-[11px] text-muted-foreground mb-2 flex items-center gap-1.5">
             <span aria-hidden>🏆</span>
             Prize distribution
+            <span className="text-[10px] opacity-80">({wc} winner{wc === 1 ? "" : "s"})</span>
           </p>
           <div className="flex flex-wrap gap-2">
             <PrizeChip rank="1st" amount={pool.prizeFirst} />
-            <PrizeChip rank="2nd" amount={pool.prizeSecond} />
-            <PrizeChip rank="3rd" amount={pool.prizeThird} />
+            {wc >= 2 ? <PrizeChip rank="2nd" amount={pool.prizeSecond} /> : null}
+            {wc >= 3 ? <PrizeChip rank="3rd" amount={pool.prizeThird} /> : null}
           </div>
         </div>
 

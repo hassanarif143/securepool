@@ -20,9 +20,9 @@ const steps = [
     n: 4,
     icon: "⏳",
     title: "Pool closes",
-    desc: "When the pool is full or the timer ends, the admin selects three winners and prizes are sent to their wallets.",
+    desc: "When the pool is full or the timer ends, the admin runs the draw. Each pool is set for one, two, or three paid places; prizes go to those winners' wallets.",
   },
-  { n: 5, icon: "🏆", title: "Win Rewards", desc: "Three winners per pool: 1st place 100 USDT, 2nd 50 USDT, 3rd 30 USDT." },
+  { n: 5, icon: "🏆", title: "Win Rewards", desc: "Each pool shows how many paid places it has (often three: 100 / 50 / 30 USDT, or a single top prize — amounts vary by pool)." },
   { n: 6, icon: "💸", title: "Withdraw Anytime", desc: "Request a withdrawal and receive your USDT after admin verification." },
 ];
 

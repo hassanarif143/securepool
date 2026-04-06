@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreatePoolBodyMinPoolVipTier } from "./createPoolBodyMinPoolVipTier";
+import type { CreatePoolBodyWinnerCount } from "./createPoolBodyWinnerCount";
 
 export interface CreatePoolBody {
   title: string;
@@ -23,4 +24,6 @@ export interface CreatePoolBody {
    * @minimum 0
    */
   platformFeePerJoin?: number;
+  /** How many distinct winners this pool pays (1st–Nth prize slots only) */
+  winnerCount?: CreatePoolBodyWinnerCount;
 }

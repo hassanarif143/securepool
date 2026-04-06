@@ -8,8 +8,8 @@
 
 export interface DistributeRewardsBody {
   /**
-   * User IDs for 1st, 2nd, and 3rd place (must be distinct pool participants)
-   * @minItems 3
+   * User IDs in place order (1st … Nth). Length must match the pool's winnerCount; all distinct participants.
+   * @minItems 1
    * @maxItems 3
    */
   winnerUserIds: number[];

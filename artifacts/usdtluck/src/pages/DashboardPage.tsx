@@ -25,6 +25,7 @@ import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Inbox, Lock } from "lucide-react";
 import { TrustStrip } from "@/components/TrustStrip";
+import { poolWinnerCount } from "@/lib/pool-winners";
 
 interface TierInfo {
   tier: string;
@@ -467,6 +468,12 @@ export default function DashboardPage() {
                 const urgent = pct > 75;
                 const entryFee = Number(pool.entryFee);
                 const feeLabel = Number.isFinite(entryFee) ? `${entryFee} USDT` : `${pool.entryFee} USDT`;
+                const dwc = poolWinnerCount(pool);
+                const prizeRows = [
+                  { place: "1st", amount: pool.prizeFirst, color: "hsl(45,90%,60%)" },
+                  { place: "2nd", amount: pool.prizeSecond, color: "hsl(210,15%,72%)" },
+                  { place: "3rd", amount: pool.prizeThird, color: "hsl(25,70%,60%)" },
+                ].slice(0, dwc);
 
                 return (
                   <div
@@ -493,12 +500,8 @@ export default function DashboardPage() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2 mb-3">
-                        {[
-                          { place: "1st", amount: pool.prizeFirst, color: "hsl(45,90%,60%)" },
-                          { place: "2nd", amount: pool.prizeSecond, color: "hsl(210,15%,72%)" },
-                          { place: "3rd", amount: pool.prizeThird, color: "hsl(25,70%,60%)" },
-                        ].map((p) => (
+                      <div className={`grid gap-2 mb-3 ${dwc === 1 ? "grid-cols-1" : dwc === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+                        {prizeRows.map((p) => (
                           <div key={p.place} className="border border-[hsl(217,28%,18%)] rounded-md py-2 text-center text-xs" style={{ background: "hsl(217,28%,12%)" }}>
                             <p className="text-[10px] text-muted-foreground">{p.place}</p>
                             <p className="font-semibold tabular-nums" style={{ color: p.color }}>

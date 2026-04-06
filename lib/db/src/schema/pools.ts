@@ -20,6 +20,8 @@ export const poolsTable = pgTable("pools", {
   filledAt: timestamp("filled_at", { withTimezone: true }),
   avgFillTimeMinutes: integer("avg_fill_time_minutes"),
   minPoolVipTier: text("min_pool_vip_tier").notNull().default("bronze"),
+  /** How many distinct winners this draw pays (1st … Nth prize slots). */
+  winnerCount: integer("winner_count").notNull().default(3),
   /** If set, USDT taken per ticket join; otherwise ceil(entry/5) formula applies. */
   platformFeePerJoin: numeric("platform_fee_per_join", { precision: 18, scale: 2 }),
   /** Set when draw completes: winning lucky digit (1-9999, display zero-padded). */

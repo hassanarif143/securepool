@@ -7,6 +7,7 @@
  */
 import type { PoolDetailMinPoolVipTier } from "./poolDetailMinPoolVipTier";
 import type { PoolDetailStatus } from "./poolDetailStatus";
+import type { PoolDetailWinnerCount } from "./poolDetailWinnerCount";
 
 export interface PoolDetail {
   id: number;
@@ -28,4 +29,6 @@ export interface PoolDetail {
   drawReady?: boolean;
   loserRefundIfNotWinListUsdt: number;
   platformFeePerJoinOverride?: number | null;
+  /** Number of winner places (default 3) */
+  winnerCount: PoolDetailWinnerCount;
 }

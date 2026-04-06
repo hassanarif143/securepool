@@ -296,6 +296,11 @@ export const ListPoolsResponseItem = zod.object({
     .describe(
       "Admin-set fee per join for this pool; null means default formula applies",
     ),
+  winnerCount: zod
+    .union([zod.literal(1), zod.literal(2), zod.literal(3)])
+    .describe(
+      "Number of paid winner places for this draw (1st through Nth prizes only)",
+    ),
 });
 export const ListPoolsResponse = zod.array(ListPoolsResponseItem);
 
@@ -322,6 +327,12 @@ export const CreatePoolBody = zod.object({
     .min(createPoolBodyPlatformFeePerJoinMin)
     .optional()
     .describe("Optional USDT platform fee per join; omit for default formula"),
+  winnerCount: zod
+    .union([zod.literal(1), zod.literal(2), zod.literal(3)])
+    .optional()
+    .describe(
+      "How many distinct winners this pool pays (1st–Nth prize slots only)",
+    ),
 });
 
 /**
@@ -353,6 +364,9 @@ export const GetPoolResponse = zod.object({
   drawReady: zod.boolean().optional(),
   loserRefundIfNotWinListUsdt: zod.number(),
   platformFeePerJoinOverride: zod.number().nullish(),
+  winnerCount: zod
+    .union([zod.literal(1), zod.literal(2), zod.literal(3)])
+    .describe("Number of winner places (default 3)"),
 });
 
 /**
@@ -374,6 +388,12 @@ export const UpdatePoolBody = zod.object({
     .min(updatePoolBodyPlatformFeePerJoinMin)
     .nullish()
     .describe("Set per-join fee; null clears override (default formula)"),
+  winnerCount: zod
+    .union([zod.literal(1), zod.literal(2), zod.literal(3)])
+    .optional()
+    .describe(
+      "Change number of winner places (not allowed after pool is completed)",
+    ),
 });
 
 export const UpdatePoolResponse = zod.object({
@@ -414,6 +434,11 @@ export const UpdatePoolResponse = zod.object({
     .describe(
       "Admin-set fee per join for this pool; null means default formula applies",
     ),
+  winnerCount: zod
+    .union([zod.literal(1), zod.literal(2), zod.literal(3)])
+    .describe(
+      "Number of paid winner places for this draw (1st through Nth prizes only)",
+    ),
 });
 
 /**
@@ -434,16 +459,15 @@ export const DistributeRewardsParams = zod.object({
   poolId: zod.coerce.number(),
 });
 
-export const distributeRewardsBodyWinnerUserIdsMin = 3;
 export const distributeRewardsBodyWinnerUserIdsMax = 3;
 
 export const DistributeRewardsBody = zod.object({
   winnerUserIds: zod
     .array(zod.number())
-    .min(distributeRewardsBodyWinnerUserIdsMin)
+    .min(1)
     .max(distributeRewardsBodyWinnerUserIdsMax)
     .describe(
-      "User IDs for 1st, 2nd, and 3rd place (must be distinct pool participants)",
+      "User IDs in place order (1st … Nth). Length must match the pool's winnerCount; all distinct participants.",
     ),
 });
 

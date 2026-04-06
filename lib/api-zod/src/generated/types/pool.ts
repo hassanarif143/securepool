@@ -7,6 +7,7 @@
  */
 import type { PoolMinPoolVipTier } from "./poolMinPoolVipTier";
 import type { PoolStatus } from "./poolStatus";
+import type { PoolWinnerCount } from "./poolWinnerCount";
 
 export interface Pool {
   id: number;
@@ -31,4 +32,6 @@ export interface Pool {
   loserRefundIfNotWinListUsdt: number;
   /** Admin-set fee per join for this pool; null means default formula applies */
   platformFeePerJoinOverride?: number | null;
+  /** Number of paid winner places for this draw (1st through Nth prizes only) */
+  winnerCount: PoolWinnerCount;
 }

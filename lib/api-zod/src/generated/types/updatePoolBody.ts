@@ -7,6 +7,7 @@
  */
 import type { UpdatePoolBodyMinPoolVipTier } from "./updatePoolBodyMinPoolVipTier";
 import type { UpdatePoolBodyStatus } from "./updatePoolBodyStatus";
+import type { UpdatePoolBodyWinnerCount } from "./updatePoolBodyWinnerCount";
 
 export interface UpdatePoolBody {
   title?: string;
@@ -18,4 +19,6 @@ export interface UpdatePoolBody {
    * @minimum 0
    */
   platformFeePerJoin?: number | null;
+  /** Change number of winner places (not allowed after pool is completed) */
+  winnerCount?: UpdatePoolBodyWinnerCount;
 }

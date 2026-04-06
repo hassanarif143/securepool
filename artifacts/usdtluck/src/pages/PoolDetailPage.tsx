@@ -37,6 +37,7 @@ import { ComebackOfferModal, type ActiveCouponJson } from "@/components/Comeback
 import { PredictionPicker } from "@/components/PredictionPicker";
 import { PoolVipBadge } from "@/components/PoolVipBadge";
 import { useCelebration } from "@/context/CelebrationContext";
+import { poolPaidPrizeTotal, poolWinnerCount, type PoolPrizeShape } from "@/lib/pool-winners";
 
 function streakCelebrationItem(milestone: "3" | "5" | "10" | "20", poolId: number) {
   const dedupeKey = `streak-${milestone}-pool-${poolId}`;
@@ -87,6 +88,8 @@ type PoolDetailsApi = {
   fillComparison?: { message: string | null; fasterPercent: number | null; avgFillSeconds: number | null };
   min_pool_vip_tier?: string;
   vip_locked?: boolean;
+  /** Snake_case from GET /pools/details/:id */
+  winner_count?: number;
   entry_pricing?: {
     baseFee: number;
     amountDue: number;
@@ -497,7 +500,14 @@ export default function PoolDetailPage() {
 
   const displayCount = poolDetails?.current_entries ?? pool.participantCount;
   const spotsLeft = poolDetails?.spots_remaining ?? Math.max(0, pool.maxUsers - displayCount);
-  const totalPrize = pool.prizeFirst + pool.prizeSecond + pool.prizeThird;
+  const prizeShape: PoolPrizeShape = {
+    winnerCount: poolDetails?.winner_count ?? pool.winnerCount,
+    prizeFirst: pool.prizeFirst,
+    prizeSecond: pool.prizeSecond,
+    prizeThird: pool.prizeThird,
+  };
+  const wc = poolWinnerCount(prizeShape);
+  const totalPrize = poolPaidPrizeTotal(prizeShape);
   const userJoinedEffective = poolDetails?.user_joined ?? pool.userJoined;
 
   const canFreeJoin = Boolean(user && (user.freeEntries ?? 0) > 0);
@@ -638,13 +648,20 @@ export default function PoolDetailPage() {
             <CardTitle className="text-base">Prize Distribution</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="grid grid-cols-3 gap-4 text-center mb-4">
+            <div
+              className={`grid gap-4 text-center mb-4 ${wc === 1 ? "grid-cols-1 max-w-xs mx-auto" : wc === 2 ? "grid-cols-2" : "grid-cols-3"}`}
+            >
               <PrizeTile place="1st Place" amount={pool.prizeFirst} color="text-yellow-400" bg="bg-yellow-500/10 border border-yellow-500/20" />
-              <PrizeTile place="2nd Place" amount={pool.prizeSecond} color="text-slate-300" bg="bg-slate-500/10 border border-slate-500/20" />
-              <PrizeTile place="3rd Place" amount={pool.prizeThird} color="text-orange-400" bg="bg-orange-500/10 border border-orange-500/20" />
+              {wc >= 2 ? (
+                <PrizeTile place="2nd Place" amount={pool.prizeSecond} color="text-slate-300" bg="bg-slate-500/10 border border-slate-500/20" />
+              ) : null}
+              {wc >= 3 ? (
+                <PrizeTile place="3rd Place" amount={pool.prizeThird} color="text-orange-400" bg="bg-orange-500/10 border border-orange-500/20" />
+              ) : null}
             </div>
             <p className="text-sm text-center text-muted-foreground">
-              Prize total (1st–3rd): <span className="font-semibold text-primary">{totalPrize} USDT</span>
+              Prize total ({wc === 1 ? "1st only" : wc === 2 ? "1st–2nd" : "1st–3rd"}):{" "}
+              <span className="font-semibold text-primary">{totalPrize} USDT</span>
             </p>
           </CardContent>
         </Card>

@@ -149,6 +149,18 @@ export const PoolMinPoolVipTier = {
   diamond: "diamond",
 } as const;
 
+/**
+ * Number of paid winner places for this draw (1st through Nth prizes only)
+ */
+export type PoolWinnerCount =
+  (typeof PoolWinnerCount)[keyof typeof PoolWinnerCount];
+
+export const PoolWinnerCount = {
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+  NUMBER_3: 3,
+} as const;
+
 export interface Pool {
   id: number;
   title: string;
@@ -172,6 +184,8 @@ export interface Pool {
   loserRefundIfNotWinListUsdt: number;
   /** Admin-set fee per join for this pool; null means default formula applies */
   platformFeePerJoinOverride?: number | null;
+  /** Number of paid winner places for this draw (1st through Nth prizes only) */
+  winnerCount: PoolWinnerCount;
 }
 
 export interface AdminFinancePerDrawRow {
@@ -311,6 +325,18 @@ export const PoolDetailMinPoolVipTier = {
   diamond: "diamond",
 } as const;
 
+/**
+ * Number of winner places (default 3)
+ */
+export type PoolDetailWinnerCount =
+  (typeof PoolDetailWinnerCount)[keyof typeof PoolDetailWinnerCount];
+
+export const PoolDetailWinnerCount = {
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+  NUMBER_3: 3,
+} as const;
+
 export interface PoolDetail {
   id: number;
   title: string;
@@ -331,6 +357,8 @@ export interface PoolDetail {
   drawReady?: boolean;
   loserRefundIfNotWinListUsdt: number;
   platformFeePerJoinOverride?: number | null;
+  /** Number of winner places (default 3) */
+  winnerCount: PoolDetailWinnerCount;
 }
 
 /**
@@ -344,6 +372,18 @@ export const CreatePoolBodyMinPoolVipTier = {
   silver: "silver",
   gold: "gold",
   diamond: "diamond",
+} as const;
+
+/**
+ * How many distinct winners this pool pays (1st–Nth prize slots only)
+ */
+export type CreatePoolBodyWinnerCount =
+  (typeof CreatePoolBodyWinnerCount)[keyof typeof CreatePoolBodyWinnerCount];
+
+export const CreatePoolBodyWinnerCount = {
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+  NUMBER_3: 3,
 } as const;
 
 export interface CreatePoolBody {
@@ -362,6 +402,8 @@ export interface CreatePoolBody {
    * @minimum 0
    */
   platformFeePerJoin?: number;
+  /** How many distinct winners this pool pays (1st–Nth prize slots only) */
+  winnerCount?: CreatePoolBodyWinnerCount;
 }
 
 export type UpdatePoolBodyStatus =
@@ -383,6 +425,18 @@ export const UpdatePoolBodyMinPoolVipTier = {
   diamond: "diamond",
 } as const;
 
+/**
+ * Change number of winner places (not allowed after pool is completed)
+ */
+export type UpdatePoolBodyWinnerCount =
+  (typeof UpdatePoolBodyWinnerCount)[keyof typeof UpdatePoolBodyWinnerCount];
+
+export const UpdatePoolBodyWinnerCount = {
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+  NUMBER_3: 3,
+} as const;
+
 export interface UpdatePoolBody {
   title?: string;
   status?: UpdatePoolBodyStatus;
@@ -393,6 +447,8 @@ export interface UpdatePoolBody {
    * @minimum 0
    */
   platformFeePerJoin?: number | null;
+  /** Change number of winner places (not allowed after pool is completed) */
+  winnerCount?: UpdatePoolBodyWinnerCount;
 }
 
 export interface Participant {
@@ -452,8 +508,8 @@ export interface CreateTransactionBody {
 
 export interface DistributeRewardsBody {
   /**
-   * User IDs for 1st, 2nd, and 3rd place (must be distinct pool participants)
-   * @minItems 3
+   * User IDs in place order (1st … Nth). Length must match the pool's winnerCount; all distinct participants.
+   * @minItems 1
    * @maxItems 3
    */
   winnerUserIds: number[];

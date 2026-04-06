@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { CelebrationModal } from "@/components/CelebrationModal";
+import { poolPaidPrizeTotal, poolWinnerCount } from "@/lib/pool-winners";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -590,6 +591,7 @@ function PoolsTab() {
   const [editMinPoolVipTier, setEditMinPoolVipTier] = useState<ActivityTier>("bronze");
   const [editPlatformFeePerJoin, setEditPlatformFeePerJoin] = useState("");
   const [initialPlatformFeePerJoin, setInitialPlatformFeePerJoin] = useState("");
+  const [editWinnerCount, setEditWinnerCount] = useState<1 | 2 | 3>(3);
   const [saving, setSaving] = useState(false);
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
@@ -599,7 +601,9 @@ function PoolsTab() {
   const [participants, setParticipants] = useState<any[]>([]);
   const [participantsLoading, setParticipantsLoading] = useState(false);
 
-  const [distributeModal, setDistributeModal] = useState<{ poolId: number; title: string } | null>(null);
+  const [distributeModal, setDistributeModal] = useState<{ poolId: number; title: string; winnerCount: number } | null>(
+    null,
+  );
   const [distFirst, setDistFirst] = useState("");
   const [distSecond, setDistSecond] = useState("");
   const [distThird, setDistThird] = useState("");
@@ -623,6 +627,7 @@ function PoolsTab() {
     const s = raw.trim();
     setEditPlatformFeePerJoin(s);
     setInitialPlatformFeePerJoin(s);
+    setEditWinnerCount(poolWinnerCount(pool));
   }
 
   async function saveEdit(poolId: number) {
@@ -650,6 +655,10 @@ function PoolsTab() {
           }
           data.platformFeePerJoin = n;
         }
+      }
+      const curPool = pools?.find((p) => p.id === poolId);
+      if (curPool && editWinnerCount !== poolWinnerCount(curPool)) {
+        data.winnerCount = editWinnerCount;
       }
       await updatePool.mutateAsync({ poolId, data });
       toast({ title: "Pool updated" });
@@ -699,11 +708,11 @@ function PoolsTab() {
     );
   }
 
-  async function openDistributeModal(poolId: number, poolTitle: string) {
+  async function openDistributeModal(poolId: number, poolTitle: string, winnerCount: number) {
     setDistFirst("");
     setDistSecond("");
     setDistThird("");
-    setDistributeModal({ poolId, title: poolTitle });
+    setDistributeModal({ poolId, title: poolTitle, winnerCount });
     setDistLoading(true);
     try {
       const res = await fetch(apiUrl(`/api/admin/pools/${poolId}/participants`), { credentials: "include" });
@@ -723,20 +732,19 @@ function PoolsTab() {
 
   function submitDistribute() {
     if (!distributeModal) return;
-    const a = parseInt(distFirst, 10);
-    const b = parseInt(distSecond, 10);
-    const c = parseInt(distThird, 10);
-    if (![a, b, c].every((n) => Number.isFinite(n) && n > 0)) {
-      toast({ title: "Select 1st, 2nd, and 3rd place", variant: "destructive" });
+    const n = distributeModal.winnerCount;
+    const raw = [parseInt(distFirst, 10), parseInt(distSecond, 10), parseInt(distThird, 10)].slice(0, n);
+    if (!raw.every((id) => Number.isFinite(id) && id > 0)) {
+      toast({ title: `Select ${n} winner${n === 1 ? "" : "s"} (place order)`, variant: "destructive" });
       return;
     }
-    if (new Set([a, b, c]).size !== 3) {
-      toast({ title: "Winners must be three different users", variant: "destructive" });
+    if (new Set(raw).size !== raw.length) {
+      toast({ title: "Each winner must be a different user", variant: "destructive" });
       return;
     }
     const poolTitle = distributeModal.title;
     distributeRewards.mutate(
-      { poolId: distributeModal.poolId, data: { winnerUserIds: [a, b, c] } },
+      { poolId: distributeModal.poolId, data: { winnerUserIds: raw } },
       {
         onSuccess: (result: any) => {
           setDistributeModal(null);
@@ -778,15 +786,19 @@ function PoolsTab() {
         <DialogHeader>
           <DialogTitle>Select winners</DialogTitle>
           <DialogDescription>
-            Choose 1st, 2nd, and 3rd place for{" "}
+            This pool pays <strong className="text-foreground">{distributeModal?.winnerCount ?? 3}</strong> winner
+            {(distributeModal?.winnerCount ?? 3) === 1 ? "" : "s"} (place order) for{" "}
             <span className="text-foreground font-medium">{distributeModal?.title ?? "this pool"}</span>. Losers receive a
             partial refund (list entry minus platform fee). Settlement must cover prizes and refunds.
           </DialogDescription>
         </DialogHeader>
         {distLoading ? (
           <p className="text-sm text-muted-foreground py-4">Loading participants…</p>
-        ) : distParticipants.length < 3 ? (
-          <p className="text-sm text-destructive py-2">Need at least three participants to assign podium places.</p>
+        ) : distParticipants.length < (distributeModal?.winnerCount ?? 3) ? (
+          <p className="text-sm text-destructive py-2">
+            Need at least {distributeModal?.winnerCount ?? 3} participant
+            {(distributeModal?.winnerCount ?? 3) === 1 ? "" : "s"} to run this draw.
+          </p>
         ) : (
           <div className="space-y-3 py-2">
             <div>
@@ -804,6 +816,7 @@ function PoolsTab() {
                 </SelectContent>
               </Select>
             </div>
+            {(distributeModal?.winnerCount ?? 3) >= 2 && (
             <div>
               <Label className="text-xs text-muted-foreground">2nd place</Label>
               <Select value={distSecond} onValueChange={setDistSecond}>
@@ -819,6 +832,8 @@ function PoolsTab() {
                 </SelectContent>
               </Select>
             </div>
+            )}
+            {(distributeModal?.winnerCount ?? 3) >= 3 && (
             <div>
               <Label className="text-xs text-muted-foreground">3rd place</Label>
               <Select value={distThird} onValueChange={setDistThird}>
@@ -834,6 +849,7 @@ function PoolsTab() {
                 </SelectContent>
               </Select>
             </div>
+            )}
           </div>
         )}
         <DialogFooter className="gap-2 sm:gap-0">
@@ -842,7 +858,11 @@ function PoolsTab() {
           </Button>
           <Button
             onClick={() => submitDistribute()}
-            disabled={distLoading || distParticipants.length < 3 || distributeRewards.isPending}
+            disabled={
+              distLoading ||
+              distParticipants.length < (distributeModal?.winnerCount ?? 3) ||
+              distributeRewards.isPending
+            }
           >
             {distributeRewards.isPending ? "Distributing…" : "Run distribution"}
           </Button>
@@ -906,7 +926,8 @@ function PoolsTab() {
         const fillPct = Math.min(100, Math.round((pool.participantCount / pool.maxUsers) * 100));
         const isEditing = editingId === pool.id;
         const showParticipants = participantsPoolId === pool.id;
-        const totalPrize = pool.prizeFirst + pool.prizeSecond + pool.prizeThird;
+        const totalPrize = poolPaidPrizeTotal(pool);
+        const wc = poolWinnerCount(pool);
         const isCompleted = pool.status === "completed";
         const minForDraw = pool.minParticipantsToRunDraw ?? 3;
         const drawReady =
@@ -970,6 +991,25 @@ function PoolsTab() {
                       Override per-join fee for this pool only. Clear the field and save to use the default formula again.
                     </p>
                   </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">Winners for this draw</Label>
+                    <Select
+                      value={String(editWinnerCount)}
+                      onValueChange={(v) => setEditWinnerCount(Number(v) as 1 | 2 | 3)}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 winner (1st prize only)</SelectItem>
+                        <SelectItem value="2">2 winners (1st + 2nd)</SelectItem>
+                        <SelectItem value="3">3 winners (full podium)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Min tickets to run the draw and payout amounts follow this setting. Cannot change after completion.
+                    </p>
+                  </div>
                 </div>
                 <div className="flex gap-2 pt-1">
                   <Button size="sm" onClick={() => saveEdit(pool.id)} disabled={saving}
@@ -1003,18 +1043,23 @@ function PoolsTab() {
                       <span>·</span>
                       <span className="font-medium text-foreground/70">{pool.entryFee} USDT entry</span>
                       <span>·</span>
-                      <span>Total prizes: <span className="text-primary font-semibold">{totalPrize} USDT</span></span>
+                      <span>
+                        {wc} winner{wc === 1 ? "" : "s"} · Paid prizes:{" "}
+                        <span className="text-primary font-semibold">{totalPrize} USDT</span>
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Prize strip */}
-                <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className={`grid gap-2 mb-4 ${wc === 1 ? "grid-cols-1" : wc === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
                   {[
                     { place: 1, icon: "🥇", prize: pool.prizeFirst, color: "hsla(45,100%,50%,1)", bg: "hsla(45,100%,50%,0.07)", border: "hsla(45,100%,50%,0.2)" },
                     { place: 2, icon: "🥈", prize: pool.prizeSecond, color: "hsla(220,20%,70%,1)", bg: "hsla(220,20%,70%,0.07)", border: "hsla(220,20%,70%,0.2)" },
                     { place: 3, icon: "🥉", prize: pool.prizeThird, color: "hsla(25,80%,55%,1)", bg: "hsla(25,80%,55%,0.07)", border: "hsla(25,80%,55%,0.2)" },
-                  ].map((p) => (
+                  ]
+                    .slice(0, wc)
+                    .map((p) => (
                     <div key={p.place} className="rounded-xl px-3 py-2 text-center"
                       style={{ background: p.bg, border: `1px solid ${p.border}` }}>
                       <div className="text-lg mb-0.5">{p.icon}</div>
@@ -1078,7 +1123,7 @@ function PoolsTab() {
                         </button>
                       )}
                       <button
-                        onClick={() => void openDistributeModal(pool.id, pool.title)}
+                        onClick={() => void openDistributeModal(pool.id, pool.title, wc)}
                         disabled={distributeRewards.isPending || !drawReady}
                         title={!drawReady ? `Need at least ${minForDraw} participants` : undefined}
                         className="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
@@ -1177,6 +1222,7 @@ function CreatePoolTab() {
     prizeFirst: 100,
     prizeSecond: 50,
     prizeThird: 30,
+    winnerCount: 3 as 1 | 2 | 3,
     minPoolVipTier: "bronze" as ActivityTier,
     platformFeePerJoinStr: "",
   });
@@ -1188,7 +1234,7 @@ function CreatePoolTab() {
     setForm((f) => ({ ...f, startTime: localDatetimeValue(start), endTime: localDatetimeValue(end) }));
   }
 
-  const totalPrize = (form.prizeFirst || 0) + (form.prizeSecond || 0) + (form.prizeThird || 0);
+  const totalPrize = poolPaidPrizeTotal(form);
   const poolRevenue = (form.entryFee || 0) * (form.maxUsers || 0);
   const entryForFee = form.entryFee || 0;
   const customFeeRaw = form.platformFeePerJoinStr.trim();
@@ -1234,6 +1280,7 @@ function CreatePoolTab() {
           prizeFirst: form.prizeFirst,
           prizeSecond: form.prizeSecond,
           prizeThird: form.prizeThird,
+          winnerCount: form.winnerCount,
           minPoolVipTier: form.minPoolVipTier,
           ...(optionalPlatformFee !== undefined ? { platformFeePerJoin: optionalPlatformFee } : {}),
         },
@@ -1253,6 +1300,7 @@ function CreatePoolTab() {
             prizeFirst: 100,
             prizeSecond: 50,
             prizeThird: 30,
+            winnerCount: 3,
             minPoolVipTier: "bronze",
             platformFeePerJoinStr: "",
           });
@@ -1471,6 +1519,25 @@ function CreatePoolTab() {
                   </div>
                 ))}
               </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">Winners for this draw</Label>
+                <Select
+                  value={String(form.winnerCount)}
+                  onValueChange={(v) => setForm({ ...form, winnerCount: Number(v) as 1 | 2 | 3 })}
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 — 1st prize only</SelectItem>
+                    <SelectItem value="2">2 — 1st + 2nd</SelectItem>
+                    <SelectItem value="3">3 — full podium</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  Only the first N prize amounts are paid at distribution. Set unused places to 0 if you like.
+                </p>
+              </div>
             </div>
 
             <Button
@@ -1499,7 +1566,8 @@ function CreatePoolTab() {
                     <div className="flex-1">
                       <p className="font-bold">{form.title || <span className="text-muted-foreground italic text-sm">Pool title...</span>}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {form.entryFee} USDT entry · {form.maxUsers} max users
+                        {form.entryFee} USDT entry · {form.maxUsers} max users · {form.winnerCount} winner
+                        {form.winnerCount === 1 ? "" : "s"}
                         {form.minPoolVipTier !== "bronze" && (
                           <span className="text-amber-200/80"> · Min {form.minPoolVipTier}</span>
                         )}
@@ -1512,12 +1580,14 @@ function CreatePoolTab() {
                   </div>
 
                   {/* Prizes */}
-                  <div className="grid grid-cols-3 gap-1.5 mb-4">
+                  <div className={`grid gap-1.5 mb-4 ${form.winnerCount === 1 ? "grid-cols-1" : form.winnerCount === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
                     {[
                       { icon: "🥇", prize: form.prizeFirst, color: "hsla(45,100%,50%,1)", bg: "hsla(45,100%,50%,0.07)" },
                       { icon: "🥈", prize: form.prizeSecond, color: "hsla(220,20%,70%,1)", bg: "hsla(220,20%,70%,0.07)" },
                       { icon: "🥉", prize: form.prizeThird, color: "hsla(25,80%,55%,1)", bg: "hsla(25,80%,55%,0.07)" },
-                    ].map((p, i) => (
+                    ]
+                      .slice(0, form.winnerCount)
+                      .map((p, i) => (
                       <div key={i} className="rounded-xl px-2 py-2 text-center" style={{ background: p.bg }}>
                         <div className="text-base">{p.icon}</div>
                         <p className="text-xs font-bold" style={{ color: p.color }}>{p.prize} USDT</p>

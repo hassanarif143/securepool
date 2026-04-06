@@ -52,7 +52,7 @@ import {
 } from "../services/pool-vip-service";
 import { computeEntryDiscount } from "../services/entry-discount-service";
 import { getActiveComebackCoupon, markCouponUsed } from "../services/coupon-service";
-import { computeMinParticipantsToRunDraw } from "../services/draw-economics";
+import { computeMinParticipantsToRunDraw, prizeTotalForWinnerSlots } from "../services/draw-economics";
 import {
   appendPlatformFeeForDraw,
   appendPoolJoinPlatformFee,
@@ -73,11 +73,7 @@ const JoinPoolBody = z.object({
 });
 
 const DistributeRewardsBody = z.object({
-  winnerUserIds: z
-    .tuple([z.number().int().positive(), z.number().int().positive(), z.number().int().positive()])
-    .refine(([a, b, c]) => new Set([a, b, c]).size === 3, {
-      message: "winnerUserIds must be three distinct user IDs (1st, 2nd, 3rd place).",
-    }),
+  winnerUserIds: z.array(z.number().int().positive()).min(1).max(3),
 });
 
 const router: IRouter = Router();
@@ -98,6 +94,7 @@ function formatPool(
     overrideRaw != null && String(overrideRaw).trim() !== ""
       ? parseFloat(String(overrideRaw))
       : null;
+  const winnerCount = pool.winnerCount ?? 3;
   const base = {
     id: pool.id,
     title: pool.title,
@@ -110,6 +107,7 @@ function formatPool(
     prizeFirst,
     prizeSecond,
     prizeThird,
+    winnerCount,
     createdAt: pool.createdAt,
     minPoolVipTier: pool.minPoolVipTier ?? "bronze",
     loserRefundIfNotWinListUsdt,
@@ -125,7 +123,7 @@ function formatPool(
       prizeSecond,
       prizeThird,
       drawEconomics.desiredProfitUsdt,
-      { platformFeePerJoinUsdt: joinFee },
+      { platformFeePerJoinUsdt: joinFee, winnerCount },
     );
     return {
       ...base,
@@ -199,8 +197,10 @@ router.get("/details/:poolId", async (req, res) => {
   const p3 = parseFloat(pool.prizeThird);
   const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
   const joinFeeDetails = platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin);
+  const wc = pool.winnerCount ?? 3;
   const minParticipantsToRunDraw = computeMinParticipantsToRunDraw(entryFee, p1, p2, p3, desiredProfitUsdt, {
     platformFeePerJoinUsdt: joinFeeDetails,
+    winnerCount: wc,
   });
   const totalPoolAmount = entryFee * currentEntries;
   const loserRefundIfNotWinListUsdt = Math.max(
@@ -298,6 +298,7 @@ router.get("/details/:poolId", async (req, res) => {
     spots_remaining: Math.max(0, pool.maxUsers - currentEntries),
     total_pool_amount: totalPoolAmount,
     prize_breakdown: { "1st": p1, "2nd": p2, "3rd": p3 },
+    winner_count: wc,
     loser_refund_if_not_win_list_usdt: loserRefundIfNotWinListUsdt,
     status: pool.status,
     start_time: pool.startTime,
@@ -336,8 +337,20 @@ router.post("/", (req, res, next) => void requireAdmin(req as AuthedRequest, res
 
   const minTier = parse.data.minPoolVipTier ?? "bronze";
 
-  const { title, entryFee, maxUsers, startTime, endTime, prizeFirst, prizeSecond, prizeThird, platformFeePerJoin } =
-    parse.data;
+  const {
+    title,
+    entryFee,
+    maxUsers,
+    startTime,
+    endTime,
+    prizeFirst,
+    prizeSecond,
+    prizeThird,
+    platformFeePerJoin,
+    winnerCount: bodyWinnerCount,
+  } = parse.data;
+  const winnerCount =
+    bodyWinnerCount != null && [1, 2, 3].includes(bodyWinnerCount) ? bodyWinnerCount : 3;
 
   const [pool] = await db
     .insert(poolsTable)
@@ -350,6 +363,7 @@ router.post("/", (req, res, next) => void requireAdmin(req as AuthedRequest, res
       prizeFirst: String(prizeFirst),
       prizeSecond: String(prizeSecond),
       prizeThird: String(prizeThird),
+      winnerCount,
       status: "open",
       minPoolVipTier: minTier,
       platformFeePerJoin:
@@ -790,6 +804,13 @@ router.patch("/:poolId", (req, res, next) => void requireAdmin(req as AuthedRequ
         ? null
         : String(Math.max(0, parse.data.platformFeePerJoin));
   }
+  if (parse.data.winnerCount != null && [1, 2, 3].includes(parse.data.winnerCount)) {
+    if (existingPool.status === "completed") {
+      res.status(400).json({ error: "Cannot change winner count after the pool is completed." });
+      return;
+    }
+    updates.winnerCount = parse.data.winnerCount;
+  }
 
   /* Refund if admin closes an open pool that never filled */
   if (parse.data.status === "closed" && existingPool.status === "open") {
@@ -1120,7 +1141,7 @@ router.post("/:poolId/join", async (req, res) => {
   });
 });
 
-async function executePoolDistribution(poolId: number, manualWinnerUserIds: [number, number, number]) {
+async function executePoolDistribution(poolId: number, manualWinnerUserIds: number[]) {
   return db.transaction(async (tx) => {
     const [pool] = await tx.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
     if (!pool) {
@@ -1131,6 +1152,18 @@ async function executePoolDistribution(poolId: number, manualWinnerUserIds: [num
     if (pool.status === "completed") {
       const e = new Error("ALREADY_COMPLETED");
       (e as { code?: string }).code = "ALREADY_COMPLETED";
+      throw e;
+    }
+
+    const winnerCount = pool.winnerCount ?? 3;
+    if (manualWinnerUserIds.length !== winnerCount) {
+      const e = new Error(`This pool is configured for ${winnerCount} winner(s); send exactly ${winnerCount} user id(s).`);
+      (e as { code?: string }).code = "INVALID_WINNER_COUNT";
+      throw e;
+    }
+    if (new Set(manualWinnerUserIds).size !== manualWinnerUserIds.length) {
+      const e = new Error("Winner user IDs must be distinct.");
+      (e as { code?: string }).code = "INVALID_WINNERS";
       throw e;
     }
 
@@ -1148,6 +1181,7 @@ async function executePoolDistribution(poolId: number, manualWinnerUserIds: [num
     const feeForDraw = platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin);
     const minRequired = computeMinParticipantsToRunDraw(entryFee, p1, p2, p3, desiredProfit, {
       platformFeePerJoinUsdt: feeForDraw,
+      winnerCount,
     });
 
     const ticketRows = await tx
@@ -1183,7 +1217,7 @@ async function executePoolDistribution(poolId: number, manualWinnerUserIds: [num
     const positionByUserId = new Map<number, number>();
     manualWinnerUserIds.forEach((uid, i) => positionByUserId.set(uid, i + 1));
     const loserUserIds = participants.filter((p) => !manualWinnerUserIds.includes(p.userId)).map((p) => p.userId);
-    secureShuffle(loserUserIds).forEach((uid, i) => positionByUserId.set(uid, i + 4));
+    secureShuffle(loserUserIds).forEach((uid, i) => positionByUserId.set(uid, winnerCount + 1 + i));
 
     for (const row of participants) {
       const pos = positionByUserId.get(row.userId);
@@ -1222,7 +1256,7 @@ async function executePoolDistribution(poolId: number, manualWinnerUserIds: [num
       totalLoserRefunds += refundAmount;
     }
 
-    const totalPrizes = p1 + p2 + p3;
+    const totalPrizes = prizeTotalForWinnerSlots(p1, p2, p3, winnerCount);
     const settlementRemainder = totalRevenue - totalPrizes - totalLoserRefunds;
     if (settlementRemainder < -0.02) {
       const e = new Error(
@@ -1254,7 +1288,7 @@ async function executePoolDistribution(poolId: number, manualWinnerUserIds: [num
     let w2name: string | null = null;
     let w3name: string | null = null;
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < winnerCount; i++) {
       const winRow = picked[i];
       if (!winRow) break;
       const { place, prize } = prizes[i]!;
@@ -1451,6 +1485,10 @@ router.post("/:poolId/distribute", (req, res, next) => void requireAdmin(req as 
       return;
     }
     if (code === "INVALID_WINNERS") {
+      res.status(400).json({ error: (err as Error).message });
+      return;
+    }
+    if (code === "INVALID_WINNER_COUNT") {
       res.status(400).json({ error: (err as Error).message });
       return;
     }
