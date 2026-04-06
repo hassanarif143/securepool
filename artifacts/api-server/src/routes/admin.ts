@@ -26,7 +26,7 @@ import { isValidTrc20Address } from "../lib/trc20";
 import { logActivity } from "../services/activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { refundAllPoolParticipants } from "../lib/pool-refunds";
-import { distributePoolWithWinners } from "./pools";
+import { autoDistributePool, distributePoolWithWinners } from "./pools";
 import { platformFeePerJoinUsdt } from "../lib/user-balances";
 import {
   appendDepositFromTicketPurchase,
@@ -537,9 +537,9 @@ router.get("/users/:id", async (req, res) => {
       return;
     }
     res.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
+        id: user.id,
+        name: user.name,
+        email: user.email,
       phone: user.phone ?? null,
       city: user.city ?? null,
       walletBalance: parseFloat(String(user.wallet_balance ?? "0")),
@@ -927,6 +927,10 @@ router.post("/pool/:id/end", async (req, res) => {
     res.status(404).json({ error: "Pool not found" });
     return;
   }
+  if (pool.status === "completed") {
+    res.status(400).json({ error: "Pool already completed" });
+    return;
+  }
   const participants = await db
     .select({ userId: poolParticipantsTable.userId })
     .from(poolParticipantsTable)
@@ -935,12 +939,59 @@ router.post("/pool/:id/end", async (req, res) => {
     res.status(400).json({ error: "Pool must have at least 2 participants to end." });
     return;
   }
-  await db
-    .update(poolsTable)
-    .set({ endTime: new Date(), status: "closed" })
-    .where(eq(poolsTable.id, poolId));
-  await logAction(getAdminId(req), "pool", poolId, "end_pool", `Manually ended pool "${pool.title}"`);
-  res.json({ message: "Pool ended", poolId });
+  try {
+    const selected = String(pool.selectedWinnerUserIds ?? "")
+      .split(",")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => Number.isInteger(n) && n > 0);
+
+    const distributed =
+      selected.length > 0
+        ? await distributePoolWithWinners(poolId, selected)
+        : await autoDistributePool(poolId);
+    await db.update(poolsTable).set({ selectedWinnerUserIds: null }).where(eq(poolsTable.id, poolId));
+    await logAction(getAdminId(req), "pool", poolId, "end_pool", `Ended pool "${pool.title}" and completed settlement`);
+    res.json({
+      message: "Pool ended and completed",
+      poolId,
+      winners: distributed.winnerRecords.map((w) => ({
+        userId: w.userId,
+        userName: w.userName,
+        place: w.place,
+        prize: parseFloat(w.prize),
+      })),
+      financialSummary: {
+        revenue: distributed.financial.totalRevenue,
+        prizes: distributed.financial.totalPrizes,
+        loserRefunds: distributed.financial.totalLoserRefunds,
+        platformFee: distributed.financial.platformFee,
+      },
+    });
+  } catch (err: unknown) {
+    const code = (err as { code?: string })?.code ?? "";
+    if (
+      code === "MIN_PARTICIPANTS" ||
+      code === "INVALID_WINNER_COUNT" ||
+      code === "INVALID_WINNERS" ||
+      code === "INSUFFICIENT_SETTLEMENT"
+    ) {
+      const { refundedCount } = await refundAllPoolParticipants(poolId, pool, `[Admin] End pool fallback refund — ${pool.title}`);
+      await db
+        .update(poolsTable)
+        .set({ status: "closed", endTime: new Date(), selectedWinnerUserIds: null })
+        .where(eq(poolsTable.id, poolId));
+      await logAction(
+        getAdminId(req),
+        "pool",
+        poolId,
+        "end_pool_refunded",
+        `Ended pool "${pool.title}" via refund fallback (${refundedCount} refunded)`,
+      );
+      res.json({ message: "Pool ended with refunds", poolId, refundedCount });
+      return;
+    }
+    res.status(500).json({ error: "Failed to end pool" });
+  }
 });
 
 router.post("/pool/:id/cancel", async (req, res) => {
@@ -1385,7 +1436,7 @@ router.post("/transactions/:id/reject", async (req, res) => {
     const title = tx.txType === "deposit" ? "Deposit Rejected" : "Withdrawal Rejected";
     const notifMsg =
       tx.txType === "deposit"
-        ? `Your deposit of ${tx.amount} USDT was rejected. Please check your screenshot and try again, or contact support.`
+      ? `Your deposit of ${tx.amount} USDT was rejected. Please check your screenshot and try again, or contact support.`
         : `Your withdrawal of ${tx.amount} USDT was rejected. ${reason ? `Reason: ${reason}. ` : ""}Your balance has been refunded.`;
     await notifyUser(tx.userId, title, notifMsg, "error");
   } catch {}

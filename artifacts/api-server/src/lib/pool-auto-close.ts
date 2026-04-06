@@ -12,9 +12,10 @@ import { autoDistributePool } from "../routes/pools";
  */
 export async function runExpiredPoolRefunds(): Promise<void> {
   const now = new Date();
-  const openPools = await db.select().from(poolsTable).where(eq(poolsTable.status, "open"));
+  const candidatePools = await db.select().from(poolsTable);
 
-  for (const pool of openPools) {
+  for (const pool of candidatePools) {
+    if (pool.status === "completed") continue;
     if (pool.endTime.getTime() >= now.getTime()) continue;
 
     const [{ ct }] = await db

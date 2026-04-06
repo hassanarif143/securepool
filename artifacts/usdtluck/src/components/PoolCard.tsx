@@ -32,6 +32,8 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
 
   const fillPercent = pool.maxUsers > 0 ? Math.round((pool.participantCount / pool.maxUsers) * 100) : 0;
   const almostFull = fillPercent > 80;
+  const isFull = pool.participantCount >= pool.maxUsers;
+  const showRevealState = (pool.status === "open" || pool.status === "closed") && isFull;
   const wc = poolWinnerCount(pool);
 
   return (
@@ -57,6 +59,11 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
                 {pool.status}
               </span>
             )}
+            {showRevealState && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-300 border border-amber-400/40 bg-amber-400/10 rounded-full px-2 py-0.5 animate-pulse">
+                Full - winner reveal soon
+              </span>
+            )}
           </div>
           <span className="text-xs font-mono text-muted-foreground tabular-nums">
             #{String(pool.id).padStart(2, "0")}
@@ -65,6 +72,11 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
 
         <div>
           <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight leading-snug">{pool.title}</h3>
+          {showRevealState && (
+            <p className="text-xs font-semibold text-amber-300 mt-1.5">
+              Pool complete. All eyes on the draw - check details for winner announcement.
+            </p>
+          )}
           {pool.status === "open" && almostFull && (
             <p className="text-[11px] font-semibold text-amber-400 mt-1.5">Almost full — last spots</p>
           )}
@@ -78,7 +90,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
           <StatBox label="Entry fee" value={`$${pool.entryFee} USDT`} />
           <StatBox label="Total slots" value={`${pool.maxUsers} slots`} />
           <StatBox label="Loser refund" value={`$${refund.toFixed(0)} USDT`} />
-          <StatBox label="Filled" value={`${pool.participantCount} / ${pool.maxUsers}`} />
+          <StatBox label={showRevealState ? "Pool status" : "Filled"} value={showRevealState ? "FULL" : `${pool.participantCount} / ${pool.maxUsers}`} />
         </div>
 
         <div className="rounded-xl bg-black/25 border border-white/5 px-3 py-3">
@@ -101,7 +113,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
               size="sm"
               className="w-full min-h-11 border-white/15 bg-white/5 hover:bg-white/10 touch-manipulation"
             >
-              View details
+              {showRevealState ? "Watch winner reveal" : "View details"}
             </Button>
           </Link>
           {pool.status === "open" && !userJoined && (

@@ -6,9 +6,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default function PoolsPage() {
   const { data: pools, isLoading } = useListPools();
 
-  const open = pools?.filter((p) => p.status === "open") ?? [];
+  const openRaw = pools?.filter((p) => p.status === "open") ?? [];
+  const open = [...openRaw].sort((a, b) => {
+    const aFull = a.participantCount >= a.maxUsers ? 1 : 0;
+    const bFull = b.participantCount >= b.maxUsers ? 1 : 0;
+    if (aFull !== bFull) return bFull - aFull;
+    return b.participantCount - a.participantCount;
+  });
   const closed = pools?.filter((p) => p.status === "closed") ?? [];
   const completed = pools?.filter((p) => p.status === "completed") ?? [];
+  const revealQueueCount = [...open, ...closed].filter((p) => p.participantCount >= p.maxUsers).length;
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -17,6 +24,12 @@ export default function PoolsPage() {
         <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-2xl">
           Join any open pool for 10 USDT. Three winners receive 100, 50, and 30 USDT.
         </p>
+        {revealQueueCount > 0 && (
+          <div className="inline-flex items-center gap-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs sm:text-sm font-semibold text-amber-200 animate-pulse">
+            <span aria-hidden>🔥</span>
+            {revealQueueCount} pool{revealQueueCount === 1 ? "" : "s"} full - winner reveal coming soon
+          </div>
+        )}
       </div>
 
       <Tabs defaultValue="open">
