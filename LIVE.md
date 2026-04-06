@@ -55,6 +55,8 @@ Set **`DATABASE_URL`**, **`SESSION_SECRET`**, and **`JWT_SECRET`** in **`artifac
 
 ## Database migrations (wallet / demo flags)
 
+**Mobile UX:** Logged-in users get a bottom tab bar (Home, Pools, **Stake**, Wallet, Wins; + Admin if applicable) with safe-area padding; main content uses extra bottom padding so CTAs sit above the bar. Staking and wallet dropdowns also link to **USDT Staking**.
+
 The API **automatically runs all pending** `lib/db/migrations/*.sql` files **on every boot** (`runPendingSqlMigrations`), tracked in `schema_migrations`. To run the same step manually (e.g. CI or before first deploy), from repo root with `DATABASE_URL` set:
 
 ```bash

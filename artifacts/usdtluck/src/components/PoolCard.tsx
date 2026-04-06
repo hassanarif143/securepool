@@ -34,7 +34,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
 
   return (
     <div
-      className="w-full rounded-2xl overflow-hidden border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/30 group"
+      className="w-full min-w-0 rounded-2xl overflow-hidden border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/30 group"
       style={{
         background: "linear-gradient(165deg, hsl(220, 18%, 9%) 0%, hsl(220, 16%, 6.5%) 100%)",
         borderColor: "rgba(34, 197, 94, 0.18)",
@@ -104,17 +104,21 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
           </span>
         </div>
 
-        <div className="flex items-center gap-2 pt-1">
-          <Link href={`/pools/${pool.id}`} className="flex-1">
-            <Button variant="outline" size="sm" className="w-full border-white/15 bg-white/5 hover:bg-white/10">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
+          <Link href={`/pools/${pool.id}`} className="flex-1 min-w-0 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full min-h-11 border-white/15 bg-white/5 hover:bg-white/10 touch-manipulation"
+            >
               View details
             </Button>
           </Link>
           {pool.status === "open" && !userJoined && (
-            <Link href={`/pools/${pool.id}`} className="flex-1">
+            <Link href={`/pools/${pool.id}`} className="flex-1 min-w-0 w-full sm:w-auto">
               <Button
                 size="sm"
-                className="w-full font-semibold"
+                className="w-full min-h-11 font-semibold touch-manipulation"
                 style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
               >
                 Join pool

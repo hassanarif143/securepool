@@ -8,7 +8,7 @@ import { apiUrl } from "@/lib/api-base";
 import { LuckyHourBanner } from "@/components/LuckyHourBanner";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
 import { CelebrationNotificationBridge } from "@/components/CelebrationNotificationBridge";
-import { LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
+import { LayoutDashboard, Layers, Lock, Shield, Trophy, Wallet } from "lucide-react";
 
 function playNotifSound() {
   try {
@@ -227,6 +227,7 @@ function WalletDropdown({ balance }: { balance: number }) {
   const actions = [
     { icon: "⬆️", label: "Deposit USDT", href: "/wallet?tab=deposit", desc: "Add funds to your wallet" },
     { icon: "⬇️", label: "Withdraw USDT", href: "/wallet?tab=withdraw", desc: "Send USDT to your address" },
+    { icon: "🔒", label: "USDT Staking", href: "/staking", desc: "Lock USDT and earn on maturity" },
     { icon: "📋", label: "Transaction History", href: "/wallet", desc: "View all past transactions" },
   ];
 
@@ -343,6 +344,12 @@ function UserMenu({ user, logout }: { user: any; logout: () => void }) {
               <button onClick={() => setOpen(false)}
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground">
                 <span className="w-5 text-center">💼</span> My Wallet
+              </button>
+            </Link>
+            <Link href="/staking">
+              <button onClick={() => setOpen(false)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground">
+                <span className="w-5 text-center">🔒</span> USDT Staking
               </button>
             </Link>
             <Link href="/leaderboard">
@@ -651,7 +658,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {user ? <LuckyHourBanner /> : null}
 
-      <main className={`flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${user ? "pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""}`}>
+      <main
+        className={`flex-1 max-w-7xl w-full min-w-0 mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${
+          user ? "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""
+        }`}
+      >
         {user ? <LiveJoinNotification /> : null}
         {user ? <CelebrationNotificationBridge /> : null}
         {children}
@@ -659,7 +670,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {user && (
         <nav
-          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t flex justify-around items-stretch min-h-[4.25rem] py-2 px-1 safe-area-pb touch-manipulation shadow-[0_-8px_32px_rgba(0,0,0,0.35)] transition-shadow"
+          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t flex justify-evenly items-stretch min-h-[4.35rem] py-1.5 px-0.5 safe-area-pb touch-manipulation shadow-[0_-8px_32px_rgba(0,0,0,0.35)] transition-shadow"
           style={{ background: "hsla(224,30%,7%,0.96)", backdropFilter: "blur(12px)", borderColor: "hsl(217,28%,14%)" }}
           aria-label="Primary"
         >
@@ -667,6 +678,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             [
               { href: "/dashboard", label: "Home", Icon: LayoutDashboard },
               { href: "/pools", label: "Pools", Icon: Layers },
+              { href: "/staking", label: "Stake", Icon: Lock },
               { href: "/wallet", label: "Wallet", Icon: Wallet },
               ...(user.isAdmin ? [{ href: "/admin", label: "Admin", Icon: Shield }] as const : []),
               { href: "/winners", label: "Wins", Icon: Trophy },
@@ -678,15 +690,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 : location.startsWith(item.href);
             const Icon = item.Icon;
             return (
-              <Link key={item.href} href={item.href}>
+              <Link key={item.href} href={item.href} className="flex-1 min-w-0 basis-0">
                 <span
-                  className={`flex min-h-[3.25rem] flex-col items-center justify-center gap-1 rounded-xl px-2 text-[10px] font-semibold tracking-tight transition-colors duration-200 active:scale-[0.98] ${
+                  className={`flex min-h-[3.35rem] min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[9px] sm:text-[10px] font-semibold tracking-tight transition-colors duration-200 active:scale-[0.97] touch-manipulation ${
                     active ? "text-primary" : "text-muted-foreground hover:text-foreground/90"
                   }`}
                   style={active ? { background: "hsla(152,72%,44%,0.12)" } : {}}
                 >
-                  <Icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.25 : 2} aria-hidden />
-                  <span className="leading-tight text-center max-w-[4.5rem] truncate">{item.label}</span>
+                  <Icon className="h-[1.15rem] w-[1.15rem] sm:h-5 sm:w-5 shrink-0" strokeWidth={active ? 2.25 : 2} aria-hidden />
+                  <span className="leading-tight text-center truncate w-full px-0.5">{item.label}</span>
                 </span>
               </Link>
             );

@@ -215,7 +215,7 @@ export default function StakingPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto pb-12 px-1 sm:px-0 space-y-8">
+    <div className="w-full min-w-0 max-w-3xl mx-auto overflow-x-hidden pb-24 md:pb-12 px-3 sm:px-2 md:px-0 space-y-8">
       {/* Hero */}
       <section
         className="relative overflow-hidden rounded-2xl border px-5 py-8 sm:px-8 sm:py-10"
@@ -302,7 +302,7 @@ export default function StakingPage() {
           <Button
             onClick={() => void createStake()}
             disabled={busy}
-            className="h-11 px-8 font-semibold shrink-0"
+            className="h-12 sm:h-11 px-8 font-semibold shrink-0 touch-manipulation w-full sm:w-auto"
             style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
           >
             {busy ? "Processing…" : "Stake USDT"}
@@ -320,7 +320,7 @@ export default function StakingPage() {
               key={q.label}
               type="button"
               onClick={q.fn}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-white/10 bg-white/[0.04] text-muted-foreground hover:text-foreground hover:border-emerald-500/30 transition-colors"
+              className="text-xs font-medium min-h-10 px-3 py-2 rounded-lg border border-white/10 bg-white/[0.04] text-muted-foreground hover:text-foreground hover:border-emerald-500/30 transition-colors touch-manipulation active:scale-[0.98]"
             >
               {q.label}
             </button>
@@ -436,9 +436,9 @@ export default function StakingPage() {
                         )}
                         {matured && <div className="mb-4" />}
 
-                        <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2.5">
                           <Button
-                            className="flex-1 font-semibold h-10"
+                            className="flex-1 font-semibold min-h-12 sm:min-h-10 h-12 sm:h-10 touch-manipulation"
                             style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
                             disabled={!matured || busyHere}
                             onClick={() => void claim(s.id)}
@@ -452,7 +452,7 @@ export default function StakingPage() {
                           {!matured && (
                             <Button
                               variant="outline"
-                              className="flex-1 h-10 border-amber-500/35 text-amber-100/90 hover:bg-amber-500/10 hover:text-amber-50"
+                              className="flex-1 min-h-12 sm:min-h-10 h-12 sm:h-10 border-amber-500/35 text-amber-100/90 hover:bg-amber-500/10 hover:text-amber-50 touch-manipulation"
                               disabled={busyHere}
                               onClick={() => setUnstakeTarget(s)}
                             >
@@ -485,9 +485,9 @@ export default function StakingPage() {
       </p>
 
       <AlertDialog open={unstakeTarget != null} onOpenChange={(o) => !o && setUnstakeTarget(null)}>
-        <AlertDialogContent className="border-border bg-card">
+        <AlertDialogContent className="border-border bg-card max-h-[85dvh] overflow-y-auto sm:max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Unstake early?</AlertDialogTitle>
+            <AlertDialogTitle className="text-lg pr-2">Unstake early?</AlertDialogTitle>
             <AlertDialogDescription className="space-y-2 text-left">
               <span>
                 You will receive <strong className="text-foreground">{unstakeTarget?.principalUsdt.toFixed(2)} USDT</strong> back
@@ -499,14 +499,14 @@ export default function StakingPage() {
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <AlertDialogCancel className="w-full sm:w-auto min-h-11 touch-manipulation mt-0">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
                 void confirmUnstake();
               }}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
+              className="w-full sm:w-auto min-h-11 touch-manipulation bg-amber-600 hover:bg-amber-700 text-white"
             >
               Return principal only
             </AlertDialogAction>

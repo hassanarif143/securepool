@@ -58,15 +58,15 @@ export function CountdownTimer({ endTime, className = "", variant = "default" }:
         }}
       >
         <p
-          className={`text-[10px] font-bold uppercase tracking-[0.2em] text-center mb-2 ${
+          className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.12em] sm:tracking-[0.2em] text-center mb-2 px-1 leading-snug ${
             critical ? "text-red-400" : urgent ? "text-amber-300" : "text-emerald-400/90"
           }`}
         >
-          {critical ? "Final hour — closes soon" : urgent ? "Ending today — join now" : "Closes in"}
+          {critical ? "Closing soon" : urgent ? "Ends today" : "Closes in"}
         </p>
-        <div className={`grid gap-1.5 ${days > 0 ? "grid-cols-4" : "grid-cols-3"}`}>
+        <div className={`grid min-w-0 gap-1 sm:gap-1.5 ${days > 0 ? "grid-cols-4" : "grid-cols-3"}`}>
           {days > 0 && <FomoUnit value={days} label="Days" pulse={urgent} />}
-          <FomoUnit value={hours} label="Hrs" pad={days > 0 ? 2 : 2} pulse={urgent} />
+          <FomoUnit value={hours} label="Hrs" pad={2} pulse={urgent} />
           <FomoUnit value={minutes} label="Min" pad={2} pulse={urgent} />
           <FomoUnit value={seconds} label="Sec" pad={2} pulse={critical} tick />
         </div>
@@ -99,14 +99,16 @@ function FomoUnit({
 }) {
   return (
     <div
-      className={`rounded-lg px-1.5 py-2 text-center border border-white/10 bg-black/35 ${
+      className={`rounded-md sm:rounded-lg px-1 py-1.5 sm:px-1.5 sm:py-2 text-center border border-white/10 bg-black/35 min-w-0 ${
         pulse ? "motion-safe:animate-pulse" : ""
       } ${tick ? "ring-1 ring-emerald-500/30" : ""}`}
     >
-      <div className="font-mono text-lg sm:text-xl font-bold tabular-nums text-white leading-none">
+      <div className="font-mono text-sm sm:text-lg md:text-xl font-bold tabular-nums text-white leading-none">
         {String(value).padStart(pad, "0")}
       </div>
-      <div className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1">{label}</div>
+      <div className="text-[8px] sm:text-[9px] uppercase tracking-wide text-muted-foreground mt-0.5 sm:mt-1 truncate">
+        {label}
+      </div>
     </div>
   );
 }
