@@ -2,10 +2,13 @@ import { db, poolsTable, poolParticipantsTable } from "@workspace/db";
 import { eq, count } from "drizzle-orm";
 import { logger } from "./logger";
 import { refundAllPoolParticipants } from "./pool-refunds";
+import { autoDistributePool } from "../routes/pools";
 
 /**
- * Open pools whose end_time has passed: if not full, refund participants and set closed.
- * If full, leave open for admin to run the draw. Empty pools are marked closed.
+ * Open pools whose end_time has passed:
+ * - enough participants for settlement => auto-draw winners, credit wallets, notify users
+ * - otherwise => refund participants and close pool
+ * Empty pools are marked closed.
  */
 export async function runExpiredPoolRefunds(): Promise<void> {
   const now = new Date();
@@ -25,10 +28,21 @@ export async function runExpiredPoolRefunds(): Promise<void> {
       continue;
     }
 
-    if (n >= pool.maxUsers) continue;
-
-    await refundAllPoolParticipants(pool.id, pool, "Pool end time reached — not full");
-    await db.update(poolsTable).set({ status: "closed" }).where(eq(poolsTable.id, pool.id));
+    try {
+      await autoDistributePool(pool.id);
+      logger.info({ poolId: pool.id }, "[pool-auto-close] pool auto-distributed at end time");
+      continue;
+    } catch (err) {
+      const code = (err as { code?: string })?.code ?? "";
+      if (code === "MIN_PARTICIPANTS" || code === "INVALID_WINNER_COUNT") {
+        await refundAllPoolParticipants(pool.id, pool, "Pool end time reached — not eligible for draw");
+        await db.update(poolsTable).set({ status: "closed" }).where(eq(poolsTable.id, pool.id));
+        logger.info({ poolId: pool.id }, "[pool-auto-close] pool refunded and closed at end time");
+        continue;
+      }
+      if (code === "ALREADY_COMPLETED") continue;
+      logger.warn({ err, poolId: pool.id }, "[pool-auto-close] auto-distribute failed");
+    }
   }
 }
 

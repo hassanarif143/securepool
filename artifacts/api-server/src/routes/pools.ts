@@ -29,7 +29,7 @@ import { sendDrawResultEmail, sendTicketApprovedEmail, sendAdminDrawFinancialSum
 import { logger } from "../lib/logger";
 import { getAuthedUserId, requireAdmin, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
-import { secureShuffle } from "../services/draw-service";
+import { pickUniqueWinners, secureShuffle } from "../services/draw-service";
 import { logActivity } from "../services/activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { runJoinSideEffects } from "../services/join-side-effects";
@@ -1451,60 +1451,13 @@ async function executePoolDistribution(poolId: number, manualWinnerUserIds: numb
   });
 }
 
-router.post("/:poolId/distribute", (req, res, next) => void requireAdmin(req as AuthedRequest, res, next), async (req, res) => {
-  const poolId = parseInt(req.params.poolId);
-  if (isNaN(poolId)) {
-    res.status(400).json({ error: "Invalid pool ID" });
-    return;
-  }
+type DistributedPoolResult = Awaited<ReturnType<typeof executePoolDistribution>>;
 
-  const bodyParse = DistributeRewardsBody.safeParse(req.body ?? {});
-  if (!bodyParse.success) {
-    res.status(400).json({
-      error: "Invalid request body",
-      message: bodyParse.error.issues[0]?.message ?? bodyParse.error.message,
-    });
-    return;
-  }
-
-  let distributed: Awaited<ReturnType<typeof executePoolDistribution>>;
-  try {
-    distributed = await executePoolDistribution(poolId, bodyParse.data.winnerUserIds);
-  } catch (err: unknown) {
-    const code = (err as { code?: string })?.code ?? "";
-    if (code === "POOL_NOT_FOUND") {
-      res.status(404).json({ error: "Pool not found" });
-      return;
-    }
-    if (code === "ALREADY_COMPLETED") {
-      res.status(400).json({ error: "Rewards already distributed for this pool" });
-      return;
-    }
-    if (code === "MIN_PARTICIPANTS") {
-      res.status(400).json({ error: (err as Error).message });
-      return;
-    }
-    if (code === "INVALID_WINNERS") {
-      res.status(400).json({ error: (err as Error).message });
-      return;
-    }
-    if (code === "INVALID_WINNER_COUNT") {
-      res.status(400).json({ error: (err as Error).message });
-      return;
-    }
-    if (code === "INSUFFICIENT_SETTLEMENT") {
-      res.status(400).json({ error: (err as Error).message });
-      return;
-    }
-    logger.error({ err, poolId }, "pool distribute failed");
-    res.status(500).json({
-      error: "Internal Server Error",
-      message:
-        process.env.NODE_ENV === "production" ? "Draw failed. Please try again." : String((err as Error).message),
-    });
-    return;
-  }
-
+async function finalizePoolDistribution(
+  poolId: number,
+  distributed: DistributedPoolResult,
+  source: "admin-selected" | "auto-expiry",
+): Promise<void> {
   const {
     pool,
     participants,
@@ -1599,9 +1552,12 @@ router.post("/:poolId/distribute", (req, res, next) => void requireAdmin(req as 
 
   await logActivity({
     type: "winner_drawn",
-    message: `Draw settled for ${pool.title} — admin-selected winners; losers refunded where applicable.`,
+    message:
+      source === "auto-expiry"
+        ? `Draw auto-settled for ${pool.title} at end time; winners notified and payouts completed.`
+        : `Draw settled for ${pool.title} — admin-selected winners; losers refunded where applicable.`,
     poolId,
-    metadata: { drawCompleted: true, totalLoserRefunds: financial.totalLoserRefunds },
+    metadata: { drawCompleted: true, totalLoserRefunds: financial.totalLoserRefunds, source },
   });
 
   void sendAdminDrawFinancialSummaryEmail({
@@ -1638,6 +1594,88 @@ router.post("/:poolId/distribute", (req, res, next) => void requireAdmin(req as 
       winner ? String(winner.prize) : undefined,
     );
   }
+}
+
+export async function autoDistributePool(poolId: number): Promise<DistributedPoolResult> {
+  const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  if (!pool) {
+    const e = new Error("POOL_NOT_FOUND");
+    (e as { code?: string }).code = "POOL_NOT_FOUND";
+    throw e;
+  }
+  const winnerCount = pool.winnerCount ?? 3;
+  const participants = await db
+    .select({ userId: poolParticipantsTable.userId })
+    .from(poolParticipantsTable)
+    .where(eq(poolParticipantsTable.poolId, poolId));
+  const picked = pickUniqueWinners(participants, winnerCount).map((p) => p.userId);
+  if (picked.length !== winnerCount) {
+    const e = new Error(`Pool requires ${winnerCount} winner(s), but only ${picked.length} unique participant(s) found.`);
+    (e as { code?: string }).code = "INVALID_WINNER_COUNT";
+    throw e;
+  }
+  const distributed = await executePoolDistribution(poolId, picked);
+  await finalizePoolDistribution(poolId, distributed, "auto-expiry");
+  return distributed;
+}
+
+router.post("/:poolId/distribute", (req, res, next) => void requireAdmin(req as AuthedRequest, res, next), async (req, res) => {
+  const poolId = parseInt(req.params.poolId);
+  if (isNaN(poolId)) {
+    res.status(400).json({ error: "Invalid pool ID" });
+    return;
+  }
+
+  const bodyParse = DistributeRewardsBody.safeParse(req.body ?? {});
+  if (!bodyParse.success) {
+    res.status(400).json({
+      error: "Invalid request body",
+      message: bodyParse.error.issues[0]?.message ?? bodyParse.error.message,
+    });
+    return;
+  }
+
+  let distributed: Awaited<ReturnType<typeof executePoolDistribution>>;
+  try {
+    distributed = await executePoolDistribution(poolId, bodyParse.data.winnerUserIds);
+  } catch (err: unknown) {
+    const code = (err as { code?: string })?.code ?? "";
+    if (code === "POOL_NOT_FOUND") {
+      res.status(404).json({ error: "Pool not found" });
+      return;
+    }
+    if (code === "ALREADY_COMPLETED") {
+      res.status(400).json({ error: "Rewards already distributed for this pool" });
+      return;
+    }
+    if (code === "MIN_PARTICIPANTS") {
+      res.status(400).json({ error: (err as Error).message });
+      return;
+    }
+    if (code === "INVALID_WINNERS") {
+      res.status(400).json({ error: (err as Error).message });
+      return;
+    }
+    if (code === "INVALID_WINNER_COUNT") {
+      res.status(400).json({ error: (err as Error).message });
+      return;
+    }
+    if (code === "INSUFFICIENT_SETTLEMENT") {
+      res.status(400).json({ error: (err as Error).message });
+      return;
+    }
+    logger.error({ err, poolId }, "pool distribute failed");
+    res.status(500).json({
+      error: "Internal Server Error",
+      message:
+        process.env.NODE_ENV === "production" ? "Draw failed. Please try again." : String((err as Error).message),
+    });
+    return;
+  }
+
+  await finalizePoolDistribution(poolId, distributed, "admin-selected");
+
+  const { financial, winnerRecords } = distributed;
 
   res.json({
     message: "Rewards distributed successfully!",
