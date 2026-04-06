@@ -60,11 +60,13 @@ export const REFERRAL_INVITE_PRIZE_USDT = 2;
 export const FIRST_DEPOSIT_BONUS_USDT = 1;
 
 /**
- * Tiered platform fee from list entry amount (USDT).
- * e.g. 10 → 2, 20 → 3, 25 → 3
+ * Platform fee per pool join (one checkout), from list entry fee (USDT).
+ * +1 USDT each 5 USDT band: ceil(entry/5) → 1–5→1, 6–10→2, …, 21–25→5, 26–30→6, unbounded.
  */
-export function calculatePlatformFee(amount: number): number {
-  return Math.floor(amount / 10) + 1;
+export function calculatePlatformFee(listEntryFeeUsdt: number): number {
+  const e = Number(listEntryFeeUsdt);
+  if (!Number.isFinite(e) || e <= 0) return 1;
+  return Math.ceil(e / 5);
 }
 
 export const REFERRAL_TIER_MILESTONES = [

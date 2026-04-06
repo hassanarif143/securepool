@@ -8,6 +8,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { PlatformFeeRuleExplainer } from "@/components/PlatformFeeRuleExplainer";
 
 const fade = { initial: { opacity: 0, y: 12 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { duration: 0.45 } };
 
@@ -15,7 +16,12 @@ const steps = [
   { n: 1, icon: "👤", title: "Create Your Account", desc: "Sign up with email and password. It's free and takes about 30 seconds." },
   { n: 2, icon: "💎", title: "Deposit USDT", desc: "Add USDT to your wallet. Minimum deposit is 10 USDT. Upload a payment screenshot for verification." },
   { n: 3, icon: "🎱", title: "Join a Pool", desc: "Browse active pools and join with the entry fee (usually 10 USDT). Each pool has limited spots." },
-  { n: 4, icon: "⏳", title: "Wait for the Draw", desc: "When the pool is full or the timer ends, winners are randomly selected. Fair and transparent." },
+  {
+    n: 4,
+    icon: "⏳",
+    title: "Pool closes",
+    desc: "When the pool is full or the timer ends, the admin selects three winners and prizes are sent to their wallets.",
+  },
   { n: 5, icon: "🏆", title: "Win Rewards", desc: "Three winners per pool: 1st place 100 USDT, 2nd 50 USDT, 3rd 30 USDT." },
   { n: 6, icon: "💸", title: "Withdraw Anytime", desc: "Request a withdrawal and receive your USDT after admin verification." },
 ];
@@ -29,8 +35,14 @@ const tiers = [
 ];
 
 const faqs = [
-  { q: "Is this gambling?", a: "No. This is a reward pool system: entry fees fund the published prize pool and winners are drawn transparently." },
-  { q: "How are winners selected?", a: "Winners are selected randomly using a fair process when the pool closes or fills." },
+  {
+    q: "Is this gambling?",
+    a: "No. This is a reward pool: entry fees fund the published prize pool. Winners are chosen by the platform admin when the pool closes or fills.",
+  },
+  {
+    q: "How are winners selected?",
+    a: "The admin picks three distinct winners after the pool closes or fills. Distribution is recorded in the system for transparency.",
+  },
   { q: "How long does deposit verification take?", a: "Usually within 24 hours, often sooner." },
   { q: "How long does withdrawal take?", a: "Typically 24–48 hours after admin approval." },
   { q: "Is my money safe?", a: "All transactions are tracked and verified. Deposits and withdrawals require admin approval." },
@@ -81,6 +93,14 @@ export default function HowItWorksPage() {
             </motion.div>
           ))}
         </div>
+      </section>
+
+      <section id="fees" className="scroll-mt-24">
+        <h2 className="text-2xl font-bold mb-2 text-center">Platform fees &amp; refunds</h2>
+        <p className="text-sm text-muted-foreground text-center mb-6 max-w-xl mx-auto leading-relaxed">
+          A small platform fee applies on each join (and the same rule applies to what you get back if you don&apos;t win). Here&apos;s the rule in plain language.
+        </p>
+        <PlatformFeeRuleExplainer variant="full" />
       </section>
 
       <section className="rounded-2xl border border-[hsl(217,28%,16%)] p-6 md:p-8" style={{ background: "hsl(222,30%,8%)" }}>

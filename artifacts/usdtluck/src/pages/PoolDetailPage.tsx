@@ -18,6 +18,8 @@ import { getGetMeQueryKey } from "@workspace/api-client-react";
 import confetti from "canvas-confetti";
 import { TierUpgradeModal } from "@/components/TierUpgradeModal";
 import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
+import { platformFeeUsdtForPoolEntry } from "@/lib/platform-fee";
+import { PlatformFeeRuleExplainer } from "@/components/PlatformFeeRuleExplainer";
 import { PoolStatusBar } from "@/components/PoolStatusBar";
 
 function timeAgoShort(iso: string) {
@@ -502,7 +504,8 @@ export default function PoolDetailPage() {
 
   const canFreeJoin = Boolean(user && (user.freeEntries ?? 0) > 0);
   const effectiveEntryDue = poolDetails?.entry_pricing?.amountDue ?? pool.entryFee;
-  const feePerListEntry = poolDetails?.entry_pricing?.joinPlatformFeeUsdt ?? Math.floor(pool.entryFee / 10) + 1;
+  const feePerListEntry =
+    poolDetails?.entry_pricing?.joinPlatformFeeUsdt ?? platformFeeUsdtForPoolEntry(pool.entryFee);
   const freeThisPurchase = Boolean(!userJoinedEffective && useFreeEntry && canFreeJoin);
   const grossTicketTotal = freeThisPurchase ? 0 : effectiveEntryDue * ticketQty;
   const platformFeeThisCheckout =
@@ -762,6 +765,7 @@ export default function PoolDetailPage() {
                       </div>
                     </div>
                   )}
+                  <PlatformFeeRuleExplainer variant="compact" />
                   {showJoinActions && !freeThisPurchase && spotsLeft > 0 && (
                     <div className="flex items-center justify-between gap-3 text-sm">
                       <span className="text-muted-foreground">Tickets</span>

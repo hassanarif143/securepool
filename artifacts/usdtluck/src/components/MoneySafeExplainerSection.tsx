@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Shield, Wallet, BadgeCheck, Coins, Sparkles } from "lucide-react";
+import { PlatformFeeRuleExplainer } from "@/components/PlatformFeeRuleExplainer";
 
 const reveal = {
   initial: { opacity: 0, y: 28 },
@@ -35,7 +36,8 @@ const steps = [
     icon: "💸",
     title: "Everyone Else Gets a Refund",
     body: "Didn't win? No problem. You get your entry back minus a small platform fee.",
-    highlight: "Example: Enter $10 → Get $8 back if you don't win.",
+    highlight:
+      "Example: 10 USDT list price → 2 USDT platform fee (1 per 5 USDT, rounded up) → 8 USDT back if you don't win.",
   },
 ] as const;
 
@@ -44,7 +46,11 @@ const trustPoints = [
   { icon: Wallet, title: "Instant Wallet Credit", desc: "Refunds go straight to your USDT wallet." },
   { icon: BadgeCheck, title: "Admin Verified", desc: "Winners are selected transparently by the platform admin." },
   { icon: Coins, title: "USDT Secured", desc: "All transactions are in USDT — stable, fast, reliable." },
-  { icon: Sparkles, title: "Small Fee Only", desc: "We only charge a tiny platform fee, nothing more." },
+  {
+    icon: Sparkles,
+    title: "Clear platform fee",
+    desc: "About 1 USDT per 5 USDT of list price (rounded up). The exact fee is always shown before you pay.",
+  },
 ] as const;
 
 export function MoneySafeExplainerSection() {
@@ -196,9 +202,11 @@ export function MoneySafeExplainerSection() {
             </div>
           </div>
           <p className="relative text-center text-[11px] text-muted-foreground mt-4 max-w-sm mx-auto leading-relaxed">
-            Example uses a typical 10 USDT entry. Actual fee follows the pool&apos;s list price — always shown before you join.
+            Example uses a typical 10 USDT list price. Refund = your paid amount minus the same fee rule (see table below).
           </p>
         </div>
+
+        <PlatformFeeRuleExplainer variant="full" className="mb-10" />
 
         <div className="relative text-center">
           <Link href="/pools">

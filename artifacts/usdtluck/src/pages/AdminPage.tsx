@@ -50,6 +50,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { MoreHorizontal } from "lucide-react";
 import { apiUrl, getFullImageUrl, readApiErrorMessage } from "@/lib/api-base";
+import { platformFeeUsdtForPoolEntry } from "@/lib/platform-fee";
 import {
   Select,
   SelectContent,
@@ -1146,6 +1147,11 @@ function CreatePoolTab() {
 
   const totalPrize = (form.prizeFirst || 0) + (form.prizeSecond || 0) + (form.prizeThird || 0);
   const poolRevenue = (form.entryFee || 0) * (form.maxUsers || 0);
+  const platformFeePerJoin = platformFeeUsdtForPoolEntry(form.entryFee || 0);
+  const netToPoolPerTicket = Math.max(0, (form.entryFee || 0) - platformFeePerJoin);
+  const maxNetCollected = netToPoolPerTicket * (form.maxUsers || 0);
+  const totalPlatformFeesIfFull = platformFeePerJoin * (form.maxUsers || 0);
+  const estimatedPoolMargin = maxNetCollected - totalPrize;
   const durationMs = new Date(form.endTime).getTime() - new Date(form.startTime).getTime();
   const durationDays = Math.max(0, Math.round(durationMs / 86400000));
 
@@ -1266,6 +1272,19 @@ function CreatePoolTab() {
                 </Select>
                 <p className="text-[11px] text-muted-foreground mt-1.5">
                   Use Silver/Gold/Diamond for higher-value pools; members below this tier see the pool as locked.
+                </p>
+              </div>
+
+              <div className="rounded-xl px-3 py-3 space-y-2 text-xs"
+                style={{ background: "hsl(222,28%,11%)", border: "1px solid hsl(217,28%,16%)" }}>
+                <p className="font-semibold text-foreground/90">Platform fee (this entry price)</p>
+                <p className="text-muted-foreground leading-relaxed">
+                  Fee per join: <span className="text-primary font-mono font-semibold">{platformFeePerJoin} USDT</span>
+                  {" "}· +1 USDT per 5 USDT list price (formula: ceil(entry ÷ 5) — e.g. 21–25 → 5, 26–30 → 6, keeps going).
+                </p>
+                <p className="text-muted-foreground">
+                  Net to pool (per ticket, list − fee):{" "}
+                  <span className="text-foreground font-mono font-medium">{netToPoolPerTicket.toFixed(2)} USDT</span>
                 </p>
               </div>
             </div>
@@ -1436,15 +1455,39 @@ function CreatePoolTab() {
                 </div>
 
                 {/* Stats footer */}
-                <div className="px-4 py-3 grid grid-cols-2 gap-3"
+                <div className="px-4 py-3 space-y-3"
                   style={{ borderTop: "1px solid hsl(217,28%,14%)", background: "hsl(222,30%,8%)" }}>
-                  <div className="text-center">
-                    <p className="text-sm font-bold text-primary">{totalPrize} USDT</p>
-                    <p className="text-[10px] text-muted-foreground">Total Prizes</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="text-center">
+                      <p className="text-sm font-bold text-primary">{totalPrize} USDT</p>
+                      <p className="text-[10px] text-muted-foreground">Total Prizes</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-bold">{poolRevenue} USDT</p>
+                      <p className="text-[10px] text-muted-foreground">Gross (list × seats)</p>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <p className="text-sm font-bold">{poolRevenue} USDT</p>
-                    <p className="text-[10px] text-muted-foreground">Max Revenue</p>
+                  <div className="grid grid-cols-2 gap-2 text-[10px] border-t border-border/40 pt-2">
+                    <div>
+                      <p className="text-muted-foreground">Platform fees (if full)</p>
+                      <p className="font-mono font-semibold text-amber-200/90">{totalPlatformFeesIfFull} USDT</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Net collected (if full)</p>
+                      <p className="font-mono font-semibold text-emerald-300/90">{maxNetCollected.toFixed(0)} USDT</p>
+                    </div>
+                  </div>
+                  <div className="rounded-lg px-2 py-2 text-center"
+                    style={{
+                      background:
+                        estimatedPoolMargin >= 0 ? "hsla(152,72%,44%,0.08)" : "hsla(0,72%,44%,0.08)",
+                      border: `1px solid ${estimatedPoolMargin >= 0 ? "hsla(152,72%,44%,0.2)" : "hsla(0,72%,44%,0.2)"}`,
+                    }}>
+                    <p className="text-[10px] text-muted-foreground">Est. margin (net − prizes)</p>
+                    <p className={`text-sm font-bold tabular-nums ${estimatedPoolMargin >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      {estimatedPoolMargin >= 0 ? "+" : ""}
+                      {estimatedPoolMargin.toFixed(0)} USDT
+                    </p>
                   </div>
                 </div>
               </div>
