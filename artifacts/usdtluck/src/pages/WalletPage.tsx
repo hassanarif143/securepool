@@ -275,8 +275,8 @@ export default function WalletPage() {
             Reviewed deposits
           </span>
         </div>
-        <div className="px-5 py-6 sm:px-7 sm:py-7 space-y-5">
-          <div className="rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-b from-emerald-500/[0.14] to-[hsl(222,28%,10%)] px-5 py-5 shadow-lg shadow-emerald-950/40">
+        <div className="px-5 py-6 sm:px-7 sm:py-7 space-y-4">
+          <div className="rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-b from-emerald-500/[0.16] to-[hsl(222,28%,10%)] px-5 py-5 shadow-lg shadow-emerald-950/40">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-200/90">Withdrawable balance</p>
@@ -287,7 +287,7 @@ export default function WalletPage() {
                   <span className="text-lg font-bold text-emerald-200/85">USDT</span>
                 </div>
                 <p className="mt-2 text-xs text-emerald-100/75 leading-relaxed max-w-md">
-                  Real balance — withdraw or buy tickets. Includes deposits, refunds, and pool winnings.
+                  This is the only balance used for withdrawals. Keep this funded to cash out anytime.
                 </p>
               </div>
               {withdrawableBal <= 0 ? (
@@ -302,16 +302,10 @@ export default function WalletPage() {
             </div>
           </div>
 
-          <div>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground text-center">
-              Total wallet balance
+          <div className="rounded-xl border border-[hsl(217,28%,18%)] bg-[hsl(222,28%,10%)] px-4 py-3">
+            <p className="text-xs text-muted-foreground">
+              Wallet focus: <span className="font-semibold text-foreground">Withdrawable balance</span> only.
             </p>
-            <div className="mt-1 flex flex-wrap items-baseline justify-center gap-2">
-              <span className="font-display text-3xl font-black tabular-nums text-[hsl(152,72%,55%)]">
-                {user.walletBalance.toFixed(2)}
-              </span>
-              <span className="text-lg font-bold text-muted-foreground">USDT</span>
-            </div>
           </div>
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
