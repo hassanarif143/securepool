@@ -596,9 +596,9 @@ export default function DashboardPage() {
       <div className={`${box} p-4 sm:p-5 space-y-4`}>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90 mb-1">Engage</p>
-            <h2 className="font-display text-lg sm:text-xl font-bold tracking-tight">Community & extras</h2>
-            <p className="text-xs text-muted-foreground mt-1">Stay active, track winners, and keep your momentum going.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90 mb-1">Quick actions</p>
+            <h2 className="font-display text-lg sm:text-xl font-bold tracking-tight">What to do next</h2>
+            <p className="text-xs text-muted-foreground mt-1">Simple shortcuts to continue from your current progress.</p>
           </div>
           <Link href="/winners" className="text-xs font-medium text-primary hover:underline whitespace-nowrap">
             View winners
@@ -606,19 +606,21 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <Link href="/rewards" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
-            <p className="text-sm font-semibold">Rewards progress</p>
+          <Link href="/pools" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
+            <p className="text-sm font-semibold">Join a live pool</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {Math.max(0, 5 - (user.poolJoinCount ?? 0))} joins left for your next milestone.
+              {activePools.length} open pool{activePools.length === 1 ? "" : "s"} available right now.
             </p>
           </Link>
-          <Link href="/pools" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
-            <p className="text-sm font-semibold">Live pools</p>
-            <p className="text-xs text-muted-foreground mt-1">Join open draws and increase your chances.</p>
+          <Link href="/rewards" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
+            <p className="text-sm font-semibold">Track rewards progress</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {Math.max(0, 5 - (user.poolJoinCount ?? 0))} joins left for your next milestone reward.
+            </p>
           </Link>
           <Link href="/wallet" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
-            <p className="text-sm font-semibold">Wallet actions</p>
-            <p className="text-xs text-muted-foreground mt-1">Deposit, withdraw, and track all transactions.</p>
+            <p className="text-sm font-semibold">Manage wallet</p>
+            <p className="text-xs text-muted-foreground mt-1">Withdrawable: {(user.withdrawableBalance ?? 0).toFixed(2)} USDT.</p>
           </Link>
         </div>
 
