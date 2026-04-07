@@ -104,7 +104,7 @@ function mapNotification(n: NotifRow): MapResult {
       kind: "celebration",
       item: {
         kind: "deposit",
-        title: "🎁 Welcome bonus!",
+        title: "🎁 Welcome reward!",
         message: n.message,
         subtitle: away ? "While you were away…" : undefined,
         amount,

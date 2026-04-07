@@ -76,7 +76,7 @@ export function TierUpgradeModal({ previousTier, newTier, freeTicketGranted, tie
           {" "}with <span className="font-semibold text-primary">{tierPoints} tier points</span>!
         </p>
 
-        {/* Free ticket reward */}
+        {/* Tier reward points */}
         {freeTicketGranted && (
           <div
             className="rounded-2xl px-4 py-3 mb-4 flex items-center gap-3 text-left"
@@ -84,8 +84,8 @@ export function TierUpgradeModal({ previousTier, newTier, freeTicketGranted, tie
           >
             <span className="text-2xl">🎁</span>
             <div>
-              <p className="text-sm font-bold text-primary">+10 USDT Free Ticket!</p>
-              <p className="text-xs text-muted-foreground">Credited to your wallet as a tier upgrade bonus</p>
+              <p className="text-sm font-bold text-primary">Tier reward unlocked</p>
+              <p className="text-xs text-muted-foreground">Reward points were added for this tier upgrade</p>
             </div>
           </div>
         )}

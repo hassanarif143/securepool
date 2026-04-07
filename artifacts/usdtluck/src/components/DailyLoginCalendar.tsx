@@ -85,7 +85,7 @@ export function DailyLoginCalendar({
                 }`}
               >
                 <span className="text-[10px] text-muted-foreground">D{d}</span>
-                <span className="text-xs font-semibold mt-1">{d === 7 ? "Free" : `${d <= 3 ? d : d - 1}pts`}</span>
+                <span className="text-xs font-semibold mt-1">{`${d <= 3 ? d : d - 1} pts`}</span>
                 {isPast && <span className="text-[10px] mt-0.5">✓</span>}
                 {!isPast && !isCurrent && <span className="text-[10px] mt-0.5 opacity-50">🔒</span>}
               </div>
@@ -96,7 +96,7 @@ export function DailyLoginCalendar({
           <p className="text-sm">
             Today:{" "}
             <span className="font-semibold text-primary">
-              {initial.reward.type === "free_entry" ? "1 free pool entry" : `${initial.reward.value} bonus points`}
+              {initial.reward.value} reward points
             </span>
           </p>
           {!claimed ? (

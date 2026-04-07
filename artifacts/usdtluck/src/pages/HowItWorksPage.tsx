@@ -135,8 +135,9 @@ export default function HowItWorksPage() {
         <Card className="border-primary/25 bg-[hsl(222,30%,9%)]">
           <CardContent className="p-6 text-center space-y-2">
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Share your referral code. When a friend joins, you can earn <span className="text-primary font-semibold">2 USDT</span> and your friend receives{" "}
-              <span className="text-primary font-semibold">1 USDT</span> (see current promo rules in-app).
+              Share your referral code. When a friend buys their first ticket, you earn a{" "}
+              <span className="text-primary font-semibold">withdrawable USDT referral reward</span>. Referral milestones also
+              unlock <span className="text-primary font-semibold">reward points</span>.
             </p>
             <p className="text-xs text-muted-foreground">Find your code on the Referral page after you log in.</p>
             <Link href="/referral">

@@ -163,7 +163,7 @@ export default function StakingPage() {
       }
       toast({
         title: "Reward claimed",
-        description: `${Number(j.totalUsdt ?? 0).toFixed(2)} USDT added to your wallet (principal + bonus).`,
+        description: `${Number(j.totalUsdt ?? 0).toFixed(2)} USDT added to your wallet (principal + staking reward).`,
       });
       await load();
       void queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
@@ -237,7 +237,7 @@ export default function StakingPage() {
             Commit funds for <span className="text-foreground font-medium">{cfg?.lockDays ?? 15} days</span> and receive{" "}
             <span className="text-emerald-400 font-semibold">{cfg?.rewardRatePercent ?? 10}%</span> on your principal when the
             term ends. You can <span className="text-foreground font-medium">unstake anytime</span> and get your principal
-            back — <span className="text-amber-200/90">the bonus is only paid if you stay until maturity</span>.
+            back — <span className="text-amber-200/90">the staking reward is paid only if you stay until maturity</span>.
           </p>
           <div className="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
             <div
@@ -462,7 +462,7 @@ export default function StakingPage() {
                         </div>
                         {matured && (
                           <p className="text-[11px] text-center text-muted-foreground mt-2">
-                            Term complete — claim above to receive principal + bonus.
+                            Term complete — claim above to receive principal + staking reward.
                           </p>
                         )}
                       </>

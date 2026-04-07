@@ -390,7 +390,7 @@ export default function ProfilePage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Your wallet</CardTitle>
-          <CardDescription>Balances from completed deposits, prizes, bonuses, and withdrawals (server-tracked).</CardDescription>
+          <CardDescription>Balances from completed deposits, prizes, reward credits, and withdrawals (server-tracked).</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2 pt-0 text-sm">
           {walletLoading ? (
@@ -412,7 +412,7 @@ export default function ProfilePage() {
                 <p className="text-lg font-semibold tabular-nums">{(walletInfo?.total_withdrawn ?? 0).toFixed(2)} USDT</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Total bonuses</p>
+                <p className="text-xs text-muted-foreground">Total reward credits</p>
                 <p className="text-lg font-semibold tabular-nums">{(walletInfo?.total_bonus ?? 0).toFixed(2)} USDT</p>
               </div>
             </div>
