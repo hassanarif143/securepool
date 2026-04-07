@@ -9,12 +9,11 @@ import {
   recordWithdrawableCredit,
 } from "../services/user-wallet-service";
 import {
-  REFERRAL_INVITE_PRIZE_USDT,
-  REFERRAL_TIER_MILESTONES,
   milestonesToJson,
   parseMilestonesClaimed,
   type MilestoneKey,
 } from "../lib/user-balances";
+import { getRewardConfig } from "../lib/reward-config";
 
 const router: IRouter = Router();
 
@@ -70,13 +69,14 @@ router.get("/me", async (req, res) => {
     .where(eq(referralsTable.referrerId, userId))
     .orderBy(desc(referralsTable.createdAt));
 
+  const rewardsCfg = await getRewardConfig();
   const successful = referrals.filter((r) => r.bonusGiven);
-  const referralEarningsUsdt = successful.length * REFERRAL_INVITE_PRIZE_USDT;
+  const referralEarningsUsdt = successful.length * rewardsCfg.referralInviteUsdt;
   const pending = referrals.filter((r) => !r.bonusGiven).length;
   const credited = successful.length;
 
   const claimed = parseMilestonesClaimed(user.referralMilestonesClaimed);
-  const tierMilestones = REFERRAL_TIER_MILESTONES.map((m) => {
+  const tierMilestones = rewardsCfg.referralTierMilestones.map((m) => {
     const key = String(m.at) as MilestoneKey;
     const isClaimed = claimed[key] === true;
     const need = Math.max(0, m.at - credited);
@@ -100,7 +100,7 @@ router.get("/me", async (req, res) => {
       referredName: r.referredName,
       referredEmail: r.referredEmail.replace(/(.{2}).+(@.+)/, "$1***$2"),
       status: r.bonusGiven ? "credited" : "pending",
-      bonus: REFERRAL_INVITE_PRIZE_USDT,
+      bonus: rewardsCfg.referralInviteUsdt,
       creditedAt: r.creditedAt,
       joinedAt: r.createdAt,
     })),
@@ -115,6 +115,7 @@ router.get("/me", async (req, res) => {
 
 export async function maybeCreditReferralBonus(referredUserId: number): Promise<void> {
   try {
+    const rewardsCfg = await getRewardConfig();
     const [referral] = await db
       .select()
       .from(referralsTable)
@@ -145,13 +146,13 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
       let bonusB = parseFloat(String(referrer.bonusBalance ?? "0"));
       let wdB = parseFloat(String(referrer.withdrawableBalance ?? "0"));
 
-      wdB += REFERRAL_INVITE_PRIZE_USDT;
+      wdB += rewardsCfg.referralInviteUsdt;
 
       const newTotalRefs = (referrer.totalSuccessfulReferrals ?? 0) + 1;
       const milestones = parseMilestonesClaimed(referrer.referralMilestonesClaimed);
       const tierGrants: { at: number; usdt: number }[] = [];
 
-      for (const m of REFERRAL_TIER_MILESTONES) {
+      for (const m of rewardsCfg.referralTierMilestones) {
         const key = String(m.at) as MilestoneKey;
         if (newTotalRefs >= m.at && !milestones[key]) {
           milestones[key] = true;
@@ -178,21 +179,21 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
       await trx.insert(transactionsTable).values({
         userId: referrer.id,
         txType: "reward",
-        amount: String(REFERRAL_INVITE_PRIZE_USDT),
+        amount: String(rewardsCfg.referralInviteUsdt),
         status: "completed",
-        note: `Referral prize (withdrawable) — ${REFERRAL_INVITE_PRIZE_USDT} USDT — referred user #${referredUserId} first ticket`,
+        note: `Referral prize (withdrawable) — ${rewardsCfg.referralInviteUsdt} USDT — referred user #${referredUserId} first ticket`,
       });
 
       await appendBonusGrant(trx, {
-        amount: REFERRAL_INVITE_PRIZE_USDT,
+        amount: rewardsCfg.referralInviteUsdt,
         userId: referrer.id,
-        description: `Referral invite prize — user #${referredUserId} first ticket — ${REFERRAL_INVITE_PRIZE_USDT} USDT`,
+        description: `Referral invite prize — user #${referredUserId} first ticket — ${rewardsCfg.referralInviteUsdt} USDT`,
       });
       await recordWithdrawableCredit(trx, {
         userId: referrer.id,
-        amount: REFERRAL_INVITE_PRIZE_USDT,
+        amount: rewardsCfg.referralInviteUsdt,
         balanceAfter: balanceAfterReferralOnly,
-        description: `Referral invite — ${REFERRAL_INVITE_PRIZE_USDT} USDT to withdrawable balance`,
+        description: `Referral invite — ${rewardsCfg.referralInviteUsdt} USDT to withdrawable balance`,
         referenceType: "referral_invite",
         referenceId: referral.id,
       });
@@ -258,7 +259,7 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
       void notifyUser(
         referrerOut.id,
         "Referral reward! 🔗",
-        `You earned ${REFERRAL_INVITE_PRIZE_USDT} USDT (withdrawable) because ${referredUser?.name ?? "your referral"} bought their first ticket.`,
+        `You earned ${rewardsCfg.referralInviteUsdt} USDT (withdrawable) because ${referredUser?.name ?? "your referral"} bought their first ticket.`,
         "referral",
       );
     }

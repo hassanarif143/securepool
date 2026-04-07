@@ -1,9 +1,10 @@
-import { pgTable, integer, numeric, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, integer, numeric, timestamp, jsonb } from "drizzle-orm/pg-core";
 
 /** Single-row settings (id must be 1). */
 export const platformSettingsTable = pgTable("platform_settings", {
   id: integer("id").primaryKey().default(1),
   drawDesiredProfitUsdt: numeric("draw_desired_profit_usdt", { precision: 18, scale: 2 }).notNull().default("100"),
+  rewardConfigJson: jsonb("reward_config_json").$type<Record<string, unknown>>().notNull().default({}),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

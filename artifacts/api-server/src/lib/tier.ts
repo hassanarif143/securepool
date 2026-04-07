@@ -1,6 +1,7 @@
 import { db, pool } from "@workspace/db";
 import { appendBonusGrant } from "../services/admin-wallet-service";
 import { recordWithdrawableCredit } from "../services/user-wallet-service";
+import { getRewardConfig } from "./reward-config";
 
 export const TIER_CONFIG = [
   { id: "aurora", label: "Bronze", minPoints: 0, icon: "🥉", free_ticket: false },
@@ -12,7 +13,6 @@ export const TIER_CONFIG = [
 
 export type TierId = (typeof TIER_CONFIG)[number]["id"];
 
-export const FREE_TICKET_USDT = 10;
 export const POINTS_POOL_JOIN = 15;
 export const POINTS_PER_USDT = 2; // points awarded per USDT deposited
 
@@ -40,6 +40,7 @@ export function getNextTier(tierId: TierId) {
  */
 export async function awardTierPoints(userId: number, points: number) {
   try {
+    const rewardCfg = await getRewardConfig();
     let rows: Record<string, unknown>[];
     try {
       const r = await pool.query(
@@ -82,14 +83,14 @@ export async function awardTierPoints(userId: number, points: number) {
     if (tierChanged && !claimed.includes(newTier)) {
       const tierCfg = getTierConfig(newTier);
       if (tierCfg.free_ticket) {
-        withdrawableB += FREE_TICKET_USDT;
+        withdrawableB += rewardCfg.tierUpgradeUsdt;
         freeTicketGranted = true;
         claimed.push(newTier);
 
         await pool.query(
           `INSERT INTO transactions (user_id, tx_type, amount, status, note)
          VALUES ($1, 'reward', $2, 'completed', $3)`,
-          [userId, String(FREE_TICKET_USDT), `🎁 Tier upgrade credit — reached ${tierCfg.label} tier`],
+          [userId, String(rewardCfg.tierUpgradeUsdt), `🎁 Tier upgrade credit — reached ${tierCfg.label} tier`],
         );
       }
     }
@@ -118,14 +119,14 @@ export async function awardTierPoints(userId: number, points: number) {
         await db.transaction(async (trx) => {
           await appendBonusGrant(trx, {
             userId,
-            amount: FREE_TICKET_USDT,
+            amount: rewardCfg.tierUpgradeUsdt,
             description: `Tier upgrade withdrawable credit — ${tierCfg.label} tier`,
           });
           await recordWithdrawableCredit(trx, {
             userId,
-            amount: FREE_TICKET_USDT,
+            amount: rewardCfg.tierUpgradeUsdt,
             balanceAfter: parseFloat(newWallet),
-            description: `Tier upgrade — ${FREE_TICKET_USDT} USDT withdrawable (${tierCfg.label})`,
+            description: `Tier upgrade — ${rewardCfg.tierUpgradeUsdt} USDT withdrawable (${tierCfg.label})`,
             referenceType: "tier",
           });
         });

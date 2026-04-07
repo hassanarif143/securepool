@@ -102,6 +102,7 @@ export default function AdminPage() {
       <Tabs defaultValue="finance">
         <TabsList className="flex h-auto min-h-11 w-full flex-wrap sm:flex-nowrap gap-1.5 overflow-x-auto p-1.5 justify-start rounded-xl bg-muted/40 border border-border/50">
           <TabsTrigger value="finance" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Finance</TabsTrigger>
+          <TabsTrigger value="rewards" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Rewards</TabsTrigger>
           <TabsTrigger value="pending" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Pending</TabsTrigger>
           <TabsTrigger value="stats" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Stats</TabsTrigger>
           <TabsTrigger value="pools" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Pools</TabsTrigger>
@@ -113,6 +114,7 @@ export default function AdminPage() {
           <TabsTrigger value="audit" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Audit</TabsTrigger>
         </TabsList>
         <TabsContent value="finance"><FinanceTab /></TabsContent>
+        <TabsContent value="rewards"><RewardsConfigTab /></TabsContent>
         <TabsContent value="pending"><PendingTransactionsTab /></TabsContent>
         <TabsContent value="stats"><StatsTab /></TabsContent>
         <TabsContent value="pools"><PoolsTab /></TabsContent>
@@ -130,6 +132,134 @@ export default function AdminPage() {
 function financeOverviewNum(v: unknown, fallback = 0): number {
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function RewardsConfigTab() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [cfg, setCfg] = useState<any>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch(apiUrl("/api/admin/rewards/config"), { credentials: "include" });
+        if (!res.ok) throw new Error(await readApiErrorMessage(res));
+        setCfg(await res.json());
+      } catch (err: any) {
+        toast({ title: "Failed to load rewards config", description: err?.message, variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  async function save() {
+    if (!cfg) return;
+    setSaving(true);
+    try {
+      const payload = {
+        referralInviteUsdt: Number(cfg.referralInviteUsdt ?? 0),
+        tierUpgradeUsdt: Number(cfg.tierUpgradeUsdt ?? 0),
+        pointsPerPoolJoin: Number(cfg.pointsPerPoolJoin ?? 0),
+        poolJoinRewardEvery: Number(cfg.poolJoinRewardEvery ?? 1),
+        poolJoinRewardFreeEntries: Number(cfg.poolJoinRewardFreeEntries ?? 0),
+        referralPointsPerSuccessfulJoin: Number(cfg.referralPointsPerSuccessfulJoin ?? 0),
+        referralPointsForFreeEntry: Number(cfg.referralPointsForFreeEntry ?? 1),
+        firstDepositBonusUsdt: Number(cfg.firstDepositBonusUsdt ?? 0),
+        streakUsdtRewards: cfg.streakUsdtRewards ?? {},
+        referralTierMilestones: cfg.referralTierMilestones ?? [],
+      };
+      const res = await fetch(apiUrl("/api/admin/rewards/config"), {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      setCfg(await res.json());
+      toast({ title: "Rewards config saved" });
+    } catch (err: any) {
+      toast({ title: "Save failed", description: err?.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading || !cfg) return <p className="text-muted-foreground py-8 text-center">Loading rewards settings…</p>;
+
+  return (
+    <div className="space-y-4 mt-4">
+      <Card>
+        <CardHeader><CardTitle className="text-base">Reward Controls</CardTitle></CardHeader>
+        <CardContent className="grid sm:grid-cols-2 gap-3">
+          <NumberField label="Referral invite (USDT)" value={cfg.referralInviteUsdt} onChange={(v) => setCfg({ ...cfg, referralInviteUsdt: v })} />
+          <NumberField label="Tier upgrade reward (USDT)" value={cfg.tierUpgradeUsdt} onChange={(v) => setCfg({ ...cfg, tierUpgradeUsdt: v })} />
+          <NumberField label="Points per pool join" value={cfg.pointsPerPoolJoin} onChange={(v) => setCfg({ ...cfg, pointsPerPoolJoin: v })} />
+          <NumberField label="Pool join reward every N joins" value={cfg.poolJoinRewardEvery} onChange={(v) => setCfg({ ...cfg, poolJoinRewardEvery: v })} />
+          <NumberField label="Pool join reward free entries" value={cfg.poolJoinRewardFreeEntries} onChange={(v) => setCfg({ ...cfg, poolJoinRewardFreeEntries: v })} />
+          <NumberField label="Referral points per successful join" value={cfg.referralPointsPerSuccessfulJoin} onChange={(v) => setCfg({ ...cfg, referralPointsPerSuccessfulJoin: v })} />
+          <NumberField label="Referral points needed for free entry" value={cfg.referralPointsForFreeEntry} onChange={(v) => setCfg({ ...cfg, referralPointsForFreeEntry: v })} />
+          <NumberField label="First deposit bonus (USDT)" value={cfg.firstDepositBonusUsdt} onChange={(v) => setCfg({ ...cfg, firstDepositBonusUsdt: v })} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Streak Rewards (USDT)</CardTitle></CardHeader>
+        <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {["3", "5", "10", "20"].map((k) => (
+            <NumberField
+              key={k}
+              label={`${k} joins`}
+              value={cfg.streakUsdtRewards?.[k] ?? 0}
+              onChange={(v) => setCfg({ ...cfg, streakUsdtRewards: { ...(cfg.streakUsdtRewards ?? {}), [k]: v } })}
+            />
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Referral Tier Milestones</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {(cfg.referralTierMilestones ?? []).map((m: any, i: number) => (
+            <div key={i} className="grid grid-cols-2 gap-3">
+              <NumberField
+                label={`Milestone #${i + 1} referrals`}
+                value={m.at ?? 0}
+                onChange={(v) => {
+                  const rows = [...(cfg.referralTierMilestones ?? [])];
+                  rows[i] = { ...rows[i], at: v };
+                  setCfg({ ...cfg, referralTierMilestones: rows });
+                }}
+              />
+              <NumberField
+                label={`Reward #${i + 1} (USDT)`}
+                value={m.usdt ?? 0}
+                onChange={(v) => {
+                  const rows = [...(cfg.referralTierMilestones ?? [])];
+                  rows[i] = { ...rows[i], usdt: v };
+                  setCfg({ ...cfg, referralTierMilestones: rows });
+                }}
+              />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button onClick={() => void save()} disabled={saving}>{saving ? "Saving..." : "Save all rewards"}</Button>
+      </div>
+    </div>
+  );
+}
+
+function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <div>
+      <Label className="text-xs text-muted-foreground mb-1.5 block">{label}</Label>
+      <Input type="number" value={String(value ?? 0)} onChange={(e) => onChange(Number(e.target.value))} className="h-9" />
+    </div>
+  );
 }
 
 function FinanceTab() {

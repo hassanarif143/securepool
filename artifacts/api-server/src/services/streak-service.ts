@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { notifyUser } from "../lib/notify";
 import { logActivity } from "./activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
-import { STREAK_USDT_REWARDS } from "../lib/user-balances";
+import { getRewardConfig } from "../lib/reward-config";
 import { creditUserWithdrawableUsdt } from "../lib/credit-withdrawable-balance";
 
 const STREAK_GAP_DAYS = 7;
@@ -65,7 +65,8 @@ export async function applyStreakOnPoolJoin(userId: number, joinerDisplayName: s
 
   const who = privacyDisplayName(joinerDisplayName);
 
-  const usdt = STREAK_USDT_REWARDS[nextStreak];
+  const rewardCfg = await getRewardConfig();
+  const usdt = rewardCfg.streakUsdtRewards[String(nextStreak)];
   if (usdt != null && usdt > 0) {
     if (nextStreak === 3) milestone = "3";
     else if (nextStreak === 5) milestone = "5";

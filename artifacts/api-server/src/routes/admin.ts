@@ -44,7 +44,7 @@ import {
   recordTicketOnlyBonus,
   recordWithdrawalCompleted,
 } from "../services/user-wallet-service";
-import { FIRST_DEPOSIT_BONUS_USDT } from "../lib/user-balances";
+import { getRewardConfig, normalizeRewardConfig } from "../lib/reward-config";
 
 const router: IRouter = Router();
 
@@ -1134,7 +1134,7 @@ router.post("/transactions/:id/approve", async (req, res) => {
   if (txn.status !== "pending") { res.status(400).json({ error: "Transaction is not pending" }); return; }
 
   const nextStatus = txn.txType === "withdraw" ? "under_review" : "completed";
-  const depositFlags = { grantedFirstTicketBonus: false };
+  const depositFlags = { grantedFirstTicketBonus: false, firstDepositBonusUsdt: 0 };
 
   try {
     await db.transaction(async (trx) => {
@@ -1162,7 +1162,8 @@ router.post("/transactions/:id/approve", async (req, res) => {
         const alreadyClaimedFirst = user.firstDepositClaimed === true;
         let nextFirstDepositClaimed = alreadyClaimedFirst;
         if (!alreadyClaimedFirst) {
-          firstDepositBonus = FIRST_DEPOSIT_BONUS_USDT;
+          const rewardCfg = await getRewardConfig();
+          firstDepositBonus = rewardCfg.firstDepositBonusUsdt;
           bonusB += firstDepositBonus;
           nextFirstDepositClaimed = true;
         }
@@ -1186,12 +1187,13 @@ router.post("/transactions/:id/approve", async (req, res) => {
         });
         if (firstDepositBonus > 0) {
           depositFlags.grantedFirstTicketBonus = true;
+          depositFlags.firstDepositBonusUsdt = firstDepositBonus;
           await trx.insert(transactionsTable).values({
             userId: txn.userId,
             txType: "reward",
             amount: String(firstDepositBonus),
             status: "completed",
-            note: "[System] First deposit bonus — 1 USDT (tickets only, non-withdrawable)",
+            note: `[System] First deposit bonus — ${firstDepositBonus} USDT (tickets only, non-withdrawable)`,
           });
           await appendBonusGrant(trx, {
             amount: firstDepositBonus,
@@ -1253,7 +1255,7 @@ router.post("/transactions/:id/approve", async (req, res) => {
         await notifyUser(
           txn.userId,
           "First deposit bonus 🎁",
-          `You received ${FIRST_DEPOSIT_BONUS_USDT} USDT ticket bonus on your first approved deposit (for pool entries only).`,
+            `You received ${depositFlags.firstDepositBonusUsdt} USDT ticket bonus on your first approved deposit (for pool entries only).`,
           "reward",
         );
       }
@@ -2122,6 +2124,47 @@ router.patch("/finance/settings", async (req, res) => {
       set: { drawDesiredProfitUsdt: v, updatedAt: new Date() },
     });
   res.json({ drawDesiredProfitUsdt: parsed.data.drawDesiredProfitUsdt });
+});
+
+router.get("/rewards/config", async (_req, res) => {
+  const cfg = await getRewardConfig();
+  res.json(cfg);
+});
+
+const PatchRewardsConfig = z.object({
+  referralInviteUsdt: z.number().nonnegative().optional(),
+  referralTierMilestones: z.array(z.object({ at: z.number().int().positive(), usdt: z.number().nonnegative() })).optional(),
+  streakUsdtRewards: z.record(z.string(), z.number().nonnegative()).optional(),
+  tierUpgradeUsdt: z.number().nonnegative().optional(),
+  pointsPerPoolJoin: z.number().int().nonnegative().optional(),
+  poolJoinRewardEvery: z.number().int().positive().optional(),
+  poolJoinRewardFreeEntries: z.number().int().nonnegative().optional(),
+  referralPointsPerSuccessfulJoin: z.number().int().nonnegative().optional(),
+  referralPointsForFreeEntry: z.number().int().positive().optional(),
+  firstDepositBonusUsdt: z.number().nonnegative().optional(),
+});
+
+router.patch("/rewards/config", async (req, res) => {
+  const parsed = PatchRewardsConfig.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", message: parsed.error.message });
+    return;
+  }
+  const current = await getRewardConfig();
+  const next = normalizeRewardConfig({ ...current, ...parsed.data });
+  await db
+    .insert(platformSettingsTable)
+    .values({
+      id: 1,
+      drawDesiredProfitUsdt: String(await getDrawDesiredProfitUsdt()),
+      rewardConfigJson: next as unknown as Record<string, unknown>,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: platformSettingsTable.id,
+      set: { rewardConfigJson: next as unknown as Record<string, unknown>, updatedAt: new Date() },
+    });
+  res.json(next);
 });
 
 export default router;

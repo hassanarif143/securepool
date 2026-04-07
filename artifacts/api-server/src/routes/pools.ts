@@ -67,6 +67,7 @@ import {
   insertPoolTicketsWithLuckyNumbers,
   formatLuckyNumberDisplay,
 } from "../services/lucky-pool-ticket-service";
+import { getRewardConfig } from "../lib/reward-config";
 
 const JoinPoolBody = z.object({
   useFreeEntry: z.boolean().optional(),
@@ -1109,8 +1110,9 @@ router.post("/:poolId/join", async (req, res) => {
     await maybeCreditReferralBonus(sessionUserId);
   }
 
-  const { awardTierPoints, POINTS_POOL_JOIN } = await import("../lib/tier");
-  const tierResult = isFirstInPool ? await awardTierPoints(sessionUserId, POINTS_POOL_JOIN) : null;
+  const { awardTierPoints } = await import("../lib/tier");
+  const rewardCfg = await getRewardConfig();
+  const tierResult = isFirstInPool ? await awardTierPoints(sessionUserId, rewardCfg.pointsPerPoolJoin) : null;
 
   if (user?.email) {
     const luckStr = luckyNumbers.map(formatLuckyNumberDisplay).join(", ");

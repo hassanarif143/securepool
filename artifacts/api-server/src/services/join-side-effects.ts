@@ -7,6 +7,7 @@ import { getActiveLuckyHourMultiplier } from "./lucky-hour-service";
 import { grantReferralPointsWithExpiry } from "./points-ledger-service";
 import { createMysteryReward, type MysteryRewardRow } from "./mystery-reward-service";
 import { applyStreakOnPoolJoin, type StreakUpdateResult } from "./streak-service";
+import { getRewardConfig } from "../lib/reward-config";
 
 /**
  * After a successful pool join: activity log, join counter, loyalty free entry every 5 joins,
@@ -86,12 +87,13 @@ export async function runJoinSideEffects(opts: {
   if (!u) {
     return { mysteryReward: null, streak: { currentStreak: 0, longestStreak: 0, lostPreviousStreak: 0 } };
   }
+  const rewardCfg = await getRewardConfig();
 
   const prevJoins = u.poolJoinCount ?? 0;
   const nextJoins = prevJoins + 1;
   let freeEntries = u.freeEntries ?? 0;
-  if (nextJoins > 0 && nextJoins % 5 === 0) {
-    freeEntries += 1;
+  if (nextJoins > 0 && nextJoins % rewardCfg.poolJoinRewardEvery === 0) {
+    freeEntries += rewardCfg.poolJoinRewardFreeEntries;
     await logActivity({
       type: "loyalty_bonus",
       message: `${who} earned a free pool entry after ${nextJoins} reward pool joins.`,
@@ -101,7 +103,7 @@ export async function runJoinSideEffects(opts: {
     void notifyUser(
       userId,
       "Loyalty reward",
-      `You earned a free pool entry for completing ${nextJoins} joins. Use it on any open pool.`,
+      `You earned ${rewardCfg.poolJoinRewardFreeEntries} free entr${rewardCfg.poolJoinRewardFreeEntries === 1 ? "y" : "ies"} for completing ${nextJoins} joins.`,
       "success",
     );
   }
@@ -132,7 +134,7 @@ export async function runJoinSideEffects(opts: {
     const [referrer] = await db.select().from(usersTable).where(eq(usersTable.id, referredBy)).limit(1);
     if (referrer) {
       const { multiplier } = await getActiveLuckyHourMultiplier();
-      const pointsToAdd = multiplier >= 2 ? multiplier : 1;
+      const pointsToAdd = (multiplier >= 2 ? multiplier : 1) * rewardCfg.referralPointsPerSuccessfulJoin;
       let refPoints = (referrer.referralPoints ?? 0) + pointsToAdd;
       let refFree = referrer.freeEntries ?? 0;
 
@@ -143,8 +145,8 @@ export async function runJoinSideEffects(opts: {
         pointsToAdd > 1 ? `Referred friend joined (Lucky Hour x${multiplier})` : "Referred friend joined a pool",
       );
 
-      if (refPoints >= 5) {
-        refPoints -= 5;
+      if (refPoints >= rewardCfg.referralPointsForFreeEntry) {
+        refPoints -= rewardCfg.referralPointsForFreeEntry;
         refFree += 1;
         await logActivity({
           type: "referral_point",
@@ -156,7 +158,7 @@ export async function runJoinSideEffects(opts: {
         void notifyUser(
           referrer.id,
           "Referral milestone",
-          `${who} joined a pool. You earned 1 free entry (5 referral points).`,
+          `${who} joined a pool. You earned 1 free entry (${rewardCfg.referralPointsForFreeEntry} referral points).`,
           "success",
         );
       } else {
@@ -169,7 +171,7 @@ export async function runJoinSideEffects(opts: {
         void notifyUser(
           referrer.id,
           "Referral progress",
-          `${who} joined a pool. Points: ${refPoints}/5 toward a free entry.`,
+          `${who} joined a pool. Points: ${refPoints}/${rewardCfg.referralPointsForFreeEntry} toward a free entry.`,
           "info",
         );
       }
