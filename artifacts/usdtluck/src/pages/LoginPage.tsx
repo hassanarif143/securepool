@@ -106,7 +106,7 @@ export default function LoginPage() {
           style={{ background: "radial-gradient(circle, #3b82f6, transparent)" }} />
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl">
+      <div className="relative z-10 w-full max-w-4xl">
         <div className="grid md:grid-cols-2 gap-0 rounded-2xl overflow-hidden shadow-2xl"
           style={{ boxShadow: "0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px hsl(217,28%,18%)" }}>
 

@@ -63,7 +63,7 @@ export default function ReferralPage() {
   if (!data) return <p className="text-muted-foreground py-8 text-center">Unable to load referral data.</p>;
 
   return (
-    <div className="w-full space-y-4">
+    <div className="max-w-4xl mx-auto space-y-4">
       <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-[hsl(222,30%,10%)] via-[hsl(222,30%,9%)] to-[hsl(224,30%,8%)] p-5 sm:p-6">
         <p className="text-xs uppercase tracking-[0.18em] text-primary/90">Referral program</p>
         <h1 className="text-2xl font-bold mt-1">Invite friends, earn rewards</h1>

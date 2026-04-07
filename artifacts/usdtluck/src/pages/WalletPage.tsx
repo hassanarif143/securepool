@@ -269,7 +269,7 @@ export default function WalletPage() {
   ] as const;
 
   return (
-    <div className="w-full space-y-4 pb-10 md:pb-12">
+    <div className="max-w-2xl mx-auto space-y-4 pb-10 md:pb-12">
       <TrustStrip />
 
       {/* Balance hero — primary trust anchor */}

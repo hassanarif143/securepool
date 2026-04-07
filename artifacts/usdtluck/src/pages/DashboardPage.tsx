@@ -171,7 +171,7 @@ export default function DashboardPage() {
   const firstName = user.name.split(" ")[0] ?? user.name;
 
   return (
-    <div className="space-y-8 sm:space-y-10 pb-12 w-full">
+    <div className="space-y-8 sm:space-y-10 pb-12 max-w-6xl mx-auto">
       {/* Subtle trust grid — above overview, low visual weight */}
       <TrustStrip />
 
@@ -183,7 +183,7 @@ export default function DashboardPage() {
             <div className="space-y-1.5">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90">Overview</p>
               <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
-              <p className="w-full text-sm leading-relaxed text-muted-foreground sm:text-base">
+              <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
                 {greeting()}, {firstName}. Your balance, pools, and wallet activity in one place.
               </p>
             </div>

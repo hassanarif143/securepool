@@ -34,7 +34,7 @@ export default function RewardsPage() {
   const nextMilestone = MILESTONES.find((m) => joins < m.joins) ?? null;
 
   return (
-    <div className="w-full space-y-5">
+    <div className="max-w-4xl mx-auto space-y-5">
       <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">Rewards center</p>
         <h1 className="text-2xl font-bold mt-1">Your rewards and tier</h1>

@@ -182,7 +182,7 @@ export default function WinnersPage() {
   const feedWinners = winnersList;
 
   return (
-    <div className="w-full space-y-10">
+    <div className="max-w-3xl mx-auto space-y-10">
 
       {/* ── Hero header ── */}
       <div className="relative overflow-visible pt-2">

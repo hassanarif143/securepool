@@ -103,7 +103,7 @@ export default function LandingPage() {
   return (
     <div className="space-y-20 md:space-y-28">
       {/* Hero — crypto / exchange-style backdrop */}
-      <section className="relative w-full">
+      <section className="relative max-w-4xl mx-auto px-2 sm:px-4">
         <div className="landing-crypto-hero-shell px-6 py-12 sm:px-10 sm:py-16 md:py-20">
           <div className="landing-crypto-hero-glow-a" aria-hidden />
           <div className="landing-crypto-hero-glow-b" aria-hidden />
@@ -138,7 +138,7 @@ export default function LandingPage() {
               Clear rules. Fair draws.
             </span>
           </h1>
-          <p className="text-base sm:text-lg text-muted-foreground mb-5 w-full max-w-7xl mx-auto leading-relaxed">
+          <p className="text-base sm:text-lg text-muted-foreground mb-5 max-w-xl mx-auto leading-relaxed">
             Buy tickets in open draws — each pool sets its own ticket price, winner count, and prizes. You always see the breakdown before you pay.
             {minTicketUsdt != null && minTicketUsdt > 0 ? (
               <>
@@ -151,7 +151,7 @@ export default function LandingPage() {
             ) : null}
           </p>
 
-          <div className="flex flex-wrap justify-center gap-3 mb-6 w-full max-w-7xl mx-auto">
+          <div className="flex flex-wrap justify-center gap-3 mb-6 max-w-lg mx-auto">
             <div className="rounded-xl border border-emerald-500/25 bg-gradient-to-b from-emerald-500/15 to-transparent px-4 py-2.5 text-center min-w-[8.5rem] shadow-[inset_0_1px_0_0_hsla(160,72%,50%,0.12)]">
               <p className="text-[10px] uppercase tracking-wider text-emerald-400/90 font-semibold font-mono">Open draws</p>
               <p className="text-2xl font-bold font-display tabular-nums text-foreground">{activePools.length}</p>
@@ -162,7 +162,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs sm:text-sm text-muted-foreground mb-8 sm:mb-10 w-full max-w-7xl mx-auto">
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs sm:text-sm text-muted-foreground mb-8 sm:mb-10 max-w-lg mx-auto">
             {[
               { icon: "✓", t: "Verified deposits" },
               { icon: "✓", t: "Admin-reviewed payouts" },
@@ -175,7 +175,7 @@ export default function LandingPage() {
             ))}
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 w-full max-w-7xl mx-auto">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 w-full max-w-md sm:max-w-lg mx-auto sm:mx-auto">
             <Link href="/signup" className="w-full sm:w-auto sm:flex-1 sm:max-w-[220px]">
               <Button
                 size="lg"
@@ -227,7 +227,7 @@ export default function LandingPage() {
       <MoneySafeExplainerSection />
 
       {/* Live stats */}
-      <motion.section id="live-stats" className="w-full scroll-mt-28" {...sectionReveal}>
+      <motion.section id="live-stats" className="max-w-4xl mx-auto scroll-mt-28 px-2 sm:px-0" {...sectionReveal}>
         <p className="text-center text-xs font-semibold uppercase tracking-[0.22em] text-primary/90 mb-4">Platform pulse</p>
         <div className="rounded-2xl border border-primary/10 bg-gradient-to-br from-[hsl(222,30%,10%)] via-[hsl(222,30%,9%)] to-[hsl(224,30%,8%)] p-1.5 shadow-xl shadow-black/30 ring-1 ring-white/[0.04] sm:p-2">
           <div className="grid grid-cols-1 divide-y divide-border/50 overflow-hidden rounded-[0.85rem] bg-[hsl(222,30%,9%)]/80 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
@@ -258,11 +258,11 @@ export default function LandingPage() {
         <p className="text-center text-xs text-muted-foreground mt-4 leading-relaxed px-2">Numbers reflect the live platform and update as activity grows.</p>
       </motion.section>
 
-      <motion.section id="activity-feed" className="w-full scroll-mt-28 space-y-4" {...sectionReveal}>
+      <motion.section id="activity-feed" className="max-w-4xl mx-auto scroll-mt-28 space-y-4" {...sectionReveal}>
         <div className="text-center md:text-left px-1">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary/90 mb-1">Activity</p>
           <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight">What&apos;s happening now</h2>
-          <p className="text-sm text-muted-foreground mt-1 w-full">Recent platform events and latest payouts.</p>
+          <p className="text-sm text-muted-foreground mt-1 max-w-md md:max-w-none">Recent platform events and latest payouts.</p>
         </div>
         <div className="grid md:grid-cols-2 gap-4 md:gap-5">
           <ActivityFeed limit={14} />
@@ -274,13 +274,13 @@ export default function LandingPage() {
       {winners && winners.length > 0 && (
         <motion.section
           id="winners-ticker"
-          className="w-full scroll-mt-24 space-y-4"
+          className="max-w-6xl mx-auto scroll-mt-24 space-y-4"
           {...sectionReveal}
         >
           <div className="text-center px-4">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary/90 mb-2">Proof of payouts</p>
             <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Recent winners</h2>
-            <p className="text-muted-foreground text-sm sm:text-base mt-2 leading-relaxed w-full max-w-7xl mx-auto">
+            <p className="text-muted-foreground text-sm sm:text-base mt-2 leading-relaxed max-w-lg mx-auto">
               Real members, real USDT — scrolling live from the platform
             </p>
           </div>
@@ -300,7 +300,7 @@ export default function LandingPage() {
 
       {/* Active Pools */}
       {activePools.length > 0 && (
-        <motion.section id="active-pools" className="w-full scroll-mt-24" {...sectionReveal}>
+        <motion.section id="active-pools" className="max-w-4xl mx-auto scroll-mt-24" {...sectionReveal}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-6 px-1">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary/90 mb-1">Join today</p>
@@ -321,7 +321,7 @@ export default function LandingPage() {
       )}
 
       {/* CTA */}
-      <motion.section id="join-cta" className="text-center py-12 sm:py-20 w-full scroll-mt-28" {...sectionReveal}>
+      <motion.section id="join-cta" className="text-center py-12 sm:py-20 max-w-2xl mx-auto scroll-mt-28 px-2 sm:px-1" {...sectionReveal}>
         <div
           className="relative rounded-[1.75rem] p-8 sm:p-12 overflow-hidden border border-primary/20 shadow-[0_0_60px_-15px_hsla(152,72%,44%,0.35)]"
           style={{
@@ -336,7 +336,7 @@ export default function LandingPage() {
           <div className="relative">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary/90 mb-3">Get started</p>
             <h2 className="font-display text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 tracking-tight">Ready when you are</h2>
-            <p className="text-muted-foreground mb-8 text-sm sm:text-base leading-relaxed w-full max-w-7xl mx-auto">
+            <p className="text-muted-foreground mb-8 text-sm sm:text-base leading-relaxed max-w-md mx-auto">
               Create a free account, connect your TRC-20 wallet, and join the next open pool in minutes.
             </p>
             <Link href="/signup">

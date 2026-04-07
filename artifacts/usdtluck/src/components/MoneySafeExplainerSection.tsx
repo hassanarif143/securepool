@@ -57,7 +57,7 @@ export function MoneySafeExplainerSection() {
   return (
     <motion.section
       id="your-money-safe"
-      className="w-full scroll-mt-28"
+      className="max-w-5xl mx-auto scroll-mt-28 px-2 sm:px-4"
       aria-labelledby="money-safe-heading"
       {...reveal}
     >
@@ -76,7 +76,7 @@ export function MoneySafeExplainerSection() {
           style={{ background: "radial-gradient(circle, hsla(45,90%,55%,0.12), transparent 65%)" }}
         />
 
-        <div className="relative text-center w-full max-w-7xl mx-auto mb-10 sm:mb-14">
+        <div className="relative text-center max-w-3xl mx-auto mb-10 sm:mb-14">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-400/90 mb-3">
             How it works · Your money is safe
           </p>
@@ -179,7 +179,7 @@ export function MoneySafeExplainerSection() {
           <p className="relative text-center text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/80 mb-4">
             Quick example
           </p>
-          <div className="relative w-full max-w-7xl mx-auto space-y-4 text-sm sm:text-base">
+          <div className="relative max-w-md mx-auto space-y-4 text-sm sm:text-base">
             <div className="flex justify-between items-center gap-4 py-2 border-b border-white/10">
               <span className="text-muted-foreground">Pool entry</span>
               <span className="font-semibold tabular-nums text-foreground">$10 USDT</span>
@@ -201,7 +201,7 @@ export function MoneySafeExplainerSection() {
               <span className="font-semibold text-foreground/90 tabular-nums">Only $2 — that&apos;s it.</span>
             </div>
           </div>
-          <p className="relative text-center text-[11px] text-muted-foreground mt-4 w-full max-w-7xl mx-auto leading-relaxed">
+          <p className="relative text-center text-[11px] text-muted-foreground mt-4 max-w-sm mx-auto leading-relaxed">
             Example uses a typical 10 USDT list price. Refund = your paid amount minus the same fee rule (see table below).
           </p>
         </div>

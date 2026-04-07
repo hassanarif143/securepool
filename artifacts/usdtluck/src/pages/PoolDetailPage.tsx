@@ -601,7 +601,7 @@ export default function PoolDetailPage() {
         />
       )}
 
-      <div className="w-full space-y-6">
+      <div className="max-w-2xl mx-auto space-y-6 w-full">
         <div>
           <div className="flex flex-wrap items-center gap-3 mb-2">
             <h1 className="text-2xl font-bold">{pool.title}</h1>
