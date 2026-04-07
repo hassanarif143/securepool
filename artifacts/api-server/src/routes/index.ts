@@ -12,6 +12,7 @@ import stakingRouter from "./staking";
 import statsRouter from "./stats";
 import userWalletRouter from "./userWallet";
 import activityRouter from "./activity";
+import referralRouter from "./referral";
 
 const router: IRouter = Router();
 
@@ -24,6 +25,7 @@ router.use("/users", usersRouter);
 router.use("/pools", poolsRouter);
 router.use("/transactions", transactionsRouter);
 router.use("/staking", stakingRouter);
+router.use("/referral", referralRouter);
 router.use("/winners", winnersRouter);
 router.use("/dashboard", adminRouter);
 router.use("/admin", adminRouter);
