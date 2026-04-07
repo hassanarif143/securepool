@@ -15,6 +15,14 @@ export default function PoolsPage() {
   });
   const closed = pools?.filter((p) => p.status === "closed") ?? [];
   const completed = pools?.filter((p) => p.status === "completed") ?? [];
+  const closingSoon = open.filter((p) => {
+    const endMs = new Date(p.endTime).getTime();
+    if (!Number.isFinite(endMs)) return false;
+    // Ignore "no time limit" pools and show real soon-ending pools only.
+    if (new Date(p.endTime).getUTCFullYear() >= 2099) return false;
+    const minsLeft = (endMs - Date.now()) / 60000;
+    return minsLeft > 0 && minsLeft <= 120;
+  });
   const revealQueueCount = [...open, ...closed].filter((p) => p.participantCount >= p.maxUsers).length;
   const openTickets = open.reduce((sum, p) => sum + Math.max(0, p.maxUsers - p.participantCount), 0);
 
@@ -42,6 +50,7 @@ export default function PoolsPage() {
       <Tabs defaultValue="open">
         <TabsList className="w-full sm:w-auto h-auto flex-wrap gap-1 p-1">
           <TabsTrigger value="open">Open ({open.length})</TabsTrigger>
+          <TabsTrigger value="closing">Closing Soon ({closingSoon.length})</TabsTrigger>
           <TabsTrigger value="closed">Closed ({closed.length})</TabsTrigger>
           <TabsTrigger value="completed">Completed ({completed.length})</TabsTrigger>
         </TabsList>
@@ -58,6 +67,15 @@ export default function PoolsPage() {
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                   {open.map((pool) => <PoolCard key={pool.id} pool={pool} />)}
+                </div>
+              )}
+            </TabsContent>
+            <TabsContent value="closing">
+              {closingSoon.length === 0 ? (
+                <p className="text-muted-foreground py-8 text-center">No pools closing soon right now</p>
+              ) : (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                  {closingSoon.map((pool) => <PoolCard key={pool.id} pool={pool} />)}
                 </div>
               )}
             </TabsContent>

@@ -509,8 +509,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   /* Secondary links — tucked into "More" dropdown on desktop */
   const secondaryLinks = user ? [
+    { href: "/my-tickets", label: "My Tickets", icon: "🎟️" },
     { href: "/rewards", label: "Rewards", icon: "🎁" },
     { href: "/referral", label: "Referral", icon: "🔗" },
+    { href: "/staking", label: "Staking", icon: "🔒" },
     { href: "/how-it-works", label: "How It Works", icon: "📘" },
     { href: "/reviews",    label: "Reviews",    icon: "💬" },
     ...(user.isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: "⚙️" }] : []),

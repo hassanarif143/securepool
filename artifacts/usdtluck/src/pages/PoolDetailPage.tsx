@@ -938,7 +938,18 @@ export default function PoolDetailPage() {
           setShowJoinConfirm(false);
           void handleJoin();
         }}
-      />
+      >
+        {!freeThisPurchase ? (
+          <div className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-1.5 text-sm">
+            <div className="flex justify-between"><span className="text-muted-foreground">Tickets</span><span className="font-medium">{ticketQty}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Ticket total</span><span className="font-medium">{grossTicketTotal.toFixed(2)} USDT</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Platform fee</span><span className="font-medium">{platformFeeThisCheckout.toFixed(2)} USDT</span></div>
+            <div className="flex justify-between border-t border-border/70 pt-1.5"><span className="text-muted-foreground">Final payable</span><span className="font-semibold text-primary">{displayPayUsdt.toFixed(2)} USDT</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Wallet before</span><span className="font-medium">{Number(user?.walletBalance ?? 0).toFixed(2)} USDT</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Wallet after</span><span className="font-medium">{Math.max(0, Number(user?.walletBalance ?? 0) - displayPayUsdt).toFixed(2)} USDT</span></div>
+          </div>
+        ) : null}
+      </ConfirmActionModal>
       <ConfirmActionModal
         open={showExitConfirm}
         title="Early Exit Charge"

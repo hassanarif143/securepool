@@ -341,7 +341,7 @@ export default function DashboardPage() {
               label: "Live entries",
               sub: "Active now",
               value: Math.round(animMyEntries),
-              href: "/dashboard#active-entries",
+              href: "/my-tickets",
               accent: activeEntryCount > 0,
               icon: "🎟️",
             },

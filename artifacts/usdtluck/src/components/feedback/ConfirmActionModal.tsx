@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import type { ReactNode } from "react";
 
 type ConfirmActionModalProps = {
   open: boolean;
@@ -15,6 +16,7 @@ type ConfirmActionModalProps = {
   confirmLabel?: string;
   cancelLabel?: string;
   loading?: boolean;
+  children?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -26,6 +28,7 @@ export function ConfirmActionModal({
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   loading,
+  children,
   onConfirm,
   onCancel,
 }: ConfirmActionModalProps) {
@@ -36,6 +39,7 @@ export function ConfirmActionModal({
           <DialogTitle>{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
+        {children ? <div>{children}</div> : null}
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={loading}>
             {cancelLabel}
