@@ -18,6 +18,7 @@ import { appToast } from "@/components/feedback/AppToast";
 /** USDT (TRC20) address users send deposits to — Deposit tab + copy button. */
 const PLATFORM_ADDRESS = "TBjGU8jfZvsfDVPpjJXVb47khVyKjQqjqp";
 const NETWORK = "TRC-20 (Tron)";
+const MIN_WITHDRAW_USDT = 10;
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -201,6 +202,13 @@ export default function WalletPage() {
     }
     if (!withdrawWallet) {
       appToast.error({ title: "Wallet address required" });
+      return;
+    }
+    if (val < MIN_WITHDRAW_USDT) {
+      appToast.error({
+        title: "Minimum withdrawal is 10 USDT",
+        description: `Please enter at least ${MIN_WITHDRAW_USDT} USDT.`,
+      });
       return;
     }
     if (val > withdrawableBal + 1e-6) {
@@ -529,16 +537,18 @@ export default function WalletPage() {
                 <Input
                   id="withdraw-amount"
                   type="number"
-                  min="1"
+                  min={String(MIN_WITHDRAW_USDT)}
                   step="0.01"
                   max={withdrawableBal}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder={withdrawableBal > 0 ? `Max: ${withdrawableBal.toFixed(2)}` : "No withdrawable balance"}
+                  placeholder={withdrawableBal > 0 ? `Min: ${MIN_WITHDRAW_USDT} • Max: ${withdrawableBal.toFixed(2)}` : "No withdrawable balance"}
                   required
                   className="border-border/90 bg-muted/25 font-semibold tabular-nums"
                 />
-                <p className="text-[10px] text-muted-foreground">Withdrawable: {withdrawableBal.toFixed(2)} USDT</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Minimum: {MIN_WITHDRAW_USDT} USDT · Withdrawable: {withdrawableBal.toFixed(2)} USDT
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -576,10 +586,14 @@ export default function WalletPage() {
               <Button
                 type="submit"
                 variant="secondary"
-                disabled={withdrawLoading || withdrawableBal <= 0}
+                disabled={withdrawLoading || withdrawableBal < MIN_WITHDRAW_USDT}
                 className="min-h-12 w-full border border-border font-semibold transition-transform duration-200 active:scale-[0.99] disabled:opacity-40"
               >
-                {withdrawLoading ? "Submitting…" : withdrawableBal <= 0 ? "No withdrawable balance" : "Review withdrawal"}
+                {withdrawLoading
+                  ? "Submitting…"
+                  : withdrawableBal < MIN_WITHDRAW_USDT
+                    ? `Minimum ${MIN_WITHDRAW_USDT} USDT required`
+                    : "Review withdrawal"}
               </Button>
             </form>
 
