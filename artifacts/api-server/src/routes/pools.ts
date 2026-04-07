@@ -1337,6 +1337,10 @@ router.post("/:poolId/exit", async (req, res) => {
         .update(poolsTable)
         .set({ soldTickets: Math.max(0, (pool.soldTickets ?? 0) - ticketCount) })
         .where(eq(poolsTable.id, poolId));
+      await tx
+        .update(usersTable)
+        .set({ poolJoinCount: Math.max(0, (user.poolJoinCount ?? 0) - 1) })
+        .where(eq(usersTable.id, userId));
       await mirrorAvailableFromUser(tx, userId);
 
       return { refundAmount, chargeApplied, ticketCount };
