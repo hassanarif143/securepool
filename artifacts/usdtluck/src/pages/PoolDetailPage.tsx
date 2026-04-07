@@ -197,6 +197,7 @@ export default function PoolDetailPage() {
   const [ticketQty, setTicketQty] = useState(1);
   const [joining, setJoining] = useState(false);
   const [exiting, setExiting] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [viewersCount, setViewersCount] = useState<number | undefined>(undefined);
   const [recentJoiners, setRecentJoiners] = useState<{ name: string; joined_at: string }[]>([]);
   const [pendingMystery, setPendingMystery] = useState<{
@@ -895,7 +896,7 @@ export default function PoolDetailPage() {
                       type="button"
                       variant="outline"
                       className="w-full border-amber-500/40 text-amber-200 hover:bg-amber-500/10"
-                      onClick={() => void handleExitPool()}
+                      onClick={() => setShowExitConfirm(true)}
                       disabled={exiting}
                     >
                       {exiting ? "Exiting..." : "Exit pool now"}
@@ -955,6 +956,39 @@ export default function PoolDetailPage() {
           </div>
         )}
       </div>
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl border border-amber-500/30 bg-[hsl(222,30%,9%)] p-5 space-y-4">
+            <div>
+              <h3 className="text-lg font-bold text-amber-100">Early Exit Charge</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                If you exit this pool early, you will be charged <span className="text-amber-200 font-semibold">50% of platform fee</span>.
+              </p>
+            </div>
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+              Charge per ticket: <span className="font-semibold">{(feePerListEntry * 0.5).toFixed(2)} USDT</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Please continue only if you agree to this charge.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowExitConfirm(false)} disabled={exiting}>
+                Cancel
+              </Button>
+              <Button
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+                onClick={() => {
+                  setShowExitConfirm(false);
+                  void handleExitPool();
+                }}
+                disabled={exiting}
+              >
+                {exiting ? "Processing..." : "Confirm exit with charge"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

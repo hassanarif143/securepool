@@ -1134,7 +1134,7 @@ router.post("/transactions/:id/approve", async (req, res) => {
   if (txn.status !== "pending") { res.status(400).json({ error: "Transaction is not pending" }); return; }
 
   const nextStatus = txn.txType === "withdraw" ? "under_review" : "completed";
-  const depositFlags = { grantedFirstTicketBonus: false, firstDepositBonusUsdt: 0 };
+  const depositFlags = { grantedFirstTicketBonus: false, firstDepositRewardPoints: 0 };
 
   try {
     await db.transaction(async (trx) => {
@@ -1158,13 +1158,13 @@ router.post("/transactions/:id/approve", async (req, res) => {
         const depositAmt = parseFloat(txn.amount);
         let rewardPoints = user.rewardPoints ?? 0;
         let wdB = parseFloat(String(user.withdrawableBalance ?? "0")) + depositAmt;
-        let firstDepositBonus = 0;
+        let firstDepositRewardPoints = 0;
         const alreadyClaimedFirst = user.firstDepositClaimed === true;
         let nextFirstDepositClaimed = alreadyClaimedFirst;
         if (!alreadyClaimedFirst) {
           const rewardCfg = await getRewardConfig();
-          firstDepositBonus = rewardCfg.firstDepositBonusUsdt;
-          rewardPoints += 10;
+          firstDepositRewardPoints = rewardCfg.firstDepositRewardPoints;
+          rewardPoints += firstDepositRewardPoints;
           nextFirstDepositClaimed = true;
         }
         const walletNum = (rewardPoints / 300) + wdB;
@@ -1186,15 +1186,15 @@ router.post("/transactions/:id/approve", async (req, res) => {
           userId: txn.userId,
           description: `Deposit approved — user tx #${txId} — ${depositAmt} USDT to withdrawable balance`,
         });
-        if (firstDepositBonus > 0) {
+        if (firstDepositRewardPoints > 0) {
           depositFlags.grantedFirstTicketBonus = true;
-          depositFlags.firstDepositBonusUsdt = firstDepositBonus;
+          depositFlags.firstDepositRewardPoints = firstDepositRewardPoints;
           await trx.insert(transactionsTable).values({
             userId: txn.userId,
             txType: "reward",
-            amount: String(firstDepositBonus),
+            amount: "0",
             status: "completed",
-            note: `[System] First deposit reward — +10 points (non-withdrawable)`,
+            note: `[System] First deposit reward — +${firstDepositRewardPoints} points (non-withdrawable)`,
           });
         }
         await recordDepositApproved(trx, {
@@ -1243,7 +1243,7 @@ router.post("/transactions/:id/approve", async (req, res) => {
         await notifyUser(
           txn.userId,
           "First deposit bonus 🎁",
-            `You received ${depositFlags.firstDepositBonusUsdt} USDT ticket bonus on your first approved deposit (for pool entries only).`,
+            `You received +${depositFlags.firstDepositRewardPoints} reward points on your first approved deposit.`,
           "reward",
         );
       }
@@ -2121,15 +2121,17 @@ router.get("/rewards/config", async (_req, res) => {
 
 const PatchRewardsConfig = z.object({
   referralInviteUsdt: z.number().nonnegative().optional(),
-  referralTierMilestones: z.array(z.object({ at: z.number().int().positive(), usdt: z.number().nonnegative() })).optional(),
-  streakUsdtRewards: z.record(z.string(), z.number().nonnegative()).optional(),
-  tierUpgradeUsdt: z.number().nonnegative().optional(),
+  referralTierMilestones: z.array(z.object({ at: z.number().int().positive(), points: z.number().int().nonnegative() })).optional(),
+  streakRewardPoints: z.record(z.string(), z.number().int().nonnegative()).optional(),
+  tierUpgradeRewardPoints: z.number().int().nonnegative().optional(),
+  firstDepositRewardPoints: z.number().int().nonnegative().optional(),
+  dailyLoginRewardPoints: z.number().int().nonnegative().optional(),
+  mysteryRewardPoints: z.number().int().nonnegative().optional(),
+  poolJoinMilestoneRewardPoints: z.number().int().nonnegative().optional(),
   pointsPerPoolJoin: z.number().int().nonnegative().optional(),
   poolJoinRewardEvery: z.number().int().positive().optional(),
-  poolJoinRewardFreeEntries: z.number().int().nonnegative().optional(),
   referralPointsPerSuccessfulJoin: z.number().int().nonnegative().optional(),
   referralPointsForFreeEntry: z.number().int().positive().optional(),
-  firstDepositBonusUsdt: z.number().nonnegative().optional(),
 });
 
 router.patch("/rewards/config", async (req, res) => {

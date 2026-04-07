@@ -10,7 +10,7 @@ import { applyStreakOnPoolJoin, type StreakUpdateResult } from "./streak-service
 import { getRewardConfig } from "../lib/reward-config";
 
 /**
- * After a successful pool join: activity log, join counter, loyalty free entry every 5 joins,
+ * After a successful pool join: activity log, join counter, loyalty reward points every N joins,
  * referral points for referrer (5 points → 1 free entry), lucky hour multiplier,
  * mystery reward every 3 joins, streak update.
  */
@@ -91,26 +91,26 @@ export async function runJoinSideEffects(opts: {
 
   const prevJoins = u.poolJoinCount ?? 0;
   const nextJoins = prevJoins + 1;
-  let freeEntries = u.freeEntries ?? 0;
+  let rewardPoints = u.rewardPoints ?? 0;
   if (nextJoins > 0 && nextJoins % rewardCfg.poolJoinRewardEvery === 0) {
-    freeEntries += rewardCfg.poolJoinRewardFreeEntries;
+    rewardPoints += rewardCfg.poolJoinMilestoneRewardPoints;
     await logActivity({
       type: "loyalty_bonus",
-      message: `${who} earned a free pool entry after ${nextJoins} reward pool joins.`,
+      message: `${who} earned +${rewardCfg.poolJoinMilestoneRewardPoints} reward points after ${nextJoins} pool joins.`,
       userId,
       metadata: { poolJoinCount: nextJoins },
     });
     void notifyUser(
       userId,
       "Loyalty reward",
-      `You earned ${rewardCfg.poolJoinRewardFreeEntries} free entr${rewardCfg.poolJoinRewardFreeEntries === 1 ? "y" : "ies"} for completing ${nextJoins} joins.`,
+      `You earned +${rewardCfg.poolJoinMilestoneRewardPoints} reward points for completing ${nextJoins} joins.`,
       "success",
     );
   }
 
   await db
     .update(usersTable)
-    .set({ poolJoinCount: nextJoins, freeEntries })
+    .set({ poolJoinCount: nextJoins, rewardPoints, bonusBalance: "0" })
     .where(eq(usersTable.id, userId));
 
   const { syncUserPoolVipTier } = await import("./pool-vip-service");

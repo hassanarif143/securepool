@@ -278,6 +278,23 @@ export default function DashboardPage() {
         <StreakCounter />
       </div>
 
+      <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3.5 sm:px-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-primary/90">How rewards work</p>
+        <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
+          You earn <span className="text-foreground font-semibold">reward points</span> from daily login, streaks, referral milestones, and pool activity.
+          Points are <span className="text-foreground font-semibold">not withdrawable</span> and can be used only for pool entries.
+          Conversion: <span className="text-foreground font-semibold">300 points = 1 USDT entry value</span>.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/wallet">View wallet points</Link>
+          </Button>
+          <Button variant="secondary" size="sm" asChild>
+            <Link href="/referral">Open referral tracker</Link>
+          </Button>
+        </div>
+      </div>
+
       {dailyLogin && dailyLogin.isNewLogin && !dailyLogin.claimed && (
         <DailyLoginCalendar
           initial={dailyLogin}

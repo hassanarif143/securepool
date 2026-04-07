@@ -1,4 +1,5 @@
 import { pool } from "@workspace/db";
+import { getRewardConfig } from "./reward-config";
 
 export const TIER_CONFIG = [
   { id: "aurora", label: "Bronze", minPoints: 0, icon: "🥉", free_ticket: false },
@@ -37,6 +38,7 @@ export function getNextTier(tierId: TierId) {
  */
 export async function awardTierPoints(userId: number, points: number) {
   try {
+    const rewardCfg = await getRewardConfig();
     let rows: Record<string, unknown>[];
     try {
       const r = await pool.query(
@@ -81,14 +83,14 @@ export async function awardTierPoints(userId: number, points: number) {
     if (tierChanged && !claimed.includes(newTier)) {
       const tierCfg = getTierConfig(newTier);
       if (tierCfg.free_ticket) {
-        rewardPoints += 10;
+        rewardPoints += rewardCfg.tierUpgradeRewardPoints;
         freeTicketGranted = true;
         claimed.push(newTier);
 
         await pool.query(
           `INSERT INTO transactions (user_id, tx_type, amount, status, note)
          VALUES ($1, 'reward', $2, 'completed', $3)`,
-          [userId, "0", `🎁 Tier upgrade reward points — reached ${tierCfg.label} tier (+10 points)`],
+          [userId, "0", `🎁 Tier upgrade reward points — reached ${tierCfg.label} tier (+${rewardCfg.tierUpgradeRewardPoints} points)`],
         );
       }
     }
@@ -114,7 +116,7 @@ export async function awardTierPoints(userId: number, points: number) {
 
     if (freeTicketGranted) {
       const tierCfg = getTierConfig(newTier);
-      console.info("[tier] granted +10 reward points for tier upgrade:", tierCfg.label);
+      console.info(`[tier] granted +${rewardCfg.tierUpgradeRewardPoints} reward points for tier upgrade:`, tierCfg.label);
     }
 
     return { newTier, previousTier: currentTier, tierChanged, freeTicketGranted, newPoints };

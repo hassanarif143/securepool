@@ -72,13 +72,13 @@ router.get("/me", async (req, res) => {
   const credited = successful.length;
 
   const claimed = parseMilestonesClaimed(user.referralMilestonesClaimed);
-  const tierMilestones = rewardsCfg.referralTierMilestones.map((m) => {
+    const tierMilestones = rewardsCfg.referralTierMilestones.map((m) => {
     const key = String(m.at) as MilestoneKey;
     const isClaimed = claimed[key] === true;
     const need = Math.max(0, m.at - credited);
     return {
       referralsRequired: m.at,
-      bonusUsdt: m.usdt,
+      bonusPoints: m.points,
       claimed: isClaimed,
       referralsRemaining: isClaimed ? 0 : need,
     };
@@ -120,7 +120,7 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
 
     if (!referral || referral.bonusGiven) return;
 
-    const tierMilestoneNotifs: { at: number; usdt: number }[] = [];
+    const tierMilestoneNotifs: { at: number; points: number }[] = [];
 
     await db.transaction(async (trx) => {
       const [lockedRef] = await trx
@@ -146,14 +146,14 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
 
       const newTotalRefs = (referrer.totalSuccessfulReferrals ?? 0) + 1;
       const milestones = parseMilestonesClaimed(referrer.referralMilestonesClaimed);
-      const tierGrants: { at: number; usdt: number }[] = [];
+      const tierGrants: { at: number; points: number }[] = [];
 
       for (const m of rewardsCfg.referralTierMilestones) {
         const key = String(m.at) as MilestoneKey;
         if (newTotalRefs >= m.at && !milestones[key]) {
           milestones[key] = true;
-          rewardPoints += 10;
-          tierGrants.push({ at: m.at, usdt: m.usdt });
+          rewardPoints += m.points;
+          tierGrants.push({ at: m.at, points: m.points });
         }
       }
 
@@ -190,15 +190,13 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
         referenceId: referral.id,
       });
 
-      let runningRewardPoints = referrer.rewardPoints ?? 0;
       for (const g of tierGrants) {
-        runningRewardPoints += 10;
         await trx.insert(transactionsTable).values({
           userId: referrer.id,
           txType: "reward",
           amount: "0",
           status: "completed",
-          note: `[Tier] Referral milestone ${g.at} successful referrals — +10 reward points`,
+          note: `[Tier] Referral milestone ${g.at} successful referrals — +${g.points} reward points`,
         });
       }
 
@@ -221,7 +219,7 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
       void notifyUser(
         referral.referrerId,
         "Referral tier milestone",
-        `${g.at} successful referrals — +10 reward points unlocked.`,
+        `${g.at} successful referrals — +${g.points} reward points unlocked.`,
         "tier",
       );
     }

@@ -65,7 +65,8 @@ export async function applyStreakOnPoolJoin(userId: number, joinerDisplayName: s
   const who = privacyDisplayName(joinerDisplayName);
 
   const rewardCfg = await getRewardConfig();
-  const hasMilestone = rewardCfg.streakUsdtRewards[String(nextStreak)] != null;
+  const pointsReward = rewardCfg.streakRewardPoints[String(nextStreak)];
+  const hasMilestone = pointsReward != null && pointsReward > 0;
   if (hasMilestone) {
     if (nextStreak === 3) milestone = "3";
     else if (nextStreak === 5) milestone = "5";
@@ -74,18 +75,18 @@ export async function applyStreakOnPoolJoin(userId: number, joinerDisplayName: s
 
     await db
       .update(usersTable)
-      .set({ rewardPoints: (u.rewardPoints ?? 0) + 10 })
+      .set({ rewardPoints: (u.rewardPoints ?? 0) + pointsReward })
       .where(eq(usersTable.id, userId));
 
     await logActivity({
       type: "loyalty_bonus",
-      message: `${who} hit a ${nextStreak}-pool streak — +10 reward points.`,
+      message: `${who} hit a ${nextStreak}-pool streak — +${pointsReward} reward points.`,
       userId,
     });
     void notifyUser(
       userId,
       "Streak milestone",
-      `${nextStreak}-pool streak! +10 reward points added.`,
+      `${nextStreak}-pool streak! +${pointsReward} reward points added.`,
       "success",
     );
   }

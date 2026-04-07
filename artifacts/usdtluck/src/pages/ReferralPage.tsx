@@ -35,7 +35,7 @@ interface ReferralStats {
 
 interface TierMilestoneRow {
   referralsRequired: number;
-  bonusUsdt: number;
+  bonusPoints: number;
   claimed: boolean;
   referralsRemaining: number;
 }
@@ -122,7 +122,7 @@ export default function ReferralPage() {
         <div>
           <h1 className="text-2xl font-bold">Referral Program</h1>
           <p className="text-muted-foreground mt-1">
-            Invite friends. You earn 2 USDT (withdrawable) when they buy their first ticket — plus ticket-only bonuses at referral milestones.
+            Invite friends. You earn cash reward on first ticket, plus reward points on referral milestones.
           </p>
         </div>
 
@@ -134,16 +134,16 @@ export default function ReferralPage() {
           }}
         >
           <p className="text-xs text-muted-foreground leading-relaxed">
-            <span className="font-semibold text-foreground">Referral bonus (2 USDT per invite)</span> is withdrawable and goes to your prize balance.
+            <span className="font-semibold text-foreground">Referral first-ticket bonus</span> is withdrawable USDT and goes to your withdrawable balance.
             <br />
-            <span className="font-semibold text-foreground">Tier bonuses</span> (5 / 10 / 15 / 25 / 50 successful referrals) are for buying tickets only — not withdrawable.
+            <span className="font-semibold text-foreground">Tier milestone rewards</span> (5 / 10 / 15 / 25 / 50 successful referrals) are reward points only.
           </p>
           <div className="grid sm:grid-cols-2 gap-4 pt-1">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center text-xl shrink-0">👥</div>
               <div>
                 <p className="font-semibold text-sm">You earn</p>
-                <p className="text-2xl font-bold text-primary">+2 USDT</p>
+                <p className="text-2xl font-bold text-primary">+Configurable USDT</p>
                 <p className="text-xs text-muted-foreground">when your friend buys their first ticket (one-time per friend)</p>
               </div>
             </div>
@@ -151,8 +151,8 @@ export default function ReferralPage() {
               <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center text-xl shrink-0">🎁</div>
               <div>
                 <p className="font-semibold text-sm">They can earn</p>
-                <p className="text-2xl font-bold text-blue-400">+1 USDT</p>
-                <p className="text-xs text-muted-foreground">first-deposit ticket bonus (admin-approved), not withdrawable</p>
+                <p className="text-2xl font-bold text-blue-400">+Points</p>
+                <p className="text-xs text-muted-foreground">admin-defined reward points for in-app progress</p>
               </div>
             </div>
           </div>
@@ -307,7 +307,7 @@ export default function ReferralPage() {
                 { step: "1", text: "Copy your unique referral link or code above." },
                 { step: "2", text: "Share it with friends — they sign up with your link." },
                 { step: "3", text: "When they buy their first pool ticket, you receive 2 USDT (withdrawable, one-time per friend)." },
-                { step: "4", text: "At 5, 10, 15, 25, and 50 successful referrals you unlock extra USDT for tickets only." },
+                { step: "4", text: "At 5, 10, 15, 25, and 50 successful referrals you unlock extra reward points." },
                 { step: "5", text: "No cap on how many people you can invite." },
               ].map((item) => (
                 <div key={item.step} className="flex items-start gap-3">
@@ -466,7 +466,7 @@ function TierMilestoneRowCard({
                   <p className="text-sm font-semibold text-foreground">
                     {tier.referralsRequired} referrals
                     <span className="text-muted-foreground font-normal"> → </span>
-                    <span className="text-primary tabular-nums">+{tier.bonusUsdt} USDT</span>
+                    <span className="text-primary tabular-nums">+{tier.bonusPoints} points</span>
                   </p>
                   <Badge variant="secondary" className="text-[10px] font-normal h-5 px-1.5 py-0 text-muted-foreground">
                     {label}
