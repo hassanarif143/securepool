@@ -44,6 +44,14 @@ export default function StakingPage() {
 
   const active = useMemo(() => rows.filter((r) => r.status === "active"), [rows]);
   const completed = useMemo(() => rows.filter((r) => r.status === "completed"), [rows]);
+  const withdrawable = Number(user?.withdrawableBalance ?? 0);
+  const parsedAmount = Number(amount);
+  const projectedReward =
+    Number.isFinite(parsedAmount) && parsedAmount > 0
+      ? (parsedAmount * cfg.apr * (cfg.lockDays / 365))
+      : 0;
+  const activePrincipal = active.reduce((sum, r) => sum + Number(r.principalUsdt ?? 0), 0);
+  const activeProjectedReward = active.reduce((sum, r) => sum + Number(r.rewardUsdt ?? 0), 0);
 
   async function lockStake() {
     const v = Number(amount);
@@ -72,71 +80,147 @@ export default function StakingPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>USDT Staking</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Lock your withdrawable balance for {cfg.lockDays} days. Estimated APR: {(cfg.apr * 100).toFixed(0)}%.
-          </p>
-          <div className="grid sm:grid-cols-3 gap-2">
-            <div className="sm:col-span-2">
+    <div className="max-w-5xl mx-auto space-y-5">
+      <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">Staking center</p>
+        <h1 className="text-2xl font-bold mt-1">Lock USDT, earn on maturity</h1>
+        <p className="text-sm text-muted-foreground mt-2">
+          Stake only from your withdrawable balance. Funds remain locked for {cfg.lockDays} days and then return to wallet with reward.
+        </p>
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Lock period</p>
+            <p className="text-lg font-semibold mt-0.5">{cfg.lockDays} days</p>
+          </div>
+          <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">APR</p>
+            <p className="text-lg font-semibold mt-0.5">{(cfg.apr * 100).toFixed(0)}%</p>
+          </div>
+          <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Minimum stake</p>
+            <p className="text-lg font-semibold mt-0.5">{cfg.minStakeUsdt} USDT</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2 border-border/70">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Create new stake</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
               <Label className="text-xs text-muted-foreground">Stake amount (USDT)</Label>
-              <Input value={amount} type="number" min={cfg.minStakeUsdt} step="0.01" onChange={(e) => setAmount(e.target.value)} />
+              <Input
+                value={amount}
+                type="number"
+                min={cfg.minStakeUsdt}
+                step="0.01"
+                onChange={(e) => setAmount(e.target.value)}
+              />
               <p className="text-[11px] text-muted-foreground mt-1">
-                Min: {cfg.minStakeUsdt} USDT · Withdrawable: {Number(user?.withdrawableBalance ?? 0).toFixed(2)} USDT
+                Min: {cfg.minStakeUsdt} USDT · Available withdrawable: {withdrawable.toFixed(2)} USDT
               </p>
             </div>
-            <div className="flex items-end">
-              <Button className="w-full" onClick={() => void lockStake()} disabled={loading}>
-                {loading ? "Processing..." : "Stake now"}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      <Card>
+            <div className="rounded-xl border border-border/70 bg-muted/20 p-3 text-sm space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">You lock</span>
+                <span className="font-medium">{Number.isFinite(parsedAmount) ? Math.max(0, parsedAmount).toFixed(2) : "0.00"} USDT</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Estimated reward</span>
+                <span className="font-medium text-emerald-400">+{projectedReward.toFixed(2)} USDT</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-border/70 pt-1.5">
+                <span className="text-muted-foreground">Maturity total</span>
+                <span className="font-semibold">{(Math.max(0, Number.isFinite(parsedAmount) ? parsedAmount : 0) + projectedReward).toFixed(2)} USDT</span>
+              </div>
+            </div>
+
+            <Button className="w-full sm:w-auto" onClick={() => void lockStake()} disabled={loading}>
+              {loading ? "Processing..." : "Lock stake now"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Your staking snapshot</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="rounded-lg border border-border/70 p-3">
+              <p className="text-xs text-muted-foreground">Active stakes</p>
+              <p className="text-xl font-semibold">{active.length}</p>
+            </div>
+            <div className="rounded-lg border border-border/70 p-3">
+              <p className="text-xs text-muted-foreground">Currently locked</p>
+              <p className="text-xl font-semibold">{activePrincipal.toFixed(2)} USDT</p>
+            </div>
+            <div className="rounded-lg border border-border/70 p-3">
+              <p className="text-xs text-muted-foreground">Projected active rewards</p>
+              <p className="text-xl font-semibold text-emerald-400">+{activeProjectedReward.toFixed(2)} USDT</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-border/70">
         <CardHeader>
-          <CardTitle>Active Stakes ({active.length})</CardTitle>
+          <CardTitle>Active stakes ({active.length})</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {active.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No active stakes.</p>
+            <p className="text-sm text-muted-foreground">No active stakes yet. Create your first stake above.</p>
           ) : (
             active.map((r) => (
-              <div key={r.id} className="rounded-lg border border-border/70 p-3 text-sm flex items-center justify-between gap-3">
-                <div>
+              <div key={r.id} className="rounded-xl border border-border/70 p-3.5 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="space-y-1">
                   <p className="font-medium">
-                    #{r.id} · {r.principalUsdt.toFixed(2)} USDT
+                    Stake #{r.id} · {r.principalUsdt.toFixed(2)} USDT
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Reward: {r.rewardUsdt.toFixed(2)} USDT · Unlock: {new Date(r.unlockAt).toLocaleString()}
+                    Created: {new Date(r.lockedAt).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Unlocks: {new Date(r.unlockAt).toLocaleString()}
                   </p>
                 </div>
-                <span className={`text-xs px-2 py-1 rounded ${r.canRedeemNow ? "bg-emerald-500/15 text-emerald-300" : "bg-muted text-muted-foreground"}`}>
-                  {r.canRedeemNow ? "Ready" : "Locked"}
-                </span>
+                <div className="text-left sm:text-right">
+                  <p className="text-xs text-muted-foreground">Reward on maturity</p>
+                  <p className="font-semibold text-emerald-400">+{r.rewardUsdt.toFixed(2)} USDT</p>
+                  <span
+                    className={`inline-block mt-1 text-xs px-2 py-1 rounded ${
+                      r.canRedeemNow ? "bg-emerald-500/15 text-emerald-300" : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {r.canRedeemNow ? "Ready to redeem" : "Still locked"}
+                  </span>
+                </div>
               </div>
             ))
           )}
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-border/70">
         <CardHeader>
-          <CardTitle>Completed Stakes ({completed.length})</CardTitle>
+          <CardTitle>Completed stakes ({completed.length})</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {completed.length === 0 ? (
             <p className="text-sm text-muted-foreground">No completed stakes yet.</p>
           ) : (
             completed.slice(0, 10).map((r) => (
-              <div key={r.id} className="rounded-lg border border-border/70 p-3 text-sm">
-                <p className="font-medium">
-                  #{r.id} · {r.principalUsdt.toFixed(2)} + {r.rewardUsdt.toFixed(2)} USDT
+              <div key={r.id} className="rounded-xl border border-border/70 p-3.5 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <p className="font-medium">Stake #{r.id}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Completed: {r.completedAt ? new Date(r.completedAt).toLocaleString() : "-"}
+                  </p>
+                </div>
+                <p className="font-semibold">
+                  {r.principalUsdt.toFixed(2)} + {r.rewardUsdt.toFixed(2)} USDT
                 </p>
               </div>
             ))
