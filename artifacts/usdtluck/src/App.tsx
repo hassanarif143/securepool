@@ -21,11 +21,8 @@ import WinnersPage from "@/pages/WinnersPage";
 import ProfilePage from "@/pages/ProfilePage";
 import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import AdminPage from "@/pages/AdminPage";
-import ReferralPage from "@/pages/ReferralPage";
 import ReviewsPage from "@/pages/ReviewsPage";
-import LeaderboardPage from "@/pages/LeaderboardPage";
 import HowItWorksPage from "@/pages/HowItWorksPage";
-import StakingPage from "@/pages/StakingPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -139,24 +136,9 @@ function Router() {
             <AdminPage />
           </RequireAuth>
         </Route>
-        <Route path="/referral">
-          <RequireAuth>
-            <ReferralPage />
-          </RequireAuth>
-        </Route>
         <Route path="/reviews">
           <RequireAuth>
             <ReviewsPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/leaderboard">
-          <RequireAuth>
-            <LeaderboardPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/staking">
-          <RequireAuth>
-            <StakingPage />
           </RequireAuth>
         </Route>
         <Route path="/how-it-works" component={HowItWorksPage} />

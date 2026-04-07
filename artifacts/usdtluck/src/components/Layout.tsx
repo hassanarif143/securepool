@@ -2,13 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import { TierBadge } from "@/components/TierBadge";
 import { Logo } from "@/components/Logo";
 import { apiUrl } from "@/lib/api-base";
-import { LuckyHourBanner } from "@/components/LuckyHourBanner";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
-import { CelebrationNotificationBridge } from "@/components/CelebrationNotificationBridge";
-import { LayoutDashboard, Layers, Lock, Shield, Trophy, Wallet } from "lucide-react";
+import { LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
 
 function playNotifSound() {
   try {
@@ -328,7 +325,6 @@ function UserMenu({ user, logout }: { user: any; logout: () => void }) {
               </div>
               <div className="min-w-0">
                 <p className="font-semibold text-sm truncate">{user.name}</p>
-                <TierBadge tier={user.tier ?? "aurora"} size="xs" />
               </div>
             </div>
           </div>
@@ -344,18 +340,6 @@ function UserMenu({ user, logout }: { user: any; logout: () => void }) {
               <button onClick={() => setOpen(false)}
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground">
                 <span className="w-5 text-center">💼</span> My Wallet
-              </button>
-            </Link>
-            <Link href="/staking">
-              <button onClick={() => setOpen(false)}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground">
-                <span className="w-5 text-center">🔒</span> USDT Staking
-              </button>
-            </Link>
-            <Link href="/leaderboard">
-              <button onClick={() => setOpen(false)}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground">
-                <span className="w-5 text-center">🎖️</span> Tier Leaderboard
               </button>
             </Link>
           </div>
@@ -461,7 +445,6 @@ function MobileMenu({
         </div>
         <div>
           <p className="font-semibold text-sm">{user.name}</p>
-          <TierBadge tier={user.tier ?? "aurora"} size="xs" />
         </div>
         <div className="ml-auto text-right">
           <p className="text-xs font-bold text-primary">{user.walletBalance?.toFixed(2)} USDT</p>
@@ -527,10 +510,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   /* Secondary links — tucked into "More" dropdown on desktop */
   const secondaryLinks = user ? [
     { href: "/how-it-works", label: "How It Works", icon: "📘" },
-    { href: "/staking", label: "USDT Stake", icon: "🔒" },
-    { href: "/leaderboard", label: "Leaderboard", icon: "📊" },
     { href: "/reviews",    label: "Reviews",    icon: "💬" },
-    { href: "/referral",   label: "Referral",   icon: "🔗" },
     ...(user.isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: "⚙️" }] : []),
   ] : [];
 
@@ -656,15 +636,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
-      {user ? <LuckyHourBanner /> : null}
-
       <main
         className={`flex-1 max-w-7xl w-full min-w-0 mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${
           user ? "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""
         }`}
       >
         {user ? <LiveJoinNotification /> : null}
-        {user ? <CelebrationNotificationBridge /> : null}
         {children}
       </main>
 
@@ -678,7 +655,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
             [
               { href: "/dashboard", label: "Home", Icon: LayoutDashboard },
               { href: "/pools", label: "Pools", Icon: Layers },
-              { href: "/staking", label: "Stake", Icon: Lock },
               { href: "/wallet", label: "Wallet", Icon: Wallet },
               ...(user.isAdmin ? [{ href: "/admin", label: "Admin", Icon: Shield }] as const : []),
               { href: "/winners", label: "Wins", Icon: Trophy },

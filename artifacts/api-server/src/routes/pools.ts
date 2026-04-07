@@ -14,7 +14,6 @@ import {
 } from "@workspace/db";
 import { poolTicketsTable } from "@workspace/db/schema";
 import { eq, and, desc, asc, count } from "drizzle-orm";
-import { maybeCreditReferralBonus } from "./referral";
 import {
   deductForPoolEntry,
   distributeWinnings,
@@ -66,7 +65,6 @@ import {
   insertPoolTicketsWithLuckyNumbers,
   formatLuckyNumberDisplay,
 } from "../services/lucky-pool-ticket-service";
-import { getRewardConfig } from "../lib/reward-config";
 
 const JoinPoolBody = z.object({
   useFreeEntry: z.boolean().optional(),
@@ -1084,12 +1082,7 @@ router.post("/:poolId/join", async (req, res) => {
     .from(poolParticipantsTable)
     .where(eq(poolParticipantsTable.userId, sessionUserId));
 
-  if (Number(totalJoins) === 1) {
-    await maybeCreditReferralBonus(sessionUserId);
-  }
-
-  const { awardTierPoints } = await import("../lib/tier");
-  const tierResult = isFirstInPool ? await awardTierPoints(sessionUserId, 0) : null;
+  void totalJoins;
 
   if (user?.email) {
     const luckStr = luckyNumbers.map(formatLuckyNumberDisplay).join(", ");
@@ -1111,7 +1104,7 @@ router.post("/:poolId/join", async (req, res) => {
   );
 
   const ticketCountAfterJoin = ticketsNow + ticketQty;
-  const engagement = await runJoinSideEffects({
+  await runJoinSideEffects({
     userId: sessionUserId,
     joinerName: user.name,
     poolId,
@@ -1140,24 +1133,6 @@ router.post("/:poolId/join", async (req, res) => {
     ticketQuantity: ticketQty,
     luckyNumbers: luckyNumbers.map(formatLuckyNumberDisplay),
     listEntryFee: entryFee,
-    tierUpdate: tierResult
-      ? {
-          tier: tierResult.newTier,
-          tierPoints: tierResult.newPoints,
-          tierChanged: tierResult.tierChanged,
-          previousTier: tierResult.previousTier,
-          freeTicketGranted: tierResult.freeTicketGranted,
-        }
-      : null,
-    mysteryReward: engagement.mysteryReward
-      ? {
-          id: engagement.mysteryReward.id,
-          rewardType: engagement.mysteryReward.rewardType,
-          rewardValue: engagement.mysteryReward.rewardValue,
-          poolJoinNumber: engagement.mysteryReward.poolJoinNumber,
-        }
-      : null,
-    streak: engagement.streak,
   });
 });
 

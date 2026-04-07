@@ -10,7 +10,6 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TierBadge, TierProgressCard, getTier, getNextTier, computeProgress } from "@/components/TierBadge";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { LivePoolWatcher } from "@/components/LivePoolWatcher";
 import { ComebackBanner, type ActiveCouponJson } from "@/components/ComebackOffer";
@@ -20,18 +19,9 @@ import { PoolVipBadge } from "@/components/PoolVipBadge";
 import { TransactionStatusBadge } from "@/components/TransactionStatusBadge";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Inbox, Lock } from "lucide-react";
+import { ArrowRight, Inbox } from "lucide-react";
 import { TrustStrip } from "@/components/TrustStrip";
 import { poolWinnerCount } from "@/lib/pool-winners";
-
-interface TierInfo {
-  tier: string;
-  tierLabel: string;
-  tierIcon: string;
-  tierPoints: number;
-  nextTier: { id: string; label: string; icon: string; pointsNeeded: number } | null;
-  progress: number;
-}
 
 function greeting() {
   const h = new Date().getHours();
@@ -127,7 +117,6 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
   const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
-  const [tierInfo, setTierInfo] = useState<TierInfo | null>(null);
   const [myEntries, setMyEntries] = useState<any[]>([]);
   const [comeback, setComeback] = useState<ActiveCouponJson | null>(null);
 
@@ -151,10 +140,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!user) return;
-    fetch(apiUrl("/api/tier/me"), { credentials: "include" })
-      .then((r) => r.json())
-      .then(setTierInfo)
-      .catch(() => {});
     fetch(apiUrl("/api/pools/my-entries"), { credentials: "include" })
       .then((r) => (r.ok ? r.json() : []))
       .then(setMyEntries)
@@ -183,12 +168,6 @@ export default function DashboardPage() {
   const activePools = pools?.filter((p) => p.status === "open") ?? [];
   const recentTxs = transactions?.slice(0, 8) ?? [];
   const totalWins = transactions?.filter(isPoolPrizeWinTx).length ?? 0;
-
-  const tierCurrent = getTier(user.tier ?? "aurora");
-  const tierNext = getNextTier(user.tier ?? "aurora");
-  const tierPts = tierInfo?.tierPoints ?? 0;
-  const tierProgress = tierInfo ? computeProgress(tierInfo.tierPoints, tierInfo.tier) : 0;
-  const ptsToNext = tierNext ? Math.max(0, tierNext.minPoints - tierPts) : 0;
 
   const activeJoined = myEntries.filter((e) => e.status === "open");
   const firstName = user.name.split(" ")[0] ?? user.name;
@@ -234,25 +213,14 @@ export default function DashboardPage() {
             <Button variant="secondary" className="min-h-12 w-full font-medium sm:w-auto sm:min-w-[9rem]" asChild>
               <Link href="/wallet">Wallet</Link>
             </Button>
-            <Button
-              variant="outline"
-              className="min-h-12 w-full border-amber-500/25 bg-amber-500/[0.06] font-medium text-foreground hover:bg-amber-500/10 sm:w-auto sm:min-w-[9rem]"
-              asChild
-            >
-              <Link href="/staking">
-                <Lock className="h-4 w-4 text-amber-400/90" aria-hidden />
-                Staking
-              </Link>
-            </Button>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {[
-          { label: "Your total balance", value: `${(user.walletBalance ?? 0).toFixed(2)} USDT`, sub: "This includes cash + reward points value" },
+          { label: "Your total balance", value: `${(user.walletBalance ?? 0).toFixed(2)} USDT`, sub: "Your available in-app wallet balance" },
           { label: "Withdrawable balance", value: `${(user.withdrawableBalance ?? 0).toFixed(2)} USDT`, sub: "Available for withdrawal requests" },
-          { label: "Your loyalty level", value: `${tierCurrent.icon} ${tierCurrent.label}`, sub: tierNext ? `${ptsToNext} more points to reach ${tierNext.label}` : "You are at the highest level" },
           { label: "Pools you joined", value: `${activeEntryCount}`, sub: "Currently active pool entries" },
         ].map((item) => (
           <div key={item.label} className={`${box} px-4 py-3`}>
@@ -283,23 +251,9 @@ export default function DashboardPage() {
           <div className={panelHead}>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Wallet balance</p>
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] text-muted-foreground shrink-0">Loyalty</span>
-                  <TierBadge tier={user.tier ?? "aurora"} size="sm" />
-                  {tierNext && (
-                    <span className="text-xs text-muted-foreground">
-                      <span className="text-foreground/70">{ptsToNext} pts</span> to {tierNext.label}
-                    </span>
-                  )}
-                </div>
-                <span className="hidden sm:inline text-border/60" aria-hidden>
-                  |
-                </span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] text-muted-foreground shrink-0">Pool access</span>
-                  <PoolVipBadge tier={user.poolVipTier ?? "bronze"} />
-                </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="text-[11px] text-muted-foreground shrink-0">Pool access</span>
+                <PoolVipBadge tier={user.poolVipTier ?? "bronze"} />
               </div>
             </div>
           </div>
@@ -349,31 +303,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {tierNext && (
-            <div className="px-6 pb-6 sm:px-8 border-t border-[hsl(217,28%,14%)] pt-5 bg-[hsl(222,30%,7%)]/80">
-              <div className="flex justify-between items-baseline gap-2 mb-2">
-                <span className="text-xs font-semibold text-foreground/90 tracking-wide">Loyalty tier progress</span>
-                <span className="text-sm font-bold tabular-nums text-primary">{tierProgress}%</span>
-              </div>
-              <div className="h-3 rounded-full overflow-hidden bg-[hsl(217,22%,18%)] ring-1 ring-white/[0.06]">
-                <div
-                  className="h-full transition-all duration-700 rounded-full shadow-[0_0_12px_hsla(152,72%,50%,0.35)]"
-                  style={{ width: `${tierProgress}%`, background: "linear-gradient(90deg, hsl(152,72%,42%), hsl(152,72%,58%))" }}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground mt-3 flex flex-wrap items-center gap-1.5">
-                <span style={{ color: tierCurrent.color }}>{tierCurrent.icon}</span>
-                <span className="font-medium text-foreground/90">{tierCurrent.label}</span>
-                {tierNext && (
-                  <>
-                    <span className="text-muted-foreground/70 mx-0.5">→</span>
-                    <span style={{ color: tierNext.color }}>{tierNext.icon}</span>
-                    <span className="font-medium text-foreground/90">{tierNext.label}</span>
-                  </>
-                )}
-              </p>
-            </div>
-          )}
         </div>
 
         <div className="grid grid-rows-3 gap-3">
@@ -591,11 +520,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 border-t border-[hsl(217,28%,16%)] mt-auto text-xs">
-            <Link href="/referral" className="px-3 py-3 border-r border-[hsl(217,28%,16%)] hover:bg-white/[0.03] transition">
-              <p className="font-medium">Invite friends</p>
-              <p className="text-[10px] text-muted-foreground">Earn referral rewards</p>
-            </Link>
+          <div className="grid grid-cols-1 border-t border-[hsl(217,28%,16%)] mt-auto text-xs">
             <Link href="/winners" className="px-3 py-3 hover:bg-white/[0.03] transition">
               <p className="font-medium">Past winners</p>
               <p className="text-[10px] text-muted-foreground">Recent results</p>
@@ -667,18 +592,6 @@ export default function DashboardPage() {
           </div>
         </div>
         <ActivityFeed limit={12} />
-      </div>
-
-      <div className={`${box} overflow-hidden`}>
-        <div className={panelHead}>
-          <h2 className="font-display text-sm sm:text-base font-semibold">Loyalty tier</h2>
-          <Link href="/leaderboard" className="text-xs font-medium text-primary hover:underline">
-            Leaderboard
-          </Link>
-        </div>
-        <div className="p-4">
-          {tierInfo ? <TierProgressCard tier={tierInfo.tier} tierPoints={tierInfo.tierPoints} /> : <Skeleton className="h-40 rounded-lg" />}
-        </div>
       </div>
 
       <div className={`${box} overflow-hidden`}>
