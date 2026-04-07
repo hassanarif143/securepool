@@ -540,10 +540,6 @@ export default function PoolDetailPage() {
   const netFromWallet = Math.max(0, grossTicketTotal - platformFeeThisCheckout);
   const canPayJoin = Boolean(user && (freeThisPurchase || Number(user.walletBalance) >= netFromWallet));
   const vipLocked = false;
-  const listRefundUsdt =
-    poolDetails?.loser_refund_if_not_win_list_usdt ??
-    pool.loserRefundIfNotWinListUsdt ??
-    Math.max(0, pool.entryFee - platformFeeUsdtForPoolEntry(pool.entryFee));
   const poolFull = displayCount >= pool.maxUsers || spotsLeft <= 0;
   const noTimeLimit = new Date(pool.endTime).getUTCFullYear() >= 2099;
   const canBuyMore = userJoinedEffective && !poolFull && pool.status === "open";
@@ -626,14 +622,7 @@ export default function PoolDetailPage() {
               {shareOk ? "Copied ✓" : "Share this pool"}
             </Button>
           </div>
-          <p className="text-muted-foreground flex flex-wrap items-center gap-2">
-            <>Join for {pool.entryFee} USDT per ticket</>
-            {pool.status === "open" && (
-              <span className="text-xs text-muted-foreground">
-                · Non-winners get up to {listRefundUsdt.toFixed(0)} USDT back per list-priced ticket
-              </span>
-            )}
-          </p>
+          <p className="text-muted-foreground">Join for {pool.entryFee} USDT per ticket</p>
         </div>
 
         <Card className="border-primary/20 overflow-hidden">
