@@ -13,6 +13,7 @@ import { getUploadsDir } from "../paths";
 import { notifyUser } from "../lib/notify";
 
 const router: IRouter = Router();
+const MIN_WITHDRAW_USDT = 10;
 
 const uploadDir = getUploadsDir();
 
@@ -174,20 +175,20 @@ router.post("/withdraw", async (req, res) => {
     if (!(await assertEmailVerified(res, userId))) return;
 
     const WithdrawSchema = z.object({
-      amount: z.coerce.number().positive(),
+      amount: z.coerce.number().gte(MIN_WITHDRAW_USDT),
       walletAddress: z.string().min(10).max(120).regex(/^T[a-zA-Z0-9]{25,}$/),
       note: z.string().max(200).optional(),
     });
     const parsed = WithdrawSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: "Validation error", message: parsed.error.message });
+      res.status(400).json({ error: "Validation error", message: `Minimum withdrawal is ${MIN_WITHDRAW_USDT} USDT.` });
       return;
     }
 
     const { amount, walletAddress, note } = parsed.data;
     const cleanNote = note ? sanitizeText(note, 200) : "";
-    if (!amount || amount <= 0) {
-      res.status(400).json({ error: "Amount must be greater than 0" });
+    if (!amount || amount < MIN_WITHDRAW_USDT) {
+      res.status(400).json({ error: `Minimum withdrawal is ${MIN_WITHDRAW_USDT} USDT.` });
       return;
     }
 
