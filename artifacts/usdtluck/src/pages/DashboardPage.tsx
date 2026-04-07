@@ -262,9 +262,13 @@ export default function DashboardPage() {
           </div>
 
           <div className="p-6 sm:p-8 flex flex-col gap-6 relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.05] via-transparent to-transparent pointer-events-none rounded-b-2xl" aria-hidden />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.06] via-transparent to-transparent pointer-events-none rounded-b-2xl" aria-hidden />
             <div className="relative flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
               <div className="min-w-0 flex-1">
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/[0.08] px-3 py-1 mb-3">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300">Live wallet</span>
+                </div>
                 <p
                   className="font-display text-4xl sm:text-5xl lg:text-[3.25rem] font-extrabold tabular-nums tracking-tight"
                   style={{ color: "hsl(152,72%,56%)" }}
@@ -272,9 +276,15 @@ export default function DashboardPage() {
                   {animBalance.toFixed(2)}{" "}
                   <span className="text-lg sm:text-xl font-bold text-muted-foreground">USDT</span>
                 </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Available in-app balance for pool entries and wallet actions.
+                </p>
                 {user.walletBalance <= 0 && (
                   <div className="mt-4 rounded-xl border border-amber-500/35 bg-amber-500/[0.08] px-4 py-3 text-sm text-amber-100/95 leading-relaxed max-w-xl shadow-inner">
-                    <p className="font-medium text-amber-200/95 mb-1">Fund your wallet</p>
+                    <p className="font-medium text-amber-200/95 mb-1 flex items-center gap-2">
+                      <span>⚡</span>
+                      <span>Fund your wallet</span>
+                    </p>
                     <p className="text-amber-100/85 text-[13px]">
                       Tap <span className="font-semibold text-white">Deposit</span>, send USDT, then upload proof for admin approval. Once credited, you can join pools.
                     </p>
@@ -282,15 +292,16 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              <div className="relative flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row w-full lg:w-auto lg:min-w-[200px] xl:min-w-[280px]">
+              <div className="relative w-full lg:w-auto lg:min-w-[260px] xl:min-w-[300px] rounded-xl border border-[hsl(217,28%,18%)] bg-[hsl(222,28%,10%)] p-3 space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-1">Quick actions</p>
                 <Button
-                  className="w-full sm:flex-1 lg:w-full xl:flex-1 min-h-11 shadow-md shadow-primary/25 font-semibold"
+                  className="w-full min-h-11 shadow-md shadow-primary/25 font-semibold"
                   style={{ background: "linear-gradient(135deg, #22c55e, #15803d)" }}
                   asChild
                 >
                   <Link href="/wallet?tab=deposit">Deposit</Link>
                 </Button>
-                <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:flex-1 lg:grid lg:w-full xl:flex xl:flex-1">
+                <div className="grid grid-cols-2 gap-2 w-full">
                   <Button variant="outline" className="w-full min-h-11 font-medium" asChild>
                     <Link href="/wallet?tab=withdraw">Withdraw</Link>
                   </Button>
