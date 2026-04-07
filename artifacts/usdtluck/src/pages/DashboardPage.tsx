@@ -605,7 +605,7 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Link href="/pools" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
             <p className="text-sm font-semibold">Join a live pool</p>
             <p className="text-xs text-muted-foreground mt-1">
@@ -621,6 +621,10 @@ export default function DashboardPage() {
           <Link href="/wallet" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
             <p className="text-sm font-semibold">Manage wallet</p>
             <p className="text-xs text-muted-foreground mt-1">Withdrawable: {(user.withdrawableBalance ?? 0).toFixed(2)} USDT.</p>
+          </Link>
+          <Link href="/p2p" className="rounded-xl border border-primary/25 bg-primary/[0.06] p-3 hover:bg-primary/[0.1] transition-colors">
+            <p className="text-sm font-semibold">P2P trading</p>
+            <p className="text-xs text-muted-foreground mt-1">Buy/sell USDT demo — escrow flow in your browser.</p>
           </Link>
         </div>
 
