@@ -196,6 +196,7 @@ export default function PoolDetailPage() {
   const [useFreeEntry, setUseFreeEntry] = useState(false);
   const [ticketQty, setTicketQty] = useState(1);
   const [joining, setJoining] = useState(false);
+  const [exiting, setExiting] = useState(false);
   const [viewersCount, setViewersCount] = useState<number | undefined>(undefined);
   const [recentJoiners, setRecentJoiners] = useState<{ name: string; joined_at: string }[]>([]);
   const [pendingMystery, setPendingMystery] = useState<{
@@ -495,6 +496,46 @@ export default function PoolDetailPage() {
     }
   }
 
+  async function handleExitPool() {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    setExiting(true);
+    try {
+      const csrfRes = await fetch(apiUrl("/api/auth/csrf-token"), { credentials: "include" });
+      const csrfData = await csrfRes.json().catch(() => ({}));
+      const token = (csrfData as { csrfToken?: string }).csrfToken ?? getCsrfToken();
+      setCsrfToken(token ?? null);
+      const res = await fetch(apiUrl(`/api/pools/${id}/exit`), {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "x-csrf-token": token } : {}),
+        },
+      });
+      if (!res.ok) {
+        toast({ title: "Could not exit pool", description: await readApiErrorMessage(res), variant: "destructive" });
+        return;
+      }
+      const out = (await res.json()) as { refundAmount?: number; exitCharge?: number };
+      toast({
+        title: "Exited pool",
+        description: `Refunded ${Number(out.refundAmount ?? 0).toFixed(2)} USDT. Exit charge: ${Number(out.exitCharge ?? 0).toFixed(2)} USDT.`,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: getGetPoolQueryKey(id) }),
+        queryClient.invalidateQueries({ queryKey: getGetPoolParticipantsQueryKey(id) }),
+        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() }),
+      ]);
+      const detailsRes = await fetch(apiUrl(`/api/pools/details/${id}`), { credentials: "include" });
+      if (detailsRes.ok) setPoolDetails((await detailsRes.json()) as PoolDetailsApi);
+    } finally {
+      setExiting(false);
+    }
+  }
+
   if (isLoading) return <div className="space-y-4"><Skeleton className="h-48" /><Skeleton className="h-48" /></div>;
   if (!pool) return <p className="text-center text-muted-foreground py-12">Pool not found</p>;
 
@@ -528,8 +569,10 @@ export default function PoolDetailPage() {
     pool.loserRefundIfNotWinListUsdt ??
     Math.max(0, pool.entryFee - platformFeeUsdtForPoolEntry(pool.entryFee));
   const poolFull = displayCount >= pool.maxUsers || spotsLeft <= 0;
+  const noTimeLimit = new Date(pool.endTime).getUTCFullYear() >= 2099;
   const canBuyMore = userJoinedEffective && !poolFull && pool.status === "open";
   const canFirstJoin = !userJoinedEffective && pool.status === "open" && !poolFull;
+  const canExitPool = userJoinedEffective && pool.status === "open";
   const showJoinActions = (canFirstJoin || canBuyMore) && !vipLocked;
   const joinDisabled =
     joining ||
@@ -689,7 +732,13 @@ export default function PoolDetailPage() {
             )}
 
             {pool.status === "open" && (
-              <CountdownTimer endTime={pool.endTime} variant="fomo" className="w-full" />
+              noTimeLimit ? (
+                <div className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-xs text-primary font-medium">
+                  No time limit on this pool. Admin will close it manually.
+                </div>
+              ) : (
+                <CountdownTimer endTime={pool.endTime} variant="fomo" className="w-full" />
+              )
             )}
 
             <div className="flex justify-between text-sm">
@@ -773,6 +822,11 @@ export default function PoolDetailPage() {
                       </div>
                     </div>
                   )}
+                  {canExitPool && (
+                    <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                      Pre-exit is available: if you leave now, exit charge is <span className="font-semibold">{(feePerListEntry * 0.5).toFixed(2)} USDT per ticket</span> (50% of platform fee).
+                    </div>
+                  )}
                   {showJoinActions && !freeThisPurchase && spotsLeft > 0 && (
                     <div className="flex items-center justify-between gap-3 text-sm">
                       <span className="text-muted-foreground">Tickets</span>
@@ -836,6 +890,17 @@ export default function PoolDetailPage() {
                             ? `Join with ${ticketQty} tickets — ${netFromWallet.toFixed(2)} USDT from wallet`
                             : `Join pool — ${netFromWallet.toFixed(2)} USDT from wallet`}
                   </Button>
+                  {canExitPool && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full border-amber-500/40 text-amber-200 hover:bg-amber-500/10"
+                      onClick={() => void handleExitPool()}
+                      disabled={exiting}
+                    >
+                      {exiting ? "Exiting..." : "Exit pool now"}
+                    </Button>
+                  )}
                   {!user && (
                     <p className="text-xs text-center text-muted-foreground">
                       <a href="/login" className="text-primary underline">Login</a> to join this pool

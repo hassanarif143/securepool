@@ -97,6 +97,7 @@ function formatPool(
       ? parseFloat(String(overrideRaw))
       : null;
   const winnerCount = pool.winnerCount ?? 3;
+  const noTimeLimit = new Date(pool.endTime).getUTCFullYear() >= 2099;
   const base = {
     id: pool.id,
     title: pool.title,
@@ -111,6 +112,7 @@ function formatPool(
     prizeSecond,
     prizeThird,
     winnerCount,
+    noTimeLimit,
     createdAt: pool.createdAt,
     minPoolVipTier: pool.minPoolVipTier ?? "bronze",
     loserRefundIfNotWinListUsdt,
@@ -135,6 +137,11 @@ function formatPool(
     };
   }
   return base;
+}
+
+function preExitChargeUsdt(entryFee: number, poolPlatformFeeOverride: string | null, ticketCount: number): number {
+  const feePerTicket = platformFeePerJoinUsdt(entryFee, poolPlatformFeeOverride);
+  return Number((feePerTicket * 0.5 * Math.max(1, ticketCount)).toFixed(2));
 }
 
 router.get("/", async (req, res) => {
@@ -1173,6 +1180,111 @@ router.post("/:poolId/join", async (req, res) => {
       : null,
     streak: engagement.streak,
   });
+});
+
+router.post("/:poolId/exit", async (req, res) => {
+  const poolId = parseInt(req.params.poolId, 10);
+  if (isNaN(poolId)) {
+    res.status(400).json({ error: "Invalid pool ID" });
+    return;
+  }
+  const userId = getAuthedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  if (!pool) {
+    res.status(404).json({ error: "Pool not found" });
+    return;
+  }
+  if (pool.status !== "open") {
+    res.status(400).json({ error: "Pool exit is allowed only while pool is open." });
+    return;
+  }
+
+  try {
+    const out = await db.transaction(async (tx) => {
+      const [participant] = await tx
+        .select()
+        .from(poolParticipantsTable)
+        .where(and(eq(poolParticipantsTable.poolId, poolId), eq(poolParticipantsTable.userId, userId)))
+        .limit(1);
+      if (!participant) {
+        const e = new Error("NOT_IN_POOL");
+        (e as { code?: string }).code = "NOT_IN_POOL";
+        throw e;
+      }
+
+      const [user] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      if (!user) {
+        const e = new Error("USER_NOT_FOUND");
+        (e as { code?: string }).code = "USER_NOT_FOUND";
+        throw e;
+      }
+
+      const ticketCount = Math.max(1, participant.ticketCount ?? 1);
+      const amountPaid = Number(parseFloat(String(participant.amountPaid ?? "0")).toFixed(2));
+      const entryFee = parseFloat(pool.entryFee);
+      const charge = preExitChargeUsdt(entryFee, pool.platformFeePerJoin, ticketCount);
+      const chargeApplied = Math.min(Math.max(0, amountPaid), charge);
+      const refundAmount = Number(Math.max(0, amountPaid - chargeApplied).toFixed(2));
+
+      if (refundAmount > 0) {
+        const before = parseUserBuckets(user);
+        const after = processRefund(before, refundAmount);
+        await tx
+          .update(usersTable)
+          .set({
+            bonusBalance: after.bonusBalance.toFixed(2),
+            withdrawableBalance: after.withdrawableBalance.toFixed(2),
+            walletBalance: walletBalanceFromBuckets(after),
+          })
+          .where(eq(usersTable.id, userId));
+        await tx.insert(transactionsTable).values({
+          userId,
+          txType: "pool_refund",
+          amount: String(refundAmount),
+          status: "completed",
+          note: `Pre-exit refund — ${pool.title} — refund ${refundAmount} USDT after ${chargeApplied} USDT exit charge (50% of platform fee)`,
+        });
+      }
+
+      if (chargeApplied > 0) {
+        await appendPoolJoinPlatformFee(tx, {
+          poolId,
+          userId,
+          amount: chargeApplied,
+          description: `Pre-exit charge — pool #${poolId} (${ticketCount} ticket${ticketCount === 1 ? "" : "s"})`,
+        });
+      }
+
+      await tx.delete(poolTicketsTable).where(and(eq(poolTicketsTable.poolId, poolId), eq(poolTicketsTable.userId, userId)));
+      await tx.delete(poolParticipantsTable).where(eq(poolParticipantsTable.id, participant.id));
+      await mirrorAvailableFromUser(tx, userId);
+
+      return { refundAmount, chargeApplied, ticketCount };
+    });
+
+    res.json({
+      message: "Exited pool successfully",
+      refundAmount: out.refundAmount,
+      exitCharge: out.chargeApplied,
+      ticketCount: out.ticketCount,
+    });
+  } catch (err: unknown) {
+    const code = (err as { code?: string }).code ?? "";
+    if (code === "NOT_IN_POOL") {
+      res.status(400).json({ error: "You are not in this pool." });
+      return;
+    }
+    if (code === "USER_NOT_FOUND") {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    res.status(500).json({ error: "Failed to exit pool" });
+  }
 });
 
 async function executePoolDistribution(

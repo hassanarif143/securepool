@@ -586,6 +586,7 @@ function PoolsTab() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editEndTime, setEditEndTime] = useState("");
+  const [editNoTimeLimit, setEditNoTimeLimit] = useState(false);
   const [editMinPoolVipTier, setEditMinPoolVipTier] = useState<ActivityTier>("bronze");
   const [editPlatformFeePerJoin, setEditPlatformFeePerJoin] = useState("");
   const [initialPlatformFeePerJoin, setInitialPlatformFeePerJoin] = useState("");
@@ -614,8 +615,14 @@ function PoolsTab() {
     setEditingId(pool.id);
     setEditTitle(pool.title);
     const dt = new Date(pool.endTime);
-    dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
-    setEditEndTime(dt.toISOString().slice(0, 16));
+    const noLimit = dt.getUTCFullYear() >= 2099;
+    setEditNoTimeLimit(noLimit);
+    if (noLimit) {
+      setEditEndTime("");
+    } else {
+      dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+      setEditEndTime(dt.toISOString().slice(0, 16));
+    }
     const t = pool.minPoolVipTier as ActivityTier | undefined;
     setEditMinPoolVipTier(t && ["bronze", "silver", "gold", "diamond"].includes(t) ? t : "bronze");
     const raw =
@@ -633,9 +640,13 @@ function PoolsTab() {
     try {
       const data: UpdatePoolBody = {
         title: editTitle,
-        endTime: new Date(editEndTime).toISOString(),
         minPoolVipTier: editMinPoolVipTier,
       };
+      if (editNoTimeLimit) {
+        data.endTime = new Date("2099-12-31T23:59:59.000Z").toISOString();
+      } else {
+        data.endTime = new Date(editEndTime).toISOString();
+      }
       const cur = editPlatformFeePerJoin.trim();
       const init = initialPlatformFeePerJoin.trim();
       if (cur !== init) {
@@ -981,8 +992,17 @@ function PoolsTab() {
                     <Label className="text-xs text-muted-foreground mb-1.5 block">End Date & Time</Label>
                     <Input type="datetime-local" value={editEndTime}
                       onChange={(e) => setEditEndTime(e.target.value)} className="h-9" />
+                    <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={editNoTimeLimit}
+                        onChange={(e) => setEditNoTimeLimit(e.target.checked)}
+                        className="rounded border-border"
+                      />
+                      No time limit (pool stays open until admin ends it)
+                    </label>
                     <p className="text-[11px] text-muted-foreground mt-1">
-                      Currently: {new Date(pool.endTime).toLocaleString()}
+                      Currently: {new Date(pool.endTime).getUTCFullYear() >= 2099 ? "No time limit" : new Date(pool.endTime).toLocaleString()}
                     </p>
                   </div>
                   <div>
@@ -1106,8 +1126,14 @@ function PoolsTab() {
                   <div className="rounded-xl px-3 py-2.5"
                     style={{ background: "hsl(222,28%,12%)", border: "1px solid hsl(217,28%,16%)" }}>
                     <p className="text-muted-foreground mb-1">⏰ Ends</p>
-                    <p className="font-medium text-foreground/80">{new Date(pool.endTime).toLocaleDateString()}</p>
-                    <p className="text-muted-foreground">{new Date(pool.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+                    {new Date(pool.endTime).getUTCFullYear() >= 2099 ? (
+                      <p className="font-medium text-primary">No time limit</p>
+                    ) : (
+                      <>
+                        <p className="font-medium text-foreground/80">{new Date(pool.endTime).toLocaleDateString()}</p>
+                        <p className="text-muted-foreground">{new Date(pool.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+                      </>
+                    )}
                   </div>
                   <div className="rounded-xl px-3 py-2.5"
                     style={{ background: "hsl(222,28%,12%)", border: "1px solid hsl(217,28%,16%)" }}>
@@ -1292,6 +1318,7 @@ function CreatePoolTab() {
     maxUsers: 50,
     startTime: localDatetimeValue(now),
     endTime: localDatetimeValue(defaultEnd),
+    noTimeLimit: false,
     prizeFirst: 100,
     prizeSecond: 50,
     prizeThird: 30,
@@ -1304,7 +1331,7 @@ function CreatePoolTab() {
   function setDuration(days: number) {
     const start = new Date();
     const end = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
-    setForm((f) => ({ ...f, startTime: localDatetimeValue(start), endTime: localDatetimeValue(end) }));
+    setForm((f) => ({ ...f, startTime: localDatetimeValue(start), endTime: localDatetimeValue(end), noTimeLimit: false }));
   }
 
   const totalPrize = poolPaidPrizeTotal(form);
@@ -1320,7 +1347,7 @@ function CreatePoolTab() {
   const maxNetCollected = netToPoolPerTicket * (form.maxUsers || 0);
   const totalPlatformFeesIfFull = platformFeePerJoin * (form.maxUsers || 0);
   const estimatedPoolMargin = maxNetCollected - totalPrize;
-  const durationMs = new Date(form.endTime).getTime() - new Date(form.startTime).getTime();
+  const durationMs = form.noTimeLimit ? 0 : new Date(form.endTime).getTime() - new Date(form.startTime).getTime();
   const durationDays = Math.max(0, Math.round(durationMs / 86400000));
 
   function handleSubmit(e: React.FormEvent) {
@@ -1342,6 +1369,9 @@ function CreatePoolTab() {
       }
       optionalPlatformFee = n;
     }
+    const endIso = form.noTimeLimit
+      ? new Date("2099-12-31T23:59:59.000Z").toISOString()
+      : new Date(form.endTime).toISOString();
     createPool.mutate(
       {
         data: {
@@ -1349,7 +1379,7 @@ function CreatePoolTab() {
           entryFee: form.entryFee,
           maxUsers: form.maxUsers,
           startTime: new Date(form.startTime).toISOString(),
-          endTime: new Date(form.endTime).toISOString(),
+          endTime: endIso,
           prizeFirst: form.prizeFirst,
           prizeSecond: form.prizeSecond,
           prizeThird: form.prizeThird,
@@ -1370,6 +1400,7 @@ function CreatePoolTab() {
             maxUsers: 50,
             startTime: localDatetimeValue(now2),
             endTime: localDatetimeValue(end2),
+            noTimeLimit: false,
             prizeFirst: 100,
             prizeSecond: 50,
             prizeThird: 30,
@@ -1571,9 +1602,19 @@ function CreatePoolTab() {
                     value={form.endTime}
                     onChange={(e) => setForm({ ...form, endTime: e.target.value })}
                     className="h-10 text-sm"
+                    disabled={form.noTimeLimit}
                   />
                 </div>
               </div>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={form.noTimeLimit}
+                  onChange={(e) => setForm({ ...form, noTimeLimit: e.target.checked })}
+                  className="rounded border-border"
+                />
+                No time limit (pool remains open until admin manually ends it)
+              </label>
               {durationDays > 0 && (
                 <p className="text-xs text-primary font-medium">
                   ⏳ Duration: {durationDays} day{durationDays !== 1 ? "s" : ""}

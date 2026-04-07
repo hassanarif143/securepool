@@ -33,6 +33,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
   const fillPercent = pool.maxUsers > 0 ? Math.round((pool.participantCount / pool.maxUsers) * 100) : 0;
   const almostFull = fillPercent > 80;
   const isFull = pool.participantCount >= pool.maxUsers;
+  const noTimeLimit = new Date(pool.endTime).getUTCFullYear() >= 2099;
   const showRevealState = (pool.status === "open" || pool.status === "closed") && isFull;
   const wc = poolWinnerCount(pool);
 
@@ -82,9 +83,14 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
           )}
         </div>
 
-        {pool.status === "open" && (
-          <CountdownTimer endTime={pool.endTime} variant="fomo" className="w-full" />
-        )}
+        {pool.status === "open" &&
+          (noTimeLimit ? (
+            <div className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-xs text-primary font-medium">
+              No time limit - admin will end manually
+            </div>
+          ) : (
+            <CountdownTimer endTime={pool.endTime} variant="fomo" className="w-full" />
+          ))}
 
         <div className="grid grid-cols-2 gap-2.5">
           <StatBox label="Entry fee" value={`$${pool.entryFee} USDT`} />
