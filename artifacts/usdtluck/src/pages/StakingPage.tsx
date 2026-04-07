@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { appToast } from "@/components/feedback/AppToast";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
+import { ConfirmActionModal } from "@/components/feedback/ConfirmActionModal";
 
 type StakeRow = {
   id: number;
@@ -27,6 +28,9 @@ export default function StakingPage() {
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<StakeRow[]>([]);
   const [cfg, setCfg] = useState({ lockDays: 15, minStakeUsdt: 10, apr: 0.1 });
+  const [earlyUnstakeTarget, setEarlyUnstakeTarget] = useState<StakeRow | null>(null);
+  const [claimTarget, setClaimTarget] = useState<StakeRow | null>(null);
+  const [unstaking, setUnstaking] = useState(false);
 
   async function refresh() {
     const [cfgRes, meRes] = await Promise.all([
@@ -79,13 +83,40 @@ export default function StakingPage() {
     }
   }
 
+  async function unstake(stakeId: number) {
+    setUnstaking(true);
+    try {
+      const res = await fetch(apiUrl("/api/staking/unstake"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stakeId }),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      const data = (await res.json()) as { rewardForfeited?: boolean; principalUsdt?: number };
+      appToast.success({
+        title: data.rewardForfeited ? "Unstaked early" : "Stake returned",
+        description: data.rewardForfeited
+          ? `Principal ${Number(data.principalUsdt ?? 0).toFixed(2)} USDT returned. No reward (unlock time not reached).`
+          : "Principal and reward credited to your withdrawable balance.",
+      });
+      await refresh();
+      await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+    } catch (e: unknown) {
+      appToast.error({ title: "Unstake failed", description: String(e) });
+    } finally {
+      setUnstaking(false);
+    }
+  }
+
   return (
     <div className="max-w-5xl mx-auto space-y-5">
       <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">Staking center</p>
         <h1 className="text-2xl font-bold mt-1">Lock USDT, earn on maturity</h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Stake only from your withdrawable balance. Funds remain locked for {cfg.lockDays} days and then return to wallet with reward.
+          Stake only from your withdrawable balance. After {cfg.lockDays} days you receive principal plus reward. You can unstake anytime before
+          that; you get your principal back but no reward.
         </p>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
@@ -173,7 +204,9 @@ export default function StakingPage() {
           {active.length === 0 ? (
             <p className="text-sm text-muted-foreground">No active stakes yet. Create your first stake above.</p>
           ) : (
-            active.map((r) => (
+            active.map((r) => {
+              const beforeUnlock = new Date(r.unlockAt).getTime() > Date.now();
+              return (
               <div key={r.id} className="rounded-xl border border-border/70 p-3.5 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="space-y-1">
                   <p className="font-medium">
@@ -186,19 +219,42 @@ export default function StakingPage() {
                     Unlocks: {new Date(r.unlockAt).toLocaleString()}
                   </p>
                 </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-xs text-muted-foreground">Reward on maturity</p>
-                  <p className="font-semibold text-emerald-400">+{r.rewardUsdt.toFixed(2)} USDT</p>
-                  <span
-                    className={`inline-block mt-1 text-xs px-2 py-1 rounded ${
-                      r.canRedeemNow ? "bg-emerald-500/15 text-emerald-300" : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {r.canRedeemNow ? "Ready to redeem" : "Still locked"}
-                  </span>
+                <div className="text-left sm:text-right space-y-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">{beforeUnlock ? "Reward if you wait until unlock" : "Reward included when you claim"}</p>
+                    <p className="font-semibold text-emerald-400">+{r.rewardUsdt.toFixed(2)} USDT</p>
+                    <span
+                      className={`inline-block mt-1 text-xs px-2 py-1 rounded ${
+                        r.canRedeemNow ? "bg-emerald-500/15 text-emerald-300" : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {beforeUnlock ? "Locked" : r.canRedeemNow ? "Unlocked" : "Eligible"}
+                    </span>
+                  </div>
+                  {beforeUnlock ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                      onClick={() => setEarlyUnstakeTarget(r)}
+                    >
+                      Unstake early
+                    </Button>
+                  ) : r.canRedeemNow ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                      onClick={() => setClaimTarget(r)}
+                    >
+                      Claim principal + reward
+                    </Button>
+                  ) : null}
                 </div>
               </div>
-            ))
+            );
+            })
           )}
         </CardContent>
       </Card>
@@ -218,15 +274,59 @@ export default function StakingPage() {
                   <p className="text-xs text-muted-foreground">
                     Completed: {r.completedAt ? new Date(r.completedAt).toLocaleString() : "-"}
                   </p>
+                  {r.rewardUsdt <= 0 && (
+                    <p className="text-[11px] text-amber-500/90 mt-1">Early unstake — principal only</p>
+                  )}
                 </div>
                 <p className="font-semibold">
-                  {r.principalUsdt.toFixed(2)} + {r.rewardUsdt.toFixed(2)} USDT
+                  {r.rewardUsdt > 0
+                    ? `${r.principalUsdt.toFixed(2)} + ${r.rewardUsdt.toFixed(2)} USDT`
+                    : `${r.principalUsdt.toFixed(2)} USDT`}
                 </p>
               </div>
             ))
           )}
         </CardContent>
       </Card>
+
+      <ConfirmActionModal
+        open={earlyUnstakeTarget != null}
+        title="Unstake early?"
+        description={
+          earlyUnstakeTarget
+            ? `You get ${earlyUnstakeTarget.principalUsdt.toFixed(2)} USDT back now. You will not receive the ${earlyUnstakeTarget.rewardUsdt.toFixed(2)} USDT reward because unlock time has not passed.`
+            : ""
+        }
+        confirmLabel="Return principal only"
+        cancelLabel="Keep staking"
+        loading={unstaking}
+        onCancel={() => setEarlyUnstakeTarget(null)}
+        onConfirm={() => {
+          if (!earlyUnstakeTarget) return;
+          const id = earlyUnstakeTarget.id;
+          setEarlyUnstakeTarget(null);
+          void unstake(id);
+        }}
+      />
+      <ConfirmActionModal
+        open={claimTarget != null}
+        title="Claim stake?"
+        description={
+          claimTarget
+            ? `You receive ${claimTarget.principalUsdt.toFixed(2)} USDT + ${claimTarget.rewardUsdt.toFixed(2)} USDT reward (${(claimTarget.principalUsdt + claimTarget.rewardUsdt).toFixed(2)} USDT total) to your withdrawable balance.`
+            : ""
+        }
+        confirmLabel="Claim now"
+        cancelLabel="Cancel"
+        loading={unstaking}
+        onCancel={() => setClaimTarget(null)}
+        onConfirm={() => {
+          if (!claimTarget) return;
+          const id = claimTarget.id;
+          setClaimTarget(null);
+          void unstake(id);
+        }}
+      />
     </div>
   );
 }

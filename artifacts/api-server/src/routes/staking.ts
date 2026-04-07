@@ -172,4 +172,99 @@ router.post("/lock", async (req, res) => {
   res.json({ message: "Stake created", ...out });
 });
 
+/** Return principal (+ reward only after unlock time). Early unstake forfeits reward. */
+router.post("/unstake", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  if (!(await assertEmailVerified(res, userId))) return;
+
+  const parsed = z.object({ stakeId: z.coerce.number().int().positive() }).safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", message: parsed.error.message });
+    return;
+  }
+  const { stakeId } = parsed.data;
+  const now = new Date();
+
+  const out = await db.transaction(async (tx) => {
+    const [closed] = await tx
+      .update(usdtStakesTable)
+      .set({ status: "completed", completedAt: now })
+      .where(
+        and(
+          eq(usdtStakesTable.id, stakeId),
+          eq(usdtStakesTable.userId, userId),
+          eq(usdtStakesTable.status, "active"),
+        ),
+      )
+      .returning();
+    if (!closed) {
+      const [exists] = await tx
+        .select({ id: usdtStakesTable.id })
+        .from(usdtStakesTable)
+        .where(and(eq(usdtStakesTable.id, stakeId), eq(usdtStakesTable.userId, userId)))
+        .limit(1);
+      throw new Error(exists ? "NOT_ACTIVE" : "NOT_FOUND");
+    }
+
+    const principal = toNum(closed.principalUsdt);
+    const potentialReward = toNum(closed.rewardUsdt);
+    const matured = new Date(closed.unlockAt).getTime() <= now.getTime();
+    const reward = matured ? potentialReward : 0;
+
+    const [u] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (!u) throw new Error("USER_NOT_FOUND");
+    const wd = toNum(u.withdrawableBalance);
+    const bonus = toNum(u.bonusBalance);
+    const nextWd = wd + principal + reward;
+    const nextWallet = (bonus + nextWd).toFixed(2);
+
+    await tx
+      .update(usersTable)
+      .set({ withdrawableBalance: nextWd.toFixed(2), walletBalance: nextWallet })
+      .where(eq(usersTable.id, userId));
+
+    await tx.insert(transactionsTable).values({
+      userId,
+      txType: "stake_release",
+      amount: String((principal + reward).toFixed(2)),
+      status: "completed",
+      note: matured
+        ? `Stake redeemed #${stakeId} — principal ${principal.toFixed(2)} + reward ${reward.toFixed(2)} USDT`
+        : `Stake early unstake #${stakeId} — principal ${principal.toFixed(2)} USDT (reward forfeited)`,
+    });
+    await recordStakeReturnCredit(tx, { userId, principal, reward, balanceAfter: toNum(nextWallet), stakeId });
+    await mirrorAvailableFromUser(tx, userId);
+    return { principal, reward, matured };
+  }).catch((e: unknown) => {
+    const m = e instanceof Error ? e.message : "ERR";
+    if (m === "NOT_FOUND") return "NOT_FOUND";
+    if (m === "NOT_ACTIVE") return "NOT_ACTIVE";
+    if (m === "USER_NOT_FOUND") return "USER_NOT_FOUND";
+    throw e;
+  });
+
+  if (out === "NOT_FOUND") {
+    res.status(404).json({ error: "Stake not found" });
+    return;
+  }
+  if (out === "NOT_ACTIVE") {
+    res.status(400).json({ error: "Stake is not active" });
+    return;
+  }
+  if (out === "USER_NOT_FOUND") {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  res.json({
+    message: out.matured ? "Stake redeemed" : "Early unstake completed",
+    principalUsdt: out.principal,
+    rewardUsdt: out.reward,
+    rewardForfeited: !out.matured,
+  });
+});
+
 export default router;
