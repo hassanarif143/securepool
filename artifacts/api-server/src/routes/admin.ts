@@ -2130,8 +2130,6 @@ const PatchRewardsConfig = z.object({
   poolJoinMilestoneRewardPoints: z.number().int().nonnegative().optional(),
   pointsPerPoolJoin: z.number().int().nonnegative().optional(),
   poolJoinRewardEvery: z.number().int().positive().optional(),
-  referralPointsPerSuccessfulJoin: z.number().int().nonnegative().optional(),
-  referralPointsForFreeEntry: z.number().int().positive().optional(),
 });
 
 router.patch("/rewards/config", async (req, res) => {

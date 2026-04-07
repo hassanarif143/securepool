@@ -160,6 +160,8 @@ export default function DashboardPage() {
   const animOpenPools = useAnimatedNumber(openPoolCount);
   const animWins = useAnimatedNumber(winCount);
   const animMyEntries = useAnimatedNumber(activeEntryCount);
+  const rewardPoints = user?.rewardPoints ?? 0;
+  const rewardPointsUsdt = rewardPoints / 300;
 
   useEffect(() => {
     if (!user) return;
@@ -414,7 +416,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="grid grid-rows-3 gap-3">
+        <div className="grid grid-rows-4 gap-3">
           {[
             {
               label: "Open pools",
@@ -439,6 +441,14 @@ export default function DashboardPage() {
               href: "/pools",
               accent: activeEntryCount > 0,
               icon: "🎟️",
+            },
+            {
+              label: "Reward points",
+              sub: `${rewardPointsUsdt.toFixed(2)} USDT entry value`,
+              value: rewardPoints,
+              href: "/wallet",
+              accent: rewardPoints > 0,
+              icon: "⭐",
             },
           ].map((s) => (
             <Link key={s.label} href={s.href}>

@@ -167,8 +167,6 @@ function RewardsConfigTab() {
         poolJoinMilestoneRewardPoints: Number(cfg.poolJoinMilestoneRewardPoints ?? 0),
         pointsPerPoolJoin: Number(cfg.pointsPerPoolJoin ?? 0),
         poolJoinRewardEvery: Number(cfg.poolJoinRewardEvery ?? 1),
-        referralPointsPerSuccessfulJoin: Number(cfg.referralPointsPerSuccessfulJoin ?? 0),
-        referralPointsForFreeEntry: Number(cfg.referralPointsForFreeEntry ?? 1),
         streakRewardPoints: cfg.streakRewardPoints ?? {},
         referralTierMilestones: cfg.referralTierMilestones ?? [],
       };
@@ -234,10 +232,6 @@ function RewardsConfigTab() {
 
           <details className="rounded-lg border border-border/60 bg-muted/20 p-3">
             <summary className="cursor-pointer text-sm font-semibold">Referral program rewards</summary>
-            <div className="mt-3 grid sm:grid-cols-2 gap-3">
-              <NumberField label="Referral points per successful join" value={cfg.referralPointsPerSuccessfulJoin} onChange={(v) => setCfg({ ...cfg, referralPointsPerSuccessfulJoin: v })} />
-              <NumberField label="Referral points needed for free entry" value={cfg.referralPointsForFreeEntry} onChange={(v) => setCfg({ ...cfg, referralPointsForFreeEntry: v })} />
-            </div>
             <div className="mt-3 space-y-2">
               {(cfg.referralTierMilestones ?? []).map((m: any, i: number) => (
                 <div key={i} className="grid grid-cols-2 gap-3">

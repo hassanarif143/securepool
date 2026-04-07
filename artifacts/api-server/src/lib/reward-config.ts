@@ -12,8 +12,6 @@ export type RewardConfig = {
   poolJoinMilestoneRewardPoints: number;
   pointsPerPoolJoin: number;
   poolJoinRewardEvery: number;
-  referralPointsPerSuccessfulJoin: number;
-  referralPointsForFreeEntry: number;
 };
 
 export const DEFAULT_REWARD_CONFIG: RewardConfig = {
@@ -33,8 +31,6 @@ export const DEFAULT_REWARD_CONFIG: RewardConfig = {
   poolJoinMilestoneRewardPoints: 10,
   pointsPerPoolJoin: 15,
   poolJoinRewardEvery: 5,
-  referralPointsPerSuccessfulJoin: 1,
-  referralPointsForFreeEntry: 5,
 };
 
 function toNum(v: unknown, fallback: number): number {
@@ -72,8 +68,6 @@ export function normalizeRewardConfig(raw: unknown): RewardConfig {
     poolJoinMilestoneRewardPoints: Math.max(0, Math.floor(toNum(j.poolJoinMilestoneRewardPoints, DEFAULT_REWARD_CONFIG.poolJoinMilestoneRewardPoints))),
     pointsPerPoolJoin: Math.max(0, Math.floor(toNum(j.pointsPerPoolJoin, DEFAULT_REWARD_CONFIG.pointsPerPoolJoin))),
     poolJoinRewardEvery: Math.max(1, Math.floor(toNum(j.poolJoinRewardEvery, DEFAULT_REWARD_CONFIG.poolJoinRewardEvery))),
-    referralPointsPerSuccessfulJoin: Math.max(0, Math.floor(toNum(j.referralPointsPerSuccessfulJoin, DEFAULT_REWARD_CONFIG.referralPointsPerSuccessfulJoin))),
-    referralPointsForFreeEntry: Math.max(1, Math.floor(toNum(j.referralPointsForFreeEntry, DEFAULT_REWARD_CONFIG.referralPointsForFreeEntry))),
   };
 }
 

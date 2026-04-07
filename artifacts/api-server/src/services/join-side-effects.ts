@@ -3,8 +3,6 @@ import { eq } from "drizzle-orm";
 import { logActivity } from "./activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { notifyUser } from "../lib/notify";
-import { getActiveLuckyHourMultiplier } from "./lucky-hour-service";
-import { grantReferralPointsWithExpiry } from "./points-ledger-service";
 import { createMysteryReward, type MysteryRewardRow } from "./mystery-reward-service";
 import { applyStreakOnPoolJoin, type StreakUpdateResult } from "./streak-service";
 import { getRewardConfig } from "../lib/reward-config";
@@ -126,60 +124,6 @@ export async function runJoinSideEffects(opts: {
     mysteryReward = await createMysteryReward(userId, nextJoins);
     if (mysteryReward) {
       void notifyUser(userId, "Mystery reward!", "You unlocked a mystery box — open it on your dashboard.", "success");
-    }
-  }
-
-  const referredBy = u.referredBy;
-  if (referredBy) {
-    const [referrer] = await db.select().from(usersTable).where(eq(usersTable.id, referredBy)).limit(1);
-    if (referrer) {
-      const { multiplier } = await getActiveLuckyHourMultiplier();
-      const pointsToAdd = (multiplier >= 2 ? multiplier : 1) * rewardCfg.referralPointsPerSuccessfulJoin;
-      let refPoints = (referrer.referralPoints ?? 0) + pointsToAdd;
-      let refFree = referrer.freeEntries ?? 0;
-
-      await grantReferralPointsWithExpiry(
-        referrer.id,
-        pointsToAdd,
-        "referral",
-        pointsToAdd > 1 ? `Referred friend joined (Lucky Hour x${multiplier})` : "Referred friend joined a pool",
-      );
-
-      if (refPoints >= rewardCfg.referralPointsForFreeEntry) {
-        refPoints -= rewardCfg.referralPointsForFreeEntry;
-        refFree += 1;
-        await logActivity({
-          type: "referral_point",
-          message: `${who} joined a pool — you earned a free entry from referrals.`,
-          userId: referrer.id,
-          poolId,
-          metadata: { referredUserId: userId },
-        });
-        void notifyUser(
-          referrer.id,
-          "Referral milestone",
-          `${who} joined a pool. You earned 1 free entry (${rewardCfg.referralPointsForFreeEntry} referral points).`,
-          "success",
-        );
-      } else {
-        await logActivity({
-          type: "referral_point",
-          message: `${who} joined a pool — referral progress ${refPoints}/5.`,
-          userId: referrer.id,
-          poolId,
-        });
-        void notifyUser(
-          referrer.id,
-          "Referral progress",
-          `${who} joined a pool. Points: ${refPoints}/${rewardCfg.referralPointsForFreeEntry} toward a free entry.`,
-          "info",
-        );
-      }
-
-      await db
-        .update(usersTable)
-        .set({ referralPoints: refPoints, freeEntries: refFree })
-        .where(eq(usersTable.id, referrer.id));
     }
   }
 
