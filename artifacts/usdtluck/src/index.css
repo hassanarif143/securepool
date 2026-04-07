@@ -254,6 +254,128 @@
   }
 }
 
+/* Landing hero — crypto / exchange-style atmosphere (dark grid + emerald + gold accents) */
+@keyframes landing-crypto-glow-drift {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: translate3d(2%, -3%, 0) scale(1.03);
+  }
+}
+
+@keyframes landing-crypto-glow-drift-alt {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translate3d(0, 0, 0) scale(1.05);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translate3d(-3%, 2%, 0) scale(1);
+  }
+}
+
+.landing-crypto-hero-shell {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 1.75rem;
+  border: 1px solid hsla(160, 65%, 40%, 0.22);
+  background: linear-gradient(165deg, hsl(220 22% 7%) 0%, hsl(220 24% 4%) 45%, hsl(215 28% 3%) 100%);
+  box-shadow:
+    0 0 0 1px hsla(45, 93%, 47%, 0.06),
+    0 28px 80px -28px rgba(0, 0, 0, 0.85),
+    0 0 120px -40px hsla(160, 72%, 45%, 0.12);
+}
+
+.landing-crypto-hero-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(hsla(160, 50%, 50%, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, hsla(160, 50%, 50%, 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 85% 70% at 50% 35%, black 20%, transparent 75%);
+  pointer-events: none;
+}
+
+.landing-crypto-hero-glow-a {
+  position: absolute;
+  width: min(100%, 520px);
+  height: min(70vh, 420px);
+  left: 50%;
+  top: -12%;
+  transform: translateX(-50%);
+  z-index: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    hsla(160, 72%, 42%, 0.22) 0%,
+    hsla(200, 70%, 35%, 0.08) 42%,
+    transparent 68%
+  );
+  filter: blur(36px);
+  animation: landing-crypto-glow-drift 14s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.landing-crypto-hero-glow-b {
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  right: -8%;
+  bottom: -5%;
+  z-index: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, hsla(45, 93%, 52%, 0.14) 0%, transparent 65%);
+  filter: blur(28px);
+  animation: landing-crypto-glow-drift-alt 18s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.landing-crypto-hero-glow-c {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  left: -6%;
+  top: 35%;
+  z-index: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, hsla(195, 85%, 45%, 0.1) 0%, transparent 70%);
+  filter: blur(24px);
+  animation: landing-crypto-glow-drift-alt 22s ease-in-out infinite reverse;
+  pointer-events: none;
+}
+
+.landing-crypto-hero-noise {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+.landing-crypto-hero-inner {
+  position: relative;
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-crypto-hero-glow-a,
+  .landing-crypto-hero-glow-b,
+  .landing-crypto-hero-glow-c {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
 /* Celebration overlays — transform + opacity only for GPU-friendly motion */
 @keyframes celebration-scale-pop {
   0% {

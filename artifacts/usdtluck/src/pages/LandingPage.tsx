@@ -102,31 +102,38 @@ export default function LandingPage() {
 
   return (
     <div className="space-y-20 md:space-y-28">
-      {/* Hero */}
+      {/* Hero — crypto / exchange-style backdrop */}
       <section className="relative max-w-4xl mx-auto px-2 sm:px-4">
-        <div
-          className="absolute -inset-x-4 -top-8 bottom-0 rounded-[2rem] opacity-40 pointer-events-none blur-3xl sm:-inset-x-8"
-          style={{
-            background:
-              "radial-gradient(ellipse 70% 50% at 50% 0%, hsla(152,72%,44%,0.2) 0%, transparent 65%), radial-gradient(ellipse 50% 40% at 100% 80%, hsla(200,80%,55%,0.12) 0%, transparent 55%)",
-          }}
-        />
-        <div
-          className="relative text-center rounded-[1.75rem] border border-primary/15 bg-gradient-to-b from-[hsl(222,28%,11%)]/95 via-[hsl(224,30%,9%)]/80 to-transparent px-6 py-12 sm:px-10 sm:py-16 md:py-20 shadow-[0_0_0_1px_hsla(152,72%,44%,0.06),0_25px_80px_-20px_rgba(0,0,0,0.55)] backdrop-blur-sm"
-        >
-          <div className="inline-flex items-center gap-2 bg-primary/[0.12] border border-primary/25 rounded-full px-4 py-2 text-sm text-primary font-semibold mb-6 shadow-sm shadow-primary/5">
-            <span className="relative flex h-2 w-2">
-              <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-40" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+        <div className="landing-crypto-hero-shell px-6 py-12 sm:px-10 sm:py-16 md:py-20">
+          <div className="landing-crypto-hero-glow-a" aria-hidden />
+          <div className="landing-crypto-hero-glow-b" aria-hidden />
+          <div className="landing-crypto-hero-glow-c" aria-hidden />
+          <div className="landing-crypto-hero-noise" aria-hidden />
+          <div className="landing-crypto-hero-inner text-center">
+          <div className="flex flex-wrap justify-center gap-2 mb-5">
+            <span className="inline-flex items-center rounded-lg border border-[#f0b90b]/35 bg-[#f0b90b]/[0.07] px-2.5 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-[#f5d07a]">
+              USDT
             </span>
-            Live USDT reward pools
+            <span className="inline-flex items-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-emerald-400/95">
+              TRC-20
+            </span>
+            <span className="inline-flex items-center rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+              Your wallet · USDT
+            </span>
+          </div>
+          <div className="inline-flex items-center gap-2 bg-primary/[0.1] border border-primary/30 rounded-full px-4 py-2 text-sm text-emerald-400 font-semibold mb-6 shadow-[0_0_24px_-8px_hsla(160,72%,45%,0.45)]">
+            <span className="relative flex h-2 w-2">
+              <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+            </span>
+            Live reward pools · wallet-native
           </div>
           <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-[3.35rem] font-extrabold tracking-tight mb-5 sm:mb-6 leading-[1.1] text-foreground">
             Ticket pools.
             <br />
             <span
               className="text-transparent bg-clip-text"
-              style={{ backgroundImage: "linear-gradient(135deg, #86efac, #4ade80, #16a34a)" }}
+              style={{ backgroundImage: "linear-gradient(135deg, #fde68a, #4ade80, #22c55e, #0d9488)" }}
             >
               Clear rules. Fair draws.
             </span>
@@ -145,12 +152,12 @@ export default function LandingPage() {
           </p>
 
           <div className="flex flex-wrap justify-center gap-3 mb-6 max-w-lg mx-auto">
-            <div className="rounded-xl border border-primary/25 bg-primary/10 px-4 py-2.5 text-center min-w-[8.5rem]">
-              <p className="text-[10px] uppercase tracking-wider text-primary font-semibold">Open draws</p>
+            <div className="rounded-xl border border-emerald-500/25 bg-gradient-to-b from-emerald-500/15 to-transparent px-4 py-2.5 text-center min-w-[8.5rem] shadow-[inset_0_1px_0_0_hsla(160,72%,50%,0.12)]">
+              <p className="text-[10px] uppercase tracking-wider text-emerald-400/90 font-semibold font-mono">Open draws</p>
               <p className="text-2xl font-bold font-display tabular-nums text-foreground">{activePools.length}</p>
             </div>
-            <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-2.5 text-center min-w-[8.5rem]">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Recent results</p>
+            <div className="rounded-xl border border-[#f0b90b]/20 bg-gradient-to-b from-[#f0b90b]/[0.08] to-transparent px-4 py-2.5 text-center min-w-[8.5rem] shadow-[inset_0_1px_0_0_hsla(45,90%,55%,0.1)]">
+              <p className="text-[10px] uppercase tracking-wider text-[#e8c766] font-semibold font-mono">Recent results</p>
               <p className="text-2xl font-bold font-display tabular-nums text-foreground">{recentWinCount}</p>
             </div>
           </div>
@@ -198,7 +205,7 @@ export default function LandingPage() {
           </p>
 
           <nav
-            className="mt-8 sm:mt-10 flex flex-wrap items-center justify-center gap-x-1 gap-y-2.5 text-sm text-muted-foreground px-2 pt-6 border-t border-white/[0.06]"
+            className="mt-8 sm:mt-10 flex flex-wrap items-center justify-center gap-x-1 gap-y-2.5 text-sm text-muted-foreground px-2 pt-6 border-t border-white/[0.08]"
             aria-label="On this page"
           >
             {jumpLinks.map((item, idx) => (
@@ -206,13 +213,14 @@ export default function LandingPage() {
                 {idx > 0 && <span className="text-border/60 px-1 select-none" aria-hidden>|</span>}
                 <a
                   href={item.href}
-                  className="hover:text-primary transition-colors underline-offset-4 hover:underline px-2 py-1 rounded-md hover:bg-white/[0.04]"
+                  className="hover:text-emerald-400 transition-colors underline-offset-4 hover:underline px-2 py-1 rounded-md hover:bg-white/[0.05]"
                 >
                   {item.label}
                 </a>
               </span>
             ))}
           </nav>
+          </div>
         </div>
       </section>
 
