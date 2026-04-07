@@ -36,7 +36,7 @@ export default function MyTicketsPage() {
   const list = tab === "active" ? active : history;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4">
+    <div className="w-full space-y-4">
       <Card>
         <CardHeader>
           <CardTitle>My Tickets</CardTitle>

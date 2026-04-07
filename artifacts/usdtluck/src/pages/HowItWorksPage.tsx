@@ -50,11 +50,11 @@ const faqs = [
 
 export default function HowItWorksPage() {
   return (
-    <div className="max-w-4xl mx-auto space-y-12 sm:space-y-16 pb-16 px-1 sm:px-0">
+    <div className="w-full space-y-12 sm:space-y-16 pb-16">
       <motion.section {...fade} className="text-center pt-2 sm:pt-4">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary mb-3">SecurePool</p>
         <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4 leading-tight">How SecurePool Works</h1>
-        <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed px-2 sm:px-0">
+        <p className="text-base sm:text-lg text-muted-foreground w-full leading-relaxed text-center">
           Simple, transparent, and fair. Here&apos;s everything you need to know.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -94,7 +94,7 @@ export default function HowItWorksPage() {
 
       <section id="fees" className="scroll-mt-24">
         <h2 className="text-2xl font-bold mb-2 text-center">Platform fees &amp; refunds</h2>
-        <p className="text-sm text-muted-foreground text-center mb-6 max-w-xl mx-auto leading-relaxed">
+        <p className="text-sm text-muted-foreground text-center mb-6 w-full max-w-7xl mx-auto leading-relaxed">
           A small platform fee applies on each join (and the same rule applies to what you get back if you don&apos;t win). Here&apos;s the rule in plain language.
         </p>
         <PlatformFeeRuleExplainer variant="full" />
@@ -114,7 +114,7 @@ export default function HowItWorksPage() {
 
       <section className="rounded-2xl border border-emerald-500/20 p-6 md:p-8 text-center" style={{ background: "linear-gradient(135deg, hsla(152,72%,44%,0.08), hsla(222,30%,8%,1))" }}>
         <h2 className="text-xl font-bold mb-4">Trust &amp; security</h2>
-        <div className="grid sm:grid-cols-2 gap-4 text-sm text-muted-foreground text-left max-w-2xl mx-auto">
+        <div className="grid sm:grid-cols-2 gap-4 text-sm text-muted-foreground text-left w-full">
           <div className="flex gap-2"><span>✓</span><span>All deposits and withdrawals verified by admin</span></div>
           <div className="flex gap-2"><span>✓</span><span>Transparent prize distribution</span></div>
           <div className="flex gap-2"><span>✓</span><span>Secure authentication</span></div>

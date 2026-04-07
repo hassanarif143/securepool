@@ -110,7 +110,7 @@ export default function StakingPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5">
+    <div className="w-full space-y-5">
       <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">Staking center</p>
         <h1 className="text-2xl font-bold mt-1">Lock USDT, earn on maturity</h1>

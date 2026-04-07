@@ -37,10 +37,10 @@ export default function PoolsPage() {
       <div className="space-y-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/90">Draws</p>
         <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Pick a pool, buy tickets</h1>
-        <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-2xl">
+        <p className="text-sm sm:text-base text-muted-foreground leading-relaxed w-full">
           Each card shows ticket price, winners, time left, and how full the pool is — same layout everywhere so you can decide fast. Rules stay visible on the pool page before you pay.
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-3xl">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
           <QuickStat label="Open draws" value={String(open.length)} />
           <QuickStat label="Tickets left" value={String(openTickets)} />
           <QuickStat label="Closed" value={String(closed.length)} />

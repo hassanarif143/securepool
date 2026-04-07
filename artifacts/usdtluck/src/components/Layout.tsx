@@ -703,7 +703,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <span className="opacity-40" aria-hidden>▶</span>
           </div>
         </div>
-        <p className="text-center text-xs sm:text-sm text-muted-foreground/90 mt-4 px-4 leading-relaxed max-w-2xl mx-auto">
+        <p className="text-center text-xs sm:text-sm text-muted-foreground/90 mt-4 px-4 leading-relaxed w-full max-w-7xl mx-auto">
           © {new Date().getFullYear()} SecurePool — Transparent USDT Reward Pools
         </p>
       </footer>
