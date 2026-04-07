@@ -421,7 +421,7 @@ export default function PoolDetailPage() {
       if (!usedFree && breakdown && breakdown.grossTotal > 0) {
         toast({
           title: "Payment",
-          description: `${breakdown.netDeductedFromWallet.toFixed(2)} USDT charged from your wallet (ticket total ${breakdown.grossTotal.toFixed(2)} USDT).`,
+          description: `You paid ${breakdown.netDeductedFromWallet.toFixed(2)} USDT.`,
         });
       }
       const luck = (data as { luckyNumbers?: string[] }).luckyNumbers;
@@ -761,12 +761,8 @@ export default function PoolDetailPage() {
                   )}
                   {showJoinActions && !freeThisPurchase && spotsLeft > 0 && grossTicketTotal > 0 && (
                     <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-xs space-y-1">
-                      <div className="flex justify-between gap-2">
-                        <span className="text-muted-foreground">Ticket total</span>
-                        <span className="font-mono">{grossTicketTotal.toFixed(2)} USDT</span>
-                      </div>
-                      <div className="flex justify-between gap-2 font-medium text-foreground border-t border-border/40 pt-1">
-                        <span>From your wallet</span>
+                      <div className="flex justify-between gap-2 font-medium text-foreground">
+                        <span>You pay</span>
                         <span className="font-mono text-primary">{netFromWallet.toFixed(2)} USDT</span>
                       </div>
                     </div>
@@ -812,8 +808,8 @@ export default function PoolDetailPage() {
                   </div>
                   {user && !freeThisPurchase && !canPayJoin && !vipLocked && showJoinActions && (
                     <p className="text-sm text-destructive">
-                      Insufficient balance. You need {netFromWallet.toFixed(2)} USDT from your wallet for {ticketQty} ticket
-                      {ticketQty === 1 ? "" : "s"} (ticket total {grossTicketTotal.toFixed(2)} USDT).{" "}
+                      Insufficient balance. You need {netFromWallet.toFixed(2)} USDT for {ticketQty} ticket
+                      {ticketQty === 1 ? "" : "s"}.{" "}
                       <a href="/wallet" className="underline text-primary">Add funds</a>.
                     </p>
                   )}
@@ -828,10 +824,10 @@ export default function PoolDetailPage() {
                       : freeThisPurchase
                         ? "Join with free entry"
                         : userJoinedEffective
-                          ? `Buy ${ticketQty} ticket(s) — ${netFromWallet.toFixed(2)} USDT from wallet`
+                          ? `Buy ${ticketQty} ticket(s) — ${netFromWallet.toFixed(2)} USDT`
                           : ticketQty > 1
-                            ? `Join with ${ticketQty} tickets — ${netFromWallet.toFixed(2)} USDT from wallet`
-                            : `Join pool — ${netFromWallet.toFixed(2)} USDT from wallet`}
+                            ? `Buy ${ticketQty} tickets — ${netFromWallet.toFixed(2)} USDT`
+                            : `Buy ticket — ${netFromWallet.toFixed(2)} USDT`}
                   </Button>
                   {canExitPool && (
                     <Button
