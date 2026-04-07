@@ -113,7 +113,7 @@ function mapNotification(n: NotifRow): MapResult {
     };
   }
 
-  if (n.title === "Referral milestone" && n.message.includes("free entry")) {
+  if (n.title === "Referral milestone") {
     return {
       kind: "celebration",
       item: {
@@ -123,14 +123,6 @@ function mapNotification(n: NotifRow): MapResult {
         subtitle: away ? "While you were away…" : undefined,
         dedupeKey: `notif-${n.id}`,
       },
-    };
-  }
-
-  if (n.title === "Referral progress") {
-    return {
-      kind: "toast",
-      title: "Referral progress",
-      description: n.message,
     };
   }
 

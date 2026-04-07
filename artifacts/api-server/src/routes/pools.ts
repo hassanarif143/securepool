@@ -51,10 +51,8 @@ import { notifySquadOnMemberWin } from "../services/squad-service";
 import { grantAchievement } from "../services/achievement-service";
 import {
   userMeetsPoolVipRequirement,
-  entryDiscountPercentForTier,
 } from "../services/pool-vip-service";
-import { computeEntryDiscount } from "../services/entry-discount-service";
-import { getActiveComebackCoupon, markCouponUsed } from "../services/coupon-service";
+import { markCouponUsed } from "../services/coupon-service";
 import { computeMinParticipantsToRunDraw, prizeTotalForWinnerSlots } from "../services/draw-economics";
 import {
   appendPlatformFeeForDraw,
@@ -277,22 +275,14 @@ router.get("/details/:poolId", async (req, res) => {
       joinBlocked = true;
     }
     if (u && !vipLocked) {
-      const vipPct = entryDiscountPercentForTier(u.poolVipTier ?? "bronze");
-      const c = await getActiveComebackCoupon(sessionUserId);
-      const couponPct = c.hasCoupon ? (c.discountPercent ?? 10) : 0;
-      const br = computeEntryDiscount({
-        baseFee: entryFee,
-        vipDiscountPercent: vipPct,
-        comebackDiscountPercent: couponPct,
-      });
       entryPricing = {
         baseFee: entryFee,
-        amountDue: br.amountDue,
-        savings: br.savings,
-        totalDiscountPercent: br.totalDiscountPercent,
-        vipDiscountPercent: br.vipDiscountPercent,
-        comebackDiscountPercent: br.comebackDiscountPercent,
-        hasActiveComebackCoupon: c.hasCoupon,
+        amountDue: entryFee,
+        savings: 0,
+        totalDiscountPercent: 0,
+        vipDiscountPercent: 0,
+        comebackDiscountPercent: 0,
+        hasActiveComebackCoupon: false,
         joinPlatformFeeUsdt: platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin),
       };
     }
@@ -942,24 +932,10 @@ router.post("/:poolId/join", async (req, res) => {
   let couponIdToUse: number | undefined;
 
   if (!useFreeEntry) {
-    const vipPct = entryDiscountPercentForTier(user.poolVipTier ?? "bronze");
-    let couponPct = 0;
-    if (applyComeback) {
-      const c = await getActiveComebackCoupon(sessionUserId);
-      if (c.hasCoupon && c.couponId != null) {
-        couponPct = c.discountPercent ?? 10;
-        couponIdToUse = c.couponId;
-      }
-    }
-    const discountBreakdown = computeEntryDiscount({
-      baseFee: entryFee,
-      vipDiscountPercent: vipPct,
-      comebackDiscountPercent: couponPct,
-    });
-    amountDue = discountBreakdown.amountDue;
-    if (discountBreakdown.savings > 0) {
-      txNote = `Joined pool: ${pool.title} — list ${entryFee} USDT; VIP −${discountBreakdown.vipDiscountPercent}% + comeback −${discountBreakdown.comebackDiscountPercent}% (max 25%); paid ${amountDue} USDT per ticket`;
-    }
+    amountDue = entryFee;
+    txNote = `Joined pool: ${pool.title} — paid ${entryFee} USDT per ticket`;
+    void applyComeback;
+    void couponIdToUse;
   }
 
   const grossTotal = useFreeEntry ? 0 : amountDue * ticketQty;

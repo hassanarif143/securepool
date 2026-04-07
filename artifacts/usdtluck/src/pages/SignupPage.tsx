@@ -251,7 +251,7 @@ export default function SignupPage() {
                 What you get
               </p>
               {[
-                { icon: "🎁", title: "First deposit perk", desc: "Up to 1 USDT ticket bonus after your first approved deposit (pools only)" },
+                { icon: "🎁", title: "First deposit perk", desc: "Get welcome reward points after your first approved deposit (for pool entries)" },
                 { icon: "🎱", title: "Access to all pools", desc: "Join any open pool — 10 USDT entry, up to 100 USDT prize" },
                 { icon: "🥉", title: "Bronze tier instantly", desc: "Start earning tier points from your very first pool" },
                 { icon: "💰", title: "Withdraw anytime", desc: "Your wallet balance is always yours to withdraw" },

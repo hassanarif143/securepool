@@ -507,8 +507,8 @@ export default function ProfilePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Loyalty & free entries</CardTitle>
-          <CardDescription>Every 5 reward pool joins earn one free entry. Referral activity also builds points.</CardDescription>
+          <CardTitle className="text-base">Loyalty & rewards</CardTitle>
+          <CardDescription>Track your pool activity, reward points, and any promotional entries in one place.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 pt-0 text-sm">
           <div className="grid grid-cols-2 gap-3">
@@ -521,8 +521,10 @@ export default function ProfilePage() {
               <p className="font-semibold text-primary tabular-nums">{currentUser.freeEntries ?? 0}</p>
             </div>
             <div className="col-span-2">
-              <p className="text-xs text-muted-foreground">Referral points toward free entry</p>
-              <p className="font-semibold tabular-nums">{currentUser.referralPoints ?? 0} pts (5 = 1 free entry)</p>
+              <p className="text-xs text-muted-foreground">Reward points</p>
+              <p className="font-semibold tabular-nums">
+                {currentUser.rewardPoints ?? 0} pts (~{((currentUser.rewardPoints ?? 0) / 300).toFixed(2)} USDT entry value)
+              </p>
             </div>
             {hasLuckyBadge && (
               <div className="col-span-2 flex items-center gap-2 pt-1">

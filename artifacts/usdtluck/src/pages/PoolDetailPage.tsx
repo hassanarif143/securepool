@@ -45,7 +45,7 @@ function streakCelebrationItem(milestone: "3" | "5" | "10" | "20", poolId: numbe
     return {
       kind: "streak" as const,
       title: "🔥 3 draw streak!",
-      message: "+1 USDT added to your withdrawable balance.",
+      message: "Streak reward points added to your account.",
       dedupeKey,
     };
   }
@@ -53,7 +53,7 @@ function streakCelebrationItem(milestone: "3" | "5" | "10" | "20", poolId: numbe
     return {
       kind: "streak" as const,
       title: "🔥 5 draw streak!",
-      message: "+3 USDT added to your withdrawable balance.",
+      message: "Streak reward points added to your account.",
       dedupeKey,
     };
   }
@@ -61,14 +61,14 @@ function streakCelebrationItem(milestone: "3" | "5" | "10" | "20", poolId: numbe
     return {
       kind: "streak" as const,
       title: "🔥 10 draw streak!",
-      message: "+7 USDT added to your withdrawable balance.",
+      message: "Streak reward points added to your account.",
       dedupeKey,
     };
   }
   return {
     kind: "streak" as const,
     title: "🔥 20 draw streak!",
-    message: "+15 USDT added to your withdrawable balance.",
+    message: "Streak reward points added to your account.",
     dedupeKey,
   };
 }
@@ -444,17 +444,17 @@ export default function PoolDetailPage() {
       if (!mile && cs === 2) {
         toast({
           title: "🔥 Streak: 2 draws",
-          description: "One more join within 7 days for +2 referral points!",
+          description: "One more join within 7 days to unlock a streak reward.",
         });
       } else if (!mile && cs === 4) {
         toast({
           title: "🔥 Streak: 4 draws",
-          description: "One more join for a free pool entry (5-pool streak)!",
+          description: "One more join to reach your next streak reward.",
         });
       } else if (!mile && cs === 9) {
         toast({
           title: "🔥 Streak: 9 draws",
-          description: "One more join for 2 free entries (10-pool streak)!",
+          description: "One more join to reach your next streak reward.",
         });
       }
       const mr = (data as { mysteryReward?: { id: number; rewardType: string; rewardValue: number; poolJoinNumber: number } })
@@ -661,20 +661,7 @@ export default function PoolDetailPage() {
             </Button>
           </div>
           <p className="text-muted-foreground flex flex-wrap items-center gap-2">
-            {poolDetails?.entry_pricing && poolDetails.entry_pricing.savings > 0 && !useFreeEntry ? (
-              <>
-                <span>
-                  Join for{" "}
-                  <span className="line-through opacity-60">{pool.entryFee}</span>{" "}
-                  <span className="text-primary font-semibold">{poolDetails.entry_pricing.amountDue}</span> USDT
-                </span>
-                <span className="text-xs text-primary/90">
-                  ({poolDetails.entry_pricing.totalDiscountPercent}% loyalty savings)
-                </span>
-              </>
-            ) : (
-              <>Join for {pool.entryFee} USDT per ticket</>
-            )}
+            <>Join for {pool.entryFee} USDT per ticket</>
             {pool.status === "open" && (
               <span className="text-xs text-muted-foreground">
                 · Non-winners get up to {listRefundUsdt.toFixed(0)} USDT back per list-priced ticket
@@ -744,16 +731,7 @@ export default function PoolDetailPage() {
 
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Entry fee</span>
-              <span className="font-medium text-primary">
-                {poolDetails?.entry_pricing && poolDetails.entry_pricing.savings > 0 ? (
-                  <>
-                    <span className="line-through text-muted-foreground mr-2">{pool.entryFee}</span>
-                    {poolDetails.entry_pricing.amountDue} USDT
-                  </>
-                ) : (
-                  <>{pool.entryFee} USDT</>
-                )}
-              </span>
+              <span className="font-medium text-primary">{pool.entryFee} USDT</span>
             </div>
             {pool.maxUsers > 0 && displayCount / pool.maxUsers >= 0.75 && pool.status === "open" && (
               <div className="pt-2 border-t border-border/40">

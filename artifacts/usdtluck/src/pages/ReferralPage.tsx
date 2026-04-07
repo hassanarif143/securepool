@@ -391,9 +391,9 @@ function TierTicketBonusesSection({
               <Ticket className="h-5 w-5 text-primary" strokeWidth={2} />
             </div>
             <div>
-              <CardTitle className="text-base sm:text-lg font-display tracking-tight">Tier progress (ticket bonuses)</CardTitle>
+              <CardTitle className="text-base sm:text-lg font-display tracking-tight">Tier progress (reward points)</CardTitle>
               <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 leading-relaxed">
-                Unlock extra USDT for pool tickets as your successful referrals add up. Expand any row for details.
+                Unlock extra reward points as your successful referrals add up. Expand any row for details.
               </p>
             </div>
           </div>

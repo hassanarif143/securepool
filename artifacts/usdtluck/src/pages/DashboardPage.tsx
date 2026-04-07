@@ -273,6 +273,21 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: "Your total balance", value: `${(user.walletBalance ?? 0).toFixed(2)} USDT`, sub: "This includes cash + reward points value" },
+          { label: "Your reward points", value: `${rewardPoints} pts`, sub: `Worth about $${rewardPointsUsdt.toFixed(2)} for pool entries` },
+          { label: "Your loyalty level", value: `${tierCurrent.icon} ${tierCurrent.label}`, sub: tierNext ? `${ptsToNext} more points to reach ${tierNext.label}` : "You are at the highest level" },
+          { label: "Pools you joined", value: `${activeEntryCount}`, sub: "Currently active pool entries" },
+        ].map((item) => (
+          <div key={item.label} className={`${box} px-4 py-3`}>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{item.label}</p>
+            <p className="mt-1 text-xl font-bold tabular-nums">{item.value}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{item.sub}</p>
+          </div>
+        ))}
+      </div>
+
       {/* Time-sensitive & lightweight alerts first (not a wall of cards) */}
       <div className="space-y-3">
         {comeback?.hasCoupon && <ComebackBanner coupon={comeback} />}
@@ -281,11 +296,10 @@ export default function DashboardPage() {
       </div>
 
       <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3.5 sm:px-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-primary/90">How rewards work</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-primary/90">Reward points explained</p>
         <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-          You earn <span className="text-foreground font-semibold">reward points</span> from daily login, streaks, referral milestones, and pool activity.
-          Points are <span className="text-foreground font-semibold">not withdrawable</span> and can be used only for pool entries.
-          Conversion: <span className="text-foreground font-semibold">300 points = 1 USDT entry value</span>.
+          Reward points are a bonus for using the platform. They are <span className="text-foreground font-semibold">not cash</span> and cannot be withdrawn.
+          You can use them to join pools. Simple rule: <span className="text-foreground font-semibold">300 points = 1 USDT</span> for pool entry value.
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
           <Button variant="outline" size="sm" asChild>
@@ -357,11 +371,11 @@ export default function DashboardPage() {
                 </p>
                 <div className="mt-3 rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 max-w-xl">
                   <p className="text-sm font-semibold text-foreground">
-                    Reward points: <span className="text-primary tabular-nums">{rewardPoints}</span>{" "}
-                    <span className="text-muted-foreground">(~${rewardPointsUsdt.toFixed(2)})</span>
+                    Reward points: <span className="text-primary tabular-nums">{rewardPoints} pts</span>{" "}
+                    <span className="text-muted-foreground">(about ${rewardPointsUsdt.toFixed(2)})</span>
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Caution: points are not withdrawable cash. They are used only for pool entry value.
+                    Important: reward points are not withdrawable cash. Use them only to join pools.
                   </p>
                 </div>
                 {user.walletBalance <= 0 && (
@@ -425,7 +439,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="grid grid-rows-4 gap-3">
+        <div className="grid grid-rows-3 gap-3">
           {[
             {
               label: "Open pools",
@@ -447,17 +461,9 @@ export default function DashboardPage() {
               label: "Live entries",
               sub: "Active now",
               value: Math.round(animMyEntries),
-              href: "/pools",
+              href: "/dashboard#active-entries",
               accent: activeEntryCount > 0,
               icon: "🎟️",
-            },
-            {
-              label: "Reward points",
-              sub: `${rewardPointsUsdt.toFixed(2)} USDT entry value`,
-              value: rewardPoints,
-              href: "/wallet",
-              accent: rewardPoints > 0,
-              icon: "⭐",
             },
           ].map((s) => (
             <Link key={s.label} href={s.href}>
@@ -662,7 +668,7 @@ export default function DashboardPage() {
       </div>
 
       {activeJoined.length > 0 && (
-        <div className={`${box} overflow-hidden`}>
+        <div id="active-entries" className={`${box} overflow-hidden`}>
           <div className={panelHead}>
             <div className="flex items-center gap-2">
               <h2 className="font-display text-sm sm:text-base font-semibold">Your active entries</h2>
