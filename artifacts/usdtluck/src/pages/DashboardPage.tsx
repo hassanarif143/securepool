@@ -14,7 +14,6 @@ import { ActivityFeed } from "@/components/ActivityFeed";
 import { LivePoolWatcher } from "@/components/LivePoolWatcher";
 import { ComebackBanner, type ActiveCouponJson } from "@/components/ComebackOffer";
 import { SquadPanel } from "@/components/SquadPanel";
-import { AchievementGrid } from "@/components/AchievementGrid";
 import { PoolVipBadge } from "@/components/PoolVipBadge";
 import { TransactionStatusBadge } from "@/components/TransactionStatusBadge";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
@@ -578,19 +577,13 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Secondary: community & achievements — below the fold */}
+      {/* Secondary: community — below the fold */}
       <div className="space-y-5">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90 mb-1">Engage</p>
           <h2 className="font-display text-lg sm:text-xl font-bold tracking-tight">Community & extras</h2>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <SquadPanel />
-          <div className={`${box} p-4 sm:p-5`}>
-            <p className="font-display text-sm font-semibold mb-3">Achievements</p>
-            <AchievementGrid />
-          </div>
-        </div>
+        <SquadPanel />
         <ActivityFeed limit={12} />
       </div>
 

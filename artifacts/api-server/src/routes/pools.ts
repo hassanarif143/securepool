@@ -47,7 +47,6 @@ import {
   getPoolPredictionResults,
 } from "../services/prediction-service";
 import { notifySquadOnMemberWin } from "../services/squad-service";
-import { grantAchievement } from "../services/achievement-service";
 import {
   userMeetsPoolVipRequirement,
 } from "../services/pool-vip-service";
@@ -1626,7 +1625,6 @@ async function finalizePoolDistribution(
   const totalN = financial.ticketsSold;
 
   for (const uid of firstWinUserIds) {
-    void grantAchievement(uid, "first_win");
   }
 
   for (const w of winnerRecords) {

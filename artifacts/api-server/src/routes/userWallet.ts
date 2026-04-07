@@ -142,13 +142,6 @@ router.get("/login-calendar", async (req, res): Promise<void> => {
   return;
 });
 
-router.get("/achievements", async (req, res): Promise<void> => {
-  const userId = getAuthedUserId(req);
-  const { getAchievementsPayload } = await import("../services/achievement-service");
-  res.json(await getAchievementsPayload(userId));
-  return;
-});
-
 router.get("/pool-vip", async (req, res): Promise<void> => {
   const userId = getAuthedUserId(req);
   const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
