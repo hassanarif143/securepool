@@ -84,6 +84,9 @@ export default function LandingPage() {
   }, []);
 
   const activePools = pools?.filter((p) => p.status === "open") ?? [];
+  const minTicketUsdt =
+    activePools.length > 0 ? Math.min(...activePools.map((p) => Number(p.entryFee) || 0)) : null;
+  const recentWinCount = winners?.length ?? 0;
 
   const jumpLinks = [
     { href: "#your-money-safe", label: "Your money" },
@@ -119,21 +122,38 @@ export default function LandingPage() {
             Live USDT reward pools
           </div>
           <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-[3.35rem] font-extrabold tracking-tight mb-5 sm:mb-6 leading-[1.1] text-foreground">
-            Transparent pools.
+            Ticket pools.
             <br />
             <span
               className="text-transparent bg-clip-text"
               style={{ backgroundImage: "linear-gradient(135deg, #86efac, #4ade80, #16a34a)" }}
             >
-              Fair draws. Real payouts.
+              Clear rules. Fair draws.
             </span>
           </h1>
-          <p className="text-base sm:text-lg text-muted-foreground mb-6 max-w-xl mx-auto leading-relaxed">
-            Join for <span className="text-foreground font-semibold">10 USDT</span> per entry. Three winners every draw —{" "}
-            <span className="text-amber-400 font-semibold tabular-nums">100</span>,{" "}
-            <span className="text-slate-200 font-semibold tabular-nums">50</span>, and{" "}
-            <span className="text-orange-400 font-semibold tabular-nums">30 USDT</span>. Rules and prizes are visible before you join.
+          <p className="text-base sm:text-lg text-muted-foreground mb-5 max-w-xl mx-auto leading-relaxed">
+            Buy tickets in open draws — each pool sets its own ticket price, winner count, and prizes. You always see the breakdown before you pay.
+            {minTicketUsdt != null && minTicketUsdt > 0 ? (
+              <>
+                {" "}
+                <span className="text-foreground font-medium">
+                  From {minTicketUsdt.toFixed(0)} USDT per ticket
+                </span>{" "}
+                on live pools right now.
+              </>
+            ) : null}
           </p>
+
+          <div className="flex flex-wrap justify-center gap-3 mb-6 max-w-lg mx-auto">
+            <div className="rounded-xl border border-primary/25 bg-primary/10 px-4 py-2.5 text-center min-w-[8.5rem]">
+              <p className="text-[10px] uppercase tracking-wider text-primary font-semibold">Open draws</p>
+              <p className="text-2xl font-bold font-display tabular-nums text-foreground">{activePools.length}</p>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-2.5 text-center min-w-[8.5rem]">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Recent results</p>
+              <p className="text-2xl font-bold font-display tabular-nums text-foreground">{recentWinCount}</p>
+            </div>
+          </div>
 
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs sm:text-sm text-muted-foreground mb-8 sm:mb-10 max-w-lg mx-auto">
             {[
@@ -148,30 +168,34 @@ export default function LandingPage() {
             ))}
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 w-full max-w-md sm:max-w-none mx-auto sm:mx-0 sm:w-auto">
-            <Link href="/signup" className="w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 w-full max-w-md sm:max-w-lg mx-auto sm:mx-auto">
+            <Link href="/signup" className="w-full sm:w-auto sm:flex-1 sm:max-w-[220px]">
               <Button
                 size="lg"
-                className="w-full sm:w-auto px-8 font-semibold"
+                className="w-full px-8 font-semibold"
                 style={{
                   background: "linear-gradient(135deg, #16a34a, #15803d)",
                   boxShadow: "0 4px 20px rgba(22,163,74,0.35)",
                 }}
               >
-                Create Free Account
+                Create free account
               </Button>
             </Link>
-            <Link href="/how-it-works" className="w-full sm:w-auto">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto px-8">
-                Learn How It Works
-              </Button>
-            </Link>
-            <Link href="/winners" className="w-full sm:w-auto">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto px-8">
-                Past results
+            <Link href="/pools" className="w-full sm:w-auto sm:flex-1 sm:max-w-[220px]">
+              <Button size="lg" variant="outline" className="w-full px-8 font-semibold border-primary/30">
+                Browse draws
               </Button>
             </Link>
           </div>
+          <p className="text-center text-xs text-muted-foreground mt-3">
+            <Link href="/how-it-works" className="underline-offset-4 hover:underline text-primary">
+              How it works
+            </Link>
+            <span className="mx-2 opacity-40">·</span>
+            <Link href="/winners" className="underline-offset-4 hover:underline text-primary">
+              Past results
+            </Link>
+          </p>
 
           <nav
             className="mt-8 sm:mt-10 flex flex-wrap items-center justify-center gap-x-1 gap-y-2.5 text-sm text-muted-foreground px-2 pt-6 border-t border-white/[0.06]"

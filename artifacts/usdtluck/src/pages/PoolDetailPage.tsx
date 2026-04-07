@@ -626,6 +626,47 @@ export default function PoolDetailPage() {
           <p className="text-muted-foreground">Join for {pool.entryFee} USDT per ticket</p>
         </div>
 
+        {pool.status === "open" && (
+          <div
+            className="sticky top-14 z-30 -mx-4 px-4 py-2.5 mb-4 rounded-xl border border-border/70 bg-background/[0.94] backdrop-blur-md shadow-md shadow-black/20 sm:static sm:top-auto sm:mx-0 sm:mb-5 sm:rounded-2xl sm:shadow-sm"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">This draw</p>
+                {noTimeLimit ? (
+                  <p className="text-sm font-medium text-foreground">
+                    {poolFull ? "Pool full — draw pending" : `No fixed end — ${spotsLeft} ticket${spotsLeft === 1 ? "" : "s"} left`}
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <CountdownTimer endTime={pool.endTime} className="text-sm font-mono text-foreground" />
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      · {spotsLeft} ticket{spotsLeft === 1 ? "" : "s"} left
+                    </span>
+                  </div>
+                )}
+              </div>
+              {showJoinActions && spotsLeft > 0 ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="shrink-0 font-semibold"
+                  style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
+                  onClick={() => document.getElementById("pool-join")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                >
+                  Buy tickets
+                </Button>
+              ) : poolFull ? (
+                <span className="text-xs font-semibold text-amber-400 shrink-0">Full</span>
+              ) : (
+                <Button type="button" size="sm" variant="outline" className="shrink-0" asChild>
+                  <a href="#pool-join">View tickets</a>
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
         <Card className="border-primary/20 overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-yellow-500 via-primary to-blue-500" />
           <CardHeader className="pb-3">
@@ -695,8 +736,16 @@ export default function PoolDetailPage() {
         </Card>
 
         {pool.status === "open" && (
-          <Card className="border-primary/30" style={{ boxShadow: "0 0 20px rgba(34,197,94,0.05)" }}>
+          <Card id="pool-join" className="border-primary/30 scroll-mt-28" style={{ boxShadow: "0 0 20px rgba(34,197,94,0.05)" }}>
             <CardContent className="p-5">
+              <div className="rounded-lg border border-border/60 bg-muted/15 px-3 py-2.5 mb-4 space-y-1.5">
+                <p className="text-[11px] font-semibold text-foreground">Before you pay</p>
+                <ul className="text-[11px] text-muted-foreground space-y-1 list-disc list-inside leading-relaxed">
+                  <li>Fair draw uses weighted random selection on your tickets.</li>
+                  <li>Platform fee is shown in the confirmation step — no hidden markup on ticket price.</li>
+                  <li>Early exit may apply a charge (see notice below if you already hold tickets).</li>
+                </ul>
+              </div>
               {userJoinedEffective && poolFull ? (
                 <div className="text-center space-y-2">
                   <div className="text-4xl">🎟️</div>

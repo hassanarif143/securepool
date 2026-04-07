@@ -60,10 +60,25 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
           )}
         </div>
 
+        {/* Fixed scan order: price → winners → time → fill (Jackpocket-style card hierarchy) */}
+        <div className="grid grid-cols-2 gap-2">
+          <div
+            className="rounded-xl px-3 py-3 border border-emerald-500/25 col-span-1"
+            style={{ background: "linear-gradient(145deg, hsla(152,72%,44%,0.12), hsla(220,16%,8%,0.9))" }}
+          >
+            <p className="text-[10px] uppercase tracking-wider text-emerald-400/90 mb-1">Ticket price</p>
+            <p className="text-xl font-bold text-white tabular-nums">{pool.entryFee} USDT</p>
+          </div>
+          <div className="rounded-xl px-3 py-3 border border-white/10" style={{ background: "hsla(220, 16%, 10%, 0.9)" }}>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Winners</p>
+            <p className="text-xl font-bold text-white tabular-nums">{wc}</p>
+          </div>
+        </div>
+
         {pool.status === "open" &&
           (noTimeLimit ? (
             <div className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-xs text-primary font-medium">
-              No time limit - admin will end manually
+              No fixed end time — closes when admin ends the draw
             </div>
           ) : (
             <CountdownTimer endTime={pool.endTime} variant="fomo" className="w-full" />
@@ -72,7 +87,10 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-[11px] text-muted-foreground">
             <span>Tickets sold</span>
-            <span className="font-medium text-foreground">{pool.participantCount}/{pool.maxUsers}</span>
+            <span className="font-medium text-foreground tabular-nums">
+              {pool.participantCount}/{pool.maxUsers}
+              {!showRevealState ? <span className="text-muted-foreground/80"> · {fillPercent}%</span> : null}
+            </span>
           </div>
           <div className="h-2 rounded-full bg-white/10 overflow-hidden">
             <div
@@ -80,13 +98,6 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
               style={{ width: `${Math.min(100, Math.max(0, fillPercent))}%` }}
             />
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2.5">
-          <StatBox label="Ticket price" value={`${pool.entryFee} USDT`} />
-          <StatBox label="Total tickets" value={`${pool.maxUsers}`} />
-          <StatBox label="Winner count" value={`${wc}`} />
-          <StatBox label={showRevealState ? "Status" : "Fill"} value={showRevealState ? "FULL" : `${fillPercent}%`} />
         </div>
 
         <div className="rounded-xl bg-black/25 border border-white/5 px-3 py-3">
@@ -119,7 +130,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
                 className="w-full min-h-11 font-semibold touch-manipulation"
                 style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
               >
-                Join pool
+                Buy tickets
               </Button>
             </Link>
           )}
@@ -132,18 +143,6 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function StatBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      className="rounded-xl px-3 py-2.5 border border-white/8"
-      style={{ background: "hsla(220, 16%, 10%, 0.9)" }}
-    >
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
-      <p className="text-sm font-semibold text-white tabular-nums">{value}</p>
     </div>
   );
 }
