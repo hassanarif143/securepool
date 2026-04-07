@@ -5,12 +5,12 @@ import { z } from "zod";
 import { getAuthedUserId } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
 import { mirrorAvailableFromUser, recordStakeLockDebit, recordStakeReturnCredit } from "../services/user-wallet-service";
+import { getRewardConfig } from "../lib/reward-config";
 
 const router = Router();
 
 const LOCK_DAYS = 15;
 const MIN_STAKE_USDT = 10;
-const APR = 0.12;
 
 function toNum(v: unknown): number {
   const n = Number(v);
@@ -64,8 +64,9 @@ async function settleMaturedForUser(userId: number) {
   }
 }
 
-router.get("/config", (_req, res) => {
-  res.json({ lockDays: LOCK_DAYS, minStakeUsdt: MIN_STAKE_USDT, apr: APR });
+router.get("/config", async (_req, res) => {
+  const cfg = await getRewardConfig();
+  res.json({ lockDays: LOCK_DAYS, minStakeUsdt: MIN_STAKE_USDT, apr: cfg.stakingApr });
 });
 
 router.get("/me", async (req, res) => {
@@ -105,6 +106,8 @@ router.post("/lock", async (req, res) => {
   }
   if (!(await assertEmailVerified(res, userId))) return;
 
+  const rewardCfg = await getRewardConfig();
+  const apr = rewardCfg.stakingApr;
   const parsed = z.object({ amount: z.coerce.number().gte(MIN_STAKE_USDT) }).safeParse(req.body ?? {});
   if (!parsed.success) {
     res.status(400).json({ error: `Minimum stake is ${MIN_STAKE_USDT} USDT.` });
@@ -113,7 +116,7 @@ router.post("/lock", async (req, res) => {
   const amount = parsed.data.amount;
 
   const unlockAt = new Date(Date.now() + LOCK_DAYS * 24 * 60 * 60 * 1000);
-  const reward = Number((amount * APR * (LOCK_DAYS / 365)).toFixed(2));
+  const reward = Number((amount * apr * (LOCK_DAYS / 365)).toFixed(2));
 
   const out = await db.transaction(async (tx) => {
     const [u] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);

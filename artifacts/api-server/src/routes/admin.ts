@@ -2135,6 +2135,7 @@ router.get("/rewards/config", async (_req, res) => {
 
 const PatchRewardsConfig = z.object({
   referralInviteUsdt: z.number().nonnegative().optional(),
+  stakingApr: z.number().nonnegative().optional(),
   poolJoinMilestonesUsdt: z
     .object({
       "5": z.number().nonnegative().optional(),

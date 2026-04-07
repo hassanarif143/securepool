@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 export type RewardConfig = {
   referralInviteUsdt: number;
   poolJoinMilestonesUsdt: Record<string, number>;
+  stakingApr: number;
 };
 
 export const DEFAULT_REWARD_CONFIG: RewardConfig = {
@@ -17,6 +18,7 @@ export const DEFAULT_REWARD_CONFIG: RewardConfig = {
     "30": 12,
     "40": 14,
   },
+  stakingApr: 0.12,
 };
 
 function toNum(v: unknown, fallback: number): number {
@@ -38,6 +40,7 @@ export function normalizeRewardConfig(raw: unknown): RewardConfig {
   return {
     referralInviteUsdt: Math.max(0, toNum(j.referralInviteUsdt, DEFAULT_REWARD_CONFIG.referralInviteUsdt)),
     poolJoinMilestonesUsdt: nextMilestones,
+    stakingApr: Math.max(0, toNum(j.stakingApr, DEFAULT_REWARD_CONFIG.stakingApr)),
   };
 }
 

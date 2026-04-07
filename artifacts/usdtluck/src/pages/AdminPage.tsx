@@ -150,6 +150,7 @@ function RewardsConfigTab() {
     try {
       const payload = {
         referralInviteUsdt: Number(cfg.referralInviteUsdt ?? 0),
+        stakingApr: Number(cfg.stakingApr ?? 0),
         poolJoinMilestonesUsdt: {
           5: Number(cfg.poolJoinMilestonesUsdt?.[5] ?? 0),
           10: Number(cfg.poolJoinMilestonesUsdt?.[10] ?? 0),
@@ -190,6 +191,19 @@ function RewardsConfigTab() {
             <summary className="cursor-pointer text-sm font-semibold">Friend referral reward</summary>
             <div className="mt-3 grid sm:grid-cols-1 gap-3">
               <NumberField label="Referral invite cash reward (USDT)" value={cfg.referralInviteUsdt} onChange={(v) => setCfg({ ...cfg, referralInviteUsdt: v })} />
+            </div>
+          </details>
+          <details className="rounded-lg border border-border/60 bg-muted/20 p-3" open>
+            <summary className="cursor-pointer text-sm font-semibold">Staking reward rate</summary>
+            <div className="mt-3 grid sm:grid-cols-2 gap-3">
+              <NumberField
+                label="Staking APR (decimal, e.g. 0.12 = 12%)"
+                value={cfg.stakingApr ?? 0.12}
+                onChange={(v) => setCfg({ ...cfg, stakingApr: v })}
+              />
+              <div className="rounded-md border border-border/50 bg-background/50 p-2 text-xs text-muted-foreground">
+                Current display: {((Number(cfg.stakingApr ?? 0) || 0) * 100).toFixed(2)}%
+              </div>
             </div>
           </details>
           <details className="rounded-lg border border-border/60 bg-muted/20 p-3" open>
