@@ -8,6 +8,7 @@ import { apiUrl } from "@/lib/api-base";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { RecentPayouts } from "@/components/RecentPayouts";
 import { MoneySafeExplainerSection } from "@/components/MoneySafeExplainerSection";
+import { ShieldCheck } from "lucide-react";
 
 function useAnimatedInt(target: number, duration = 1400) {
   const [v, setV] = useState(0);
@@ -102,44 +103,49 @@ export default function LandingPage() {
 
   return (
     <div className="space-y-20 md:space-y-28">
-      {/* Hero — crypto / exchange-style backdrop */}
-      <section className="relative max-w-4xl mx-auto px-2 sm:px-4">
-        <div className="landing-crypto-hero-shell px-6 py-12 sm:px-10 sm:py-16 md:py-20">
+      {/* Hero — premium fintech */}
+      <section className="relative max-w-5xl mx-auto px-2 sm:px-4">
+        <div className="landing-crypto-hero-shell px-6 py-14 sm:px-12 sm:py-16 md:py-20">
           <div className="landing-crypto-hero-glow-a" aria-hidden />
           <div className="landing-crypto-hero-glow-b" aria-hidden />
-          <div className="landing-crypto-hero-glow-c" aria-hidden />
           <div className="landing-crypto-hero-noise" aria-hidden />
           <div className="landing-crypto-hero-inner text-center">
-          <div className="flex flex-wrap justify-center gap-2 mb-5">
-            <span className="inline-flex items-center rounded-lg border border-[#f0b90b]/35 bg-[#f0b90b]/[0.07] px-2.5 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-[#f5d07a]">
+          <div className="flex flex-wrap justify-center gap-2 mb-6">
+            <span className="inline-flex items-center rounded-full border border-white/[0.1] bg-white/[0.03] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
               USDT
             </span>
-            <span className="inline-flex items-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-emerald-400/95">
+            <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-emerald-400/90">
               TRC-20
             </span>
-            <span className="inline-flex items-center rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-              Your wallet · USDT
+            <span className="inline-flex items-center rounded-full border border-[hsl(43_42%_52%/0.2)] bg-[hsl(43_42%_52%/0.06)] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-[hsl(43_55%_68%)]">
+              Wallet-native
             </span>
           </div>
-          <div className="inline-flex items-center gap-2 bg-primary/[0.1] border border-primary/30 rounded-full px-4 py-2 text-sm text-emerald-400 font-semibold mb-6 shadow-[0_0_24px_-8px_hsla(160,72%,45%,0.45)]">
-            <span className="relative flex h-2 w-2">
-              <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/[0.06] px-4 py-2 text-xs sm:text-sm text-foreground/90 font-medium mb-7 shadow-none">
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400/90 ring-2 ring-emerald-400/25" />
             </span>
-            Live reward pools · wallet-native
+            <span className="text-muted-foreground">Live pools</span>
+            <span className="text-border/80" aria-hidden>
+              ·
+            </span>
+            <span className="text-foreground/95">Transparent rules</span>
           </div>
-          <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-[3.35rem] font-extrabold tracking-tight mb-5 sm:mb-6 leading-[1.1] text-foreground">
-            Ticket pools.
+          <h1 className="font-display text-3xl sm:text-4xl md:text-[2.75rem] lg:text-[3.15rem] font-semibold tracking-[-0.02em] mb-5 sm:mb-6 leading-[1.12] text-foreground">
+            USDT reward pools,
             <br />
             <span
-              className="text-transparent bg-clip-text"
-              style={{ backgroundImage: "linear-gradient(135deg, #fde68a, #4ade80, #22c55e, #0d9488)" }}
+              className="text-transparent bg-clip-text font-semibold"
+              style={{
+                backgroundImage:
+                  "linear-gradient(115deg, hsl(43 58% 72%) 0%, hsl(152 48% 52%) 42%, hsl(165 45% 46%) 100%)",
+              }}
             >
-              Clear rules. Fair draws.
+              built for clarity and trust.
             </span>
           </h1>
-          <p className="text-base sm:text-lg text-muted-foreground mb-5 max-w-xl mx-auto leading-relaxed">
-            Buy tickets in open draws — each pool sets its own ticket price, winner count, and prizes. You always see the breakdown before you pay.
+          <p className="text-base sm:text-[1.05rem] text-muted-foreground mb-6 max-w-xl mx-auto leading-[1.65] font-normal">
+            Join open draws with published ticket prices, winner counts, and prizes — review the full breakdown before you pay from your wallet.
             {minTicketUsdt != null && minTicketUsdt > 0 ? (
               <>
                 {" "}
@@ -151,26 +157,22 @@ export default function LandingPage() {
             ) : null}
           </p>
 
-          <div className="flex flex-wrap justify-center gap-3 mb-6 max-w-lg mx-auto">
-            <div className="rounded-xl border border-emerald-500/25 bg-gradient-to-b from-emerald-500/15 to-transparent px-4 py-2.5 text-center min-w-[8.5rem] shadow-[inset_0_1px_0_0_hsla(160,72%,50%,0.12)]">
-              <p className="text-[10px] uppercase tracking-wider text-emerald-400/90 font-semibold font-mono">Open draws</p>
-              <p className="text-2xl font-bold font-display tabular-nums text-foreground">{activePools.length}</p>
+          <div className="flex flex-wrap justify-center gap-3 mb-7 max-w-lg mx-auto">
+            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] backdrop-blur-sm px-5 py-3 text-center min-w-[9rem] shadow-none">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-medium">Open draws</p>
+              <p className="text-2xl font-semibold font-display tabular-nums text-foreground mt-1">{activePools.length}</p>
             </div>
-            <div className="rounded-xl border border-[#f0b90b]/20 bg-gradient-to-b from-[#f0b90b]/[0.08] to-transparent px-4 py-2.5 text-center min-w-[8.5rem] shadow-[inset_0_1px_0_0_hsla(45,90%,55%,0.1)]">
-              <p className="text-[10px] uppercase tracking-wider text-[#e8c766] font-semibold font-mono">Recent results</p>
-              <p className="text-2xl font-bold font-display tabular-nums text-foreground">{recentWinCount}</p>
+            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] backdrop-blur-sm px-5 py-3 text-center min-w-[9rem] shadow-none">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-medium">On record</p>
+              <p className="text-2xl font-semibold font-display tabular-nums text-foreground mt-1">{recentWinCount}</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs sm:text-sm text-muted-foreground mb-8 sm:mb-10 max-w-lg mx-auto">
-            {[
-              { icon: "✓", t: "Verified deposits" },
-              { icon: "✓", t: "Admin-reviewed payouts" },
-              { icon: "✓", t: "TRC-20 USDT" },
-            ].map((x) => (
-              <span key={x.t} className="inline-flex items-center gap-1.5 text-muted-foreground/90">
-                <span className="text-primary font-bold">{x.icon}</span>
-                {x.t}
+          <div className="flex flex-wrap justify-center gap-x-5 gap-y-2.5 text-xs sm:text-sm text-muted-foreground mb-9 sm:mb-11 max-w-xl mx-auto">
+            {["Verified deposits", "Admin-reviewed payouts", "TRC-20 USDT"].map((t) => (
+              <span key={t} className="inline-flex items-center gap-1.5 text-muted-foreground/88">
+                <ShieldCheck className="h-3.5 w-3.5 text-primary/85 shrink-0" aria-hidden />
+                {t}
               </span>
             ))}
           </div>
@@ -179,18 +181,22 @@ export default function LandingPage() {
             <Link href="/signup" className="w-full sm:w-auto sm:flex-1 sm:max-w-[220px]">
               <Button
                 size="lg"
-                className="w-full px-8 font-semibold"
+                className="w-full px-8 font-semibold rounded-xl border-0"
                 style={{
-                  background: "linear-gradient(135deg, #16a34a, #15803d)",
-                  boxShadow: "0 4px 20px rgba(22,163,74,0.35)",
+                  background: "linear-gradient(145deg, hsl(152 55% 40%), hsl(152 60% 32%))",
+                  boxShadow: "0 8px 28px -6px hsla(152, 60%, 36%, 0.45)",
                 }}
               >
-                Create free account
+                Open your account
               </Button>
             </Link>
             <Link href="/pools" className="w-full sm:w-auto sm:flex-1 sm:max-w-[220px]">
-              <Button size="lg" variant="outline" className="w-full px-8 font-semibold border-primary/30">
-                Browse draws
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full px-8 font-semibold rounded-xl border-white/12 bg-white/[0.03] hover:bg-white/[0.06]"
+              >
+                View live draws
               </Button>
             </Link>
           </div>
@@ -205,15 +211,15 @@ export default function LandingPage() {
           </p>
 
           <nav
-            className="mt-8 sm:mt-10 flex flex-wrap items-center justify-center gap-x-1 gap-y-2.5 text-sm text-muted-foreground px-2 pt-6 border-t border-white/[0.08]"
+            className="mt-10 sm:mt-12 flex flex-wrap items-center justify-center gap-x-1 gap-y-2.5 text-sm text-muted-foreground px-2 pt-8 border-t border-white/[0.06]"
             aria-label="On this page"
           >
             {jumpLinks.map((item, idx) => (
               <span key={item.href} className="inline-flex items-center gap-1">
-                {idx > 0 && <span className="text-border/60 px-1 select-none" aria-hidden>|</span>}
+                {idx > 0 && <span className="text-border/50 px-1 select-none" aria-hidden>|</span>}
                 <a
                   href={item.href}
-                  className="hover:text-emerald-400 transition-colors underline-offset-4 hover:underline px-2 py-1 rounded-md hover:bg-white/[0.05]"
+                  className="hover:text-foreground/90 transition-colors underline-offset-4 hover:underline px-2 py-1 rounded-lg hover:bg-white/[0.04]"
                 >
                   {item.label}
                 </a>
