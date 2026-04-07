@@ -163,12 +163,8 @@ function RewardsConfigTab() {
         tierUpgradeRewardPoints: Number(cfg.tierUpgradeRewardPoints ?? 0),
         firstDepositRewardPoints: Number(cfg.firstDepositRewardPoints ?? 0),
         dailyLoginRewardPoints: Number(cfg.dailyLoginRewardPoints ?? 0),
-        mysteryRewardPoints: Number(cfg.mysteryRewardPoints ?? 0),
-        poolJoinMilestoneRewardPoints: Number(cfg.poolJoinMilestoneRewardPoints ?? 0),
         pointsPerPoolJoin: Number(cfg.pointsPerPoolJoin ?? 0),
-        poolJoinRewardEvery: Number(cfg.poolJoinRewardEvery ?? 1),
         streakRewardPoints: cfg.streakRewardPoints ?? {},
-        referralTierMilestones: cfg.referralTierMilestones ?? [],
       };
       const res = await fetch(apiUrl("/api/admin/rewards/config"), {
         method: "PATCH",
@@ -203,7 +199,6 @@ function RewardsConfigTab() {
               <NumberField label="Tier upgrade reward (points)" value={cfg.tierUpgradeRewardPoints} onChange={(v) => setCfg({ ...cfg, tierUpgradeRewardPoints: v })} />
               <NumberField label="First deposit reward (points)" value={cfg.firstDepositRewardPoints} onChange={(v) => setCfg({ ...cfg, firstDepositRewardPoints: v })} />
               <NumberField label="Daily login reward (points)" value={cfg.dailyLoginRewardPoints} onChange={(v) => setCfg({ ...cfg, dailyLoginRewardPoints: v })} />
-              <NumberField label="Mystery reward claim (points)" value={cfg.mysteryRewardPoints} onChange={(v) => setCfg({ ...cfg, mysteryRewardPoints: v })} />
             </div>
           </details>
 
@@ -211,8 +206,6 @@ function RewardsConfigTab() {
             <summary className="cursor-pointer text-sm font-semibold">Pool join rewards</summary>
             <div className="mt-3 grid sm:grid-cols-2 gap-3">
               <NumberField label="Points per pool join" value={cfg.pointsPerPoolJoin} onChange={(v) => setCfg({ ...cfg, pointsPerPoolJoin: v })} />
-              <NumberField label="Pool join reward every N joins" value={cfg.poolJoinRewardEvery} onChange={(v) => setCfg({ ...cfg, poolJoinRewardEvery: v })} />
-              <NumberField label="Pool join milestone reward (points)" value={cfg.poolJoinMilestoneRewardPoints} onChange={(v) => setCfg({ ...cfg, poolJoinMilestoneRewardPoints: v })} />
             </div>
           </details>
 
@@ -230,33 +223,6 @@ function RewardsConfigTab() {
             </div>
           </details>
 
-          <details className="rounded-lg border border-border/60 bg-muted/20 p-3">
-            <summary className="cursor-pointer text-sm font-semibold">Referral program rewards</summary>
-            <div className="mt-3 space-y-2">
-              {(cfg.referralTierMilestones ?? []).map((m: any, i: number) => (
-                <div key={i} className="grid grid-cols-2 gap-3">
-                  <NumberField
-                    label={`Milestone #${i + 1} referrals`}
-                    value={m.at ?? 0}
-                    onChange={(v) => {
-                      const rows = [...(cfg.referralTierMilestones ?? [])];
-                      rows[i] = { ...rows[i], at: v };
-                      setCfg({ ...cfg, referralTierMilestones: rows });
-                    }}
-                  />
-                  <NumberField
-                    label={`Reward #${i + 1} (points)`}
-                    value={m.points ?? 0}
-                    onChange={(v) => {
-                      const rows = [...(cfg.referralTierMilestones ?? [])];
-                      rows[i] = { ...rows[i], points: v };
-                      setCfg({ ...cfg, referralTierMilestones: rows });
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-          </details>
         </CardContent>
       </Card>
 

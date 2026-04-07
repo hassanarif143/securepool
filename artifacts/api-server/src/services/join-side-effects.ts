@@ -2,15 +2,11 @@ import { db, usersTable, poolsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logActivity } from "./activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
-import { notifyUser } from "../lib/notify";
-import { createMysteryReward, type MysteryRewardRow } from "./mystery-reward-service";
+import { type MysteryRewardRow } from "./mystery-reward-service";
 import { applyStreakOnPoolJoin, type StreakUpdateResult } from "./streak-service";
-import { getRewardConfig } from "../lib/reward-config";
 
 /**
- * After a successful pool join: activity log, join counter, loyalty reward points every N joins,
- * referral points for referrer (5 points → 1 free entry), lucky hour multiplier,
- * mystery reward every 3 joins, streak update.
+ * After a successful pool join: activity log, join counter, VIP sync, streak update.
  */
 export type JoinSideEffectsResult = {
   mysteryReward: MysteryRewardRow | null;
@@ -85,30 +81,12 @@ export async function runJoinSideEffects(opts: {
   if (!u) {
     return { mysteryReward: null, streak: { currentStreak: 0, longestStreak: 0, lostPreviousStreak: 0 } };
   }
-  const rewardCfg = await getRewardConfig();
-
   const prevJoins = u.poolJoinCount ?? 0;
   const nextJoins = prevJoins + 1;
-  let rewardPoints = u.rewardPoints ?? 0;
-  if (nextJoins > 0 && nextJoins % rewardCfg.poolJoinRewardEvery === 0) {
-    rewardPoints += rewardCfg.poolJoinMilestoneRewardPoints;
-    await logActivity({
-      type: "loyalty_bonus",
-      message: `${who} earned +${rewardCfg.poolJoinMilestoneRewardPoints} reward points after ${nextJoins} pool joins.`,
-      userId,
-      metadata: { poolJoinCount: nextJoins },
-    });
-    void notifyUser(
-      userId,
-      "Loyalty reward",
-      `You earned +${rewardCfg.poolJoinMilestoneRewardPoints} reward points for completing ${nextJoins} joins.`,
-      "success",
-    );
-  }
 
   await db
     .update(usersTable)
-    .set({ poolJoinCount: nextJoins, rewardPoints, bonusBalance: "0" })
+    .set({ poolJoinCount: nextJoins })
     .where(eq(usersTable.id, userId));
 
   const { syncUserPoolVipTier } = await import("./pool-vip-service");
@@ -119,14 +97,6 @@ export async function runJoinSideEffects(opts: {
     await applySquadCoPoolBonus({ userId, poolId, poolTitle, entryFee: entryFeePaid });
   }
 
-  let mysteryReward: MysteryRewardRow | null = null;
-  if (nextJoins > 0 && nextJoins % 3 === 0) {
-    mysteryReward = await createMysteryReward(userId, nextJoins);
-    if (mysteryReward) {
-      void notifyUser(userId, "Mystery reward!", "You unlocked a mystery box — open it on your dashboard.", "success");
-    }
-  }
-
   const streak = await applyStreakOnPoolJoin(userId, joinerName);
-  return { mysteryReward, streak };
+  return { mysteryReward: null, streak };
 }

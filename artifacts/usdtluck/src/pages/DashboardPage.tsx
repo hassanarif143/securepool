@@ -355,6 +355,15 @@ export default function DashboardPage() {
                   {animBalance.toFixed(2)}{" "}
                   <span className="text-lg sm:text-xl font-bold text-muted-foreground">USDT</span>
                 </p>
+                <div className="mt-3 rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 max-w-xl">
+                  <p className="text-sm font-semibold text-foreground">
+                    Reward points: <span className="text-primary tabular-nums">{rewardPoints}</span>{" "}
+                    <span className="text-muted-foreground">(~${rewardPointsUsdt.toFixed(2)})</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Caution: points are not withdrawable cash. They are used only for pool entry value.
+                  </p>
+                </div>
                 {user.walletBalance <= 0 && (
                   <div className="mt-4 rounded-xl border border-amber-500/35 bg-amber-500/[0.08] px-4 py-3 text-sm text-amber-100/95 leading-relaxed max-w-xl shadow-inner">
                     <p className="font-medium text-amber-200/95 mb-1">Fund your wallet</p>

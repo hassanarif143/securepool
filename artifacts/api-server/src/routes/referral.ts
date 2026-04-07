@@ -12,6 +12,13 @@ import {
 import { getRewardConfig } from "../lib/reward-config";
 
 const router: IRouter = Router();
+const REFERRAL_TIER_MILESTONES: Array<{ at: number; points: number }> = [
+  { at: 5, points: 10 },
+  { at: 10, points: 10 },
+  { at: 15, points: 10 },
+  { at: 25, points: 10 },
+  { at: 50, points: 10 },
+];
 
 function generateCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -72,7 +79,7 @@ router.get("/me", async (req, res) => {
   const credited = successful.length;
 
   const claimed = parseMilestonesClaimed(user.referralMilestonesClaimed);
-    const tierMilestones = rewardsCfg.referralTierMilestones.map((m) => {
+    const tierMilestones = REFERRAL_TIER_MILESTONES.map((m) => {
     const key = String(m.at) as MilestoneKey;
     const isClaimed = claimed[key] === true;
     const need = Math.max(0, m.at - credited);
@@ -148,7 +155,7 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
       const milestones = parseMilestonesClaimed(referrer.referralMilestonesClaimed);
       const tierGrants: { at: number; points: number }[] = [];
 
-      for (const m of rewardsCfg.referralTierMilestones) {
+      for (const m of REFERRAL_TIER_MILESTONES) {
         const key = String(m.at) as MilestoneKey;
         if (newTotalRefs >= m.at && !milestones[key]) {
           milestones[key] = true;

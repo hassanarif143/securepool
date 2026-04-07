@@ -2121,15 +2121,11 @@ router.get("/rewards/config", async (_req, res) => {
 
 const PatchRewardsConfig = z.object({
   referralInviteUsdt: z.number().nonnegative().optional(),
-  referralTierMilestones: z.array(z.object({ at: z.number().int().positive(), points: z.number().int().nonnegative() })).optional(),
   streakRewardPoints: z.record(z.string(), z.number().int().nonnegative()).optional(),
   tierUpgradeRewardPoints: z.number().int().nonnegative().optional(),
   firstDepositRewardPoints: z.number().int().nonnegative().optional(),
   dailyLoginRewardPoints: z.number().int().nonnegative().optional(),
-  mysteryRewardPoints: z.number().int().nonnegative().optional(),
-  poolJoinMilestoneRewardPoints: z.number().int().nonnegative().optional(),
   pointsPerPoolJoin: z.number().int().nonnegative().optional(),
-  poolJoinRewardEvery: z.number().int().positive().optional(),
 });
 
 router.patch("/rewards/config", async (req, res) => {

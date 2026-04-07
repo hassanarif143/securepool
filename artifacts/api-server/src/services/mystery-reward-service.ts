@@ -1,7 +1,6 @@
 import { randomInt } from "node:crypto";
 import { db, mysteryRewardsTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { getRewardConfig } from "../lib/reward-config";
 
 export type MysteryRewardRow = typeof mysteryRewardsTable.$inferSelect;
 
@@ -44,7 +43,6 @@ export async function createMysteryReward(userId: number, poolJoinNumber: number
 }
 
 export async function claimMysteryReward(userId: number, rewardId: number): Promise<{ ok: boolean; error?: string }> {
-  const rewardCfg = await getRewardConfig();
   const [r] = await db.select().from(mysteryRewardsTable).where(eq(mysteryRewardsTable.id, rewardId)).limit(1);
   if (!r || r.userId !== userId) return { ok: false, error: "Not found" };
   if (r.claimed) return { ok: false, error: "Already claimed" };
@@ -53,7 +51,7 @@ export async function claimMysteryReward(userId: number, rewardId: number): Prom
   if (!u) return { ok: false, error: "User missing" };
 
   if (r.rewardType === "points_1" || r.rewardType === "points_3" || r.rewardType === "free_entry") {
-    const add = Math.max(0, rewardCfg.mysteryRewardPoints);
+    const add = 10;
     await db
       .update(usersTable)
       .set({ rewardPoints: (u.rewardPoints ?? 0) + add, bonusBalance: "0" })
