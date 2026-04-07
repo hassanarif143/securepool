@@ -1247,11 +1247,19 @@ router.post("/:poolId/exit", async (req, res) => {
           txType: "pool_refund",
           amount: String(refundAmount),
           status: "completed",
-          note: `Pre-exit refund — ${pool.title} — refund ${refundAmount} USDT after ${chargeApplied} USDT exit charge (50% of platform fee)`,
+          note: `Pre-exit refund — ${pool.title} — ${refundAmount} USDT returned`,
         });
       }
 
       if (chargeApplied > 0) {
+        // Record explicit user debit so history clearly shows fee was deducted (not added).
+        await tx.insert(transactionsTable).values({
+          userId,
+          txType: "pool_entry",
+          amount: String(chargeApplied),
+          status: "completed",
+          note: `Pre-exit charge — ${pool.title} — ${chargeApplied} USDT (50% of platform fee)`,
+        });
         await appendPoolJoinPlatformFee(tx, {
           poolId,
           userId,
