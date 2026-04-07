@@ -160,11 +160,6 @@ function RewardsConfigTab() {
     try {
       const payload = {
         referralInviteUsdt: Number(cfg.referralInviteUsdt ?? 0),
-        tierUpgradeRewardPoints: Number(cfg.tierUpgradeRewardPoints ?? 0),
-        firstDepositRewardPoints: Number(cfg.firstDepositRewardPoints ?? 0),
-        dailyLoginRewardPoints: Number(cfg.dailyLoginRewardPoints ?? 0),
-        pointsPerPoolJoin: Number(cfg.pointsPerPoolJoin ?? 0),
-        streakRewardPoints: cfg.streakRewardPoints ?? {},
       };
       const res = await fetch(apiUrl("/api/admin/rewards/config"), {
         method: "PATCH",
@@ -188,38 +183,14 @@ function RewardsConfigTab() {
     <div className="space-y-4 mt-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Reward Controls</CardTitle>
-          <p className="text-xs text-muted-foreground">All reward values can be changed from here. 300 points = 1 USDT (entry value only).</p>
+          <CardTitle className="text-base">Referral Bonus Control</CardTitle>
+          <p className="text-xs text-muted-foreground">Only friend referral bonus is active. All other rewards are removed.</p>
         </CardHeader>
         <CardContent className="space-y-3">
           <details className="rounded-lg border border-border/60 bg-muted/20 p-3" open>
-            <summary className="cursor-pointer text-sm font-semibold">Core rewards</summary>
-            <div className="mt-3 grid sm:grid-cols-2 gap-3">
+            <summary className="cursor-pointer text-sm font-semibold">Friend referral reward</summary>
+            <div className="mt-3 grid sm:grid-cols-1 gap-3">
               <NumberField label="Referral invite cash reward (USDT)" value={cfg.referralInviteUsdt} onChange={(v) => setCfg({ ...cfg, referralInviteUsdt: v })} />
-              <NumberField label="Tier upgrade reward (points)" value={cfg.tierUpgradeRewardPoints} onChange={(v) => setCfg({ ...cfg, tierUpgradeRewardPoints: v })} />
-              <NumberField label="First deposit reward (points)" value={cfg.firstDepositRewardPoints} onChange={(v) => setCfg({ ...cfg, firstDepositRewardPoints: v })} />
-              <NumberField label="Daily login reward (points)" value={cfg.dailyLoginRewardPoints} onChange={(v) => setCfg({ ...cfg, dailyLoginRewardPoints: v })} />
-            </div>
-          </details>
-
-          <details className="rounded-lg border border-border/60 bg-muted/20 p-3" open>
-            <summary className="cursor-pointer text-sm font-semibold">Pool join rewards</summary>
-            <div className="mt-3 grid sm:grid-cols-2 gap-3">
-              <NumberField label="Points per pool join" value={cfg.pointsPerPoolJoin} onChange={(v) => setCfg({ ...cfg, pointsPerPoolJoin: v })} />
-            </div>
-          </details>
-
-          <details className="rounded-lg border border-border/60 bg-muted/20 p-3">
-            <summary className="cursor-pointer text-sm font-semibold">Streak rewards</summary>
-            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {["3", "5", "10", "20"].map((k) => (
-                <NumberField
-                  key={k}
-                  label={`${k} joins`}
-                  value={cfg.streakRewardPoints?.[k] ?? 0}
-                  onChange={(v) => setCfg({ ...cfg, streakRewardPoints: { ...(cfg.streakRewardPoints ?? {}), [k]: v } })}
-                />
-              ))}
             </div>
           </details>
 

@@ -3,7 +3,6 @@ import { eq } from "drizzle-orm";
 import { notifyUser } from "../lib/notify";
 import { logActivity } from "./activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
-import { getRewardConfig } from "../lib/reward-config";
 
 const STREAK_GAP_DAYS = 7;
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -64,29 +63,22 @@ export async function applyStreakOnPoolJoin(userId: number, joinerDisplayName: s
 
   const who = privacyDisplayName(joinerDisplayName);
 
-  const rewardCfg = await getRewardConfig();
-  const pointsReward = rewardCfg.streakRewardPoints[String(nextStreak)];
-  const hasMilestone = pointsReward != null && pointsReward > 0;
+  const hasMilestone = false;
   if (hasMilestone) {
     if (nextStreak === 3) milestone = "3";
     else if (nextStreak === 5) milestone = "5";
     else if (nextStreak === 10) milestone = "10";
     else if (nextStreak === 20) milestone = "20";
 
-    await db
-      .update(usersTable)
-      .set({ rewardPoints: (u.rewardPoints ?? 0) + pointsReward })
-      .where(eq(usersTable.id, userId));
-
     await logActivity({
       type: "loyalty_bonus",
-      message: `${who} hit a ${nextStreak}-pool streak — +${pointsReward} reward points.`,
+      message: `${who} hit a ${nextStreak}-pool streak.`,
       userId,
     });
     void notifyUser(
       userId,
       "Streak milestone",
-      `${nextStreak}-pool streak! +${pointsReward} reward points added.`,
+      `${nextStreak}-pool streak unlocked.`,
       "success",
     );
   }

@@ -7,18 +7,10 @@ import { recordWithdrawableCredit } from "../services/user-wallet-service";
 import {
   milestonesToJson,
   parseMilestonesClaimed,
-  type MilestoneKey,
 } from "../lib/user-balances";
 import { getRewardConfig } from "../lib/reward-config";
 
 const router: IRouter = Router();
-const REFERRAL_TIER_MILESTONES: Array<{ at: number; points: number }> = [
-  { at: 5, points: 10 },
-  { at: 10, points: 10 },
-  { at: 15, points: 10 },
-  { at: 25, points: 10 },
-  { at: 50, points: 10 },
-];
 
 function generateCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -78,18 +70,7 @@ router.get("/me", async (req, res) => {
   const pending = referrals.filter((r) => !r.bonusGiven).length;
   const credited = successful.length;
 
-  const claimed = parseMilestonesClaimed(user.referralMilestonesClaimed);
-    const tierMilestones = REFERRAL_TIER_MILESTONES.map((m) => {
-    const key = String(m.at) as MilestoneKey;
-    const isClaimed = claimed[key] === true;
-    const need = Math.max(0, m.at - credited);
-    return {
-      referralsRequired: m.at,
-      bonusPoints: m.points,
-      claimed: isClaimed,
-      referralsRemaining: isClaimed ? 0 : need,
-    };
-  });
+  const tierMilestones: Array<{ referralsRequired: number; bonusPoints: number; claimed: boolean; referralsRemaining: number }> = [];
 
   res.json({
     referralCode: code,
@@ -127,8 +108,6 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
 
     if (!referral || referral.bonusGiven) return;
 
-    const tierMilestoneNotifs: { at: number; points: number }[] = [];
-
     await db.transaction(async (trx) => {
       const [lockedRef] = await trx
         .select()
@@ -146,32 +125,20 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
         .where(eq(usersTable.id, referredUserId))
         .limit(1);
 
-      let rewardPoints = referrer.rewardPoints ?? 0;
       let wdB = parseFloat(String(referrer.withdrawableBalance ?? "0"));
 
       wdB += rewardsCfg.referralInviteUsdt;
 
       const newTotalRefs = (referrer.totalSuccessfulReferrals ?? 0) + 1;
       const milestones = parseMilestonesClaimed(referrer.referralMilestonesClaimed);
-      const tierGrants: { at: number; points: number }[] = [];
-
-      for (const m of REFERRAL_TIER_MILESTONES) {
-        const key = String(m.at) as MilestoneKey;
-        if (newTotalRefs >= m.at && !milestones[key]) {
-          milestones[key] = true;
-          rewardPoints += m.points;
-          tierGrants.push({ at: m.at, points: m.points });
-        }
-      }
-
-      const walletStr = ((rewardPoints / 300) + wdB).toFixed(2);
+      const walletStr = (((referrer.rewardPoints ?? 0) / 300) + wdB).toFixed(2);
       const walletNum = parseFloat(walletStr);
       const balanceAfterReferralOnly = parseFloat((((referrer.rewardPoints ?? 0) / 300) + wdB).toFixed(2));
 
       await trx
         .update(usersTable)
         .set({
-          rewardPoints,
+          rewardPoints: referrer.rewardPoints ?? 0,
           bonusBalance: "0",
           withdrawableBalance: wdB.toFixed(2),
           walletBalance: walletStr,
@@ -197,16 +164,6 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
         referenceId: referral.id,
       });
 
-      for (const g of tierGrants) {
-        await trx.insert(transactionsTable).values({
-          userId: referrer.id,
-          txType: "reward",
-          amount: "0",
-          status: "completed",
-          note: `[Tier] Referral milestone ${g.at} successful referrals — +${g.points} reward points`,
-        });
-      }
-
       await trx
         .update(referralsTable)
         .set({
@@ -217,19 +174,7 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
         })
         .where(eq(referralsTable.id, referral.id));
 
-      for (const g of tierGrants) {
-        tierMilestoneNotifs.push(g);
-      }
     });
-
-    for (const g of tierMilestoneNotifs) {
-      void notifyUser(
-        referral.referrerId,
-        "Referral tier milestone",
-        `${g.at} successful referrals — +${g.points} reward points unlocked.`,
-        "tier",
-      );
-    }
 
     const [referrerOut] = await db.select().from(usersTable).where(eq(usersTable.id, referral.referrerId)).limit(1);
     const [referredUser] = await db

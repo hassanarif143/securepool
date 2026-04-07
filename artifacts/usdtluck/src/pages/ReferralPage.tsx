@@ -122,7 +122,7 @@ export default function ReferralPage() {
         <div>
           <h1 className="text-2xl font-bold">Referral Program</h1>
           <p className="text-muted-foreground mt-1">
-            Invite friends. You earn cash reward on first ticket, plus reward points on referral milestones.
+            Invite friends. You earn cash reward when your friend buys their first ticket.
           </p>
         </div>
 
@@ -307,7 +307,7 @@ export default function ReferralPage() {
                 { step: "1", text: "Copy your unique referral link or code above." },
                 { step: "2", text: "Share it with friends — they sign up with your link." },
                 { step: "3", text: "When they buy their first pool ticket, you receive 2 USDT (withdrawable, one-time per friend)." },
-                { step: "4", text: "At 5, 10, 15, 25, and 50 successful referrals you unlock extra reward points." },
+                { step: "4", text: "Referral bonus is credited one-time per friend after their first ticket purchase." },
                 { step: "5", text: "No cap on how many people you can invite." },
               ].map((item) => (
                 <div key={item.step} className="flex items-start gap-3">

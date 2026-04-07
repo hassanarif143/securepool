@@ -1134,7 +1134,7 @@ router.post("/transactions/:id/approve", async (req, res) => {
   if (txn.status !== "pending") { res.status(400).json({ error: "Transaction is not pending" }); return; }
 
   const nextStatus = txn.txType === "withdraw" ? "under_review" : "completed";
-  const depositFlags = { grantedFirstTicketBonus: false, firstDepositRewardPoints: 0 };
+  const depositFlags = { grantedFirstTicketBonus: false };
 
   try {
     await db.transaction(async (trx) => {
@@ -1158,13 +1158,9 @@ router.post("/transactions/:id/approve", async (req, res) => {
         const depositAmt = parseFloat(txn.amount);
         let rewardPoints = user.rewardPoints ?? 0;
         let wdB = parseFloat(String(user.withdrawableBalance ?? "0")) + depositAmt;
-        let firstDepositRewardPoints = 0;
         const alreadyClaimedFirst = user.firstDepositClaimed === true;
         let nextFirstDepositClaimed = alreadyClaimedFirst;
         if (!alreadyClaimedFirst) {
-          const rewardCfg = await getRewardConfig();
-          firstDepositRewardPoints = rewardCfg.firstDepositRewardPoints;
-          rewardPoints += firstDepositRewardPoints;
           nextFirstDepositClaimed = true;
         }
         const walletNum = (rewardPoints / 300) + wdB;
@@ -1186,17 +1182,6 @@ router.post("/transactions/:id/approve", async (req, res) => {
           userId: txn.userId,
           description: `Deposit approved — user tx #${txId} — ${depositAmt} USDT to withdrawable balance`,
         });
-        if (firstDepositRewardPoints > 0) {
-          depositFlags.grantedFirstTicketBonus = true;
-          depositFlags.firstDepositRewardPoints = firstDepositRewardPoints;
-          await trx.insert(transactionsTable).values({
-            userId: txn.userId,
-            txType: "reward",
-            amount: "0",
-            status: "completed",
-            note: `[System] First deposit reward — +${firstDepositRewardPoints} points (non-withdrawable)`,
-          });
-        }
         await recordDepositApproved(trx, {
           userId: txn.userId,
           depositAmount: depositAmt,
@@ -1239,14 +1224,7 @@ router.post("/transactions/:id/approve", async (req, res) => {
         `Your deposit of ${txn.amount} USDT has been approved and added to your withdrawable balance.`,
         "success",
       );
-      if (depositFlags.grantedFirstTicketBonus) {
-        await notifyUser(
-          txn.userId,
-          "First deposit bonus 🎁",
-            `You received +${depositFlags.firstDepositRewardPoints} reward points on your first approved deposit.`,
-          "reward",
-        );
-      }
+      void depositFlags;
     } else {
       await notifyUser(
         txn.userId,
@@ -2121,11 +2099,6 @@ router.get("/rewards/config", async (_req, res) => {
 
 const PatchRewardsConfig = z.object({
   referralInviteUsdt: z.number().nonnegative().optional(),
-  streakRewardPoints: z.record(z.string(), z.number().int().nonnegative()).optional(),
-  tierUpgradeRewardPoints: z.number().int().nonnegative().optional(),
-  firstDepositRewardPoints: z.number().int().nonnegative().optional(),
-  dailyLoginRewardPoints: z.number().int().nonnegative().optional(),
-  pointsPerPoolJoin: z.number().int().nonnegative().optional(),
 });
 
 router.patch("/rewards/config", async (req, res) => {

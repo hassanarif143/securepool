@@ -520,12 +520,6 @@ export default function ProfilePage() {
               <p className="text-xs text-muted-foreground">Free entries</p>
               <p className="font-semibold text-primary tabular-nums">{currentUser.freeEntries ?? 0}</p>
             </div>
-            <div className="col-span-2">
-              <p className="text-xs text-muted-foreground">Reward points</p>
-              <p className="font-semibold tabular-nums">
-                {currentUser.rewardPoints ?? 0} pts (~{((currentUser.rewardPoints ?? 0) / 300).toFixed(2)} USDT entry value)
-              </p>
-            </div>
             {hasLuckyBadge && (
               <div className="col-span-2 flex items-center gap-2 pt-1">
                 <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40">✨ Lucky — mystery box</Badge>

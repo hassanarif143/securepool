@@ -1,6 +1,5 @@
 import { and, desc, eq, gte } from "drizzle-orm";
 import { db, dailyLoginsTable, usersTable } from "@workspace/db";
-import { getRewardConfig } from "../lib/reward-config";
 
 export type DailyRewardSpec = { type: "points"; value: number; day: number };
 
@@ -26,8 +25,7 @@ function daysBetween(a: string, b: string): number {
 }
 
 export async function processDailyLogin(userId: number) {
-  const rewardCfg = await getRewardConfig();
-  const configuredPoints = Math.max(0, rewardCfg.dailyLoginRewardPoints);
+  const configuredPoints = 0;
   const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!u) return { error: "user_not_found" as const };
 
@@ -106,7 +104,6 @@ export async function processDailyLogin(userId: number) {
 }
 
 export async function claimDailyLoginReward(userId: number, loginRowId: number) {
-  const rewardCfg = await getRewardConfig();
   const [row] = await db
     .select()
     .from(dailyLoginsTable)
@@ -117,7 +114,7 @@ export async function claimDailyLoginReward(userId: number, loginRowId: number) 
   const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!u) return { ok: false as const, error: "User not found" };
 
-  const pts = Math.max(0, rewardCfg.dailyLoginRewardPoints);
+  const pts = 0;
   if (pts > 0) {
     await db
       .update(usersTable)

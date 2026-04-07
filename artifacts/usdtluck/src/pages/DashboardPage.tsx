@@ -12,10 +12,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TierBadge, TierProgressCard, getTier, getNextTier, computeProgress } from "@/components/TierBadge";
 import { ActivityFeed } from "@/components/ActivityFeed";
-import { StreakCounter } from "@/components/StreakCounter";
-import { PointsExpiryWarning } from "@/components/PointsExpiryWarning";
 import { LivePoolWatcher } from "@/components/LivePoolWatcher";
-import { DailyLoginCalendar } from "@/components/DailyLoginCalendar";
 import { ComebackBanner, type ActiveCouponJson } from "@/components/ComebackOffer";
 import { SquadPanel } from "@/components/SquadPanel";
 import { AchievementGrid } from "@/components/AchievementGrid";
@@ -132,15 +129,6 @@ export default function DashboardPage() {
   const [, navigate] = useLocation();
   const [tierInfo, setTierInfo] = useState<TierInfo | null>(null);
   const [myEntries, setMyEntries] = useState<any[]>([]);
-  const [dailyLogin, setDailyLogin] = useState<{
-    isNewLogin: boolean;
-    claimed: boolean;
-    loginRowId?: number;
-    dayNumber: number;
-    reward: { type: string; value: number };
-    nextReward: { day: number; type: string; value: number };
-    streakBroken: boolean;
-  } | null>(null);
   const [comeback, setComeback] = useState<ActiveCouponJson | null>(null);
 
   const { data: pools, isLoading: poolsLoading } = useListPools();
@@ -160,8 +148,6 @@ export default function DashboardPage() {
   const animOpenPools = useAnimatedNumber(openPoolCount);
   const animWins = useAnimatedNumber(winCount);
   const animMyEntries = useAnimatedNumber(activeEntryCount);
-  const rewardPoints = user?.rewardPoints ?? 0;
-  const rewardPointsUsdt = rewardPoints / 300;
 
   useEffect(() => {
     if (!user) return;
@@ -183,17 +169,6 @@ export default function DashboardPage() {
         const csrfData = await csrfRes.json().catch(() => ({}));
         const token = (csrfData as { csrfToken?: string }).csrfToken ?? getCsrfToken();
         setCsrfToken(token ?? null);
-        const r = await fetch(apiUrl("/api/user/daily-login"), {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { "x-csrf-token": token } : {}),
-          },
-          body: "{}",
-        });
-        const d = await r.json();
-        if (d.isNewLogin && !d.claimed) setDailyLogin(d);
         const cr = await fetch(apiUrl("/api/user/active-coupon"), { credentials: "include" });
         const cj = await cr.json();
         setComeback(cj as ActiveCouponJson);
@@ -276,7 +251,7 @@ export default function DashboardPage() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: "Your total balance", value: `${(user.walletBalance ?? 0).toFixed(2)} USDT`, sub: "This includes cash + reward points value" },
-          { label: "Your reward points", value: `${rewardPoints} pts`, sub: `Worth about $${rewardPointsUsdt.toFixed(2)} for pool entries` },
+          { label: "Withdrawable balance", value: `${(user.withdrawableBalance ?? 0).toFixed(2)} USDT`, sub: "Available for withdrawal requests" },
           { label: "Your loyalty level", value: `${tierCurrent.icon} ${tierCurrent.label}`, sub: tierNext ? `${ptsToNext} more points to reach ${tierNext.label}` : "You are at the highest level" },
           { label: "Pools you joined", value: `${activeEntryCount}`, sub: "Currently active pool entries" },
         ].map((item) => (
@@ -291,36 +266,7 @@ export default function DashboardPage() {
       {/* Time-sensitive & lightweight alerts first (not a wall of cards) */}
       <div className="space-y-3">
         {comeback?.hasCoupon && <ComebackBanner coupon={comeback} />}
-        <PointsExpiryWarning />
-        <StreakCounter />
       </div>
-
-      <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3.5 sm:px-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-primary/90">Reward points explained</p>
-        <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-          Reward points are a bonus for using the platform. They are <span className="text-foreground font-semibold">not cash</span> and cannot be withdrawn.
-          You can use them to join pools. Simple rule: <span className="text-foreground font-semibold">300 points = 1 USDT</span> for pool entry value.
-        </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/wallet">View wallet points</Link>
-          </Button>
-          <Button variant="secondary" size="sm" asChild>
-            <Link href="/referral">Open referral tracker</Link>
-          </Button>
-        </div>
-      </div>
-
-      {dailyLogin && dailyLogin.isNewLogin && !dailyLogin.claimed && (
-        <DailyLoginCalendar
-          initial={dailyLogin}
-          onDismiss={() => setDailyLogin(null)}
-          onClaimed={() => {
-            setDailyLogin((p) => (p ? { ...p, claimed: true } : null));
-            void queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-          }}
-        />
-      )}
       <LivePoolWatcher />
 
       {(user.poolJoinCount ?? 0) > 0 && (user.totalWins ?? 0) === 0 && (
@@ -369,15 +315,6 @@ export default function DashboardPage() {
                   {animBalance.toFixed(2)}{" "}
                   <span className="text-lg sm:text-xl font-bold text-muted-foreground">USDT</span>
                 </p>
-                <div className="mt-3 rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 max-w-xl">
-                  <p className="text-sm font-semibold text-foreground">
-                    Reward points: <span className="text-primary tabular-nums">{rewardPoints} pts</span>{" "}
-                    <span className="text-muted-foreground">(about ${rewardPointsUsdt.toFixed(2)})</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Important: reward points are not withdrawable cash. Use them only to join pools.
-                  </p>
-                </div>
                 {user.walletBalance <= 0 && (
                   <div className="mt-4 rounded-xl border border-amber-500/35 bg-amber-500/[0.08] px-4 py-3 text-sm text-amber-100/95 leading-relaxed max-w-xl shadow-inner">
                     <p className="font-medium text-amber-200/95 mb-1">Fund your wallet</p>

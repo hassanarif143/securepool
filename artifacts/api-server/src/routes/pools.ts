@@ -1089,8 +1089,7 @@ router.post("/:poolId/join", async (req, res) => {
   }
 
   const { awardTierPoints } = await import("../lib/tier");
-  const rewardCfg = await getRewardConfig();
-  const tierResult = isFirstInPool ? await awardTierPoints(sessionUserId, rewardCfg.pointsPerPoolJoin) : null;
+  const tierResult = isFirstInPool ? await awardTierPoints(sessionUserId, 0) : null;
 
   if (user?.email) {
     const luckStr = luckyNumbers.map(formatLuckyNumberDisplay).join(", ");
