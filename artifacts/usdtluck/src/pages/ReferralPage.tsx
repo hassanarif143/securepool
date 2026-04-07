@@ -57,26 +57,31 @@ export default function ReferralPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
-      <Card>
+      <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-[hsl(222,30%,10%)] via-[hsl(222,30%,9%)] to-[hsl(224,30%,8%)] p-5 sm:p-6">
+        <p className="text-xs uppercase tracking-[0.18em] text-primary/90">Referral program</p>
+        <h1 className="text-2xl font-bold mt-1">Invite friends, earn rewards</h1>
+        <p className="text-sm text-muted-foreground mt-2">
+          When your friend joins and buys their first ticket, you receive <span className="font-semibold text-foreground">2 USDT</span> reward.
+        </p>
+      </div>
+
+      <Card className="border-primary/20">
         <CardHeader>
-          <CardTitle>Referral Rewards</CardTitle>
+          <CardTitle>Your referral assets</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Invite friends. When they join and buy their first pool ticket, you get <span className="font-semibold text-foreground">2 USDT reward</span>.
-          </p>
           <div className="grid sm:grid-cols-2 gap-3">
-            <div className="rounded-lg border border-border/70 p-3">
+            <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
               <p className="text-xs text-muted-foreground">Referral code</p>
-              <p className="font-mono font-semibold mt-1">{data.myReferralCode || "N/A"}</p>
-              <Button size="sm" className="mt-2" onClick={() => copy(data.myReferralCode, "Code")}>
+              <p className="font-mono font-semibold mt-1 text-lg tracking-wide">{data.myReferralCode || "Generating..."}</p>
+              <Button size="sm" className="mt-2 w-full sm:w-auto" onClick={() => copy(data.myReferralCode, "Code")} disabled={!data.myReferralCode}>
                 Copy code
               </Button>
             </div>
-            <div className="rounded-lg border border-border/70 p-3">
+            <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
               <p className="text-xs text-muted-foreground">Referral link</p>
               <p className="text-xs break-all mt-1">{inviteLink || "Unavailable"}</p>
-              <Button size="sm" className="mt-2" onClick={() => copy(inviteLink, "Link")} disabled={!inviteLink}>
+              <Button size="sm" className="mt-2 w-full sm:w-auto" onClick={() => copy(inviteLink, "Link")} disabled={!inviteLink}>
                 Copy link
               </Button>
             </div>

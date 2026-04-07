@@ -6,6 +6,27 @@ import { assertEmailVerified } from "../middleware/require-email-verified";
 
 const router = Router();
 
+function buildReferralCode(userId: number): string {
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `REF${userId}${rand}`;
+}
+
+async function ensureReferralCode(userId: number, current: string | null): Promise<string> {
+  if (current && current.trim()) return current;
+  for (let i = 0; i < 8; i++) {
+    const candidate = buildReferralCode(userId);
+    const [clash] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.referralCode, candidate))
+      .limit(1);
+    if (clash) continue;
+    await db.update(usersTable).set({ referralCode: candidate }).where(eq(usersTable.id, userId));
+    return candidate;
+  }
+  return `REF${userId}`;
+}
+
 router.get("/me", async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) {
@@ -50,8 +71,10 @@ router.get("/me", async (req, res) => {
     .from(referralsTable)
     .where(eq(referralsTable.referrerId, userId));
 
+  const myCode = await ensureReferralCode(userId, me.referralCode ?? null);
+
   res.json({
-    myReferralCode: me.referralCode ?? "",
+    myReferralCode: myCode,
     totalReferrals: Number(counts?.total ?? 0),
     completedReferrals: Number(counts?.completed ?? 0),
     pendingReferrals: Number(counts?.pending ?? 0),
