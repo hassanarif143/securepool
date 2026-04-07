@@ -92,6 +92,9 @@ function PodiumCard({ winner }: { winner: any }) {
 
       <p className="font-bold text-base leading-tight">{winner.userName}</p>
       <p className="text-xs text-muted-foreground mt-0.5 mb-3 truncate max-w-full px-1">{winner.poolTitle}</p>
+      <p className="text-[10px] text-muted-foreground -mt-2 mb-2">
+        Tickets: {winner.winnerTicketCount ?? 0}
+      </p>
 
       <div
         className="text-2xl font-extrabold leading-none mb-1"
@@ -146,6 +149,9 @@ function WinnerRow({ winner, index }: { winner: any; index: number }) {
           <Badge className={`text-[10px] py-0 ${meta.badge}`}>{meta.label}</Badge>
         </div>
         <p className="text-xs text-muted-foreground truncate mt-0.5">{winner.poolTitle}</p>
+        <p className="text-[10px] text-muted-foreground">
+          Ticket IDs: {(winner.winnerTicketNumbers ?? []).slice(0, 6).join(", ") || "N/A"}
+        </p>
       </div>
 
       {/* Prize + time */}

@@ -80,6 +80,9 @@ type PoolDetailsApi = {
   join_blocked: boolean;
   participants: { name: string; joined_at: string; ticket_count?: number }[];
   my_lucky_numbers?: string[];
+  my_ticket_count?: number;
+  estimated_win_chance_percent?: number;
+  in_cooldown_reduced_weight?: boolean;
   draw_lucky_number?: string | null;
   lucky_match_user_id?: number | null;
   user_won_lucky_match?: boolean;
@@ -846,6 +849,21 @@ export default function PoolDetailPage() {
                       <a href="/login" className="text-primary underline">Login</a> to join this pool
                     </p>
                   )}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Your tickets in this pool</span>
+                    <span className="font-medium text-foreground">{poolDetails?.my_ticket_count ?? 0}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Estimated winning chance</span>
+                    <span className="font-medium text-foreground">
+                      {(poolDetails?.estimated_win_chance_percent ?? 0).toFixed(2)}%
+                    </span>
+                  </div>
+                  {poolDetails?.in_cooldown_reduced_weight ? (
+                    <p className="text-xs text-amber-200/90">
+                      Your win chance is temporarily reduced due to a recent win (cooldown fairness rule).
+                    </p>
+                  ) : null}
                 </div>
               )}
             </CardContent>

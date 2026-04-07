@@ -76,8 +76,8 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
           ))}
 
         <div className="grid grid-cols-2 gap-2.5">
-          <StatBox label="Entry fee" value={`$${pool.entryFee} USDT`} />
-          <StatBox label="Total slots" value={`${pool.maxUsers} slots`} />
+          <StatBox label="1 Ticket Price" value={`$${pool.entryFee} USDT`} />
+          <StatBox label="Tickets available" value={`${pool.maxUsers} total`} />
           <StatBox label="Loser refund" value={`$${refund.toFixed(0)} USDT`} />
           <StatBox label={showRevealState ? "Pool status" : "Filled"} value={showRevealState ? "FULL" : `${pool.participantCount} / ${pool.maxUsers}`} />
         </div>

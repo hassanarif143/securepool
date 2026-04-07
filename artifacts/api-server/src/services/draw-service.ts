@@ -64,3 +64,47 @@ export function computeBestDrawPositionByUserId<T extends { userId: number }>(sh
   }
   return positionByUserId;
 }
+
+type WeightedTicket = { id: number; userId: number; weight: number };
+
+/**
+ * Weighted random winner selection from ticket rows.
+ * - allowMultiWin=true: same user can take multiple places (different tickets).
+ * - allowMultiWin=false: one place per user max.
+ */
+export function pickWeightedWinnersByTickets(
+  tickets: WeightedTicket[],
+  winnerCount: number,
+  allowMultiWin: boolean,
+): WeightedTicket[] {
+  const pool = [...tickets].map((t) => ({ ...t, weight: Number.isFinite(t.weight) ? Math.max(0.0001, t.weight) : 1 }));
+  const winners: WeightedTicket[] = [];
+  const seenUsers = new Set<number>();
+
+  for (let i = 0; i < winnerCount; i++) {
+    const eligible = allowMultiWin ? pool : pool.filter((t) => !seenUsers.has(t.userId));
+    if (eligible.length === 0) break;
+    const totalWeight = eligible.reduce((s, t) => s + t.weight, 0);
+    if (!Number.isFinite(totalWeight) || totalWeight <= 0) break;
+    const draw = secureRandomFloat() * totalWeight;
+    let run = 0;
+    let picked = eligible[eligible.length - 1]!;
+    for (const t of eligible) {
+      run += t.weight;
+      if (draw <= run) {
+        picked = t;
+        break;
+      }
+    }
+    winners.push(picked);
+    seenUsers.add(picked.userId);
+    const idx = pool.findIndex((t) => t.id === picked.id);
+    if (idx >= 0) pool.splice(idx, 1);
+  }
+  return winners;
+}
+
+function secureRandomFloat(): number {
+  const max = 1_000_000_000;
+  return randomInt(0, max) / max;
+}

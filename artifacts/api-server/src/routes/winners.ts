@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, winnersTable, usersTable, poolsTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { poolTicketsTable } from "@workspace/db/schema";
+import { eq, desc, and } from "drizzle-orm";
 import { getAuthedUserId, requireAuth, type AuthedRequest } from "../middleware/auth";
 import { privacyDisplayName } from "../lib/privacy-name";
 
@@ -133,8 +134,14 @@ router.get("/", async (req, res) => {
     .orderBy(desc(winnersTable.awardedAt))
     .limit(lim);
 
-  res.json(
-    winners.map((w) => ({
+  const enriched = await Promise.all(
+    winners.map(async (w) => {
+      const ticketRows = await db
+        .select({ ticketNumber: poolTicketsTable.ticketNumber })
+        .from(poolTicketsTable)
+        .where(and(eq(poolTicketsTable.poolId, w.poolId), eq(poolTicketsTable.userId, w.userId)))
+        .orderBy(poolTicketsTable.ticketNumber);
+      return {
       id: w.id,
       poolId: w.poolId,
       poolTitle: w.poolTitle,
@@ -146,8 +153,12 @@ router.get("/", async (req, res) => {
       withdrawalStatus: w.paymentStatus,
       walletAddressTruncated: truncateWallet(w.cryptoAddress),
       screenshotUrl: null as string | null,
-    })),
+      winnerTicketCount: ticketRows.length,
+      winnerTicketNumbers: ticketRows.map((t) => t.ticketNumber).filter((n): n is number => Number.isInteger(n)),
+    };
+    }),
   );
+  res.json(enriched);
 });
 
 export default router;

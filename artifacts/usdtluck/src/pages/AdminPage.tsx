@@ -19,7 +19,6 @@ import {
   getGetAdminFinanceSettingsQueryKey,
   getGetAdminDrawFinancialsQueryKey,
 } from "@workspace/api-client-react";
-import type { UpdatePoolBody } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,15 +58,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-const ACTIVITY_TIER_OPTIONS = [
-  { value: "bronze", label: "Bronze — all members" },
-  { value: "silver", label: "Silver+ (6+ pool joins)" },
-  { value: "gold", label: "Gold+ (16+ pool joins)" },
-  { value: "diamond", label: "Diamond (31+ pool joins)" },
-] as const;
-
-type ActivityTier = (typeof ACTIVITY_TIER_OPTIONS)[number]["value"];
 
 function parseSuperAdminIds(): number[] {
   const raw = import.meta.env.VITE_SUPER_ADMIN_IDS as string | undefined;
@@ -668,10 +658,15 @@ function PoolsTab() {
   const [editTitle, setEditTitle] = useState("");
   const [editEndTime, setEditEndTime] = useState("");
   const [editNoTimeLimit, setEditNoTimeLimit] = useState(false);
-  const [editMinPoolVipTier, setEditMinPoolVipTier] = useState<ActivityTier>("bronze");
   const [editPlatformFeePerJoin, setEditPlatformFeePerJoin] = useState("");
   const [initialPlatformFeePerJoin, setInitialPlatformFeePerJoin] = useState("");
   const [editWinnerCount, setEditWinnerCount] = useState<1 | 2 | 3>(3);
+  const [editTicketPrice, setEditTicketPrice] = useState("");
+  const [editTotalTickets, setEditTotalTickets] = useState("");
+  const [editMaxTicketsPerUser, setEditMaxTicketsPerUser] = useState("");
+  const [editAllowMultiWin, setEditAllowMultiWin] = useState(false);
+  const [editCooldownDays, setEditCooldownDays] = useState("7");
+  const [editCooldownWeight, setEditCooldownWeight] = useState("0.2");
   const [saving, setSaving] = useState(false);
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
@@ -704,8 +699,6 @@ function PoolsTab() {
       dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
       setEditEndTime(dt.toISOString().slice(0, 16));
     }
-    const t = pool.minPoolVipTier as ActivityTier | undefined;
-    setEditMinPoolVipTier(t && ["bronze", "silver", "gold", "diamond"].includes(t) ? t : "bronze");
     const raw =
       pool.platformFeePerJoinOverride != null && pool.platformFeePerJoinOverride !== undefined
         ? String(pool.platformFeePerJoinOverride)
@@ -714,15 +707,18 @@ function PoolsTab() {
     setEditPlatformFeePerJoin(s);
     setInitialPlatformFeePerJoin(s);
     setEditWinnerCount(poolWinnerCount(pool));
+    setEditTicketPrice(String((pool as any).ticketPrice ?? pool.entryFee));
+    setEditTotalTickets(String((pool as any).totalTickets ?? pool.maxUsers));
+    setEditMaxTicketsPerUser((pool as any).maxTicketsPerUser != null ? String((pool as any).maxTicketsPerUser) : "");
+    setEditAllowMultiWin(Boolean((pool as any).allowMultiWin));
+    setEditCooldownDays(String((pool as any).cooldownPeriodDays ?? 7));
+    setEditCooldownWeight(String((pool as any).cooldownWeight ?? 0.2));
   }
 
   async function saveEdit(poolId: number) {
     setSaving(true);
     try {
-      const data: UpdatePoolBody = {
-        title: editTitle,
-        minPoolVipTier: editMinPoolVipTier,
-      };
+      const data: any = { title: editTitle };
       if (editNoTimeLimit) {
         data.endTime = new Date("2099-12-31T23:59:59.000Z").toISOString();
       } else {
@@ -750,6 +746,21 @@ function PoolsTab() {
       if (curPool && editWinnerCount !== poolWinnerCount(curPool)) {
         data.winnerCount = editWinnerCount;
       }
+      const tp = parseFloat(editTicketPrice);
+      if (Number.isFinite(tp) && tp > 0) data.ticketPrice = tp;
+      const tt = parseInt(editTotalTickets, 10);
+      if (Number.isInteger(tt) && tt > 0) data.totalTickets = tt;
+      const mpu = editMaxTicketsPerUser.trim();
+      if (mpu === "") data.maxTicketsPerUser = null;
+      else {
+        const mpuN = parseInt(mpu, 10);
+        if (Number.isInteger(mpuN) && mpuN > 0) data.maxTicketsPerUser = mpuN;
+      }
+      data.allowMultiWin = editAllowMultiWin;
+      const cd = parseInt(editCooldownDays, 10);
+      if (Number.isInteger(cd) && cd >= 0) data.cooldownPeriodDays = cd;
+      const cw = parseFloat(editCooldownWeight);
+      if (Number.isFinite(cw) && cw >= 0.01 && cw <= 1) data.cooldownWeight = cw;
       await updatePool.mutateAsync({ poolId, data });
       toast({ title: "Pool updated" });
       setEditingId(null);
@@ -1087,6 +1098,42 @@ function PoolsTab() {
                     </p>
                   </div>
                   <div>
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">Ticket price (USDT)</Label>
+                    <Input value={editTicketPrice} onChange={(e) => setEditTicketPrice(e.target.value)} className="h-9" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">Total tickets</Label>
+                    <Input value={editTotalTickets} onChange={(e) => setEditTotalTickets(e.target.value)} className="h-9" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">Max tickets per user (optional)</Label>
+                    <Input
+                      value={editMaxTicketsPerUser}
+                      onChange={(e) => setEditMaxTicketsPerUser(e.target.value)}
+                      className="h-9"
+                      placeholder="Empty = no cap"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={editAllowMultiWin}
+                      onChange={(e) => setEditAllowMultiWin(e.target.checked)}
+                      className="rounded border-border"
+                    />
+                    Allow same user to win multiple places
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1.5 block">Cooldown days</Label>
+                      <Input value={editCooldownDays} onChange={(e) => setEditCooldownDays(e.target.value)} className="h-9" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1.5 block">Cooldown weight</Label>
+                      <Input value={editCooldownWeight} onChange={(e) => setEditCooldownWeight(e.target.value)} className="h-9" />
+                    </div>
+                  </div>
+                  <div>
                     <Label className="text-xs text-muted-foreground mb-1.5 block">
                       Platform fee per join (USDT)
                     </Label>
@@ -1374,6 +1421,14 @@ function CreatePoolTab() {
     title: "",
     entryFee: 10,
     maxUsers: 50,
+    ticketPrice: 10,
+    totalTickets: 50,
+    maxTicketsPerUser: "",
+    allowMultiWin: false,
+    cooldownPeriodDays: 7,
+    cooldownWeight: 0.2,
+    feeMode: "fixed" as "fixed" | "percent",
+    feeValue: 2,
     startTime: localDatetimeValue(now),
     endTime: localDatetimeValue(defaultEnd),
     noTimeLimit: false,
@@ -1381,7 +1436,6 @@ function CreatePoolTab() {
     prizeSecond: 50,
     prizeThird: 30,
     winnerCount: 3 as 1 | 2 | 3,
-    minPoolVipTier: "bronze" as ActivityTier,
     platformFeePerJoinStr: "",
   });
   const [submitted, setSubmitted] = useState(false);
@@ -1393,8 +1447,8 @@ function CreatePoolTab() {
   }
 
   const totalPrize = poolPaidPrizeTotal(form);
-  const poolRevenue = (form.entryFee || 0) * (form.maxUsers || 0);
-  const entryForFee = form.entryFee || 0;
+  const poolRevenue = (form.ticketPrice || 0) * (form.totalTickets || 0);
+  const entryForFee = form.ticketPrice || 0;
   const customFeeRaw = form.platformFeePerJoinStr.trim();
   const parsedCustomFee = customFeeRaw === "" ? null : parseFloat(customFeeRaw);
   const platformFeePerJoin =
@@ -1402,8 +1456,8 @@ function CreatePoolTab() {
       ? Math.min(entryForFee, Math.max(0, parsedCustomFee))
       : platformFeeUsdtForPoolEntry(entryForFee);
   const netToPoolPerTicket = Math.max(0, entryForFee - platformFeePerJoin);
-  const maxNetCollected = netToPoolPerTicket * (form.maxUsers || 0);
-  const totalPlatformFeesIfFull = platformFeePerJoin * (form.maxUsers || 0);
+  const maxNetCollected = netToPoolPerTicket * (form.totalTickets || 0);
+  const totalPlatformFeesIfFull = platformFeePerJoin * (form.totalTickets || 0);
   const estimatedPoolMargin = maxNetCollected - totalPrize;
   const durationMs = form.noTimeLimit ? 0 : new Date(form.endTime).getTime() - new Date(form.startTime).getTime();
   const durationDays = Math.max(0, Math.round(durationMs / 86400000));
@@ -1420,7 +1474,7 @@ function CreatePoolTab() {
         setSubmitted(false);
         return;
       }
-      if (n > form.entryFee) {
+      if (n > form.ticketPrice) {
         toast({ title: "Fee too high", description: "Per-join fee cannot exceed the list entry fee.", variant: "destructive" });
         setSubmitted(false);
         return;
@@ -1434,17 +1488,24 @@ function CreatePoolTab() {
       {
         data: {
           title: form.title,
-          entryFee: form.entryFee,
-          maxUsers: form.maxUsers,
+          entryFee: form.ticketPrice,
+          maxUsers: form.totalTickets,
+          ticketPrice: form.ticketPrice,
+          totalTickets: form.totalTickets,
+          maxTicketsPerUser: form.maxTicketsPerUser.trim() === "" ? null : parseInt(form.maxTicketsPerUser, 10),
+          allowMultiWin: form.allowMultiWin,
+          cooldownPeriodDays: form.cooldownPeriodDays,
+          cooldownWeight: form.cooldownWeight,
+          feeMode: form.feeMode,
+          feeValue: form.feeValue,
           startTime: new Date(form.startTime).toISOString(),
           endTime: endIso,
           prizeFirst: form.prizeFirst,
           prizeSecond: form.prizeSecond,
           prizeThird: form.prizeThird,
           winnerCount: form.winnerCount,
-          minPoolVipTier: form.minPoolVipTier,
           ...(optionalPlatformFee !== undefined ? { platformFeePerJoin: optionalPlatformFee } : {}),
-        },
+        } as any,
       },
       {
         onSuccess: () => {
@@ -1456,6 +1517,14 @@ function CreatePoolTab() {
             title: "",
             entryFee: 10,
             maxUsers: 50,
+            ticketPrice: 10,
+            totalTickets: 50,
+            maxTicketsPerUser: "",
+            allowMultiWin: false,
+            cooldownPeriodDays: 7,
+            cooldownWeight: 0.2,
+            feeMode: "fixed",
+            feeValue: 2,
             startTime: localDatetimeValue(now2),
             endTime: localDatetimeValue(end2),
             noTimeLimit: false,
@@ -1463,7 +1532,6 @@ function CreatePoolTab() {
             prizeSecond: 50,
             prizeThird: 30,
             winnerCount: 3,
-            minPoolVipTier: "bronze",
             platformFeePerJoinStr: "",
           });
           setSubmitted(false);
@@ -1528,28 +1596,78 @@ function CreatePoolTab() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5 block">Entry Fee (USDT)</Label>
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">Ticket Price (USDT)</Label>
                   <div className="relative">
                     <Input
                       type="number" min="1" step="0.5"
-                      value={form.entryFee}
-                      onChange={(e) => setForm({ ...form, entryFee: parseFloat(e.target.value) || 0 })}
+                      value={form.ticketPrice}
+                      onChange={(e) => setForm({ ...form, ticketPrice: parseFloat(e.target.value) || 0, entryFee: parseFloat(e.target.value) || 0 })}
                       className="h-10 pr-14"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-primary">USDT</span>
                   </div>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5 block">Max Participants</Label>
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">Total Tickets</Label>
                   <div className="relative">
                     <Input
                       type="number" min="2" step="1"
-                      value={form.maxUsers}
-                      onChange={(e) => setForm({ ...form, maxUsers: parseInt(e.target.value) || 0 })}
+                      value={form.totalTickets}
+                      onChange={(e) => setForm({ ...form, totalTickets: parseInt(e.target.value) || 0, maxUsers: parseInt(e.target.value) || 0 })}
                       className="h-10 pr-14"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">users</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">tickets</span>
                   </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">Max tickets per user</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={form.maxTicketsPerUser}
+                    onChange={(e) => setForm({ ...form, maxTicketsPerUser: e.target.value })}
+                    placeholder="Optional"
+                    className="h-10"
+                  />
+                </div>
+                <div className="flex items-end pb-2">
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={form.allowMultiWin}
+                      onChange={(e) => setForm({ ...form, allowMultiWin: e.target.checked })}
+                      className="rounded border-border"
+                    />
+                    Allow multi-win by same user
+                  </label>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">Cooldown days</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.cooldownPeriodDays}
+                    onChange={(e) => setForm({ ...form, cooldownPeriodDays: parseInt(e.target.value) || 0 })}
+                    className="h-10"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">Cooldown weight (0.01 - 1)</Label>
+                  <Input
+                    type="number"
+                    min="0.01"
+                    max="1"
+                    step="0.01"
+                    value={form.cooldownWeight}
+                    onChange={(e) => setForm({ ...form, cooldownWeight: parseFloat(e.target.value) || 0.2 })}
+                    className="h-10"
+                  />
                 </div>
               </div>
 
@@ -1558,6 +1676,26 @@ function CreatePoolTab() {
                 <Label className="text-xs text-muted-foreground mb-1.5 block">
                   Platform fee per join (optional override)
                 </Label>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <Select value={form.feeMode} onValueChange={(v) => setForm({ ...form, feeMode: v as "fixed" | "percent" })}>
+                    <SelectTrigger className="h-10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fixed">Fixed fee (USDT)</SelectItem>
+                      <SelectItem value="percent">Percent of ticket price</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.feeValue}
+                    onChange={(e) => setForm({ ...form, feeValue: parseFloat(e.target.value) || 0 })}
+                    className="h-10"
+                    placeholder={form.feeMode === "percent" ? "e.g. 20" : "e.g. 2"}
+                  />
+                </div>
                 <Input
                   type="text"
                   inputMode="decimal"
@@ -1740,7 +1878,7 @@ function CreatePoolTab() {
                     <div className="flex-1">
                       <p className="font-bold">{form.title || <span className="text-muted-foreground italic text-sm">Pool title...</span>}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {form.entryFee} USDT entry · {form.maxUsers} max users · {form.winnerCount} winner
+                        {form.ticketPrice} USDT per ticket · {form.totalTickets} total tickets · {form.winnerCount} winner
                         {form.winnerCount === 1 ? "" : "s"}
                       </p>
                     </div>
@@ -1770,7 +1908,7 @@ function CreatePoolTab() {
                   <div className="mb-3">
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
                       <span>0 joined</span>
-                      <span>{form.maxUsers} max</span>
+                      <span>{form.totalTickets} tickets</span>
                     </div>
                     <div className="w-full h-1.5 rounded-full" style={{ background: "hsl(217,28%,16%)" }} />
                   </div>

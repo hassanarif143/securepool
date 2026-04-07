@@ -752,6 +752,14 @@ const AdminPoolCreateBody = z.object({
   title: z.string().min(3).max(120),
   entryFee: z.number().positive(),
   maxUsers: z.number().int().min(2).max(500),
+  ticketPrice: z.number().positive().optional(),
+  totalTickets: z.number().int().min(2).max(5000).optional(),
+  maxTicketsPerUser: z.number().int().min(1).max(5000).nullable().optional(),
+  allowMultiWin: z.boolean().optional(),
+  cooldownPeriodDays: z.number().int().min(0).max(365).optional(),
+  cooldownWeight: z.number().min(0.01).max(1).optional(),
+  feeMode: z.enum(["fixed", "percent"]).optional(),
+  feeValue: z.number().nonnegative().optional(),
   startTime: z.string().datetime(),
   endTime: z.string().datetime(),
   prizeFirst: z.number().nonnegative(),
@@ -761,6 +769,15 @@ const AdminPoolCreateBody = z.object({
   winnerCount: z.number().int().min(1).max(3).optional(),
   platformFeePerJoin: z.number().nonnegative().optional(),
 });
+
+function computePerTicketFeeFromMode(ticketPrice: number, mode?: "fixed" | "percent", value?: number): number | null {
+  if (mode == null || value == null || !Number.isFinite(value)) return null;
+  if (mode === "percent") {
+    const pct = Math.max(0, value);
+    return Math.min(ticketPrice, Number(((ticketPrice * pct) / 100).toFixed(2)));
+  }
+  return Math.min(ticketPrice, Math.max(0, value));
+}
 
 const AdminSelectWinnersBody = z.object({
   winnerUserIds: z.array(z.number().int().positive()).min(1).max(3),
@@ -794,12 +811,24 @@ router.post("/pool/create", async (req, res) => {
     return;
   }
   const body = parsed.data;
+  const ticketPrice = body.ticketPrice ?? body.entryFee;
+  const totalTickets = body.totalTickets ?? body.maxUsers;
+  const platformFeePerJoin =
+    body.platformFeePerJoin ??
+    computePerTicketFeeFromMode(ticketPrice, body.feeMode, body.feeValue);
   const [created] = await db
     .insert(poolsTable)
     .values({
       title: sanitizeText(body.title),
       entryFee: body.entryFee.toFixed(2),
       maxUsers: body.maxUsers,
+      ticketPrice: ticketPrice.toFixed(2),
+      totalTickets,
+      soldTickets: 0,
+      maxTicketsPerUser: body.maxTicketsPerUser ?? null,
+      allowMultiWin: body.allowMultiWin ?? false,
+      cooldownPeriodDays: body.cooldownPeriodDays ?? 7,
+      cooldownWeight: (body.cooldownWeight ?? 0.2).toFixed(4),
       startTime: new Date(body.startTime),
       endTime: new Date(body.endTime),
       status: "open",
@@ -809,7 +838,7 @@ router.post("/pool/create", async (req, res) => {
       minPoolVipTier: body.minPoolVipTier ?? "bronze",
       winnerCount: body.winnerCount ?? 3,
       platformFeePerJoin:
-        body.platformFeePerJoin != null ? body.platformFeePerJoin.toFixed(2) : null,
+        platformFeePerJoin != null ? platformFeePerJoin.toFixed(2) : null,
       isFrozen: false,
       selectedWinnerUserIds: null,
     })
@@ -1081,6 +1110,13 @@ router.post("/pool/seed-defaults", async (_req, res) => {
       title,
       entryFee: bp.entryFee.toFixed(2),
       maxUsers: bp.maxUsers,
+      ticketPrice: bp.entryFee.toFixed(2),
+      totalTickets: bp.maxUsers,
+      soldTickets: 0,
+      maxTicketsPerUser: null,
+      allowMultiWin: false,
+      cooldownPeriodDays: 7,
+      cooldownWeight: "0.2000",
       startTime: start,
       endTime: end,
       status: "open",

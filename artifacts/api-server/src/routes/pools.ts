@@ -31,7 +31,7 @@ import { sendDrawResultEmail, sendTicketApprovedEmail, sendAdminDrawFinancialSum
 import { logger } from "../lib/logger";
 import { getAuthedUserId, requireAdmin, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
-import { pickUniqueWinners, secureShuffle } from "../services/draw-service";
+import { pickUniqueWinners, pickWeightedWinnersByTickets, secureShuffle } from "../services/draw-service";
 import { logActivity } from "../services/activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { runJoinSideEffects } from "../services/join-side-effects";
@@ -79,7 +79,8 @@ function formatPool(
   participantCount: number,
   drawEconomics?: { desiredProfitUsdt: number },
 ) {
-  const entryFee = parseFloat(pool.entryFee);
+  const entryFee = getTicketPrice(pool);
+  const totalTickets = getTotalTickets(pool);
   const prizeFirst = parseFloat(pool.prizeFirst);
   const prizeSecond = parseFloat(pool.prizeSecond);
   const prizeThird = parseFloat(pool.prizeThird);
@@ -96,7 +97,14 @@ function formatPool(
     id: pool.id,
     title: pool.title,
     entryFee,
-    maxUsers: pool.maxUsers,
+    ticketPrice: entryFee,
+    totalTickets,
+    soldTickets: participantCount,
+    maxTicketsPerUser: pool.maxTicketsPerUser ?? null,
+    allowMultiWin: Boolean(pool.allowMultiWin),
+    cooldownPeriodDays: pool.cooldownPeriodDays ?? 7,
+    cooldownWeight: parseFloat(String(pool.cooldownWeight ?? "0.2")),
+    maxUsers: totalTickets,
     participantCount,
     startTime: pool.startTime,
     endTime: pool.endTime,
@@ -131,6 +139,28 @@ function formatPool(
     };
   }
   return base;
+}
+
+function getTicketPrice(pool: typeof poolsTable.$inferSelect): number {
+  const v = pool.ticketPrice != null ? parseFloat(String(pool.ticketPrice)) : parseFloat(pool.entryFee);
+  return Number.isFinite(v) && v > 0 ? v : parseFloat(pool.entryFee);
+}
+
+function getTotalTickets(pool: typeof poolsTable.$inferSelect): number {
+  const v = pool.totalTickets ?? pool.maxUsers;
+  return Number.isFinite(v) && v > 0 ? Number(v) : pool.maxUsers;
+}
+
+function computeTicketWeightForUser(
+  user: typeof usersTable.$inferSelect,
+  pool: typeof poolsTable.$inferSelect,
+): number {
+  const cooldownDays = Math.max(0, Number(pool.cooldownPeriodDays ?? 7));
+  const reducedWeight = Math.min(1, Math.max(0.01, parseFloat(String(pool.cooldownWeight ?? "0.2"))));
+  if (!user.lastWinAt || cooldownDays <= 0) return 1;
+  const ms = Date.now() - new Date(user.lastWinAt).getTime();
+  const within = ms <= cooldownDays * 24 * 60 * 60 * 1000;
+  return within ? reducedWeight : 1;
 }
 
 function preExitChargeUsdt(entryFee: number, poolPlatformFeeOverride: string | null, ticketCount: number): number {
@@ -195,7 +225,8 @@ router.get("/details/:poolId", async (req, res) => {
     return;
   }
   const currentEntries = await countPoolTickets(poolId);
-  const entryFee = parseFloat(pool.entryFee);
+  const entryFee = getTicketPrice(pool);
+  const totalTickets = getTotalTickets(pool);
   const p1 = parseFloat(pool.prizeFirst);
   const p2 = parseFloat(pool.prizeSecond);
   const p3 = parseFloat(pool.prizeThird);
@@ -235,16 +266,27 @@ router.get("/details/:poolId", async (req, res) => {
   }
 
   let myLuckyNumbers: string[] = [];
+  let myTicketCount = 0;
+  let myWeight = 0;
   if (sessionUserId && userJoined) {
     const ticks = await db
-      .select({ luckyNumber: poolTicketsTable.luckyNumber })
+      .select({ luckyNumber: poolTicketsTable.luckyNumber, weight: poolTicketsTable.weight })
       .from(poolTicketsTable)
       .where(and(eq(poolTicketsTable.poolId, poolId), eq(poolTicketsTable.userId, sessionUserId)))
       .orderBy(asc(poolTicketsTable.id));
     myLuckyNumbers = ticks.map((t) => formatLuckyNumberDisplay(t.luckyNumber));
+    myTicketCount = ticks.length;
+    myWeight = ticks.reduce((s, t) => s + parseFloat(String(t.weight ?? "1")), 0);
   }
+  const allWeights = await db
+    .select({ weight: poolTicketsTable.weight })
+    .from(poolTicketsTable)
+    .where(eq(poolTicketsTable.poolId, poolId));
+  const totalWeight = allWeights.reduce((s, t) => s + parseFloat(String(t.weight ?? "1")), 0);
+  const estimatedWinChancePercent = totalWeight > 0 ? Number(((myWeight / totalWeight) * 100).toFixed(2)) : 0;
+  const inCooldown = myTicketCount > 0 && myWeight / Math.max(1, myTicketCount) < 0.999;
 
-  let joinBlocked = pool.status !== "open" || currentEntries >= pool.maxUsers || !!pool.isFrozen;
+  let joinBlocked = pool.status !== "open" || currentEntries >= totalTickets || !!pool.isFrozen;
   let entryPricing: {
     baseFee: number;
     amountDue: number;
@@ -256,7 +298,7 @@ router.get("/details/:poolId", async (req, res) => {
     joinPlatformFeeUsdt: number;
   } | null = null;
 
-  if (sessionUserId && pool.status === "open" && currentEntries < pool.maxUsers && !pool.isFrozen) {
+  if (sessionUserId && pool.status === "open" && currentEntries < totalTickets && !pool.isFrozen) {
     const [u] = await db
       .select({ id: usersTable.id })
       .from(usersTable)
@@ -283,9 +325,9 @@ router.get("/details/:poolId", async (req, res) => {
     id: pool.id,
     name: pool.title,
     entry_fee: entryFee,
-    max_entries: pool.maxUsers,
+    max_entries: totalTickets,
     current_entries: currentEntries,
-    spots_remaining: Math.max(0, pool.maxUsers - currentEntries),
+    spots_remaining: Math.max(0, totalTickets - currentEntries),
     total_pool_amount: totalPoolAmount,
     prize_breakdown: { "1st": p1, "2nd": p2, "3rd": p3 },
     winner_count: wc,
@@ -302,16 +344,23 @@ router.get("/details/:poolId", async (req, res) => {
     join_blocked: joinBlocked,
     min_pool_vip_tier: "bronze",
     vip_locked: false,
+    max_tickets_per_user: pool.maxTicketsPerUser ?? null,
+    allow_multi_win: Boolean(pool.allowMultiWin),
+    cooldown_period_days: pool.cooldownPeriodDays ?? 7,
+    cooldown_weight: parseFloat(String(pool.cooldownWeight ?? "0.2")),
     entry_pricing: entryPricing,
     fillComparison: await getPoolFillComparison({
       createdAt: pool.createdAt,
       currentEntries,
-      maxUsers: pool.maxUsers,
+      maxUsers: totalTickets,
     }),
     min_participants_to_run_draw: minParticipantsToRunDraw,
     draw_ready: currentEntries >= minParticipantsToRunDraw,
     draw_desired_profit_usdt: desiredProfitUsdt,
     my_lucky_numbers: myLuckyNumbers,
+    my_ticket_count: myTicketCount,
+    estimated_win_chance_percent: estimatedWinChancePercent,
+    in_cooldown_reduced_weight: inCooldown,
     draw_lucky_number: drawLuckyDisplay,
     lucky_match_user_id: pool.luckyMatchUserId,
     user_won_lucky_match: Boolean(sessionUserId && pool.luckyMatchUserId === sessionUserId),
@@ -339,6 +388,22 @@ router.post("/", (req, res, next) => void requireAdmin(req as AuthedRequest, res
   } = parse.data;
   const winnerCount =
     bodyWinnerCount != null && [1, 2, 3].includes(bodyWinnerCount) ? bodyWinnerCount : 3;
+  const raw = (req.body ?? {}) as Record<string, unknown>;
+  const totalTickets =
+    Number.isFinite(Number(raw.totalTickets)) && Number(raw.totalTickets) > 0
+      ? Math.max(1, Math.floor(Number(raw.totalTickets)))
+      : maxUsers;
+  const ticketPrice =
+    Number.isFinite(Number(raw.ticketPrice)) && Number(raw.ticketPrice) > 0
+      ? Number(raw.ticketPrice)
+      : entryFee;
+  const maxTicketsPerUser =
+    raw.maxTicketsPerUser == null || String(raw.maxTicketsPerUser).trim() === ""
+      ? null
+      : Math.max(1, Math.floor(Number(raw.maxTicketsPerUser)));
+  const allowMultiWin = Boolean(raw.allowMultiWin ?? false);
+  const cooldownPeriodDays = Math.max(0, Math.floor(Number(raw.cooldownPeriodDays ?? 7)));
+  const cooldownWeight = Math.min(1, Math.max(0.01, Number(raw.cooldownWeight ?? 0.2)));
 
   const [pool] = await db
     .insert(poolsTable)
@@ -354,6 +419,13 @@ router.post("/", (req, res, next) => void requireAdmin(req as AuthedRequest, res
       winnerCount,
       status: "open",
       minPoolVipTier: "bronze",
+      ticketPrice: String(ticketPrice),
+      totalTickets,
+      soldTickets: 0,
+      maxTicketsPerUser,
+      allowMultiWin,
+      cooldownPeriodDays,
+      cooldownWeight: cooldownWeight.toFixed(4),
       platformFeePerJoin:
         platformFeePerJoin != null && Number.isFinite(platformFeePerJoin) && platformFeePerJoin >= 0
           ? String(platformFeePerJoin)
@@ -792,6 +864,46 @@ router.patch("/:poolId", (req, res, next) => void requireAdmin(req as AuthedRequ
         ? null
         : String(Math.max(0, parse.data.platformFeePerJoin));
   }
+  const rawBody = (req.body ?? {}) as Record<string, unknown>;
+  if (rawBody.ticketPrice != null && Number.isFinite(Number(rawBody.ticketPrice))) {
+    updates.ticketPrice = String(Math.max(0.01, Number(rawBody.ticketPrice)));
+    updates.entryFee = String(Math.max(0.01, Number(rawBody.ticketPrice)));
+  }
+  if (rawBody.totalTickets != null && Number.isFinite(Number(rawBody.totalTickets))) {
+    const tt = Math.max(1, Math.floor(Number(rawBody.totalTickets)));
+    updates.totalTickets = tt;
+    updates.maxUsers = tt;
+  }
+  if (rawBody.maxTicketsPerUser != null && String(rawBody.maxTicketsPerUser).trim() !== "") {
+    updates.maxTicketsPerUser = Math.max(1, Math.floor(Number(rawBody.maxTicketsPerUser)));
+  }
+  if (rawBody.maxTicketsPerUser === null || rawBody.maxTicketsPerUser === "") {
+    updates.maxTicketsPerUser = null;
+  }
+  if (rawBody.allowMultiWin != null) {
+    updates.allowMultiWin = Boolean(rawBody.allowMultiWin);
+  }
+  if (rawBody.cooldownPeriodDays != null && Number.isFinite(Number(rawBody.cooldownPeriodDays))) {
+    updates.cooldownPeriodDays = Math.max(0, Math.floor(Number(rawBody.cooldownPeriodDays)));
+  }
+  if (rawBody.cooldownWeight != null && Number.isFinite(Number(rawBody.cooldownWeight))) {
+    updates.cooldownWeight = Math.min(1, Math.max(0.01, Number(rawBody.cooldownWeight))).toFixed(4);
+  }
+  if (
+    rawBody.feeMode != null &&
+    (rawBody.feeMode === "fixed" || rawBody.feeMode === "percent") &&
+    rawBody.feeValue != null &&
+    Number.isFinite(Number(rawBody.feeValue))
+  ) {
+    const mode = String(rawBody.feeMode);
+    const value = Number(rawBody.feeValue);
+    const priceForMode = Number(updates.ticketPrice ?? existingPool.entryFee);
+    const resolved =
+      mode === "percent"
+        ? Math.min(priceForMode, Number(((priceForMode * Math.max(0, value)) / 100).toFixed(2)))
+        : Math.min(priceForMode, Math.max(0, value));
+    updates.platformFeePerJoin = String(resolved);
+  }
   if (parse.data.winnerCount != null && [1, 2, 3].includes(parse.data.winnerCount)) {
     if (existingPool.status === "completed") {
       res.status(400).json({ error: "Cannot change winner count after the pool is completed." });
@@ -850,8 +962,9 @@ router.post("/:poolId/join", async (req, res) => {
     return;
   }
 
+  const totalTickets = getTotalTickets(pool);
   const ticketsNow = await countPoolTickets(poolId);
-  const slotsLeft = pool.maxUsers - ticketsNow;
+  const slotsLeft = totalTickets - ticketsNow;
   if (slotsLeft <= 0) {
     res.status(400).json({ error: "Pool is full" });
     return;
@@ -869,6 +982,15 @@ router.post("/:poolId/join", async (req, res) => {
     .where(and(eq(poolParticipantsTable.poolId, poolId), eq(poolParticipantsTable.userId, sessionUserId)))
     .limit(1);
   const isFirstInPool = existing.length === 0;
+  const existingTicketsForUser = existing[0]?.ticketCount ?? 0;
+  const maxTicketsPerUser = pool.maxTicketsPerUser ?? null;
+  if (maxTicketsPerUser != null && existingTicketsForUser + ticketQty > maxTicketsPerUser) {
+    const allowedMore = Math.max(0, maxTicketsPerUser - existingTicketsForUser);
+    res.status(400).json({
+      error: `Max ${maxTicketsPerUser} tickets per user in this pool. You can buy ${allowedMore} more.`,
+    });
+    return;
+  }
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, sessionUserId)).limit(1);
   if (!user) {
@@ -1015,7 +1137,14 @@ router.post("/:poolId/join", async (req, res) => {
           .where(eq(poolParticipantsTable.id, prev.id));
       }
 
-      luckyNumbers = await insertPoolTicketsWithLuckyNumbers(trx, poolId, sessionUserId, ticketQty);
+      const weightPerTicket = computeTicketWeightForUser(user, pool);
+      luckyNumbers = await insertPoolTicketsWithLuckyNumbers(trx, poolId, sessionUserId, ticketQty, {
+        weight: weightPerTicket,
+      });
+      await trx
+        .update(poolsTable)
+        .set({ soldTickets: ticketsNow + ticketQty })
+        .where(eq(poolsTable.id, poolId));
     });
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code ?? "";
@@ -1204,6 +1333,10 @@ router.post("/:poolId/exit", async (req, res) => {
 
       await tx.delete(poolTicketsTable).where(and(eq(poolTicketsTable.poolId, poolId), eq(poolTicketsTable.userId, userId)));
       await tx.delete(poolParticipantsTable).where(eq(poolParticipantsTable.id, participant.id));
+      await tx
+        .update(poolsTable)
+        .set({ soldTickets: Math.max(0, (pool.soldTickets ?? 0) - ticketCount) })
+        .where(eq(poolsTable.id, poolId));
       await mirrorAvailableFromUser(tx, userId);
 
       return { refundAmount, chargeApplied, ticketCount };
@@ -1425,6 +1558,10 @@ async function executePoolDistribution(
       const prevWins = user.totalWins ?? 0;
       const nextWins = prevWins + 1;
       const isFirstWinEver = prevWins === 0;
+      const now = new Date();
+      const within7d =
+        user.lastWinAt != null && now.getTime() - new Date(user.lastWinAt).getTime() <= 7 * 24 * 60 * 60 * 1000;
+      const winCount7d = within7d ? (user.winCount7d ?? 0) + 1 : 1;
       await tx
         .update(usersTable)
         .set({
@@ -1434,6 +1571,8 @@ async function executePoolDistribution(
           walletBalance: newBalance.toFixed(2),
           totalWins: nextWins,
           firstWinAt: isFirstWinEver ? new Date() : user.firstWinAt,
+          lastWinAt: now,
+          winCount7d,
         })
         .where(eq(usersTable.id, winRow.userId));
 
@@ -1744,11 +1883,31 @@ export async function autoDistributePool(poolId: number): Promise<DistributedPoo
     throw e;
   }
   const winnerCount = pool.winnerCount ?? 3;
-  const participants = await db
-    .select({ userId: poolParticipantsTable.userId })
-    .from(poolParticipantsTable)
-    .where(eq(poolParticipantsTable.poolId, poolId));
-  const picked = pickUniqueWinners(participants, winnerCount).map((p) => p.userId);
+  const ticketRows = await db
+    .select({
+      id: poolTicketsTable.id,
+      userId: poolTicketsTable.userId,
+      weight: poolTicketsTable.weight,
+    })
+    .from(poolTicketsTable)
+    .where(eq(poolTicketsTable.poolId, poolId));
+  const allowMultiWin = Boolean(pool.allowMultiWin);
+  let picked = pickWeightedWinnersByTickets(
+    ticketRows.map((t) => ({
+      id: t.id,
+      userId: t.userId,
+      weight: parseFloat(String(t.weight ?? "1")),
+    })),
+    winnerCount,
+    allowMultiWin,
+  ).map((t) => t.userId);
+  if (picked.length !== winnerCount) {
+    const participants = await db
+      .select({ userId: poolParticipantsTable.userId })
+      .from(poolParticipantsTable)
+      .where(eq(poolParticipantsTable.poolId, poolId));
+    picked = pickUniqueWinners(participants, winnerCount).map((p) => p.userId);
+  }
   if (picked.length !== winnerCount) {
     const e = new Error(`Pool requires ${winnerCount} winner(s), but only ${picked.length} unique participant(s) found.`);
     (e as { code?: string }).code = "INVALID_WINNER_COUNT";

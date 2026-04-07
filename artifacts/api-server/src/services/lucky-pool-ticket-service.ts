@@ -21,8 +21,11 @@ export async function insertPoolTicketsWithLuckyNumbers(
   poolId: number,
   userId: number,
   count: number,
+  opts?: { weight?: number },
 ): Promise<number[]> {
   const assigned: number[] = [];
+  let nextTicketNumber = await getNextTicketNumber(poolId, tx);
+  const w = Number.isFinite(opts?.weight) ? Math.max(0.01, Number(opts?.weight)) : 1;
   for (let n = 0; n < count; n++) {
     let lucky = 0;
     let inserted = false;
@@ -32,12 +35,16 @@ export async function insertPoolTicketsWithLuckyNumbers(
         await tx.insert(poolTicketsTable).values({
           poolId,
           userId,
+          ticketNumber: nextTicketNumber,
           luckyNumber: lucky,
+          weight: w.toFixed(4),
         });
         inserted = true;
         assigned.push(lucky);
+        nextTicketNumber += 1;
       } catch {
-        /* unique violation on (pool_id, lucky_number) — retry */
+        /* unique violation on lucky_number/ticket_number — retry */
+        nextTicketNumber = await getNextTicketNumber(poolId, tx);
       }
     }
     if (!inserted) {
@@ -51,4 +58,12 @@ export async function insertPoolTicketsWithLuckyNumbers(
 
 export function formatLuckyNumberDisplay(n: number): string {
   return String(n).padStart(4, "0");
+}
+
+async function getNextTicketNumber(poolId: number, client: DbTx | typeof db): Promise<number> {
+  const [{ m }] = await client
+    .select({ m: sql<number>`coalesce(max(${poolTicketsTable.ticketNumber}), 0)::int` })
+    .from(poolTicketsTable)
+    .where(eq(poolTicketsTable.poolId, poolId));
+  return (Number(m) || 0) + 1;
 }

@@ -32,6 +32,14 @@ export const poolsTable = pgTable("pools", {
   isFrozen: boolean("is_frozen").notNull().default(false),
   /** Optional admin-selected winner ids (comma-separated), used before final distribute action. */
   selectedWinnerUserIds: text("selected_winner_user_ids"),
+  /** Ticket-based model fields (fallback to entryFee/maxUsers when null). */
+  ticketPrice: numeric("ticket_price", { precision: 18, scale: 2 }),
+  totalTickets: integer("total_tickets"),
+  soldTickets: integer("sold_tickets").notNull().default(0),
+  maxTicketsPerUser: integer("max_tickets_per_user"),
+  allowMultiWin: boolean("allow_multi_win").notNull().default(false),
+  cooldownPeriodDays: integer("cooldown_period_days").notNull().default(7),
+  cooldownWeight: numeric("cooldown_weight", { precision: 8, scale: 4 }).notNull().default("0.2000"),
 });
 
 export const insertPoolSchema = createInsertSchema(poolsTable).omit({ id: true, createdAt: true });

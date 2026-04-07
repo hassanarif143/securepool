@@ -55,6 +55,8 @@ export const usersTable = pgTable("users", {
   poolVipUpdatedAt: timestamp("pool_vip_updated_at", { withTimezone: true }),
   totalWins: integer("total_wins").notNull().default(0),
   firstWinAt: timestamp("first_win_at", { withTimezone: true }),
+  lastWinAt: timestamp("last_win_at", { withTimezone: true }),
+  winCount7d: integer("win_count_7d").notNull().default(0),
 });
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({
@@ -92,6 +94,8 @@ export const insertUserSchema = createInsertSchema(usersTable).omit({
   poolVipUpdatedAt: true,
   totalWins: true,
   firstWinAt: true,
+  lastWinAt: true,
+  winCount7d: true,
 });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof usersTable.$inferSelect;
