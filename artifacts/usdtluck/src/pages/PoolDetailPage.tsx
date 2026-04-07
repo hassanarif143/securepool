@@ -839,7 +839,7 @@ export default function PoolDetailPage() {
                   </div>
                   {poolDetails?.in_cooldown_reduced_weight ? (
                     <p className="text-xs text-amber-200/90">
-                      Your win chance is temporarily reduced due to a recent win (cooldown fairness rule).
+                      Fairness cooldown is active after your recent win. You still participate in every draw with your tickets.
                     </p>
                   ) : null}
                 </div>
@@ -851,6 +851,9 @@ export default function PoolDetailPage() {
         <Card className="border-[hsl(217,28%,16%)]">
           <CardContent className="p-4 space-y-2">
             <p className="text-sm font-semibold">Fair chance reward system</p>
+            <p className="text-xs text-muted-foreground">
+              Every ticket is a valid entry. More tickets increase your chances, and fairness cooldown helps keep opportunities balanced for all users.
+            </p>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="rounded-md border border-border/60 px-2 py-1.5">
                 <span className="text-muted-foreground">Multi-win</span>
