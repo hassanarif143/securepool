@@ -19,6 +19,9 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Inbox } from "lucide-react";
 import { TrustStrip } from "@/components/TrustStrip";
 import { poolWinnerCount } from "@/lib/pool-winners";
+import { BalanceCard } from "@/components/dashboard/BalanceCard";
+import { RewardsSummaryCard } from "@/components/rewards/RewardsSummaryCard";
+import { LiveWinnerTicker } from "@/components/winners/LiveWinnerTicker";
 
 function greeting() {
   const h = new Date().getHours();
@@ -212,42 +215,33 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {[
-          { label: "Your total balance", value: `${(user.walletBalance ?? 0).toFixed(2)} USDT`, sub: "Your available in-app wallet balance" },
-          { label: "Withdrawable balance", value: `${(user.withdrawableBalance ?? 0).toFixed(2)} USDT`, sub: "Available for withdrawal requests" },
-          { label: "Pools you joined", value: `${activeEntryCount}`, sub: "Currently active pool entries" },
-        ].map((item) => (
-          <div key={item.label} className={`${box} px-4 py-3`}>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{item.label}</p>
-            <p className="mt-1 text-xl font-bold tabular-nums">{item.value}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{item.sub}</p>
-          </div>
-        ))}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <BalanceCard
+          kind="withdrawable"
+          amountUsdt={Number(user.withdrawableBalance ?? 0)}
+          subtitle="Available for withdrawal requests"
+          ctaLabel="Withdraw"
+          onCtaClick={() => navigate("/wallet?tab=withdraw")}
+        />
+        <BalanceCard
+          kind="nonWithdrawable"
+          amountUsdt={Number((user.rewardPoints ?? 0) as number) / 300}
+          subtitle="Rewards wallet used inside platform"
+          ctaLabel="View rewards"
+          onCtaClick={() => navigate("/rewards")}
+        />
       </div>
-      <div className={`${box} p-4 sm:p-5`}>
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Rewards and tier</p>
-        <div className="mt-2 grid gap-2 sm:grid-cols-3 text-sm">
-          <p>
-            Non-withdrawable rewards:{" "}
-            <span className="font-semibold text-foreground">{(((user.rewardPoints ?? 0) as number) / 300).toFixed(2)} USDT</span>
-          </p>
-          <p>
-            Tier: <span className="font-semibold text-foreground capitalize">{user.tier ?? "bronze"}</span>
-          </p>
-          <p>
-            Total pool joins: <span className="font-semibold text-foreground">{user.poolJoinCount ?? 0}</span>
-          </p>
-        </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Active rewards: referral first pool join bonus, pool join milestones, and automatic tier updates by ticket price bands.
-        </p>
-      </div>
+      <RewardsSummaryCard
+        nonWithdrawableUsdt={Number((user.rewardPoints ?? 0) as number) / 300}
+        tier={user.tier ?? "bronze"}
+        poolJoinCount={user.poolJoinCount ?? 0}
+      />
 
       {/* Time-sensitive & lightweight alerts first (not a wall of cards) */}
       <div className="space-y-3">
         {comeback?.hasCoupon && <ComebackBanner coupon={comeback} />}
       </div>
+      <LiveWinnerTicker />
       <LivePoolWatcher />
 
       {(user.poolJoinCount ?? 0) > 0 && (user.totalWins ?? 0) === 0 && (

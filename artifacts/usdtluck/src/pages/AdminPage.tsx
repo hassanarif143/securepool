@@ -27,6 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { appToast } from "@/components/feedback/AppToast";
 import { useQueryClient } from "@tanstack/react-query";
 import { CelebrationModal } from "@/components/CelebrationModal";
 import { poolPaidPrizeTotal, poolWinnerCount } from "@/lib/pool-winners";
@@ -125,7 +126,6 @@ function financeOverviewNum(v: unknown, fallback = 0): number {
 }
 
 function RewardsConfigTab() {
-  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [cfg, setCfg] = useState<any>(null);
@@ -137,7 +137,7 @@ function RewardsConfigTab() {
         if (!res.ok) throw new Error(await readApiErrorMessage(res));
         setCfg(await res.json());
       } catch (err: any) {
-        toast({ title: "Failed to load rewards config", description: err?.message, variant: "destructive" });
+        appToast.error({ title: "Failed to load rewards config", description: err?.message });
       } finally {
         setLoading(false);
       }
@@ -168,9 +168,9 @@ function RewardsConfigTab() {
       });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
       setCfg(await res.json());
-      toast({ title: "Rewards config saved" });
+      appToast.success({ title: "Rewards config saved" });
     } catch (err: any) {
-      toast({ title: "Save failed", description: err?.message, variant: "destructive" });
+      appToast.error({ title: "Save failed", description: err?.message });
     } finally {
       setSaving(false);
     }

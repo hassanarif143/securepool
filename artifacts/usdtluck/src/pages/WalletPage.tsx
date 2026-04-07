@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useGetUserTransactions, getGetUserTransactionsQueryKey, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiUrl, apiAssetUrl, readApiErrorMessage } from "@/lib/api-base";
 import { DepositStepFlow } from "@/components/DepositStepFlow";
@@ -13,15 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, Inbox, Shield } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmActionModal } from "@/components/feedback/ConfirmActionModal";
+import { appToast } from "@/components/feedback/AppToast";
 
 /** USDT (TRC20) address users send deposits to — Deposit tab + copy button. */
 const PLATFORM_ADDRESS = "TBjGU8jfZvsfDVPpjJXVb47khVyKjQqjqp";
@@ -92,7 +84,6 @@ export default function WalletPage() {
   const { user, isLoading, setUser } = useAuth();
   const [, navigate] = useLocation();
   const search = useSearch();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<"deposit" | "withdraw" | "history">("deposit");
@@ -177,8 +168,8 @@ export default function WalletPage() {
   async function handleDeposit(e: React.FormEvent) {
     e.preventDefault();
     const val = parseFloat(amount);
-    if (!val || val <= 0) { toast({ title: "Invalid amount", variant: "destructive" }); return; }
-    if (!screenshotFile) { toast({ title: "Please upload your payment screenshot", variant: "destructive" }); return; }
+    if (!val || val <= 0) { appToast.error({ title: "Invalid amount" }); return; }
+    if (!screenshotFile) { appToast.error({ title: "Please upload your payment screenshot" }); return; }
 
     setDepositLoading(true);
     try {
@@ -193,9 +184,9 @@ export default function WalletPage() {
       setAmount(""); setNote(""); setScreenshotFile(null); setScreenshotPreview(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       queryClient.invalidateQueries({ queryKey: getGetUserTransactionsQueryKey(currentUser.id) });
-      toast({ title: "Deposit submitted ✓", description: "Your payment is under review. You'll be notified once it's approved." });
+      appToast.success({ title: "Deposit submitted", description: "Your payment is under review. You'll be notified once it's approved." });
     } catch (err: any) {
-      toast({ title: "Deposit failed", description: err.message, variant: "destructive" });
+      appToast.error({ title: "Deposit failed", description: err.message });
     } finally {
       setDepositLoading(false);
     }
@@ -205,18 +196,17 @@ export default function WalletPage() {
     e.preventDefault();
     const val = parseFloat(amount);
     if (!val || val <= 0) {
-      toast({ title: "Invalid amount", variant: "destructive" });
+      appToast.error({ title: "Invalid amount" });
       return;
     }
     if (!withdrawWallet) {
-      toast({ title: "Wallet address required", variant: "destructive" });
+      appToast.error({ title: "Wallet address required" });
       return;
     }
     if (val > withdrawableBal + 1e-6) {
-      toast({
+      appToast.error({
         title: "Amount too high",
         description: `You can withdraw up to ${withdrawableBal.toFixed(2)} USDT from your withdrawable balance.`,
-        variant: "destructive",
       });
       return;
     }
@@ -248,9 +238,9 @@ export default function WalletPage() {
       setWithdrawConfirmOpen(false);
       queryClient.invalidateQueries({ queryKey: getGetUserTransactionsQueryKey(currentUser.id) });
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-      toast({ title: "Withdrawal submitted", description: "Your request is pending admin review." });
+      appToast.success({ title: "Withdrawal submitted", description: "Your request is pending admin review." });
     } catch (err: any) {
-      toast({ title: "Withdrawal failed", description: err.message, variant: "destructive" });
+      appToast.error({ title: "Withdrawal failed", description: err.message });
     } finally {
       setWithdrawLoading(false);
     }
@@ -259,7 +249,7 @@ export default function WalletPage() {
   function copyAddress() {
     navigator.clipboard.writeText(PLATFORM_ADDRESS);
     setCopied(true);
-    toast({ title: "Address copied!" });
+    appToast.success({ title: "Address copied" });
     setTimeout(() => setCopied(false), 2000);
   }
 
@@ -599,39 +589,20 @@ export default function WalletPage() {
               </Button>
             </form>
 
-            <AlertDialog open={withdrawConfirmOpen} onOpenChange={setWithdrawConfirmOpen}>
-              <AlertDialogContent className="border-amber-500/25 bg-[hsl(222,30%,10%)] max-w-md">
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="text-foreground">Confirm withdrawal</AlertDialogTitle>
-                  <AlertDialogDescription asChild>
-                    <div className="space-y-4 text-left text-muted-foreground">
-                      <p>
-                        Send{" "}
-                        <span className="font-semibold text-foreground tabular-nums">
-                          {parseFloat(amount || "0").toFixed(2)} USDT
-                        </span>{" "}
-                        to your TRC-20 address (first characters:{" "}
-                        <span className="font-mono text-foreground">{withdrawWallet.slice(0, 8)}…</span>).
-                      </p>
-                      <BlockchainFeeWarningBox />
-                    </div>
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
-                  <AlertDialogCancel disabled={withdrawLoading} className="mt-0">
-                    Cancel
-                  </AlertDialogCancel>
-                  <Button
-                    type="button"
-                    disabled={withdrawLoading}
-                    onClick={() => void confirmWithdraw()}
-                    className="min-h-10 bg-emerald-600 text-white hover:bg-emerald-500"
-                  >
-                    {withdrawLoading ? "Submitting…" : "Confirm withdrawal"}
-                  </Button>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <ConfirmActionModal
+              open={withdrawConfirmOpen}
+              onCancel={() => setWithdrawConfirmOpen(false)}
+              onConfirm={() => void confirmWithdraw()}
+              loading={withdrawLoading}
+              title="Confirm withdrawal"
+              description={`Send ${parseFloat(amount || "0").toFixed(2)} USDT to ${withdrawWallet.slice(0, 8)}… (TRC-20).`}
+              confirmLabel="Confirm withdrawal"
+            />
+            {withdrawConfirmOpen && (
+              <div className="mt-2">
+                <BlockchainFeeWarningBox />
+              </div>
+            )}
           </div>
         )}
 
@@ -683,7 +654,7 @@ export default function WalletPage() {
                 onClick={() => {
                   queryClient.invalidateQueries({ queryKey: getGetUserTransactionsQueryKey(currentUser.id) });
                   queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-                  toast({ title: "Refreshed" });
+                  appToast.info({ title: "Refreshed" });
                 }}
               >
                 ↻ Refresh

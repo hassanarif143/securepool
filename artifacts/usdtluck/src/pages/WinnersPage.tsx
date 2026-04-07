@@ -2,6 +2,7 @@ import { useListWinners } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LiveWinnerTicker } from "@/components/winners/LiveWinnerTicker";
 
 /* ── Place metadata — dark-mode aware ── */
 const PLACE: Record<number, {
@@ -197,6 +198,8 @@ export default function WinnersPage() {
           </p>
         </div>
       </div>
+
+      <LiveWinnerTicker />
 
       {/* ── Stats bar ── */}
       {!isLoading && winnersList.length > 0 && (

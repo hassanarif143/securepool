@@ -1,6 +1,9 @@
 import { Link } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
+import { RewardsSummaryCard } from "@/components/rewards/RewardsSummaryCard";
+import { MilestoneProgressCard } from "@/components/rewards/MilestoneProgressCard";
+import { CelebrationLayer } from "@/components/celebration/CelebrationLayer";
 
 const MILESTONES = [
   { joins: 5, rewardUsdt: 2 },
@@ -38,21 +41,9 @@ export default function RewardsPage() {
         <p className="text-sm text-muted-foreground mt-2">
           All rewards on this page are non-withdrawable. They stay in your in-app rewards balance.
         </p>
-        <div className="grid sm:grid-cols-3 gap-3 mt-4">
-          <div className="rounded-xl border border-border/70 p-3">
-            <p className="text-xs text-muted-foreground">Rewards balance</p>
-            <p className="text-lg font-semibold">{rewardUsdt} USDT</p>
-          </div>
-          <div className="rounded-xl border border-border/70 p-3">
-            <p className="text-xs text-muted-foreground">Current tier</p>
-            <p className="text-lg font-semibold capitalize">{user.tier ?? "bronze"}</p>
-          </div>
-          <div className="rounded-xl border border-border/70 p-3">
-            <p className="text-xs text-muted-foreground">Pool joins</p>
-            <p className="text-lg font-semibold">{joins}</p>
-          </div>
-        </div>
       </div>
+
+      <RewardsSummaryCard nonWithdrawableUsdt={Number(rewardUsdt)} tier={user.tier ?? "bronze"} poolJoinCount={joins} />
 
       <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
         <h2 className="text-lg font-semibold">Referral reward</h2>
@@ -61,30 +52,16 @@ export default function RewardsPage() {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
-        <h2 className="text-lg font-semibold">Pool join milestones</h2>
-        {nextMilestone ? (
-          <p className="text-sm text-muted-foreground mt-1">
-            Next milestone: <span className="font-medium text-foreground">{nextMilestone.joins} joins</span>{" "}
-            ({nextMilestone.rewardUsdt} USDT reward). You need {nextMilestone.joins - joins} more join
-            {nextMilestone.joins - joins === 1 ? "" : "s"}.
-          </p>
-        ) : (
-          <p className="text-sm text-muted-foreground mt-1">You have completed all current milestone rewards.</p>
-        )}
-        <div className="grid sm:grid-cols-2 gap-2 mt-3">
-          {MILESTONES.map((m) => {
-            const done = joins >= m.joins;
-            return (
-              <div key={m.joins} className={`rounded-xl border p-3 ${done ? "border-primary/40 bg-primary/5" : "border-border/70"}`}>
-                <p className="text-sm font-medium">{m.joins} pool joins</p>
-                <p className="text-xs text-muted-foreground">{m.rewardUsdt} USDT non-withdrawable reward</p>
-                <p className={`text-xs mt-1 ${done ? "text-primary" : "text-muted-foreground"}`}>{done ? "Completed" : "Pending"}</p>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <MilestoneProgressCard milestones={MILESTONES} currentJoins={joins} />
+
+      {nextMilestone ? (
+        <CelebrationLayer
+          level="small"
+          message={`Next reward at ${nextMilestone.joins} joins. You need ${nextMilestone.joins - joins} more join${nextMilestone.joins - joins === 1 ? "" : "s"}.`}
+        />
+      ) : (
+        <CelebrationLayer level="medium" message="You completed all active milestone rewards." />
+      )}
 
       <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
         <h2 className="text-lg font-semibold">Tier rules</h2>

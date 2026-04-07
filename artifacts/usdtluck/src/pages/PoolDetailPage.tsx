@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
 import confetti from "canvas-confetti";
@@ -36,6 +35,8 @@ import { ComebackOfferModal, type ActiveCouponJson } from "@/components/Comeback
 import { PredictionPicker } from "@/components/PredictionPicker";
 import { useCelebration } from "@/context/CelebrationContext";
 import { poolPaidPrizeTotal, poolWinnerCount, type PoolPrizeShape } from "@/lib/pool-winners";
+import { ConfirmActionModal } from "@/components/feedback/ConfirmActionModal";
+import { appToast } from "@/components/feedback/AppToast";
 
 function streakCelebrationItem(milestone: "3" | "5" | "10" | "20", poolId: number) {
   const dedupeKey = `streak-${milestone}-pool-${poolId}`;
@@ -183,7 +184,6 @@ export default function PoolDetailPage() {
   const { enqueue } = useCelebration();
   const { user } = useAuth();
   const [, navigate] = useLocation();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationUsedFree, setCelebrationUsedFree] = useState(false);
@@ -193,6 +193,7 @@ export default function PoolDetailPage() {
   const [ticketQty, setTicketQty] = useState(1);
   const [joining, setJoining] = useState(false);
   const [exiting, setExiting] = useState(false);
+  const [showJoinConfirm, setShowJoinConfirm] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [viewersCount, setViewersCount] = useState<number | undefined>(undefined);
   const [recentJoiners, setRecentJoiners] = useState<{ name: string; joined_at: string }[]>([]);
@@ -407,11 +408,7 @@ export default function PoolDetailPage() {
       if (!res.ok) {
         const d = data as { message?: string; error?: string; code?: string };
         const msg = d.message ?? d.error ?? "Could not join";
-        toast({
-          title: "Could not join",
-          description: msg,
-          variant: "destructive",
-        });
+        appToast.error({ title: "Could not join", description: msg });
         return;
       }
       const usedFree = Boolean((data as { usedFreeEntry?: boolean }).usedFreeEntry);
@@ -419,14 +416,14 @@ export default function PoolDetailPage() {
         paymentBreakdown?: { grossTotal: number; platformFee: number; netDeductedFromWallet: number };
       }).paymentBreakdown;
       if (!usedFree && breakdown && breakdown.grossTotal > 0) {
-        toast({
+        appToast.info({
           title: "Payment",
           description: `You paid ${breakdown.netDeductedFromWallet.toFixed(2)} USDT.`,
         });
       }
       const luck = (data as { luckyNumbers?: string[] }).luckyNumbers;
       if (luck && luck.length > 0) {
-        toast({
+        appToast.info({
           title: luck.length > 1 ? "Your lucky numbers" : "Your lucky number",
           description: luck.join(" · "),
         });
@@ -438,17 +435,17 @@ export default function PoolDetailPage() {
       }
       const cs = streakData?.currentStreak;
       if (!mile && cs === 2) {
-        toast({
+        appToast.info({
           title: "🔥 Streak: 2 draws",
           description: "One more join within 7 days to unlock a streak reward.",
         });
       } else if (!mile && cs === 4) {
-        toast({
+        appToast.info({
           title: "🔥 Streak: 4 draws",
           description: "One more join to reach your next streak reward.",
         });
       } else if (!mile && cs === 9) {
-        toast({
+        appToast.info({
           title: "🔥 Streak: 9 draws",
           description: "One more join to reach your next streak reward.",
         });
@@ -469,11 +466,7 @@ export default function PoolDetailPage() {
         .then((j) => setPoolDetails(j as PoolDetailsApi))
         .catch(() => {});
     } catch (e: unknown) {
-      toast({
-        title: "Could not join",
-        description: e instanceof Error ? e.message : "Network error",
-        variant: "destructive",
-      });
+      appToast.error({ title: "Could not join", description: e instanceof Error ? e.message : "Network error" });
     } finally {
       setJoining(false);
     }
@@ -499,11 +492,11 @@ export default function PoolDetailPage() {
         },
       });
       if (!res.ok) {
-        toast({ title: "Could not exit pool", description: await readApiErrorMessage(res), variant: "destructive" });
+        appToast.error({ title: "Could not exit pool", description: await readApiErrorMessage(res) });
         return;
       }
       const out = (await res.json()) as { refundAmount?: number; exitCharge?: number };
-      toast({
+      appToast.success({
         title: "Exited pool",
         description: `Refunded ${Number(out.refundAmount ?? 0).toFixed(2)} USDT. Exit charge: ${Number(out.exitCharge ?? 0).toFixed(2)} USDT.`,
       });
@@ -625,7 +618,7 @@ export default function PoolDetailPage() {
                 const url = typeof window !== "undefined" ? window.location.href : "";
                 void navigator.clipboard.writeText(url).then(() => {
                   setShareOk(true);
-                  toast({ title: "Link copied", description: "Share this pool with friends." });
+                  appToast.success({ title: "Link copied", description: "Share this pool with friends." });
                   setTimeout(() => setShareOk(false), 2000);
                 });
               }}
@@ -816,7 +809,7 @@ export default function PoolDetailPage() {
                   <Button
                     className="w-full font-semibold"
                     style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 4px 15px rgba(22,163,74,0.3)" }}
-                    onClick={() => void handleJoin()}
+                    onClick={() => setShowJoinConfirm(true)}
                     disabled={joinDisabled}
                   >
                     {joining
@@ -940,39 +933,34 @@ export default function PoolDetailPage() {
           </div>
         )}
       </div>
-      {showExitConfirm && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-2xl border border-amber-500/30 bg-[hsl(222,30%,9%)] p-5 space-y-4">
-            <div>
-              <h3 className="text-lg font-bold text-amber-100">Early Exit Charge</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                If you exit this pool early, you will be charged <span className="text-amber-200 font-semibold">50% of platform fee</span>.
-              </p>
-            </div>
-            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
-              Charge per ticket: <span className="font-semibold">{(feePerListEntry * 0.5).toFixed(2)} USDT</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Please continue only if you agree to this charge.
-            </p>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowExitConfirm(false)} disabled={exiting}>
-                Cancel
-              </Button>
-              <Button
-                className="bg-amber-600 hover:bg-amber-700 text-white"
-                onClick={() => {
-                  setShowExitConfirm(false);
-                  void handleExitPool();
-                }}
-                disabled={exiting}
-              >
-                {exiting ? "Processing..." : "Confirm exit with charge"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmActionModal
+        open={showJoinConfirm}
+        title={freeThisPurchase ? "Confirm free entry" : "Confirm ticket purchase"}
+        description={
+          freeThisPurchase
+            ? "This will use 1 free entry ticket for this pool."
+            : `You are buying ${ticketQty} ticket${ticketQty === 1 ? "" : "s"} for ${netFromWallet.toFixed(2)} USDT.`
+        }
+        confirmLabel={freeThisPurchase ? "Confirm free join" : "Confirm purchase"}
+        loading={joining}
+        onCancel={() => setShowJoinConfirm(false)}
+        onConfirm={() => {
+          setShowJoinConfirm(false);
+          void handleJoin();
+        }}
+      />
+      <ConfirmActionModal
+        open={showExitConfirm}
+        title="Early Exit Charge"
+        description={`If you exit now, charge is ${(feePerListEntry * 0.5).toFixed(2)} USDT per ticket (50% of platform fee). Continue only if you agree.`}
+        confirmLabel="Confirm exit with charge"
+        loading={exiting}
+        onCancel={() => setShowExitConfirm(false)}
+        onConfirm={() => {
+          setShowExitConfirm(false);
+          void handleExitPool();
+        }}
+      />
     </>
   );
 }
