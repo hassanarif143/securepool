@@ -1075,6 +1075,12 @@ function PoolsTab() {
                   <PoolStatusChip status={pool.status} />
                 </div>
                 <div className="space-y-3">
+                  <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2">
+                    <p className="text-xs font-semibold text-primary">Ticket reward system controls</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Admin can change ticket price, ticket limits, multi-win rule, and cooldown fairness weight.
+                    </p>
+                  </div>
                   <div>
                     <Label className="text-xs text-muted-foreground mb-1.5 block">Pool Title</Label>
                     <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)}
@@ -1198,11 +1204,28 @@ function PoolsTab() {
                     <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                       <span>Pool #{pool.id}</span>
                       <span>·</span>
-                      <span className="font-medium text-foreground/70">{pool.entryFee} USDT entry</span>
+                      <span className="font-medium text-foreground/70">
+                        {(pool as any).ticketPrice ?? pool.entryFee} USDT / ticket
+                      </span>
+                      <span>·</span>
+                      <span>
+                        {(pool as any).soldTickets ?? pool.participantCount}/{(pool as any).totalTickets ?? pool.maxUsers} tickets
+                      </span>
                       <span>·</span>
                       <span>
                         {wc} winner{wc === 1 ? "" : "s"} · Paid prizes:{" "}
                         <span className="text-primary font-semibold">{totalPrize} USDT</span>
+                      </span>
+                    </div>
+                    <div className="mt-1 text-[11px] text-muted-foreground flex flex-wrap items-center gap-2">
+                      <span>Multi-win: {(pool as any).allowMultiWin ? "On" : "Off"}</span>
+                      <span>·</span>
+                      <span>
+                        Cooldown: {(pool as any).cooldownPeriodDays ?? 7}d @ {(pool as any).cooldownWeight ?? 0.2}x
+                      </span>
+                      <span>·</span>
+                      <span>
+                        Max/user: {(pool as any).maxTicketsPerUser ?? "No cap"}
                       </span>
                     </div>
                   </div>

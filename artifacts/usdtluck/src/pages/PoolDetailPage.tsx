@@ -866,6 +866,37 @@ export default function PoolDetailPage() {
           </Card>
         )}
 
+        <Card className="border-[hsl(217,28%,16%)]">
+          <CardContent className="p-4 space-y-2">
+            <p className="text-sm font-semibold">Fair chance reward system</p>
+            <p className="text-xs text-muted-foreground">
+              Each ticket is one entry. More tickets increase chance. Recent winners can get temporary reduced weight for fairness.
+            </p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-md border border-border/60 px-2 py-1.5">
+                <span className="text-muted-foreground">Multi-win</span>
+                <p className="font-medium">{(poolDetails as any)?.allow_multi_win ? "Allowed" : "Unique winners"}</p>
+              </div>
+              <div className="rounded-md border border-border/60 px-2 py-1.5">
+                <span className="text-muted-foreground">Cooldown rule</span>
+                <p className="font-medium">
+                  {(poolDetails as any)?.cooldown_period_days ?? 7}d / {(poolDetails as any)?.cooldown_weight ?? 0.2}x
+                </p>
+              </div>
+              <div className="rounded-md border border-border/60 px-2 py-1.5">
+                <span className="text-muted-foreground">Max tickets per user</span>
+                <p className="font-medium">{(poolDetails as any)?.max_tickets_per_user ?? "No cap"}</p>
+              </div>
+              <div className="rounded-md border border-border/60 px-2 py-1.5">
+                <span className="text-muted-foreground">Pool tickets</span>
+                <p className="font-medium">
+                  {(poolDetails as any)?.current_entries ?? 0}/{(poolDetails as any)?.max_entries ?? pool.maxUsers}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {pool.status === "completed" && poolDetails?.draw_lucky_number && (
           <Card className="border-amber-500/25 bg-amber-500/5">
             <CardContent className="p-4 text-sm space-y-1">
