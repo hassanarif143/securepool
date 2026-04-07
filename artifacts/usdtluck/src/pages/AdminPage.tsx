@@ -1087,24 +1087,6 @@ function PoolsTab() {
                     </p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground mb-1.5 block">Minimum activity tier</Label>
-                    <Select value={editMinPoolVipTier} onValueChange={(v) => setEditMinPoolVipTier(v as ActivityTier)}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ACTIVITY_TIER_OPTIONS.map((o) => (
-                          <SelectItem key={o.value} value={o.value}>
-                            {o.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Only members at or above this tier can join (loyalty discounts still apply).
-                    </p>
-                  </div>
-                  <div>
                     <Label className="text-xs text-muted-foreground mb-1.5 block">
                       Platform fee per join (USDT)
                     </Label>
@@ -1165,11 +1147,6 @@ function PoolsTab() {
                           Frozen
                         </Badge>
                       ) : null}
-                      {pool.minPoolVipTier && pool.minPoolVipTier !== "bronze" && (
-                        <Badge variant="outline" className="text-[10px] capitalize border-amber-500/40 text-amber-200/90">
-                          Min tier: {pool.minPoolVipTier}
-                        </Badge>
-                      )}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                       <span>Pool #{pool.id}</span>
@@ -1576,27 +1553,6 @@ function CreatePoolTab() {
                 </div>
               </div>
 
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5 block">Minimum activity tier to join</Label>
-                <Select
-                  value={form.minPoolVipTier}
-                  onValueChange={(v) => setForm({ ...form, minPoolVipTier: v as ActivityTier })}
-                >
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Tier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ACTIVITY_TIER_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-muted-foreground mt-1.5">
-                  Use Silver/Gold/Diamond for higher-value pools; members below this tier see the pool as locked.
-                </p>
-              </div>
 
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5 block">
@@ -1786,9 +1742,6 @@ function CreatePoolTab() {
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {form.entryFee} USDT entry · {form.maxUsers} max users · {form.winnerCount} winner
                         {form.winnerCount === 1 ? "" : "s"}
-                        {form.minPoolVipTier !== "bronze" && (
-                          <span className="text-amber-200/80"> · Min {form.minPoolVipTier}</span>
-                        )}
                       </p>
                     </div>
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
@@ -1928,10 +1881,6 @@ function UsersTab() {
   const [bcType, setBcType] = useState("info");
   const [luckyHourOpen, setLuckyHourOpen] = useState(false);
   const [lhMinutes, setLhMinutes] = useState("60");
-  const [tierOpen, setTierOpen] = useState(false);
-  const [tierTarget, setTierTarget] = useState<any | null>(null);
-  const [tierTier, setTierTier] = useState("aurora");
-  const [tierPoints, setTierPoints] = useState("0");
   const [busy, setBusy] = useState(false);
   const [userFilter, setUserFilter] = useState<"all" | "active" | "blocked" | "admins">("all");
   const [editOpen, setEditOpen] = useState(false);
@@ -2250,39 +2199,6 @@ function UsersTab() {
       </DialogContent>
     </Dialog>
 
-    <Dialog open={tierOpen} onOpenChange={setTierOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Change tier</DialogTitle>
-        </DialogHeader>
-        <select className="w-full border rounded-md px-3 py-2 text-sm bg-background" value={tierTier} onChange={(e) => setTierTier(e.target.value)}>
-          {["aurora", "lumen", "nova", "celestia", "orion"].map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-        <Input type="number" placeholder="Tier points" value={tierPoints} onChange={(e) => setTierPoints(e.target.value)} />
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setTierOpen(false)}>Cancel</Button>
-          <Button disabled={busy} onClick={async () => {
-            if (!tierTarget) return;
-            setBusy(true);
-            try {
-              const res = await fetch(apiUrl(`/api/admin/users/${tierTarget.id}/tier`), {
-                method: "PATCH",
-                credentials: "include",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ tier: tierTier, tierPoints: parseInt(tierPoints, 10) || 0 }),
-              });
-              const j = await res.json().catch(() => ({}));
-              if (!res.ok) throw new Error(j.error);
-              toast({ title: "Tier updated" }); setTierOpen(false); refetch();
-            } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
-            finally { setBusy(false); }
-          }}>Save</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
     <div className="space-y-3 mt-4">
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -2381,7 +2297,7 @@ function UsersTab() {
                   </div>
                   <p className="text-xs text-muted-foreground">{u.email}</p>
                   <p className="text-[10px] text-muted-foreground capitalize">
-                    Tier: {u.tier ?? "aurora"} ({(u as { tierPoints?: number }).tierPoints ?? 0} pts) · Wins: {(u as { wins?: number }).wins ?? 0}
+                    Wins: {(u as { wins?: number }).wins ?? 0}
                   </p>
                   <p className="text-[10px] text-muted-foreground">Phone: {u.phone ?? "—"} · City: {u.city ?? "—"}</p>
                   {u.cryptoAddress && <p className="text-xs font-mono text-muted-foreground truncate">Wallet: {u.cryptoAddress}</p>}
@@ -2427,7 +2343,6 @@ function UsersTab() {
                         ✏️ Edit user
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setAdjustingId(adjustingId === u.id ? null : u.id); }}>💰 Adjust balance</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setTierTarget(u); setTierTier(u.tier ?? "aurora"); setTierPoints(String((u as { tierPoints?: number }).tierPoints ?? 0)); setTierOpen(true); }}>⭐ Change tier</DropdownMenuItem>
                       {!u.isBlocked ? (
                         <DropdownMenuItem onClick={() => { setBlockTarget(u); setBlockReason(""); setBlockOpen(true); }} disabled={u.isAdmin || u.id === me?.id}>🔒 Block user</DropdownMenuItem>
                       ) : (

@@ -47,9 +47,6 @@ import {
   getPoolPredictionResults,
 } from "../services/prediction-service";
 import { notifySquadOnMemberWin } from "../services/squad-service";
-import {
-  userMeetsPoolVipRequirement,
-} from "../services/pool-vip-service";
 import { markCouponUsed } from "../services/coupon-service";
 import { computeMinParticipantsToRunDraw, prizeTotalForWinnerSlots } from "../services/draw-economics";
 import {
@@ -111,7 +108,7 @@ function formatPool(
     winnerCount,
     noTimeLimit,
     createdAt: pool.createdAt,
-    minPoolVipTier: pool.minPoolVipTier ?? "bronze",
+    minPoolVipTier: "bronze",
     loserRefundIfNotWinListUsdt,
     platformFeePerJoinOverride:
       platformFeePerJoinOverride != null && Number.isFinite(platformFeePerJoinOverride)
@@ -247,9 +244,7 @@ router.get("/details/:poolId", async (req, res) => {
     myLuckyNumbers = ticks.map((t) => formatLuckyNumberDisplay(t.luckyNumber));
   }
 
-  const minTier = pool.minPoolVipTier ?? "bronze";
   let joinBlocked = pool.status !== "open" || currentEntries >= pool.maxUsers || !!pool.isFrozen;
-  let vipLocked = false;
   let entryPricing: {
     baseFee: number;
     amountDue: number;
@@ -263,15 +258,11 @@ router.get("/details/:poolId", async (req, res) => {
 
   if (sessionUserId && pool.status === "open" && currentEntries < pool.maxUsers && !pool.isFrozen) {
     const [u] = await db
-      .select({ poolVipTier: usersTable.poolVipTier })
+      .select({ id: usersTable.id })
       .from(usersTable)
       .where(eq(usersTable.id, sessionUserId))
       .limit(1);
-    if (!userJoined && u && !userMeetsPoolVipRequirement(u.poolVipTier ?? "bronze", minTier)) {
-      vipLocked = true;
-      joinBlocked = true;
-    }
-    if (u && !vipLocked) {
+    if (u) {
       entryPricing = {
         baseFee: entryFee,
         amountDue: entryFee,
@@ -309,8 +300,8 @@ router.get("/details/:poolId", async (req, res) => {
     })),
     user_joined: userJoined,
     join_blocked: joinBlocked,
-    min_pool_vip_tier: minTier,
-    vip_locked: vipLocked,
+    min_pool_vip_tier: "bronze",
+    vip_locked: false,
     entry_pricing: entryPricing,
     fillComparison: await getPoolFillComparison({
       createdAt: pool.createdAt,
@@ -333,8 +324,6 @@ router.post("/", (req, res, next) => void requireAdmin(req as AuthedRequest, res
     res.status(400).json({ error: "Validation error", message: parse.error.message });
     return;
   }
-
-  const minTier = parse.data.minPoolVipTier ?? "bronze";
 
   const {
     title,
@@ -364,7 +353,7 @@ router.post("/", (req, res, next) => void requireAdmin(req as AuthedRequest, res
       prizeThird: String(prizeThird),
       winnerCount,
       status: "open",
-      minPoolVipTier: minTier,
+      minPoolVipTier: "bronze",
       platformFeePerJoin:
         platformFeePerJoin != null && Number.isFinite(platformFeePerJoin) && platformFeePerJoin >= 0
           ? String(platformFeePerJoin)
@@ -796,7 +785,7 @@ router.patch("/:poolId", (req, res, next) => void requireAdmin(req as AuthedRequ
   if (parse.data.title) updates.title = parse.data.title;
   if (parse.data.status) updates.status = parse.data.status;
   if (parse.data.endTime) updates.endTime = new Date(parse.data.endTime);
-  if (parse.data.minPoolVipTier != null) updates.minPoolVipTier = parse.data.minPoolVipTier;
+  if (parse.data.minPoolVipTier != null) updates.minPoolVipTier = "bronze";
   if (parse.data.platformFeePerJoin !== undefined) {
     updates.platformFeePerJoin =
       parse.data.platformFeePerJoin == null
@@ -884,15 +873,6 @@ router.post("/:poolId/join", async (req, res) => {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, sessionUserId)).limit(1);
   if (!user) {
     res.status(404).json({ error: "User not found" });
-    return;
-  }
-
-  const minTierJoin = pool.minPoolVipTier ?? "bronze";
-  if (isFirstInPool && !userMeetsPoolVipRequirement(user.poolVipTier ?? "bronze", minTierJoin)) {
-    res.status(403).json({
-      error: "Reward status required",
-      message: `This pool needs ${minTierJoin} activity tier or higher. Join more pools to unlock it.`,
-    });
     return;
   }
 

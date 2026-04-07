@@ -26,14 +26,6 @@ const steps = [
   { n: 6, icon: "💸", title: "Withdraw Anytime", desc: "Request a withdrawal and receive your USDT after admin verification." },
 ];
 
-const tiers = [
-  { id: "aurora", label: "Aurora", icon: "✦", benefit: "Starter benefits and entry to all pools." },
-  { id: "lumen", label: "Lumen", icon: "✧", benefit: "Improved visibility and tier progression perks." },
-  { id: "nova", label: "Nova", icon: "✶", benefit: "Bonus tier points and referral emphasis." },
-  { id: "celestia", label: "Celestia", icon: "✹", benefit: "Higher caps and leaderboard presence." },
-  { id: "orion", label: "Orion", icon: "✺", benefit: "Top tier: maximum perks and free-ticket opportunities when eligible." },
-];
-
 const faqs = [
   {
     q: "Is this gambling?",
@@ -106,65 +98,6 @@ export default function HowItWorksPage() {
           A small platform fee applies on each join (and the same rule applies to what you get back if you don&apos;t win). Here&apos;s the rule in plain language.
         </p>
         <PlatformFeeRuleExplainer variant="full" />
-      </section>
-
-      <section className="rounded-2xl border border-[hsl(217,28%,16%)] p-6 md:p-8" style={{ background: "hsl(222,30%,8%)" }}>
-        <h2 className="text-2xl font-bold mb-2 text-center">Tier system</h2>
-        <p className="text-sm text-muted-foreground text-center mb-8 max-w-xl mx-auto">
-          Progress through five tiers — Aurora, Lumen, Nova, Celestia, and Orion. Earn tier points by joining pools, verified deposits, and referrals.
-        </p>
-        <div className="space-y-3">
-          {tiers.map((t) => (
-            <div
-              key={t.id}
-              className="flex items-start gap-3 rounded-xl border border-[hsl(217,28%,16%)] px-4 py-3"
-              style={{ background: "hsl(222,30%,10%)" }}
-            >
-              <span className="text-lg shrink-0 w-8 text-center">{t.icon}</span>
-              <div>
-                <p className="font-semibold capitalize">{t.label}</p>
-                <p className="text-xs text-muted-foreground">{t.benefit}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-2xl font-bold mb-4 text-center">Referral program</h2>
-        <Card className="border-primary/25 bg-[hsl(222,30%,9%)]">
-          <CardContent className="p-6 text-center space-y-2">
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              Share your referral code. When a friend buys their first ticket, you earn a{" "}
-              <span className="text-primary font-semibold">withdrawable USDT referral reward</span>. Referral milestones also
-              unlock <span className="text-primary font-semibold">reward points</span>.
-            </p>
-            <p className="text-xs text-muted-foreground">Find your code on the Referral page after you log in.</p>
-            <Link href="/referral">
-              <Button variant="outline" size="sm" className="mt-2">Open Referral page</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="rounded-2xl border border-amber-500/20 p-6 md:p-8" style={{ background: "linear-gradient(135deg, hsla(38,90%,55%,0.06), hsla(222,30%,8%,1))" }}>
-        <h2 className="text-2xl font-bold mb-2 text-center">USDT staking</h2>
-        <p className="text-sm text-muted-foreground text-center mb-6 max-w-xl mx-auto leading-relaxed">
-          Optional fixed-term lock: earn the advertised rate if you hold to maturity, or exit early anytime for your principal only.
-        </p>
-        <div className="flex flex-wrap justify-center gap-3">
-          <Link href="/staking">
-            <Button size="lg" className="font-semibold min-h-11" variant="default" style={{ background: "linear-gradient(135deg, #ca8a04, #a16207)" }}>
-              Open staking
-            </Button>
-          </Link>
-          <Link href="/signup">
-            <Button size="lg" variant="outline" className="min-h-11">
-              Create account
-            </Button>
-          </Link>
-        </div>
-        <p className="text-xs text-muted-foreground text-center mt-4">Minimum and rates are shown in the app and may change; always check the Staking page before you confirm.</p>
       </section>
 
       <section>

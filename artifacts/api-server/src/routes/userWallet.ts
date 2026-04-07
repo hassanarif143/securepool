@@ -142,48 +142,6 @@ router.get("/login-calendar", async (req, res): Promise<void> => {
   return;
 });
 
-router.get("/pool-vip", async (req, res): Promise<void> => {
-  const userId = getAuthedUserId(req);
-  const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  if (!u) {
-    res.status(404).json({ error: "User not found" });
-    return;
-  }
-  const {
-    entryDiscountPercentForTier,
-    poolVipTierFromJoinCount,
-  } = await import("../services/pool-vip-service");
-  const tier = u.poolVipTier ?? "bronze";
-  const joins = u.poolJoinCount ?? 0;
-  const effectiveFromJoins = poolVipTierFromJoinCount(joins);
-  const nextTierAt =
-    effectiveFromJoins === "bronze"
-      ? 6
-      : effectiveFromJoins === "silver"
-        ? 16
-        : effectiveFromJoins === "gold"
-          ? 31
-          : null;
-  const joinsToNext = nextTierAt != null ? Math.max(0, nextTierAt - joins) : 0;
-  res.json({
-    tier,
-    effectiveTierByJoins: effectiveFromJoins,
-    discountPercent: entryDiscountPercentForTier(tier),
-    poolJoins: joins,
-    nextTierAt,
-    joinsToNext,
-    totalWins: u.totalWins ?? 0,
-    firstWinAt: u.firstWinAt?.toISOString() ?? null,
-    perks: {
-      bronze: "Standard access to open pools",
-      silver: "5% entry discount · Silver badge",
-      gold: "10% entry discount · Gold badge · priority support",
-      diamond: "15% entry discount · Diamond badge · boosted mystery chances",
-    },
-  });
-  return;
-});
-
 router.get("/prediction-stats", async (req, res): Promise<void> => {
   const userId = getAuthedUserId(req);
   const { getUserPredictionStats } = await import("../services/prediction-service");

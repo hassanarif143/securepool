@@ -47,7 +47,6 @@ const TX_META: Record<string, { icon: string; label: string; sign: string; color
   stake_lock:       { icon: "🔒", label: "Stake lock",   sign: "-", color: "#fbbf24", isCredit: false },
   stake_release:    { icon: "🔓", label: "Stake return", sign: "+", color: "#10b981", isCredit: true  },
   referral_bonus:   { icon: "⊕", label: "Referral",     sign: "+", color: "#10b981", isCredit: true  },
-  tier_free_ticket: { icon: "◈", label: "Tier Bonus",   sign: "+", color: "#10b981", isCredit: true  },
   withdraw:         { icon: "↓", label: "Withdrawal",   sign: "-", color: "#f87171", isCredit: false },
 };
 function txMeta(type: string) {
@@ -60,7 +59,6 @@ function rowTxMeta(tx: { txType: string; note?: string | null }) {
     const n = tx.note ?? "";
     if (n.startsWith("Winner - Place")) return txMeta("reward");
     if (n.startsWith("Referral")) return txMeta("referral_bonus");
-    if (n.startsWith("[Tier]")) return txMeta("tier_free_ticket");
     return { ...txMeta("promo_credit"), label: "Reward" };
   }
   return txMeta(tx.txType);
@@ -157,7 +155,6 @@ export default function WalletPage() {
       return (
         t.txType === "promo_credit" ||
         t.txType === "referral_bonus" ||
-        t.txType === "tier_free_ticket" ||
         (t.txType === "reward" && typeof t.note === "string" && !t.note.startsWith("Winner - Place"))
       );
     }

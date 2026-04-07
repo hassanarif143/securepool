@@ -4,11 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
-import { PoolVipBadge } from "@/components/PoolVipBadge";
 
 type SquadPayload = {
   squad: { id: number; name: string; code: string; leaderId: number } | null;
-  members?: { userId: number; name: string; poolVipTier: string; totalWins: number }[];
+  members?: { userId: number; name: string; totalWins: number }[];
   squadWins?: number;
 };
 
@@ -102,7 +101,6 @@ export function SquadPanel() {
             <li key={m.userId} className="flex items-center justify-between text-sm">
               <span>{m.name}</span>
               <span className="flex items-center gap-2">
-                <PoolVipBadge tier={m.poolVipTier} />
                 <span className="text-xs text-muted-foreground">{m.totalWins} wins</span>
               </span>
             </li>

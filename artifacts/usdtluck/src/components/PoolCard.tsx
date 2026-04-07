@@ -11,19 +11,6 @@ interface PoolCardProps {
   userJoined?: boolean;
 }
 
-function tierLabel(tier: string | undefined) {
-  switch (tier) {
-    case "silver":
-      return "Silver";
-    case "gold":
-      return "Gold";
-    case "diamond":
-      return "Elite";
-    default:
-      return "Beginner";
-  }
-}
-
 export function PoolCard({ pool, userJoined }: PoolCardProps) {
   const refund =
     typeof pool.loserRefundIfNotWinListUsdt === "number"
@@ -51,10 +38,6 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
       <div className="p-5 sm:p-6 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-2.5 py-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]" aria-hidden />
-              <span className="text-[11px] font-semibold text-emerald-300">{tierLabel(pool.minPoolVipTier)}</span>
-            </div>
             {pool.status !== "open" && (
               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border border-border/60 rounded-full px-2 py-0.5">
                 {pool.status}

@@ -89,9 +89,6 @@ export async function runJoinSideEffects(opts: {
     .set({ poolJoinCount: nextJoins })
     .where(eq(usersTable.id, userId));
 
-  const { syncUserPoolVipTier } = await import("./pool-vip-service");
-  await syncUserPoolVipTier(userId, nextJoins);
-
   if (entryFeePaid != null && entryFeePaid > 0) {
     const { applySquadCoPoolBonus } = await import("./squad-service");
     await applySquadCoPoolBonus({ userId, poolId, poolTitle, entryFee: entryFeePaid });

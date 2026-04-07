@@ -253,7 +253,7 @@ export default function SignupPage() {
               {[
                 { icon: "🎁", title: "First deposit perk", desc: "Get welcome reward points after your first approved deposit (for pool entries)" },
                 { icon: "🎱", title: "Access to all pools", desc: "Join any open pool — 10 USDT entry, up to 100 USDT prize" },
-                { icon: "🥉", title: "Bronze tier instantly", desc: "Start earning tier points from your very first pool" },
+                { icon: "🎱", title: "Start joining pools", desc: "Access open pools right after signup and wallet funding" },
                 { icon: "💰", title: "Withdraw anytime", desc: "Your wallet balance is always yours to withdraw" },
                 { icon: "🔗", title: "Your own referral link", desc: "Share and earn bonuses every time someone joins" },
               ].map((f) => (

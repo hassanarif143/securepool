@@ -13,8 +13,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { LivePoolWatcher } from "@/components/LivePoolWatcher";
 import { ComebackBanner, type ActiveCouponJson } from "@/components/ComebackOffer";
-import { SquadPanel } from "@/components/SquadPanel";
-import { PoolVipBadge } from "@/components/PoolVipBadge";
 import { TransactionStatusBadge } from "@/components/TransactionStatusBadge";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { Button } from "@/components/ui/button";
@@ -75,7 +73,6 @@ const TX_META: Record<
   withdrawal: { icon: "↓", label: "Withdrawal", desc: "Sent to address", color: "#f87171", sign: "-", isCredit: false },
   pool_entry: { icon: "◉", label: "Pool entry", desc: "Joined a pool", color: "#f87171", sign: "-", isCredit: false },
   referral_bonus: { icon: "⊕", label: "Referral", desc: "Friend joined", color: "#10b981", sign: "+", isCredit: true },
-  tier_free_ticket: { icon: "◈", label: "Tier bonus", desc: "Tier upgrade reward", color: "#10b981", sign: "+", isCredit: true },
   stake_lock: { icon: "🔒", label: "Stake lock", desc: "USDT locked for staking", color: "#fbbf24", sign: "-", isCredit: false },
   stake_release: { icon: "🔓", label: "Stake return", desc: "Principal or stake payout", color: "#10b981", sign: "+", isCredit: true },
 };
@@ -101,7 +98,6 @@ function rowTxMetaForDashboard(tx: { txType: string; note?: string | null }) {
     const n = tx.note ?? "";
     if (n.startsWith("Winner - Place")) return txMeta("reward");
     if (n.startsWith("Referral")) return txMeta("referral_bonus");
-    if (n.startsWith("[Tier]")) return txMeta("tier_free_ticket");
     return { ...txMeta("promo_credit"), label: "Reward", desc: "Balance credit" };
   }
   return txMeta(tx.txType);
@@ -250,10 +246,6 @@ export default function DashboardPage() {
           <div className={panelHead}>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Wallet balance</p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className="text-[11px] text-muted-foreground shrink-0">Pool access</span>
-                <PoolVipBadge tier={user.poolVipTier ?? "bronze"} />
-              </div>
             </div>
           </div>
 
@@ -583,7 +575,6 @@ export default function DashboardPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90 mb-1">Engage</p>
           <h2 className="font-display text-lg sm:text-xl font-bold tracking-tight">Community & extras</h2>
         </div>
-        <SquadPanel />
         <ActivityFeed limit={12} />
       </div>
 

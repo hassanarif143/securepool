@@ -16,7 +16,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
 import confetti from "canvas-confetti";
-import { TierUpgradeModal } from "@/components/TierUpgradeModal";
 import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
 import { platformFeeUsdtForPoolEntry } from "@/lib/platform-fee";
 import { PoolStatusBar } from "@/components/PoolStatusBar";
@@ -35,7 +34,6 @@ import { NearMissModal } from "@/components/NearMissModal";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { ComebackOfferModal, type ActiveCouponJson } from "@/components/ComebackOffer";
 import { PredictionPicker } from "@/components/PredictionPicker";
-import { PoolVipBadge } from "@/components/PoolVipBadge";
 import { useCelebration } from "@/context/CelebrationContext";
 import { poolPaidPrizeTotal, poolWinnerCount, type PoolPrizeShape } from "@/lib/pool-winners";
 
@@ -86,8 +84,6 @@ type PoolDetailsApi = {
   lucky_match_user_id?: number | null;
   user_won_lucky_match?: boolean;
   fillComparison?: { message: string | null; fasterPercent: number | null; avgFillSeconds: number | null };
-  min_pool_vip_tier?: string;
-  vip_locked?: boolean;
   /** Snake_case from GET /pools/details/:id */
   winner_count?: number;
   entry_pricing?: {
@@ -188,9 +184,6 @@ export default function PoolDetailPage() {
   const queryClient = useQueryClient();
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationUsedFree, setCelebrationUsedFree] = useState(false);
-  const [tierUpgrade, setTierUpgrade] = useState<{
-    previousTier: string; newTier: string; freeTicketGranted: boolean; tierPoints: number;
-  } | null>(null);
   const [shareOk, setShareOk] = useState(false);
   const [poolDetails, setPoolDetails] = useState<PoolDetailsApi | null>(null);
   const [useFreeEntry, setUseFreeEntry] = useState(false);
@@ -472,20 +465,6 @@ export default function PoolDetailPage() {
         .then((r) => r.json())
         .then((j) => setPoolDetails(j as PoolDetailsApi))
         .catch(() => {});
-      if ((data as { tierUpdate?: { tierChanged?: boolean } }).tierUpdate?.tierChanged) {
-        const t = (data as { tierUpdate: any }).tierUpdate;
-        setTimeout(() => {
-          flushPendingStreak();
-          setShowCelebration(false);
-          setTierUpgrade({
-            previousTier: t.previousTier,
-            newTier: t.tier,
-            freeTicketGranted: t.freeTicketGranted,
-            tierPoints: t.tierPoints,
-          });
-          if (mysteryRef.current) setShowMystery(true);
-        }, 2200);
-      }
     } catch (e: unknown) {
       toast({
         title: "Could not join",
@@ -564,7 +543,7 @@ export default function PoolDetailPage() {
       : Math.min(grossTicketTotal, feePerListEntry * ticketQty);
   const netFromWallet = Math.max(0, grossTicketTotal - platformFeeThisCheckout);
   const canPayJoin = Boolean(user && (freeThisPurchase || Number(user.walletBalance) >= netFromWallet));
-  const vipLocked = Boolean(poolDetails?.vip_locked);
+  const vipLocked = false;
   const listRefundUsdt =
     poolDetails?.loser_refund_if_not_win_list_usdt ??
     pool.loserRefundIfNotWinListUsdt ??
@@ -628,15 +607,6 @@ export default function PoolDetailPage() {
           onDismiss={() => setShowComebackModal(false)}
         />
       )}
-      {tierUpgrade && (
-        <TierUpgradeModal
-          previousTier={tierUpgrade.previousTier}
-          newTier={tierUpgrade.newTier}
-          freeTicketGranted={tierUpgrade.freeTicketGranted}
-          tierPoints={tierUpgrade.tierPoints}
-          onClose={() => setTierUpgrade(null)}
-        />
-      )}
 
       <div className="max-w-2xl mx-auto space-y-6 w-full">
         <div>
@@ -666,9 +636,6 @@ export default function PoolDetailPage() {
               <span className="text-xs text-muted-foreground">
                 · Non-winners get up to {listRefundUsdt.toFixed(0)} USDT back per list-priced ticket
               </span>
-            )}
-            {poolDetails?.min_pool_vip_tier && poolDetails.min_pool_vip_tier !== "bronze" && (
-              <PoolVipBadge tier={poolDetails.min_pool_vip_tier} className="text-[9px]" />
             )}
           </p>
         </div>
@@ -840,12 +807,6 @@ export default function PoolDetailPage() {
                       {user?.walletBalance.toFixed(2) ?? "—"} USDT
                     </span>
                   </div>
-                  {vipLocked && (
-                    <p className="text-sm text-amber-200/90">
-                      This pool needs a higher activity tier ({poolDetails?.min_pool_vip_tier ?? "silver"}). Join more open
-                      pools to unlock it.
-                    </p>
-                  )}
                   {user && !freeThisPurchase && !canPayJoin && !vipLocked && showJoinActions && (
                     <p className="text-sm text-destructive">
                       Insufficient balance. You need {netFromWallet.toFixed(2)} USDT from your wallet for {ticketQty} ticket
