@@ -582,11 +582,35 @@ export default function DashboardPage() {
       )}
 
       {/* Secondary: community — below the fold */}
-      <div className="space-y-5">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90 mb-1">Engage</p>
-          <h2 className="font-display text-lg sm:text-xl font-bold tracking-tight">Community & extras</h2>
+      <div className={`${box} p-4 sm:p-5 space-y-4`}>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90 mb-1">Engage</p>
+            <h2 className="font-display text-lg sm:text-xl font-bold tracking-tight">Community & extras</h2>
+            <p className="text-xs text-muted-foreground mt-1">Stay active, track winners, and keep your momentum going.</p>
+          </div>
+          <Link href="/winners" className="text-xs font-medium text-primary hover:underline whitespace-nowrap">
+            View winners
+          </Link>
         </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Link href="/rewards" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
+            <p className="text-sm font-semibold">Rewards progress</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {Math.max(0, 5 - (user.poolJoinCount ?? 0))} joins left for your next milestone.
+            </p>
+          </Link>
+          <Link href="/pools" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
+            <p className="text-sm font-semibold">Live pools</p>
+            <p className="text-xs text-muted-foreground mt-1">Join open draws and increase your chances.</p>
+          </Link>
+          <Link href="/wallet" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
+            <p className="text-sm font-semibold">Wallet actions</p>
+            <p className="text-xs text-muted-foreground mt-1">Deposit, withdraw, and track all transactions.</p>
+          </Link>
+        </div>
+
         <ActivityFeed limit={12} />
       </div>
 

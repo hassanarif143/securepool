@@ -862,9 +862,6 @@ export default function PoolDetailPage() {
         <Card className="border-[hsl(217,28%,16%)]">
           <CardContent className="p-4 space-y-2">
             <p className="text-sm font-semibold">Fair chance reward system</p>
-            <p className="text-xs text-muted-foreground">
-              Each ticket is one entry. More tickets increase chance. Recent winners can get temporary reduced weight for fairness.
-            </p>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="rounded-md border border-border/60 px-2 py-1.5">
                 <span className="text-muted-foreground">Multi-win</span>
