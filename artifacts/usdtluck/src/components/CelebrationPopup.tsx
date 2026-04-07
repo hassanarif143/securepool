@@ -232,7 +232,19 @@ export function CelebrationPopup({
     if (!effectsEnabled) return;
     playCelebrationChime();
     const duration =
-      kind === "win" ? 5000 : kind === "lucky" ? 4000 : kind === "streak" ? 4000 : kind === "referral" ? 3000 : kind === "tier" ? 4500 : 3500;
+      kind === "win"
+        ? 5000
+        : kind === "lucky"
+          ? 4000
+          : kind === "streak"
+            ? 4000
+            : kind === "referral"
+              ? 3000
+              : kind === "tier"
+                ? 4500
+                : kind === "p2p"
+                  ? 4000
+                  : 3500;
     const stopAt = Date.now() + duration;
     const c = canvasRef.current;
     switch (kind) {
@@ -252,6 +264,9 @@ export function CelebrationPopup({
         cleanupConfetti.current = runConfettiTier(c, stopAt);
         break;
       case "deposit":
+        cleanupConfetti.current = runConfettiDeposit(c, stopAt);
+        break;
+      case "p2p":
         cleanupConfetti.current = runConfettiDeposit(c, stopAt);
         break;
       default:

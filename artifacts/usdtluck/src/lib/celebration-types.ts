@@ -1,4 +1,4 @@
-export type CelebrationKind = "win" | "lucky" | "streak" | "referral" | "tier" | "deposit";
+export type CelebrationKind = "win" | "lucky" | "streak" | "referral" | "tier" | "deposit" | "p2p";
 
 export type CelebrationQueueItem = {
   kind: CelebrationKind;
@@ -19,4 +19,5 @@ export const CELEBRATION_PRIORITY: Record<CelebrationKind, number> = {
   referral: 3,
   tier: 4,
   deposit: 5,
+  p2p: 5,
 };

@@ -513,6 +513,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/rewards", label: "Rewards", icon: "🎁" },
     { href: "/referral", label: "Referral", icon: "🔗" },
     { href: "/staking", label: "Staking", icon: "🔒" },
+    { href: "/p2p", label: "P2P Trading", icon: "💱" },
     { href: "/how-it-works", label: "How It Works", icon: "📘" },
     { href: "/reviews",    label: "Reviews",    icon: "💬" },
     ...(user.isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: "⚙️" }] : []),
