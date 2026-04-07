@@ -418,7 +418,7 @@ export default function PoolDetailPage() {
       if (!usedFree && breakdown && breakdown.grossTotal > 0) {
         appToast.info({
           title: "Payment",
-          description: `You paid ${breakdown.netDeductedFromWallet.toFixed(2)} USDT.`,
+          description: `You paid ${breakdown.grossTotal.toFixed(2)} USDT.`,
         });
       }
       const luck = (data as { luckyNumbers?: string[] }).luckyNumbers;
@@ -538,7 +538,8 @@ export default function PoolDetailPage() {
       ? 0
       : Math.min(grossTicketTotal, feePerListEntry * ticketQty);
   const netFromWallet = Math.max(0, grossTicketTotal - platformFeeThisCheckout);
-  const canPayJoin = Boolean(user && (freeThisPurchase || Number(user.walletBalance) >= netFromWallet));
+  const displayPayUsdt = grossTicketTotal;
+  const canPayJoin = Boolean(user && (freeThisPurchase || Number(user.walletBalance) >= displayPayUsdt));
   const vipLocked = false;
   const poolFull = displayCount >= pool.maxUsers || spotsLeft <= 0;
   const noTimeLimit = new Date(pool.endTime).getUTCFullYear() >= 2099;
@@ -745,7 +746,7 @@ export default function PoolDetailPage() {
                     <div className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-xs space-y-1">
                       <div className="flex justify-between gap-2 font-medium text-foreground">
                         <span>You pay</span>
-                        <span className="font-mono text-primary">{netFromWallet.toFixed(2)} USDT</span>
+                        <span className="font-mono text-primary">{displayPayUsdt.toFixed(2)} USDT</span>
                       </div>
                     </div>
                   )}
@@ -790,7 +791,7 @@ export default function PoolDetailPage() {
                   </div>
                   {user && !freeThisPurchase && !canPayJoin && !vipLocked && showJoinActions && (
                     <p className="text-sm text-destructive">
-                      Insufficient balance. You need {netFromWallet.toFixed(2)} USDT for {ticketQty} ticket
+                      Insufficient balance. You need {displayPayUsdt.toFixed(2)} USDT for {ticketQty} ticket
                       {ticketQty === 1 ? "" : "s"}.{" "}
                       <a href="/wallet" className="underline text-primary">Add funds</a>.
                     </p>
@@ -806,10 +807,10 @@ export default function PoolDetailPage() {
                       : freeThisPurchase
                         ? "Join with free entry"
                         : userJoinedEffective
-                          ? `Buy ${ticketQty} ticket(s) — ${netFromWallet.toFixed(2)} USDT`
+                          ? `Buy ${ticketQty} ticket(s) — ${displayPayUsdt.toFixed(2)} USDT`
                           : ticketQty > 1
-                            ? `Buy ${ticketQty} tickets — ${netFromWallet.toFixed(2)} USDT`
-                            : `Buy ticket — ${netFromWallet.toFixed(2)} USDT`}
+                            ? `Buy ${ticketQty} tickets — ${displayPayUsdt.toFixed(2)} USDT`
+                            : `Buy ticket — ${displayPayUsdt.toFixed(2)} USDT`}
                   </Button>
                   {canExitPool && (
                     <Button
@@ -928,7 +929,7 @@ export default function PoolDetailPage() {
         description={
           freeThisPurchase
             ? "This will use 1 free entry ticket for this pool."
-            : `You are buying ${ticketQty} ticket${ticketQty === 1 ? "" : "s"} for ${netFromWallet.toFixed(2)} USDT.`
+            : `You are buying ${ticketQty} ticket${ticketQty === 1 ? "" : "s"} for ${displayPayUsdt.toFixed(2)} USDT.`
         }
         confirmLabel={freeThisPurchase ? "Confirm free join" : "Confirm purchase"}
         loading={joining}
