@@ -66,6 +66,7 @@ async function settleMaturedForUser(userId: number) {
 
 router.get("/config", async (_req, res) => {
   const cfg = await getRewardConfig();
+  // `apr` key kept for backward compatibility with existing clients.
   res.json({ lockDays: LOCK_DAYS, minStakeUsdt: MIN_STAKE_USDT, apr: cfg.stakingApr });
 });
 
@@ -116,7 +117,8 @@ router.post("/lock", async (req, res) => {
   const amount = parsed.data.amount;
 
   const unlockAt = new Date(Date.now() + LOCK_DAYS * 24 * 60 * 60 * 1000);
-  const reward = Number((amount * apr * (LOCK_DAYS / 365)).toFixed(2));
+  // Reward rate is applied per staking cycle (15 days), not annualized.
+  const reward = Number((amount * apr).toFixed(2));
 
   const out = await db.transaction(async (tx) => {
     const [u] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);

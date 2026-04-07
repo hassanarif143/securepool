@@ -18,7 +18,7 @@ export const DEFAULT_REWARD_CONFIG: RewardConfig = {
     "30": 12,
     "40": 14,
   },
-  stakingApr: 0.12,
+  stakingApr: 0.1,
 };
 
 function toNum(v: unknown, fallback: number): number {

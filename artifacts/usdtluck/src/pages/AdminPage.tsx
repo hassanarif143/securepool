@@ -197,12 +197,12 @@ function RewardsConfigTab() {
             <summary className="cursor-pointer text-sm font-semibold">Staking reward rate</summary>
             <div className="mt-3 grid sm:grid-cols-2 gap-3">
               <NumberField
-                label="Staking APR (decimal, e.g. 0.12 = 12%)"
-                value={cfg.stakingApr ?? 0.12}
+                label="Staking reward rate for 15 days (decimal, e.g. 0.10 = 10%)"
+                value={cfg.stakingApr ?? 0.1}
                 onChange={(v) => setCfg({ ...cfg, stakingApr: v })}
               />
               <div className="rounded-md border border-border/50 bg-background/50 p-2 text-xs text-muted-foreground">
-                Current display: {((Number(cfg.stakingApr ?? 0) || 0) * 100).toFixed(2)}%
+                Current reward after 15 days: {((Number(cfg.stakingApr ?? 0) || 0) * 100).toFixed(2)}%
               </div>
             </div>
           </details>

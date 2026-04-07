@@ -26,7 +26,7 @@ export default function StakingPage() {
   const [amount, setAmount] = useState("10");
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<StakeRow[]>([]);
-  const [cfg, setCfg] = useState({ lockDays: 15, minStakeUsdt: 10, apr: 0.12 });
+  const [cfg, setCfg] = useState({ lockDays: 15, minStakeUsdt: 10, apr: 0.1 });
 
   async function refresh() {
     const [cfgRes, meRes] = await Promise.all([
@@ -48,7 +48,7 @@ export default function StakingPage() {
   const parsedAmount = Number(amount);
   const projectedReward =
     Number.isFinite(parsedAmount) && parsedAmount > 0
-      ? (parsedAmount * cfg.apr * (cfg.lockDays / 365))
+      ? parsedAmount * cfg.apr
       : 0;
   const activePrincipal = active.reduce((sum, r) => sum + Number(r.principalUsdt ?? 0), 0);
   const activeProjectedReward = active.reduce((sum, r) => sum + Number(r.rewardUsdt ?? 0), 0);
@@ -93,7 +93,7 @@ export default function StakingPage() {
             <p className="text-lg font-semibold mt-0.5">{cfg.lockDays} days</p>
           </div>
           <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">APR</p>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Reward rate ({cfg.lockDays} days)</p>
             <p className="text-lg font-semibold mt-0.5">{(cfg.apr * 100).toFixed(0)}%</p>
           </div>
           <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
