@@ -26,6 +26,7 @@ type ReferralPayload = {
 export default function ReferralPage() {
   const [data, setData] = useState<ReferralPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
 
   useEffect(() => {
     void (async () => {
@@ -46,6 +47,12 @@ export default function ReferralPage() {
     if (typeof window === "undefined") return "";
     return `${window.location.origin}/signup?ref=${encodeURIComponent(data.myReferralCode)}`;
   }, [data?.myReferralCode]);
+
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    if (filter === "all") return data.referrals;
+    return data.referrals.filter((r) => r.status === filter);
+  }, [data, filter]);
 
   function copy(text: string, label: string) {
     if (!text) return;
@@ -97,29 +104,66 @@ export default function ReferralPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Referral details</CardTitle>
+          <CardTitle>How referral reward works</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid sm:grid-cols-3 gap-2">
+            <Step title="1. Share code" desc="Send your code or referral link to friends." />
+            <Step title="2. Friend joins" desc="Friend signs up and buys first pool ticket." />
+            <Step title="3. Earn reward" desc="You get 2 USDT reward after first ticket purchase." />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle>Referral details</CardTitle>
+            <div className="flex items-center gap-1 rounded-lg border border-border/70 bg-muted/20 p-1">
+              {(["all", "pending", "completed"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`text-xs px-2.5 py-1 rounded ${filter === f ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                  type="button"
+                >
+                  {f[0]!.toUpperCase() + f.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-2">
-          {data.referrals.length === 0 ? (
+          {filtered.length === 0 ? (
             <p className="text-sm text-muted-foreground">No referrals yet.</p>
           ) : (
-            data.referrals.map((r) => (
-              <div key={r.id} className="rounded-lg border border-border/70 p-3 flex items-center justify-between gap-3">
+            filtered.map((r) => (
+              <div key={r.id} className="rounded-lg border border-border/70 bg-muted/10 p-3 flex items-center justify-between gap-3">
                 <div>
                   <p className="font-medium text-sm">{r.referredName}</p>
                   <p className="text-xs text-muted-foreground">Joined: {new Date(r.joinedAt).toLocaleString()}</p>
+                  {r.rewardedAt ? <p className="text-xs text-muted-foreground">Rewarded: {new Date(r.rewardedAt).toLocaleString()}</p> : null}
                 </div>
                 <div className="text-right">
-                  <p className={`text-xs font-semibold ${r.status === "completed" ? "text-emerald-300" : "text-amber-300"}`}>
+                  <p className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-full border ${r.status === "completed" ? "text-emerald-300 border-emerald-500/30 bg-emerald-500/10" : "text-amber-300 border-amber-500/30 bg-amber-500/10"}`}>
                     {r.status === "completed" ? "Completed" : "Pending"}
                   </p>
-                  <p className="text-xs text-muted-foreground">Reward: {r.bonusUsdt.toFixed(2)} USDT</p>
+                  <p className="text-xs text-muted-foreground mt-1">Reward: {r.bonusUsdt.toFixed(2)} USDT</p>
                 </div>
               </div>
             ))
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function Step({ title, desc }: { title: string; desc: string }) {
+  return (
+    <div className="rounded-lg border border-border/70 p-3 bg-muted/10">
+      <p className="text-sm font-semibold">{title}</p>
+      <p className="text-xs text-muted-foreground mt-1">{desc}</p>
     </div>
   );
 }
