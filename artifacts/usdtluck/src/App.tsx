@@ -24,6 +24,7 @@ import AdminPage from "@/pages/AdminPage";
 import ReviewsPage from "@/pages/ReviewsPage";
 import HowItWorksPage from "@/pages/HowItWorksPage";
 import RewardsPage from "@/pages/RewardsPage";
+import StakingPage from "@/pages/StakingPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -140,6 +141,11 @@ function Router() {
         <Route path="/reviews">
           <RequireAuth>
             <ReviewsPage />
+          </RequireAuth>
+        </Route>
+        <Route path="/staking">
+          <RequireAuth>
+            <StakingPage />
           </RequireAuth>
         </Route>
         <Route path="/rewards">

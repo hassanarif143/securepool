@@ -3,7 +3,6 @@ import type { Pool } from "@workspace/api-client-react";
 import { CountdownTimer } from "./CountdownTimer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { platformFeeUsdtForPoolEntry } from "@/lib/platform-fee";
 import { poolWinnerCount } from "@/lib/pool-winners";
 
 interface PoolCardProps {
@@ -12,11 +11,6 @@ interface PoolCardProps {
 }
 
 export function PoolCard({ pool, userJoined }: PoolCardProps) {
-  const refund =
-    typeof pool.loserRefundIfNotWinListUsdt === "number"
-      ? pool.loserRefundIfNotWinListUsdt
-      : Math.max(0, pool.entryFee - platformFeeUsdtForPoolEntry(pool.entryFee));
-
   const fillPercent = pool.maxUsers > 0 ? Math.round((pool.participantCount / pool.maxUsers) * 100) : 0;
   const almostFull = fillPercent > 80;
   const isFull = pool.participantCount >= pool.maxUsers;
@@ -75,11 +69,24 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
             <CountdownTimer endTime={pool.endTime} variant="fomo" className="w-full" />
           ))}
 
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Tickets sold</span>
+            <span className="font-medium text-foreground">{pool.participantCount}/{pool.maxUsers}</span>
+          </div>
+          <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+            <div
+              className={`h-full ${almostFull ? "bg-amber-400" : "bg-emerald-400"} transition-all duration-500`}
+              style={{ width: `${Math.min(100, Math.max(0, fillPercent))}%` }}
+            />
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-2.5">
-          <StatBox label="1 Ticket Price" value={`$${pool.entryFee} USDT`} />
-          <StatBox label="Tickets available" value={`${pool.maxUsers} total`} />
-          <StatBox label="Loser refund" value={`$${refund.toFixed(0)} USDT`} />
-          <StatBox label={showRevealState ? "Pool status" : "Filled"} value={showRevealState ? "FULL" : `${pool.participantCount} / ${pool.maxUsers}`} />
+          <StatBox label="Ticket price" value={`${pool.entryFee} USDT`} />
+          <StatBox label="Total tickets" value={`${pool.maxUsers}`} />
+          <StatBox label="Winner count" value={`${wc}`} />
+          <StatBox label={showRevealState ? "Status" : "Fill"} value={showRevealState ? "FULL" : `${fillPercent}%`} />
         </div>
 
         <div className="rounded-xl bg-black/25 border border-white/5 px-3 py-3">
@@ -144,7 +151,7 @@ function StatBox({ label, value }: { label: string; value: string }) {
 function PrizeChip({ rank, amount }: { rank: string; amount: number }) {
   return (
     <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-white tabular-nums">
-      {rank}: ${amount}
+      {rank}: {amount} USDT
     </span>
   );
 }

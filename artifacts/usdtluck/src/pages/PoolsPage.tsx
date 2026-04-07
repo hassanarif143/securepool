@@ -16,14 +16,21 @@ export default function PoolsPage() {
   const closed = pools?.filter((p) => p.status === "closed") ?? [];
   const completed = pools?.filter((p) => p.status === "completed") ?? [];
   const revealQueueCount = [...open, ...closed].filter((p) => p.participantCount >= p.maxUsers).length;
+  const openTickets = open.reduce((sum, p) => sum + Math.max(0, p.maxUsers - p.participantCount), 0);
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <div className="space-y-2">
+      <div className="space-y-3">
         <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Reward Pools</h1>
         <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-2xl">
-          Join any open pool for 10 USDT. Three winners receive 100, 50, and 30 USDT.
+          Buy tickets in any open pool. Ticket price, winner count, and prize splits are set per pool, with fair-draw rules visible before you join.
         </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-3xl">
+          <QuickStat label="Open pools" value={String(open.length)} />
+          <QuickStat label="Tickets left" value={String(openTickets)} />
+          <QuickStat label="Closed" value={String(closed.length)} />
+          <QuickStat label="Completed" value={String(completed.length)} />
+        </div>
         {revealQueueCount > 0 && (
           <div className="inline-flex items-center gap-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs sm:text-sm font-semibold text-amber-200 animate-pulse">
             <span aria-hidden>🔥</span>
@@ -33,7 +40,7 @@ export default function PoolsPage() {
       </div>
 
       <Tabs defaultValue="open">
-        <TabsList>
+        <TabsList className="w-full sm:w-auto h-auto flex-wrap gap-1 p-1">
           <TabsTrigger value="open">Open ({open.length})</TabsTrigger>
           <TabsTrigger value="closed">Closed ({closed.length})</TabsTrigger>
           <TabsTrigger value="completed">Completed ({completed.length})</TabsTrigger>
@@ -75,6 +82,15 @@ export default function PoolsPage() {
           </>
         )}
       </Tabs>
+    </div>
+  );
+}
+
+function QuickStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2">
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-sm font-semibold tabular-nums">{value}</p>
     </div>
   );
 }
