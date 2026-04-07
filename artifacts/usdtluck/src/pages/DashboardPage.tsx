@@ -225,6 +225,24 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+      <div className={`${box} p-4 sm:p-5`}>
+        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Rewards and tier</p>
+        <div className="mt-2 grid gap-2 sm:grid-cols-3 text-sm">
+          <p>
+            Non-withdrawable rewards:{" "}
+            <span className="font-semibold text-foreground">{(((user.rewardPoints ?? 0) as number) / 300).toFixed(2)} USDT</span>
+          </p>
+          <p>
+            Tier: <span className="font-semibold text-foreground capitalize">{user.tier ?? "bronze"}</span>
+          </p>
+          <p>
+            Total pool joins: <span className="font-semibold text-foreground">{user.poolJoinCount ?? 0}</span>
+          </p>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Active rewards: referral first pool join bonus, pool join milestones, and automatic tier updates by ticket price bands.
+        </p>
+      </div>
 
       {/* Time-sensitive & lightweight alerts first (not a wall of cards) */}
       <div className="space-y-3">

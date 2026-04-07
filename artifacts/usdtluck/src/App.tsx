@@ -23,6 +23,7 @@ import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import AdminPage from "@/pages/AdminPage";
 import ReviewsPage from "@/pages/ReviewsPage";
 import HowItWorksPage from "@/pages/HowItWorksPage";
+import RewardsPage from "@/pages/RewardsPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -139,6 +140,11 @@ function Router() {
         <Route path="/reviews">
           <RequireAuth>
             <ReviewsPage />
+          </RequireAuth>
+        </Route>
+        <Route path="/rewards">
+          <RequireAuth>
+            <RewardsPage />
           </RequireAuth>
         </Route>
         <Route path="/how-it-works" component={HowItWorksPage} />

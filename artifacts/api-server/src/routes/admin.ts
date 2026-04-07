@@ -2135,6 +2135,18 @@ router.get("/rewards/config", async (_req, res) => {
 
 const PatchRewardsConfig = z.object({
   referralInviteUsdt: z.number().nonnegative().optional(),
+  poolJoinMilestonesUsdt: z
+    .object({
+      "5": z.number().nonnegative().optional(),
+      "10": z.number().nonnegative().optional(),
+      "15": z.number().nonnegative().optional(),
+      "20": z.number().nonnegative().optional(),
+      "25": z.number().nonnegative().optional(),
+      "30": z.number().nonnegative().optional(),
+      "40": z.number().nonnegative().optional(),
+    })
+    .partial()
+    .optional(),
 });
 
 router.patch("/rewards/config", async (req, res) => {

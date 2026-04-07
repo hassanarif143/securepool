@@ -150,6 +150,15 @@ function RewardsConfigTab() {
     try {
       const payload = {
         referralInviteUsdt: Number(cfg.referralInviteUsdt ?? 0),
+        poolJoinMilestonesUsdt: {
+          5: Number(cfg.poolJoinMilestonesUsdt?.[5] ?? 0),
+          10: Number(cfg.poolJoinMilestonesUsdt?.[10] ?? 0),
+          15: Number(cfg.poolJoinMilestonesUsdt?.[15] ?? 0),
+          20: Number(cfg.poolJoinMilestonesUsdt?.[20] ?? 0),
+          25: Number(cfg.poolJoinMilestonesUsdt?.[25] ?? 0),
+          30: Number(cfg.poolJoinMilestonesUsdt?.[30] ?? 0),
+          40: Number(cfg.poolJoinMilestonesUsdt?.[40] ?? 0),
+        },
       };
       const res = await fetch(apiUrl("/api/admin/rewards/config"), {
         method: "PATCH",
@@ -173,14 +182,36 @@ function RewardsConfigTab() {
     <div className="space-y-4 mt-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Referral Bonus Control</CardTitle>
-          <p className="text-xs text-muted-foreground">Only friend referral bonus is active. All other rewards are removed.</p>
+          <CardTitle className="text-base">Non-withdrawable Rewards Control</CardTitle>
+          <p className="text-xs text-muted-foreground">All rewards below are credited as non-withdrawable rewards balance.</p>
         </CardHeader>
         <CardContent className="space-y-3">
           <details className="rounded-lg border border-border/60 bg-muted/20 p-3" open>
             <summary className="cursor-pointer text-sm font-semibold">Friend referral reward</summary>
             <div className="mt-3 grid sm:grid-cols-1 gap-3">
               <NumberField label="Referral invite cash reward (USDT)" value={cfg.referralInviteUsdt} onChange={(v) => setCfg({ ...cfg, referralInviteUsdt: v })} />
+            </div>
+          </details>
+          <details className="rounded-lg border border-border/60 bg-muted/20 p-3" open>
+            <summary className="cursor-pointer text-sm font-semibold">Pool join milestone rewards (USDT)</summary>
+            <div className="mt-3 grid sm:grid-cols-2 gap-3">
+              <NumberField label="5 joins reward" value={cfg.poolJoinMilestonesUsdt?.[5] ?? 2} onChange={(v) => setCfg({ ...cfg, poolJoinMilestonesUsdt: { ...(cfg.poolJoinMilestonesUsdt ?? {}), 5: v } })} />
+              <NumberField label="10 joins reward" value={cfg.poolJoinMilestonesUsdt?.[10] ?? 4} onChange={(v) => setCfg({ ...cfg, poolJoinMilestonesUsdt: { ...(cfg.poolJoinMilestonesUsdt ?? {}), 10: v } })} />
+              <NumberField label="15 joins reward" value={cfg.poolJoinMilestonesUsdt?.[15] ?? 6} onChange={(v) => setCfg({ ...cfg, poolJoinMilestonesUsdt: { ...(cfg.poolJoinMilestonesUsdt ?? {}), 15: v } })} />
+              <NumberField label="20 joins reward" value={cfg.poolJoinMilestonesUsdt?.[20] ?? 8} onChange={(v) => setCfg({ ...cfg, poolJoinMilestonesUsdt: { ...(cfg.poolJoinMilestonesUsdt ?? {}), 20: v } })} />
+              <NumberField label="25 joins reward" value={cfg.poolJoinMilestonesUsdt?.[25] ?? 10} onChange={(v) => setCfg({ ...cfg, poolJoinMilestonesUsdt: { ...(cfg.poolJoinMilestonesUsdt ?? {}), 25: v } })} />
+              <NumberField label="30 joins reward" value={cfg.poolJoinMilestonesUsdt?.[30] ?? 12} onChange={(v) => setCfg({ ...cfg, poolJoinMilestonesUsdt: { ...(cfg.poolJoinMilestonesUsdt ?? {}), 30: v } })} />
+              <NumberField label="40 joins reward" value={cfg.poolJoinMilestonesUsdt?.[40] ?? 14} onChange={(v) => setCfg({ ...cfg, poolJoinMilestonesUsdt: { ...(cfg.poolJoinMilestonesUsdt ?? {}), 40: v } })} />
+            </div>
+          </details>
+          <details className="rounded-lg border border-border/60 bg-muted/20 p-3" open>
+            <summary className="cursor-pointer text-sm font-semibold">Tier rules (auto)</summary>
+            <div className="mt-3 text-xs text-muted-foreground space-y-1">
+              <p>Bronze: default</p>
+              <p>Silver: pool ticket price is greater than 5 and up to 10 USDT</p>
+              <p>Gold: greater than 10 and up to 20 USDT</p>
+              <p>Platinum: greater than 20 and up to 30 USDT</p>
+              <p>Diamond: greater than 30 and up to 50 USDT</p>
             </div>
           </details>
 
