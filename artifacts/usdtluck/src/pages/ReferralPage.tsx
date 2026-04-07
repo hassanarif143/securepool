@@ -474,7 +474,7 @@ function TierMilestoneRowCard({
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   {tier.claimed ? (
-                    <span className="text-emerald-400/95 font-medium">Unlocked — credited to ticket bonus balance.</span>
+                    <span className="text-emerald-400/95 font-medium">Unlocked — credited as reward points.</span>
                   ) : (
                     <>
                       <span className="inline-flex items-center gap-1 font-medium text-foreground/85">
@@ -508,7 +508,7 @@ function TierMilestoneRowCard({
             <div className="border-t border-border/50 px-4 pb-4 pt-3 sm:pl-[4.25rem]">
               <p className="text-xs text-muted-foreground leading-relaxed">
                 This reward is <span className="text-foreground/90 font-medium">not withdrawable</span>. It is added to your
-                bonus balance and can be used toward <span className="text-primary font-medium">pool ticket purchases</span>{" "}
+                reward points and can be used toward <span className="text-primary font-medium">pool ticket purchases</span>{" "}
                 only. Milestones stack as you grow your network — keep sharing your link.
               </p>
             </div>

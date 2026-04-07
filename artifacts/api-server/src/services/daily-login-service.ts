@@ -1,27 +1,11 @@
 import { and, desc, eq, gte } from "drizzle-orm";
 import { db, dailyLoginsTable, usersTable } from "@workspace/db";
 
-export type DailyRewardSpec = { type: "points" | "free_entry"; value: number; day: number };
+export type DailyRewardSpec = { type: "points"; value: number; day: number };
 
 function rewardForCycleDay(day: number): DailyRewardSpec {
-  switch (day) {
-    case 1:
-      return { type: "points", value: 1, day: 1 };
-    case 2:
-      return { type: "points", value: 1, day: 2 };
-    case 3:
-      return { type: "points", value: 2, day: 3 };
-    case 4:
-      return { type: "points", value: 2, day: 4 };
-    case 5:
-      return { type: "points", value: 3, day: 5 };
-    case 6:
-      return { type: "points", value: 3, day: 6 };
-    case 7:
-      return { type: "free_entry", value: 1, day: 7 };
-    default:
-      return { type: "points", value: 1, day: 1 };
-  }
+  const d = day >= 1 && day <= 7 ? day : 1;
+  return { type: "points", value: 10, day: d };
 }
 
 function todayUTC(): string {
@@ -129,21 +113,12 @@ export async function claimDailyLoginReward(userId: number, loginRowId: number) 
   const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!u) return { ok: false as const, error: "User not found" };
 
-  if (row.rewardType === "free_entry") {
+  const pts = 10;
+  if (pts > 0) {
     await db
       .update(usersTable)
-      .set({ freeEntries: (u.freeEntries ?? 0) + 1 })
+      .set({ rewardPoints: (u.rewardPoints ?? 0) + pts, bonusBalance: "0" })
       .where(eq(usersTable.id, userId));
-  } else {
-    const pts = Math.max(0, Math.round(parseFloat(String(row.rewardValue)) || 0));
-    if (pts > 0) {
-      await db
-        .update(usersTable)
-        .set({ referralPoints: (u.referralPoints ?? 0) + pts })
-        .where(eq(usersTable.id, userId));
-      const { grantReferralPointsWithExpiry } = await import("./points-ledger-service");
-      await grantReferralPointsWithExpiry(userId, pts, "daily_login", `Daily login — day ${row.dayNumber}`);
-    }
   }
 
   await db.update(dailyLoginsTable).set({ claimed: true }).where(eq(dailyLoginsTable.id, loginRowId));

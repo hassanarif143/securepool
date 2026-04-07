@@ -1143,7 +1143,7 @@ router.post("/transactions/:id/approve", async (req, res) => {
       if (txn.txType === "deposit") {
         const [user] = await trx
           .select({
-            bonusBalance: usersTable.bonusBalance,
+            rewardPoints: usersTable.rewardPoints,
             withdrawableBalance: usersTable.withdrawableBalance,
             firstDepositClaimed: usersTable.firstDepositClaimed,
           })
@@ -1156,7 +1156,7 @@ router.post("/transactions/:id/approve", async (req, res) => {
           throw e;
         }
         const depositAmt = parseFloat(txn.amount);
-        let bonusB = parseFloat(String(user.bonusBalance ?? "0"));
+        let rewardPoints = user.rewardPoints ?? 0;
         let wdB = parseFloat(String(user.withdrawableBalance ?? "0")) + depositAmt;
         let firstDepositBonus = 0;
         const alreadyClaimedFirst = user.firstDepositClaimed === true;
@@ -1164,15 +1164,16 @@ router.post("/transactions/:id/approve", async (req, res) => {
         if (!alreadyClaimedFirst) {
           const rewardCfg = await getRewardConfig();
           firstDepositBonus = rewardCfg.firstDepositBonusUsdt;
-          bonusB += firstDepositBonus;
+          rewardPoints += 10;
           nextFirstDepositClaimed = true;
         }
-        const walletNum = bonusB + wdB;
+        const walletNum = (rewardPoints / 300) + wdB;
         const walletStr = walletNum.toFixed(2);
         await trx
           .update(usersTable)
           .set({
-            bonusBalance: bonusB.toFixed(2),
+            rewardPoints,
+            bonusBalance: "0",
             withdrawableBalance: wdB.toFixed(2),
             walletBalance: walletStr,
             firstDepositClaimed: nextFirstDepositClaimed,
@@ -1193,26 +1194,13 @@ router.post("/transactions/:id/approve", async (req, res) => {
             txType: "reward",
             amount: String(firstDepositBonus),
             status: "completed",
-            note: `[System] First deposit bonus — ${firstDepositBonus} USDT (tickets only, non-withdrawable)`,
-          });
-          await appendBonusGrant(trx, {
-            amount: firstDepositBonus,
-            userId: txn.userId,
-            description: `First deposit ticket bonus — user tx #${txId} — ${firstDepositBonus} USDT`,
-          });
-          await recordTicketOnlyBonus(trx, {
-            userId: txn.userId,
-            amount: firstDepositBonus,
-            balanceAfter: walletNum,
-            description: `First deposit bonus — ${firstDepositBonus} USDT (tickets only)`,
-            referenceType: "first_deposit",
-            referenceId: txId,
+            note: `[System] First deposit reward — +10 points (non-withdrawable)`,
           });
         }
         await recordDepositApproved(trx, {
           userId: txn.userId,
           depositAmount: depositAmt,
-          bonusAmount: firstDepositBonus,
+          bonusAmount: 0,
           balanceAfter: walletNum,
           depositTxId: txId,
         });

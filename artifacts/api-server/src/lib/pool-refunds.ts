@@ -64,7 +64,8 @@ export async function refundAllPoolParticipants(
       await db
         .update(usersTable)
         .set({
-          bonusBalance: afterBuckets.bonusBalance.toFixed(2),
+          rewardPoints: afterBuckets.rewardPoints,
+          bonusBalance: "0",
           withdrawableBalance: afterBuckets.withdrawableBalance.toFixed(2),
           walletBalance: walletBalanceFromBuckets(afterBuckets),
         })

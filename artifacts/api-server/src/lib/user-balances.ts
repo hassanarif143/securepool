@@ -1,25 +1,29 @@
 import type { User } from "@workspace/db";
 
 export type UserBuckets = {
-  bonusBalance: number;
+  rewardPoints: number;
   withdrawableBalance: number;
 };
 
 export type PoolEntryDeduction = {
   before: UserBuckets;
   after: UserBuckets;
-  fromBonus: number;
+  fromRewardPointsUsdt: number;
   fromWithdrawable: number;
   amount: number;
-  bonusCapApplied: number;
+  rewardPointsUsed: number;
 };
 
 export function parseUserBuckets(row: {
+  rewardPoints?: number | string | null;
   bonusBalance?: string | null;
   withdrawableBalance?: string | null;
 }): UserBuckets {
+  const rpRaw = row.rewardPoints;
+  const legacyBonus = parseFloat(String(row.bonusBalance ?? "0"));
+  const rpFromLegacy = Number.isFinite(legacyBonus) ? Math.max(0, Math.round(legacyBonus * 300)) : 0;
   return {
-    bonusBalance: parseFloat(String(row.bonusBalance ?? "0")),
+    rewardPoints: rpRaw != null ? Math.max(0, parseInt(String(rpRaw), 10) || 0) : rpFromLegacy,
     withdrawableBalance: parseFloat(String(row.withdrawableBalance ?? "0")),
   };
 }
@@ -29,7 +33,7 @@ export function bucketsFromUser(user: User): UserBuckets {
 }
 
 export function totalWallet(b: UserBuckets): number {
-  return b.bonusBalance + b.withdrawableBalance;
+  return pointsToUsdt(b.rewardPoints) + b.withdrawableBalance;
 }
 
 export function formatUsdt2(n: number): string {
@@ -41,11 +45,19 @@ export function walletBalanceFromBuckets(b: UserBuckets): string {
 }
 
 function assertNonNegativeBuckets(next: UserBuckets): void {
-  if (next.bonusBalance < -0.0001 || next.withdrawableBalance < -0.0001) {
+  if (next.rewardPoints < 0 || next.withdrawableBalance < -0.0001) {
     const err = new Error("NEGATIVE_BALANCE_GUARD");
     (err as { code?: string }).code = "NEGATIVE_BALANCE_GUARD";
     throw err;
   }
+}
+
+export const POINTS_PER_USDT = 300;
+export function pointsToUsdt(points: number): number {
+  return Number((Math.max(0, points) / POINTS_PER_USDT).toFixed(2));
+}
+export function usdtToPoints(usdt: number): number {
+  return Math.max(0, Math.ceil(Math.max(0, usdt) * POINTS_PER_USDT));
 }
 
 /**
@@ -61,18 +73,18 @@ function assertNonNegativeBuckets(next: UserBuckets): void {
 export function deductForPoolEntry(
   b: UserBuckets,
   amount: number,
-  opts?: { maxBonusShare?: number; allowBonus?: boolean },
+  opts?: { allowRewardPoints?: boolean },
 ): PoolEntryDeduction {
   if (!Number.isFinite(amount) || amount <= 0) {
     const err = new Error("INVALID_ENTRY_AMOUNT");
     (err as { code?: string }).code = "INVALID_ENTRY_AMOUNT";
     throw err;
   }
-  const maxBonusShare = opts?.maxBonusShare ?? 0.5;
-  const allowBonus = opts?.allowBonus !== false;
-  const bonusCapApplied = allowBonus ? Math.max(0, Math.min(amount, amount * Math.max(0, Math.min(1, maxBonusShare)))) : 0;
-  const fromBonus = allowBonus ? Math.min(amount, b.bonusBalance, bonusCapApplied) : 0;
-  const remaining = amount - fromBonus;
+  const allowRewardPoints = opts?.allowRewardPoints !== false;
+  const maxUsdtFromPoints = allowRewardPoints ? pointsToUsdt(b.rewardPoints) : 0;
+  const fromRewardPointsUsdt = Math.min(amount, maxUsdtFromPoints);
+  const rewardPointsUsed = allowRewardPoints ? Math.min(b.rewardPoints, usdtToPoints(fromRewardPointsUsdt)) : 0;
+  const remaining = amount - fromRewardPointsUsdt;
   if (remaining - b.withdrawableBalance > 0.0001) {
     const err = new Error("INSUFFICIENT_WITHDRAWABLE_AFTER_BONUS");
     (err as { code?: string }).code = "INSUFFICIENT_WITHDRAWABLE_AFTER_BONUS";
@@ -80,17 +92,17 @@ export function deductForPoolEntry(
   }
   const fromWithdrawable = Math.max(0, Math.min(remaining, b.withdrawableBalance));
   const after: UserBuckets = {
-    bonusBalance: Number((b.bonusBalance - fromBonus).toFixed(2)),
+    rewardPoints: Math.max(0, b.rewardPoints - rewardPointsUsed),
     withdrawableBalance: Number((b.withdrawableBalance - fromWithdrawable).toFixed(2)),
   };
   assertNonNegativeBuckets(after);
   return {
-    before: { bonusBalance: b.bonusBalance, withdrawableBalance: b.withdrawableBalance },
+    before: { rewardPoints: b.rewardPoints, withdrawableBalance: b.withdrawableBalance },
     after,
-    fromBonus: Number(fromBonus.toFixed(2)),
+    fromRewardPointsUsdt: Number(fromRewardPointsUsdt.toFixed(2)),
     fromWithdrawable: Number(fromWithdrawable.toFixed(2)),
     amount: Number(amount.toFixed(2)),
-    bonusCapApplied: Number(bonusCapApplied.toFixed(2)),
+    rewardPointsUsed,
   };
 }
 
@@ -102,7 +114,7 @@ export function distributeWinnings(b: UserBuckets, amount: number): UserBuckets 
     throw err;
   }
   const next: UserBuckets = {
-    bonusBalance: Number(b.bonusBalance.toFixed(2)),
+    rewardPoints: b.rewardPoints,
     withdrawableBalance: Number((b.withdrawableBalance + amount).toFixed(2)),
   };
   assertNonNegativeBuckets(next);
@@ -117,7 +129,7 @@ export function processRefund(b: UserBuckets, amount: number): UserBuckets {
     throw err;
   }
   const next: UserBuckets = {
-    bonusBalance: Number(b.bonusBalance.toFixed(2)),
+    rewardPoints: b.rewardPoints,
     withdrawableBalance: Number((b.withdrawableBalance + amount).toFixed(2)),
   };
   assertNonNegativeBuckets(next);
@@ -129,8 +141,8 @@ export function deductForTicket(
   b: UserBuckets,
   amount: number,
 ): { next: UserBuckets; fromBonus: number; fromWithdrawable: number } {
-  const d = deductForPoolEntry(b, amount, { maxBonusShare: 1 });
-  return { next: d.after, fromBonus: d.fromBonus, fromWithdrawable: d.fromWithdrawable };
+  const d = deductForPoolEntry(b, amount, { allowRewardPoints: true });
+  return { next: d.after, fromBonus: d.fromRewardPointsUsdt, fromWithdrawable: d.fromWithdrawable };
 }
 
 export const REFERRAL_INVITE_PRIZE_USDT = 2;

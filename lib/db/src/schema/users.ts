@@ -11,6 +11,8 @@ export const usersTable = pgTable("users", {
   walletBalance: numeric("wallet_balance", { precision: 18, scale: 2 }).notNull().default("0"),
   /** Non-withdrawable; ticket purchases only (first deposit + referral count milestones). */
   bonusBalance: numeric("bonus_balance", { precision: 18, scale: 2 }).notNull().default("0"),
+  /** Unified non-withdrawable reward currency. 300 points = 1 USDT spending power for pool entry only. */
+  rewardPoints: integer("reward_points").notNull().default(0),
   /** Deposits, draw wins, referral per-invite, streak USDT, prediction match, activity-tier ticket credit — withdrawable & usable for tickets. */
   withdrawableBalance: numeric("withdrawable_balance", { precision: 18, scale: 2 }).notNull().default("0"),
   firstDepositClaimed: boolean("first_deposit_claimed").notNull().default(false),
@@ -64,6 +66,7 @@ export const insertUserSchema = createInsertSchema(usersTable).omit({
   isAdmin: true,
   walletBalance: true,
   bonusBalance: true,
+  rewardPoints: true,
   withdrawableBalance: true,
   firstDepositClaimed: true,
   referralMilestonesClaimed: true,

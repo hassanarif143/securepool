@@ -136,7 +136,8 @@ export default function WalletPage() {
   if (isLoading || !user) return null;
 
   const currentUser = user;
-  const bonusBal = currentUser.bonusBalance ?? 0;
+  const rewardPoints = currentUser.rewardPoints ?? 0;
+  const rewardPointsUsdt = rewardPoints / 300;
   const withdrawableBal = currentUser.withdrawableBalance ?? 0;
 
   const txArr = transactions as any[];
@@ -318,7 +319,7 @@ export default function WalletPage() {
 
           <div>
             <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground text-center">
-              Total for tickets (bonus + withdrawable)
+              Total for tickets (reward points + withdrawable)
             </p>
             <div className="mt-1 flex flex-wrap items-baseline justify-center gap-2">
               <span className="font-display text-3xl font-black tabular-nums text-[hsl(152,72%,55%)]">
@@ -329,11 +330,12 @@ export default function WalletPage() {
           </div>
 
           <div className="rounded-xl border border-dashed border-amber-500/45 bg-amber-500/[0.07] px-4 py-4 ring-1 ring-amber-500/15">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-amber-200/90">Bonus balance</p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-amber-200/95">{bonusBal.toFixed(2)} USDT</p>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-amber-200/90">Reward points</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-amber-200/95">{rewardPoints} pts</p>
             <p className="text-[10px] text-amber-100/70 mt-1 leading-relaxed">
-              Can be used to buy tickets only — first-deposit bonus &amp; referral milestone rewards. Not withdrawable.
+              300 pts = 1 USDT. Spend points on pool tickets only. Not withdrawable.
             </p>
+            <p className="text-[10px] text-amber-100/70">Approx value: {rewardPointsUsdt.toFixed(2)} USDT</p>
           </div>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Button className="min-h-12 w-full font-semibold shadow-md shadow-primary/20 sm:w-auto sm:min-w-[9rem]" asChild>
@@ -538,7 +540,7 @@ export default function WalletPage() {
               <p className="text-xs font-semibold text-muted-foreground mb-1">How withdrawals work</p>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 You can only withdraw from your <span className="font-semibold text-foreground">withdrawable balance</span>.{" "}
-                <span className="font-semibold text-foreground">Bonus balance</span> is for tickets only and cannot be cashed out.
+                <span className="font-semibold text-foreground">Reward points</span> are for tickets only and cannot be cashed out.
               </p>
               {user.cryptoAddress && (
                 <div className="mt-2 pt-2 border-t border-[hsl(217,28%,18%)]">

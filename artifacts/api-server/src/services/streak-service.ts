@@ -4,7 +4,6 @@ import { notifyUser } from "../lib/notify";
 import { logActivity } from "./activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { getRewardConfig } from "../lib/reward-config";
-import { creditUserWithdrawableUsdt } from "../lib/credit-withdrawable-balance";
 
 const STREAK_GAP_DAYS = 7;
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -66,33 +65,27 @@ export async function applyStreakOnPoolJoin(userId: number, joinerDisplayName: s
   const who = privacyDisplayName(joinerDisplayName);
 
   const rewardCfg = await getRewardConfig();
-  const usdt = rewardCfg.streakUsdtRewards[String(nextStreak)];
-  if (usdt != null && usdt > 0) {
+  const hasMilestone = rewardCfg.streakUsdtRewards[String(nextStreak)] != null;
+  if (hasMilestone) {
     if (nextStreak === 3) milestone = "3";
     else if (nextStreak === 5) milestone = "5";
     else if (nextStreak === 10) milestone = "10";
     else if (nextStreak === 20) milestone = "20";
 
-    await db.transaction(async (trx) => {
-      await creditUserWithdrawableUsdt(trx, {
-        userId,
-        amount: usdt,
-        rewardNote: `[System] ${nextStreak}-draw streak bonus — ${usdt} USDT`,
-        ledgerDescription: `Streak milestone — ${nextStreak} consecutive draws — ${usdt} USDT`,
-        referenceType: "streak",
-        referenceId: null,
-      });
-    });
+    await db
+      .update(usersTable)
+      .set({ rewardPoints: (u.rewardPoints ?? 0) + 10 })
+      .where(eq(usersTable.id, userId));
 
     await logActivity({
       type: "loyalty_bonus",
-      message: `${who} hit a ${nextStreak}-pool streak — +${usdt} USDT withdrawable.`,
+      message: `${who} hit a ${nextStreak}-pool streak — +10 reward points.`,
       userId,
     });
     void notifyUser(
       userId,
       "Streak milestone",
-      `${nextStreak}-pool streak! ${usdt} USDT added to your withdrawable balance.`,
+      `${nextStreak}-pool streak! +10 reward points added.`,
       "success",
     );
   }

@@ -226,7 +226,8 @@ router.post("/signup", signupLimiter, async (req, res) => {
       name: user.name,
       email: user.email,
       walletBalance: parseFloat(user.walletBalance),
-      bonusBalance: parseFloat(String(user.bonusBalance ?? "0")),
+      rewardPoints: user.rewardPoints ?? 0,
+      bonusBalance: 0,
       withdrawableBalance: parseFloat(String(user.withdrawableBalance ?? "0")),
       cryptoAddress: user.cryptoAddress ?? null,
       isAdmin: user.isAdmin,
@@ -261,6 +262,7 @@ router.post("/login", loginLimiter, async (req, res) => {
     const r = await dbPool.query(
       `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at,
               COALESCE(is_demo, false) AS is_demo,
+              COALESCE(reward_points, 0) AS reward_points,
               COALESCE(bonus_balance, 0) AS bonus_balance,
               COALESCE(withdrawable_balance, 0) AS withdrawable_balance,
               COALESCE(email_verified, true) AS email_verified
@@ -278,6 +280,7 @@ router.post("/login", loginLimiter, async (req, res) => {
     );
     rows = (r.rows as any[]).map((row) => ({
       ...row,
+      reward_points: 0,
       bonus_balance: 0,
       withdrawable_balance: row.wallet_balance,
     }));
@@ -298,6 +301,7 @@ router.post("/login", loginLimiter, async (req, res) => {
     joined_at: string | Date;
     is_demo?: boolean;
     bonus_balance?: string | number;
+    reward_points?: string | number;
     withdrawable_balance?: string | number;
     email_verified?: boolean;
   };
@@ -353,7 +357,8 @@ router.post("/login", loginLimiter, async (req, res) => {
       name: user.name,
       email: user.email,
       walletBalance: parseFloat(String(user.wallet_balance)),
-      bonusBalance: parseFloat(String(user.bonus_balance ?? "0")),
+      rewardPoints: parseInt(String(user.reward_points ?? "0"), 10),
+      bonusBalance: 0,
       withdrawableBalance: parseFloat(String(user.withdrawable_balance ?? "0")),
       cryptoAddress: user.crypto_address ?? null,
       isAdmin: user.is_admin,
@@ -490,6 +495,7 @@ router.get("/me", async (req, res) => {
   try {
     const r = await dbPool.query(
       `SELECT id, name, email, wallet_balance, crypto_address, is_admin, joined_at,
+              COALESCE(reward_points, 0) AS reward_points,
               COALESCE(bonus_balance, 0) AS bonus_balance,
               COALESCE(withdrawable_balance, 0) AS withdrawable_balance,
               COALESCE(tier, 'aurora') AS tier, COALESCE(tier_points, 0) AS tier_points,
@@ -510,6 +516,7 @@ router.get("/me", async (req, res) => {
     );
     rows = (r.rows as Array<Record<string, unknown>>).map((row) => ({
       ...row,
+      reward_points: 0,
       bonus_balance: 0,
       withdrawable_balance: row.wallet_balance,
       tier: "aurora",
@@ -551,7 +558,8 @@ router.get("/me", async (req, res) => {
     name: user.name,
     email: user.email,
     walletBalance: parseFloat(String(user.wallet_balance)),
-    bonusBalance: parseFloat(String((user as { bonus_balance?: unknown }).bonus_balance ?? "0")),
+    rewardPoints: parseInt(String((user as { reward_points?: unknown }).reward_points ?? "0"), 10),
+    bonusBalance: 0,
     withdrawableBalance: parseFloat(String((user as { withdrawable_balance?: unknown }).withdrawable_balance ?? "0")),
     cryptoAddress: user.crypto_address ?? null,
     isAdmin: user.is_admin,

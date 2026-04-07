@@ -3,11 +3,7 @@ import { Router, type IRouter } from "express";
 import { db, usersTable, referralsTable, transactionsTable } from "@workspace/db";
 import { notifyUser } from "../lib/notify";
 import { eq, desc } from "drizzle-orm";
-import { appendBonusGrant } from "../services/admin-wallet-service";
-import {
-  recordTicketOnlyBonus,
-  recordWithdrawableCredit,
-} from "../services/user-wallet-service";
+import { recordWithdrawableCredit } from "../services/user-wallet-service";
 import {
   milestonesToJson,
   parseMilestonesClaimed,
@@ -143,7 +139,7 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
         .where(eq(usersTable.id, referredUserId))
         .limit(1);
 
-      let bonusB = parseFloat(String(referrer.bonusBalance ?? "0"));
+      let rewardPoints = referrer.rewardPoints ?? 0;
       let wdB = parseFloat(String(referrer.withdrawableBalance ?? "0"));
 
       wdB += rewardsCfg.referralInviteUsdt;
@@ -156,19 +152,20 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
         const key = String(m.at) as MilestoneKey;
         if (newTotalRefs >= m.at && !milestones[key]) {
           milestones[key] = true;
-          bonusB += m.usdt;
+          rewardPoints += 10;
           tierGrants.push({ at: m.at, usdt: m.usdt });
         }
       }
 
-      const walletStr = (bonusB + wdB).toFixed(2);
+      const walletStr = ((rewardPoints / 300) + wdB).toFixed(2);
       const walletNum = parseFloat(walletStr);
-      const balanceAfterReferralOnly = parseFloat((parseFloat(String(referrer.bonusBalance ?? "0")) + wdB).toFixed(2));
+      const balanceAfterReferralOnly = parseFloat((((referrer.rewardPoints ?? 0) / 300) + wdB).toFixed(2));
 
       await trx
         .update(usersTable)
         .set({
-          bonusBalance: bonusB.toFixed(2),
+          rewardPoints,
+          bonusBalance: "0",
           withdrawableBalance: wdB.toFixed(2),
           walletBalance: walletStr,
           totalSuccessfulReferrals: newTotalRefs,
@@ -184,11 +181,6 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
         note: `Referral prize (withdrawable) — ${rewardsCfg.referralInviteUsdt} USDT — referred user #${referredUserId} first ticket`,
       });
 
-      await appendBonusGrant(trx, {
-        amount: rewardsCfg.referralInviteUsdt,
-        userId: referrer.id,
-        description: `Referral invite prize — user #${referredUserId} first ticket — ${rewardsCfg.referralInviteUsdt} USDT`,
-      });
       await recordWithdrawableCredit(trx, {
         userId: referrer.id,
         amount: rewardsCfg.referralInviteUsdt,
@@ -198,29 +190,15 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
         referenceId: referral.id,
       });
 
-      let runningBonusForLedger = parseFloat(String(referrer.bonusBalance ?? "0"));
+      let runningRewardPoints = referrer.rewardPoints ?? 0;
       for (const g of tierGrants) {
-        runningBonusForLedger += g.usdt;
-        const balanceAfterTier = parseFloat((runningBonusForLedger + wdB).toFixed(2));
+        runningRewardPoints += 10;
         await trx.insert(transactionsTable).values({
           userId: referrer.id,
           txType: "reward",
-          amount: String(g.usdt),
+          amount: "0",
           status: "completed",
-          note: `[Tier] Referral milestone ${g.at} successful referrals — +${g.usdt} USDT ticket bonus (non-withdrawable)`,
-        });
-        await appendBonusGrant(trx, {
-          amount: g.usdt,
-          userId: referrer.id,
-          description: `Referral tier milestone ${g.at} — ${g.usdt} USDT ticket bonus`,
-        });
-        await recordTicketOnlyBonus(trx, {
-          userId: referrer.id,
-          amount: g.usdt,
-          balanceAfter: balanceAfterTier,
-          description: `Referral tier — ${g.at} referrals — ${g.usdt} USDT (tickets only)`,
-          referenceType: "referral_tier",
-          referenceId: referral.id,
+          note: `[Tier] Referral milestone ${g.at} successful referrals — +10 reward points`,
         });
       }
 
@@ -243,7 +221,7 @@ export async function maybeCreditReferralBonus(referredUserId: number): Promise<
       void notifyUser(
         referral.referrerId,
         "Referral tier milestone",
-        `${g.at} successful referrals — +${g.usdt} USDT ticket bonus unlocked (pool entries).`,
+        `${g.at} successful referrals — +10 reward points unlocked.`,
         "tier",
       );
     }

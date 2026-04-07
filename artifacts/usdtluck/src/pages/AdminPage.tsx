@@ -2445,7 +2445,7 @@ function UsersTab() {
                   <div className="space-y-0.5">
                     <p className="font-bold text-primary text-base sm:text-lg tabular-nums">{u.walletBalance.toFixed(2)} total</p>
                     <p className="text-[10px] text-muted-foreground leading-tight">
-                      Bonus {(u as { bonusBalance?: number }).bonusBalance?.toFixed?.(2) ?? "0.00"} · Withdrawable{" "}
+                      Reward pts {(u as { rewardPoints?: number }).rewardPoints ?? 0} · Withdrawable{" "}
                       {(u as { withdrawableBalance?: number }).withdrawableBalance?.toFixed?.(2) ?? "0.00"}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
@@ -2627,7 +2627,7 @@ function UserProfileModal({ user, onClose }: { user: any; onClose: () => void })
             <p className="text-xs text-muted-foreground">Bonus = tickets only · Withdrawable = can cash out</p>
             <p className="font-bold text-primary text-xl mt-1">{user.walletBalance.toFixed(2)} USDT total (for tickets)</p>
             <p className="text-xs text-muted-foreground mt-1 tabular-nums">
-              Bonus {(user as { bonusBalance?: number }).bonusBalance?.toFixed(2) ?? "0.00"} · Withdrawable{" "}
+              Reward pts {(user as { rewardPoints?: number }).rewardPoints ?? 0} · Withdrawable{" "}
               {(user as { withdrawableBalance?: number }).withdrawableBalance?.toFixed(2) ?? "0.00"}
             </p>
             <p className="text-[10px] text-muted-foreground mt-1">

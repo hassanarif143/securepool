@@ -1,7 +1,4 @@
-import { db, pool } from "@workspace/db";
-import { appendBonusGrant } from "../services/admin-wallet-service";
-import { recordWithdrawableCredit } from "../services/user-wallet-service";
-import { getRewardConfig } from "./reward-config";
+import { pool } from "@workspace/db";
 
 export const TIER_CONFIG = [
   { id: "aurora", label: "Bronze", minPoints: 0, icon: "🥉", free_ticket: false },
@@ -40,12 +37,11 @@ export function getNextTier(tierId: TierId) {
  */
 export async function awardTierPoints(userId: number, points: number) {
   try {
-    const rewardCfg = await getRewardConfig();
     let rows: Record<string, unknown>[];
     try {
       const r = await pool.query(
         `SELECT tier, tier_points, free_tickets_claimed,
-                wallet_balance, bonus_balance, withdrawable_balance, name
+                wallet_balance, bonus_balance, reward_points, withdrawable_balance, name
          FROM users WHERE id = $1`,
         [userId],
       );
@@ -58,6 +54,7 @@ export async function awardTierPoints(userId: number, points: number) {
       );
       rows = (r.rows as Record<string, unknown>[]).map((row) => ({
         ...row,
+        reward_points: 0,
         withdrawable_balance: Math.max(
           0,
           parseFloat(String(row.wallet_balance ?? "0")) - parseFloat(String(row.bonus_balance ?? "0")),
@@ -78,19 +75,20 @@ export async function awardTierPoints(userId: number, points: number) {
     let freeTicketGranted = false;
     const bonusB = parseFloat(String(rows[0].bonus_balance ?? "0"));
     let withdrawableB = parseFloat(String(rows[0].withdrawable_balance ?? "0"));
+    let rewardPoints = parseInt(String(rows[0].reward_points ?? "0"), 10) || 0;
 
     /* Grant free ticket if tier upgraded and not yet claimed for this tier */
     if (tierChanged && !claimed.includes(newTier)) {
       const tierCfg = getTierConfig(newTier);
       if (tierCfg.free_ticket) {
-        withdrawableB += rewardCfg.tierUpgradeUsdt;
+        rewardPoints += 10;
         freeTicketGranted = true;
         claimed.push(newTier);
 
         await pool.query(
           `INSERT INTO transactions (user_id, tx_type, amount, status, note)
          VALUES ($1, 'reward', $2, 'completed', $3)`,
-          [userId, String(rewardCfg.tierUpgradeUsdt), `🎁 Tier upgrade credit — reached ${tierCfg.label} tier`],
+          [userId, "0", `🎁 Tier upgrade reward points — reached ${tierCfg.label} tier (+10 points)`],
         );
       }
     }
@@ -101,38 +99,22 @@ export async function awardTierPoints(userId: number, points: number) {
       await pool.query(
         `UPDATE users
        SET tier_points = $1, tier = $2, free_tickets_claimed = $3,
-           withdrawable_balance = $4::numeric(18,2),
-           wallet_balance = $5::numeric(18,2)
-       WHERE id = $6`,
-        [newPoints, newTier, claimed.join(","), withdrawableB.toFixed(2), newWallet, userId],
+           reward_points = $4,
+           withdrawable_balance = $5::numeric(18,2),
+           wallet_balance = $6::numeric(18,2)
+       WHERE id = $7`,
+        [newPoints, newTier, claimed.join(","), rewardPoints, withdrawableB.toFixed(2), newWallet, userId],
       );
     } catch {
       await pool.query(
-        `UPDATE users SET tier_points = $1, tier = $2, free_tickets_claimed = $3, wallet_balance = $4 WHERE id = $5`,
-        [newPoints, newTier, claimed.join(","), newWallet, userId],
+        `UPDATE users SET tier_points = $1, tier = $2, free_tickets_claimed = $3, reward_points = $4, wallet_balance = $5 WHERE id = $6`,
+        [newPoints, newTier, claimed.join(","), rewardPoints, newWallet, userId],
       );
     }
 
     if (freeTicketGranted) {
       const tierCfg = getTierConfig(newTier);
-      try {
-        await db.transaction(async (trx) => {
-          await appendBonusGrant(trx, {
-            userId,
-            amount: rewardCfg.tierUpgradeUsdt,
-            description: `Tier upgrade withdrawable credit — ${tierCfg.label} tier`,
-          });
-          await recordWithdrawableCredit(trx, {
-            userId,
-            amount: rewardCfg.tierUpgradeUsdt,
-            balanceAfter: parseFloat(newWallet),
-            description: `Tier upgrade — ${rewardCfg.tierUpgradeUsdt} USDT withdrawable (${tierCfg.label})`,
-            referenceType: "tier",
-          });
-        });
-      } catch (e) {
-        console.warn("[tier] central/user wallet ledger for tier credit:", e);
-      }
+      console.info("[tier] granted +10 reward points for tier upgrade:", tierCfg.label);
     }
 
     return { newTier, previousTier: currentTier, tierChanged, freeTicketGranted, newPoints };

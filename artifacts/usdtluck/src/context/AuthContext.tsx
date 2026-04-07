@@ -18,6 +18,7 @@ interface UserType {
   phone?: string | null;
   city?: string | null;
   walletBalance: number;
+  rewardPoints?: number;
   bonusBalance?: number;
   withdrawableBalance?: number;
   cryptoAddress: string | null;
@@ -70,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const d = data as UserType;
     setUser({
       ...d,
+      rewardPoints: d.rewardPoints ?? 0,
       bonusBalance: d.bonusBalance ?? 0,
       withdrawableBalance: d.withdrawableBalance ?? 0,
       emailVerified: d.emailVerified !== false,

@@ -280,7 +280,7 @@ export default function StakingPage() {
           <div>
             <h2 className="text-lg font-semibold text-white">Add to vault</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Min {minAmt} USDT · uses bonus balance first, then withdrawable (same as pools)
+              Min {minAmt} USDT · uses reward points first, then withdrawable (same as pools)
             </p>
           </div>
           <p className="text-sm">

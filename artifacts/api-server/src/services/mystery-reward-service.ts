@@ -50,18 +50,11 @@ export async function claimMysteryReward(userId: number, rewardId: number): Prom
   const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!u) return { ok: false, error: "User missing" };
 
-  if (r.rewardType === "points_1" || r.rewardType === "points_3") {
-    const add = r.rewardValue;
+  if (r.rewardType === "points_1" || r.rewardType === "points_3" || r.rewardType === "free_entry") {
+    const add = 10;
     await db
       .update(usersTable)
-      .set({ referralPoints: (u.referralPoints ?? 0) + add })
-      .where(eq(usersTable.id, userId));
-    const { grantReferralPointsWithExpiry } = await import("./points-ledger-service");
-    await grantReferralPointsWithExpiry(userId, add, "mystery", `Mystery box: ${r.rewardType}`);
-  } else if (r.rewardType === "free_entry") {
-    await db
-      .update(usersTable)
-      .set({ freeEntries: (u.freeEntries ?? 0) + r.rewardValue })
+      .set({ rewardPoints: (u.rewardPoints ?? 0) + add, bonusBalance: "0" })
       .where(eq(usersTable.id, userId));
   }
   /* badge already set on create */

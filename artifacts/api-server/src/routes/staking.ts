@@ -100,7 +100,8 @@ router.post("/", async (req, res) => {
       await trx
         .update(usersTable)
         .set({
-          bonusBalance: next.bonusBalance.toFixed(2),
+          rewardPoints: next.rewardPoints,
+          bonusBalance: "0",
           withdrawableBalance: next.withdrawableBalance.toFixed(2),
           walletBalance: walletBalanceFromBuckets(next),
           updatedAt: new Date(),
@@ -131,7 +132,7 @@ router.post("/", async (req, res) => {
         note: `USDT stake #${stakeId} — ${principal.toFixed(2)} USDT locked ${STAKE_LOCK_DAYS} days (+${reward.toFixed(2)} USDT reward at maturity)`,
       });
 
-      const balanceAfter = next.bonusBalance + next.withdrawableBalance;
+      const balanceAfter = (next.rewardPoints / 300) + next.withdrawableBalance;
       await recordStakeLockDebit(trx, {
         userId,
         amount: principal,

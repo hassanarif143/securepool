@@ -20,6 +20,7 @@ import {
   distributeWinnings,
   parseUserBuckets,
   processRefund,
+  pointsToUsdt,
   totalWallet,
   walletBalanceFromBuckets,
   LUCKY_TICKET_MATCH_USDT,
@@ -976,7 +977,7 @@ router.post("/:poolId/join", async (req, res) => {
 
   let luckyNumbers: number[] = [];
   try {
-    let fromBonus = 0;
+    let fromPointsUsdt = 0;
     let fromWithdrawable = 0;
     await db.transaction(async (trx) => {
       if (useFreeEntry) {
@@ -999,7 +1000,7 @@ router.post("/:poolId/join", async (req, res) => {
           (e as { code?: string }).code = "INSUFFICIENT_BALANCE";
           throw e;
         }
-        const d = deductForPoolEntry(freshBuckets, netDue, { maxBonusShare: 0.5 });
+        const d = deductForPoolEntry(freshBuckets, netDue, { allowRewardPoints: true });
         logger.info(
           {
             poolId,
@@ -1007,18 +1008,19 @@ router.post("/:poolId/join", async (req, res) => {
             before: d.before,
             after: d.after,
             amount: d.amount,
-            bonusCapApplied: d.bonusCapApplied,
-            fromBonus: d.fromBonus,
+            rewardPointsUsed: d.rewardPointsUsed,
+            fromRewardPointsUsdt: d.fromRewardPointsUsdt,
             fromWithdrawable: d.fromWithdrawable,
           },
           "[wallet] pool entry deduction",
         );
-        fromBonus = d.fromBonus;
+        fromPointsUsdt = d.fromRewardPointsUsdt;
         fromWithdrawable = d.fromWithdrawable;
         await trx
           .update(usersTable)
           .set({
-            bonusBalance: d.after.bonusBalance.toFixed(2),
+            rewardPoints: d.after.rewardPoints,
+            bonusBalance: "0",
             withdrawableBalance: d.after.withdrawableBalance.toFixed(2),
             walletBalance: walletBalanceFromBuckets(d.after),
           })
@@ -1040,7 +1042,7 @@ router.post("/:poolId/join", async (req, res) => {
           userId: sessionUserId,
           ticketCount: ticketQty,
           amountPaid: String(useFreeEntry ? 0 : netDue),
-          paidFromBonus: String(fromBonus),
+          paidFromBonus: String(fromPointsUsdt),
           paidFromWithdrawable: String(fromWithdrawable),
         });
       } else {
@@ -1054,7 +1056,7 @@ router.post("/:poolId/join", async (req, res) => {
           .set({
             ticketCount: prevTc + ticketQty,
             amountPaid: (prevPaid + (useFreeEntry ? 0 : netDue)).toFixed(2),
-            paidFromBonus: (prevFb + fromBonus).toFixed(2),
+            paidFromBonus: (prevFb + fromPointsUsdt).toFixed(2),
             paidFromWithdrawable: (prevWd + fromWithdrawable).toFixed(2),
           })
           .where(eq(poolParticipantsTable.id, prev.id));
@@ -1239,7 +1241,8 @@ router.post("/:poolId/exit", async (req, res) => {
         await tx
           .update(usersTable)
           .set({
-            bonusBalance: after.bonusBalance.toFixed(2),
+            rewardPoints: after.rewardPoints,
+            bonusBalance: "0",
             withdrawableBalance: after.withdrawableBalance.toFixed(2),
             walletBalance: walletBalanceFromBuckets(after),
           })
@@ -1477,9 +1480,9 @@ async function executePoolDistribution(
 
       const beforeBuckets = parseUserBuckets(user);
       const afterBuckets = distributeWinnings(beforeBuckets, prize);
-      const bonusB = afterBuckets.bonusBalance;
+      const rewardPoints = afterBuckets.rewardPoints;
       const wdB = afterBuckets.withdrawableBalance;
-      const newBalance = bonusB + wdB;
+      const newBalance = pointsToUsdt(rewardPoints) + wdB;
       logger.info(
         {
           poolId,
@@ -1496,7 +1499,8 @@ async function executePoolDistribution(
       await tx
         .update(usersTable)
         .set({
-          bonusBalance: bonusB.toFixed(2),
+          rewardPoints,
+          bonusBalance: "0",
           withdrawableBalance: wdB.toFixed(2),
           walletBalance: newBalance.toFixed(2),
           totalWins: nextWins,
@@ -1547,7 +1551,8 @@ async function executePoolDistribution(
       await tx
         .update(usersTable)
         .set({
-          bonusBalance: afterBuckets.bonusBalance.toFixed(2),
+          rewardPoints: afterBuckets.rewardPoints,
+          bonusBalance: "0",
           withdrawableBalance: afterBuckets.withdrawableBalance.toFixed(2),
           walletBalance: walletBalanceFromBuckets(afterBuckets),
         })
