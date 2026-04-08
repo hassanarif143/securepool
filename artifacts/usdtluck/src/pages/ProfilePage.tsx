@@ -55,6 +55,14 @@ function cooldownParts(untilIso: string): { h: number; m: number } | null {
   return { h: Math.floor(ms / 3_600_000), m: Math.floor((ms % 3_600_000) / 60_000) };
 }
 
+function normalizePkPhone(v: string): string {
+  return v.replace(/[^\d]/g, "").slice(0, 11);
+}
+
+function isValidPkPhone(v: string): boolean {
+  return /^03\d{9}$/.test(v);
+}
+
 type UserWalletTxRow = {
   id: number;
   transaction_type: string;
@@ -311,9 +319,36 @@ export default function ProfilePage() {
     TRC20_ADDRESS_REGEX.test(newAddr.trim()) &&
     newAddr.trim() === newAddrConfirm.trim() &&
     reason.trim().length >= 10;
+  const trimmedName = name.trim();
+  const bankName = p2pBankName.trim();
+  const accountTitle = p2pAccountTitle.trim();
+  const ibanOrAccount = p2pIban.trim().toUpperCase();
+  const easypaisa = normalizePkPhone(p2pEasypaisa);
+  const jazzcash = normalizePkPhone(p2pJazzcash);
+  const hasBankAny = Boolean(bankName || accountTitle || ibanOrAccount);
+  const hasBankFull = Boolean(bankName && accountTitle && ibanOrAccount);
+  const bankGroupError = hasBankAny && !hasBankFull;
+  const easypaisaValid = !easypaisa || isValidPkPhone(easypaisa);
+  const jazzcashValid = !jazzcash || isValidPkPhone(jazzcash);
+  const hasAnyP2pMethod = hasBankFull || Boolean(easypaisa) || Boolean(jazzcash);
+  const p2pCompletionPct = Math.round(((hasBankFull ? 1 : 0) + (easypaisa ? 1 : 0) + (jazzcash ? 1 : 0)) / 3 * 100);
+  const p2pFormError = !hasAnyP2pMethod
+    ? "At least 1 payment method required (Bank ya Easypaisa ya JazzCash)."
+    : bankGroupError
+      ? "Bank method use karne ke liye Bank Name, Account Title, aur IBAN/Account tino required hain."
+      : !easypaisaValid
+        ? "Easypaisa number invalid hai. Format: 03XXXXXXXXX"
+        : !jazzcashValid
+          ? "JazzCash number invalid hai. Format: 03XXXXXXXXX"
+          : null;
+  const canSaveProfile = !saving && trimmedName.length >= 2 && !p2pFormError;
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    if (p2pFormError) {
+      toast({ title: "P2P details incomplete", description: p2pFormError, variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(apiUrl(`/api/users/${currentUser.id}`), {
@@ -321,13 +356,13 @@ export default function ProfilePage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          name,
+          name: trimmedName,
           p2pPaymentDetails: {
-            bankName: p2pBankName,
-            accountTitle: p2pAccountTitle,
-            ibanOrAccount: p2pIban,
-            easypaisa: p2pEasypaisa,
-            jazzcash: p2pJazzcash,
+            bankName,
+            accountTitle,
+            ibanOrAccount,
+            easypaisa,
+            jazzcash,
           },
         }),
       });
@@ -584,20 +619,65 @@ export default function ProfilePage() {
             </div>
 
             <div className="rounded-lg border p-3 space-y-3">
-              <p className="text-sm font-medium">P2P Payment Details (required for P2P)</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">P2P Payment Details (required for P2P)</p>
+                <Badge variant={p2pCompletionPct >= 34 ? "default" : "secondary"} className="text-[10px]">
+                  {p2pCompletionPct}% setup
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                User-friendly setup: kam az kam 1 payment method save karein. Buyer ko yahi details order screen par show hongi.
+              </p>
               <div className="grid sm:grid-cols-3 gap-2">
-                <Input value={p2pBankName} onChange={(e) => setP2pBankName(e.target.value)} placeholder="Bank name" />
-                <Input value={p2pAccountTitle} onChange={(e) => setP2pAccountTitle(e.target.value)} placeholder="Account title" />
-                <Input value={p2pIban} onChange={(e) => setP2pIban(e.target.value)} placeholder="IBAN / Account no" />
+                <Input
+                  value={p2pBankName}
+                  onChange={(e) => setP2pBankName(e.target.value)}
+                  placeholder="Bank name (e.g. Meezan)"
+                />
+                <Input
+                  value={p2pAccountTitle}
+                  onChange={(e) => setP2pAccountTitle(e.target.value)}
+                  placeholder="Account title"
+                />
+                <Input
+                  value={p2pIban}
+                  onChange={(e) => setP2pIban(e.target.value)}
+                  placeholder="IBAN / Account no"
+                />
               </div>
+              {bankGroupError ? (
+                <p className="text-xs text-destructive">
+                  Bank details adhoori hain: Bank Name, Account Title, aur IBAN/Account tino fill karein.
+                </p>
+              ) : null}
               <div className="grid sm:grid-cols-2 gap-2">
-                <Input value={p2pEasypaisa} onChange={(e) => setP2pEasypaisa(e.target.value)} placeholder="Easypaisa number" />
-                <Input value={p2pJazzcash} onChange={(e) => setP2pJazzcash(e.target.value)} placeholder="JazzCash number" />
+                <Input
+                  value={p2pEasypaisa}
+                  onChange={(e) => setP2pEasypaisa(normalizePkPhone(e.target.value))}
+                  placeholder="Easypaisa number (03XXXXXXXXX)"
+                  inputMode="numeric"
+                />
+                <Input
+                  value={p2pJazzcash}
+                  onChange={(e) => setP2pJazzcash(normalizePkPhone(e.target.value))}
+                  placeholder="JazzCash number (03XXXXXXXXX)"
+                  inputMode="numeric"
+                />
               </div>
-              <p className="text-xs text-muted-foreground">Tip: P2P order/place offer se pehle ye details save zaroor karein.</p>
+              {!easypaisaValid || !jazzcashValid ? (
+                <p className="text-xs text-destructive">Mobile wallet number ka format 03XXXXXXXXX hona chahiye.</p>
+              ) : null}
+              <p className="text-xs text-muted-foreground">
+                Tip: P2P order/place offer se pehle details save karein. Incomplete ya invalid details par save block hoga.
+              </p>
+              {p2pFormError ? (
+                <p className="text-xs text-destructive">{p2pFormError}</p>
+              ) : (
+                <p className="text-xs text-emerald-600">Looks good. Aap P2P ke liye ready hain.</p>
+              )}
             </div>
 
-            <Button type="submit" disabled={saving} className="w-full">
+            <Button type="submit" disabled={!canSaveProfile} className="w-full">
               {saving ? "Saving..." : "Save Changes"}
             </Button>
           </form>
