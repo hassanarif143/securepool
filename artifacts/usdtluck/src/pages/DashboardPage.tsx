@@ -205,6 +205,12 @@ export default function DashboardPage() {
                 <ArrowRight className="h-4 w-4 opacity-90" aria-hidden />
               </Link>
             </Button>
+            <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[10rem]" asChild>
+              <Link href="/cashout-arena">Play Arena</Link>
+            </Button>
+            <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[10rem]" asChild>
+              <Link href="/scratch-card">Play Scratch Card</Link>
+            </Button>
             <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[9rem]" asChild>
               <Link href="/wallet?tab=deposit">Deposit</Link>
             </Button>

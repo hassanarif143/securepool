@@ -29,6 +29,7 @@ export const usersTable = pgTable("users", {
   isAdmin: boolean("is_admin").notNull().default(false),
   isBlocked: boolean("is_blocked").notNull().default(false),
   isArenaDisabled: boolean("is_arena_disabled").notNull().default(false),
+  isScratchDisabled: boolean("is_scratch_disabled").notNull().default(false),
   blockedAt: timestamp("blocked_at", { withTimezone: true }),
   blockedReason: text("blocked_reason"),
   joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),

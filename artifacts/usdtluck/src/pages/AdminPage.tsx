@@ -2505,6 +2505,11 @@ function UsersTab() {
                         Arena Disabled
                       </span>
                     )}
+                    {(u as { isScratchDisabled?: boolean }).isScratchDisabled && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-yellow-500/40 bg-yellow-500/10 text-yellow-300">
+                        Scratch Disabled
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">{u.email}</p>
                   <p className="text-[10px] text-muted-foreground capitalize">
@@ -2592,6 +2597,36 @@ function UsersTab() {
                           }}
                         >
                           ✅ Enable arena
+                        </DropdownMenuItem>
+                      )}
+                      {!(u as { isScratchDisabled?: boolean }).isScratchDisabled ? (
+                        <DropdownMenuItem
+                          disabled={u.id === me?.id}
+                          onClick={async () => {
+                            try {
+                              await postJson(`/api/admin/users/${u.id}/scratch-disable`);
+                              toast({ title: "Scratch disabled for user" });
+                              refetch();
+                            } catch (e: any) {
+                              toast({ title: "Failed", description: e.message, variant: "destructive" });
+                            }
+                          }}
+                        >
+                          🎫 Disable scratch
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          onClick={async () => {
+                            try {
+                              await postJson(`/api/admin/users/${u.id}/scratch-enable`);
+                              toast({ title: "Scratch enabled for user" });
+                              refetch();
+                            } catch (e: any) {
+                              toast({ title: "Failed", description: e.message, variant: "destructive" });
+                            }
+                          }}
+                        >
+                          ✅ Enable scratch
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem onClick={() => { setNotifyTarget(u); setNotifyOpen(true); }}>📩 Send notification</DropdownMenuItem>

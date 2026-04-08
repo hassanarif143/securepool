@@ -32,6 +32,16 @@ async function lockScratch(tx: DbTx): Promise<void> {
   await tx.execute(sql.raw(`SELECT pg_advisory_xact_lock(${ADV_LOCK_SCRATCH})`));
 }
 
+async function assertScratchEnabledForUser(tx: DbTx, userId: number): Promise<void> {
+  const [u] = await tx
+    .select({ id: usersTable.id, isScratchDisabled: usersTable.isScratchDisabled })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  if (!u) throw new Error("USER_NOT_FOUND");
+  if (u.isScratchDisabled) throw new Error("SCRATCH_DISABLED_FOR_USER");
+}
+
 async function debitWithdrawable(tx: DbTx, userId: number, amount: number): Promise<void> {
   const [u] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!u) throw new Error("USER_NOT_FOUND");
@@ -158,6 +168,7 @@ function chooseBaseMultiplier(onboarding: boolean): number {
 export async function getScratchCardState(userId: number) {
   return db.transaction(async (tx) => {
     await lockScratch(tx);
+    await assertScratchEnabledForUser(tx, userId);
     await settleExpiredCards(tx);
     const round = await getOrCreateRound(tx);
     const [u] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
@@ -250,6 +261,7 @@ export async function buyScratchCard(
 ) {
   return db.transaction(async (tx) => {
     await lockScratch(tx);
+    await assertScratchEnabledForUser(tx, userId);
     await settleExpiredCards(tx);
     const [existing] = await tx
       .select({ id: scratchCardsTable.id })
@@ -317,6 +329,7 @@ export async function buyScratchCard(
 export async function revealScratchBox(userId: number, cardId: number, boxIndex: number) {
   return db.transaction(async (tx) => {
     await lockScratch(tx);
+    await assertScratchEnabledForUser(tx, userId);
     await settleExpiredCards(tx);
     const [card] = await tx.select().from(scratchCardsTable).where(eq(scratchCardsTable.id, cardId)).limit(1);
     if (!card) throw new Error("CARD_NOT_FOUND");

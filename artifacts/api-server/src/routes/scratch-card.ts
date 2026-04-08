@@ -18,6 +18,7 @@ function mapErr(e: unknown): { status: number; error: string } {
     FORBIDDEN: 403,
     INVALID_BOX: 400,
     ALREADY_REVEALED: 400,
+    SCRATCH_DISABLED_FOR_USER: 403,
   };
   return { status: table[m] ?? 500, error: m };
 }
