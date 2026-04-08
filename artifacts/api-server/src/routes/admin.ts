@@ -39,6 +39,10 @@ import {
   getDrawDesiredProfitUsdt,
 } from "../services/admin-wallet-service";
 import {
+  adminResolveP2pAppealForBuyer,
+  adminResolveP2pAppealForSeller,
+} from "../services/p2p-service";
+import {
   mirrorAvailableFromUser,
   recordDepositApproved,
   recordTicketOnlyBonus,
@@ -2171,6 +2175,44 @@ router.patch("/rewards/config", async (req, res) => {
       set: { rewardConfigJson: next as unknown as Record<string, unknown>, updatedAt: new Date() },
     });
   res.json(next);
+});
+
+router.post("/p2p/orders/:orderId/resolve-buyer", async (req, res) => {
+  const orderId = parseInt(req.params.orderId, 10);
+  if (Number.isNaN(orderId)) {
+    res.status(400).json({ error: "Invalid order" });
+    return;
+  }
+  try {
+    await adminResolveP2pAppealForBuyer(orderId);
+    res.json({ ok: true });
+  } catch (e: unknown) {
+    const m = e instanceof Error ? e.message : "ERR";
+    if (m === "INVALID_ORDER" || m === "NO_APPEAL") {
+      res.status(400).json({ error: m });
+      return;
+    }
+    res.status(500).json({ error: m });
+  }
+});
+
+router.post("/p2p/orders/:orderId/resolve-seller", async (req, res) => {
+  const orderId = parseInt(req.params.orderId, 10);
+  if (Number.isNaN(orderId)) {
+    res.status(400).json({ error: "Invalid order" });
+    return;
+  }
+  try {
+    await adminResolveP2pAppealForSeller(orderId);
+    res.json({ ok: true });
+  } catch (e: unknown) {
+    const m = e instanceof Error ? e.message : "ERR";
+    if (m === "INVALID_ORDER" || m === "NO_APPEAL") {
+      res.status(400).json({ error: m });
+      return;
+    }
+    res.status(500).json({ error: m });
+  }
 });
 
 export default router;

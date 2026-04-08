@@ -10,6 +10,9 @@ export const txTypeEnum = pgEnum("tx_type", [
   "stake_release",
   "pool_refund",
   "promo_credit",
+  "p2p_escrow_lock",
+  "p2p_escrow_refund",
+  "p2p_trade_credit",
 ]);
 export const txStatusEnum = pgEnum("tx_status", ["pending", "under_review", "completed", "rejected", "failed"]);
 

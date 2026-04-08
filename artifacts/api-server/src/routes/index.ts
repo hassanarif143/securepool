@@ -13,6 +13,7 @@ import statsRouter from "./stats";
 import userWalletRouter from "./userWallet";
 import activityRouter from "./activity";
 import referralRouter from "./referral";
+import p2pRouter from "./p2p";
 
 const router: IRouter = Router();
 
@@ -31,5 +32,6 @@ router.use("/dashboard", adminRouter);
 router.use("/admin", adminRouter);
 router.use("/reviews", reviewsRouter);
 router.use("/notifications", notificationsRouter);
+router.use("/p2p", p2pRouter);
 
 export default router;

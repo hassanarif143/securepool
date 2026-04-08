@@ -26,3 +26,4 @@ export * from "./userWallet";
 export * from "./userWalletTransactions";
 export * from "./platformSettings";
 export * from "./poolDrawFinancials";
+export * from "./p2p";
