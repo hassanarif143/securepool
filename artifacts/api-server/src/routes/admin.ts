@@ -797,7 +797,8 @@ function computePerTicketFeeFromMode(ticketPrice: number, mode?: "fixed" | "perc
 
 const MIN_POOL_PLATFORM_FEE_TOTAL_USDT = 0.5;
 const MIN_PLATFORM_FEE_PER_JOIN_USDT = 0.01;
-const FACTORY_PRIZE_POOL_RATIO = 0.9;
+/** Share of post-fee prize budget paid to winners; remainder stays as extra platform margin. */
+const FACTORY_PRIZE_POOL_RATIO = 0.75;
 
 function ensurePositivePlatformFeePerJoin(ticketPrice: number, totalTickets: number, rawFeePerJoin: number): number {
   const safeTicketPrice = Math.max(0.01, ticketPrice);
@@ -877,7 +878,7 @@ function buildFactoryMath(bp: FactoryBlueprint) {
   const basePlatformFeePerJoin = ensurePositivePlatformFeePerJoin(bp.entryFee, bp.maxMembers, rawPerJoin);
   const baseFeeAmount = round2(basePlatformFeePerJoin * bp.maxMembers);
   const basePrizePool = Math.max(0, round2(totalPool - baseFeeAmount));
-  // Keep pool logic same but trim factory payouts slightly for better margin control.
+  // Trim factory payouts vs raw prize budget so margin stays stronger (see FACTORY_PRIZE_POOL_RATIO).
   const prizePool = Math.max(0, round2(basePrizePool * FACTORY_PRIZE_POOL_RATIO));
   const feeAmount = round2(Math.max(baseFeeAmount, totalPool - prizePool));
   const platformFeePerJoin = round2(bp.maxMembers > 0 ? feeAmount / bp.maxMembers : 0);
