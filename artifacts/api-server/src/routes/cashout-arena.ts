@@ -9,6 +9,8 @@ router.use((req, res, next) => requireAuth(req as AuthedRequest, res, next));
 
 function mapErr(e: unknown): { status: number; error: string } {
   const m = e instanceof Error ? e.message : "ERR";
+  const code = typeof e === "object" && e !== null && "code" in e ? String((e as { code?: string }).code) : "";
+  if (code === "42P01" || code === "42704") return { status: 503, error: "CASHOUT_ARENA_NOT_READY" };
   const table: Record<string, number> = {
     USER_NOT_FOUND: 404,
     INVALID_STAKE: 400,
@@ -23,6 +25,7 @@ function mapErr(e: unknown): { status: number; error: string } {
     ROUND_NOT_FOUND: 404,
     ROUND_CRASHED: 400,
     CASHOUT_BLOCKED: 400,
+    CASHOUT_ARENA_NOT_READY: 503,
   };
   return { status: table[m] ?? 500, error: m };
 }

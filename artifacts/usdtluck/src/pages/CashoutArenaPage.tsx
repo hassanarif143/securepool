@@ -39,10 +39,11 @@ export default function CashoutArenaPage() {
   const [pathPoints, setPathPoints] = useState<number[]>([]);
   const [nearMiss, setNearMiss] = useState(false);
 
-  const { data } = useQuery({
+  const { data, error, refetch, isFetching } = useQuery({
     queryKey: ["cashout-arena-state"],
     queryFn: fetchCashoutArenaState,
     refetchInterval: 700,
+    retry: 2,
   });
 
   const placeBetMutation = useMutation({
@@ -147,6 +148,25 @@ export default function CashoutArenaPage() {
       })
       .join(" ");
   }, [pathPoints]);
+  const roundCountdownSec = Math.max(0, Math.ceil(((data?.round.crashAt ?? Date.now()) - Date.now()) / 1000));
+  const autoPresets = [1.3, 1.6, 2, 2.5, 3];
+
+  if (error) {
+    const msg = error instanceof Error ? error.message : "Unable to load";
+    return (
+      <div className="max-w-xl mx-auto pt-10">
+        <Card>
+          <CardHeader>
+            <CardTitle>Cashout Arena unavailable</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">{msg === "CASHOUT_ARENA_NOT_READY" ? "Arena tables are not migrated yet. Run latest migrations and restart server." : msg}</p>
+            <Button onClick={() => void refetch()}>Retry</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -181,6 +201,7 @@ export default function CashoutArenaPage() {
               <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "linear-gradient(to right, #ffffff22 1px, transparent 1px), linear-gradient(to bottom, #ffffff22 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
               <div className="relative z-10">
                 <p className="text-xs text-muted-foreground">Current Round #{data?.round.id ?? "-"}</p>
+                <p className="text-xs text-muted-foreground mt-1">Crash window: ~{roundCountdownSec}s</p>
                 <p className={cn("text-5xl sm:text-6xl font-bold mt-2 transition-all", zoneClass(data?.round.multiplier ?? 1), pulse % 2 === 1 && "scale-[1.03]")}>
                   {(data?.round.multiplier ?? 1).toFixed(2)}x
                 </p>
@@ -226,6 +247,13 @@ export default function CashoutArenaPage() {
               ))}
             </div>
             <Input value={autoCashoutAt} onChange={(e) => setAutoCashoutAt(e.target.value)} placeholder="Auto cashout (e.g. 2.0)" />
+            <div className="flex flex-wrap gap-2">
+              {autoPresets.map((p) => (
+                <Button key={p} size="sm" type="button" variant="outline" onClick={() => setAutoCashoutAt(String(p))}>
+                  {p}x
+                </Button>
+              ))}
+            </div>
             <div className="space-y-2 text-sm">
               <label className="flex items-center justify-between rounded-lg border p-2">
                 <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Shield (1 crash protect)</span>
@@ -253,7 +281,7 @@ export default function CashoutArenaPage() {
             >
               {cashoutMutation.isPending ? "Cashing Out..." : "Cash Out"}
             </Button>
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><Timer className="h-3 w-3" /> Payouts are capped by round safety limits.</p>
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><Timer className="h-3 w-3" /> Payouts are capped by round safety limits. {isFetching ? "Syncing..." : "Live"}</p>
           </CardContent>
         </Card>
       </div>

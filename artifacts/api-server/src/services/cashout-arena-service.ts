@@ -176,6 +176,58 @@ async function ensureState(tx: DbTx): Promise<typeof cashoutRoundsTable.$inferSe
   return getOrCreateRunningRound(tx);
 }
 
+async function cashoutBetInTx(
+  tx: DbTx,
+  userId: number,
+  betId: number,
+  now = Date.now(),
+): Promise<{ payout: number; multiplier: number }> {
+  const [bet] = await tx.select().from(cashoutBetsTable).where(eq(cashoutBetsTable.id, betId)).limit(1);
+  if (!bet) throw new Error("BET_NOT_FOUND");
+  if (bet.userId !== userId) throw new Error("FORBIDDEN");
+  if (bet.status !== "active") throw new Error("INVALID_STATE");
+
+  const [round] = await tx.select().from(cashoutRoundsTable).where(eq(cashoutRoundsTable.id, bet.roundId)).limit(1);
+  if (!round) throw new Error("ROUND_NOT_FOUND");
+  if (new Date(round.crashAt).getTime() <= now || round.status !== "running") throw new Error("ROUND_CRASHED");
+
+  const rawMult = currentMultiplierForRound(round, now);
+  const boosted = Math.min(toNum(round.maxCashoutMultiplier), effectiveMultiplier(rawMult, bet));
+  const requestedPayout = round2(toNum(bet.stakeAmount) * boosted);
+
+  const [agg] = await tx
+    .select({
+      totalStake: sql<string>`coalesce(sum(${cashoutBetsTable.stakeAmount}::numeric + ${cashoutBetsTable.boostFee}::numeric), 0)`,
+      paidOut: sql<string>`coalesce(sum(case when ${cashoutBetsTable.status} in ('cashed_out', 'shield_refunded') then ${cashoutBetsTable.payoutAmount}::numeric else 0 end), 0)`,
+    })
+    .from(cashoutBetsTable)
+    .where(eq(cashoutBetsTable.roundId, bet.roundId));
+
+  const maxPayoutPool = toNum(agg?.totalStake) * (1 - toNum(round.targetMarginBps) / 10000);
+  const remainingPool = Math.max(0, maxPayoutPool - toNum(agg?.paidOut));
+  const payout = round2(Math.min(requestedPayout, remainingPool));
+  if (payout <= 0.009) throw new Error("CASHOUT_BLOCKED");
+
+  await creditWithdrawable(tx, userId, payout, "cashout_payout_credit", `Cashout Arena round #${round.id} payout`);
+  await appendWithdrawalForPayout(tx, {
+    amount: payout,
+    referenceId: bet.id,
+    userId,
+    description: `Cashout Arena payout — bet #${bet.id} round #${round.id}`,
+  });
+  await tx
+    .update(cashoutBetsTable)
+    .set({
+      status: "cashed_out",
+      payoutAmount: payout.toFixed(2),
+      cashoutMultiplier: String(round4(payout / toNum(bet.stakeAmount))),
+      settledAt: new Date(),
+    })
+    .where(eq(cashoutBetsTable.id, bet.id));
+
+  return { payout, multiplier: round4(payout / toNum(bet.stakeAmount)) };
+}
+
 async function canUseShieldToday(tx: DbTx, userId: number): Promise<boolean> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const [row] = await tx
@@ -190,18 +242,24 @@ export async function getCashoutArenaState(userId: number) {
   return db.transaction(async (tx) => {
     await lockCashout(tx);
     const round = await ensureState(tx);
-    const nowMult = currentMultiplierForRound(round);
+    let nowMult = currentMultiplierForRound(round);
 
     const [user] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     if (!user) throw new Error("USER_NOT_FOUND");
-    const [myBet] = await tx
+    let [myBet] = await tx
       .select()
       .from(cashoutBetsTable)
       .where(and(eq(cashoutBetsTable.roundId, round.id), eq(cashoutBetsTable.userId, userId)))
       .limit(1);
 
     if (myBet && myBet.status === "active" && myBet.autoCashoutAt != null && nowMult >= toNum(myBet.autoCashoutAt)) {
-      await cashoutBet(userId, myBet.id);
+      await cashoutBetInTx(tx, userId, myBet.id);
+      [myBet] = await tx
+        .select()
+        .from(cashoutBetsTable)
+        .where(and(eq(cashoutBetsTable.roundId, round.id), eq(cashoutBetsTable.userId, userId)))
+        .limit(1);
+      nowMult = currentMultiplierForRound(round);
     }
 
     const [hist] = await tx
@@ -326,51 +384,6 @@ export async function cashoutBet(userId: number, betId: number): Promise<{ payou
   return db.transaction(async (tx) => {
     await lockCashout(tx);
     await settleCrashedRounds(tx);
-
-    const [bet] = await tx.select().from(cashoutBetsTable).where(eq(cashoutBetsTable.id, betId)).limit(1);
-    if (!bet) throw new Error("BET_NOT_FOUND");
-    if (bet.userId !== userId) throw new Error("FORBIDDEN");
-    if (bet.status !== "active") throw new Error("INVALID_STATE");
-
-    const [round] = await tx.select().from(cashoutRoundsTable).where(eq(cashoutRoundsTable.id, bet.roundId)).limit(1);
-    if (!round) throw new Error("ROUND_NOT_FOUND");
-    const now = Date.now();
-    if (new Date(round.crashAt).getTime() <= now || round.status !== "running") throw new Error("ROUND_CRASHED");
-
-    const rawMult = currentMultiplierForRound(round, now);
-    const boosted = Math.min(toNum(round.maxCashoutMultiplier), effectiveMultiplier(rawMult, bet));
-    const requestedPayout = round2(toNum(bet.stakeAmount) * boosted);
-
-    const [agg] = await tx
-      .select({
-        totalStake: sql<string>`coalesce(sum(${cashoutBetsTable.stakeAmount}::numeric + ${cashoutBetsTable.boostFee}::numeric), 0)`,
-        paidOut: sql<string>`coalesce(sum(case when ${cashoutBetsTable.status} in ('cashed_out', 'shield_refunded') then ${cashoutBetsTable.payoutAmount}::numeric else 0 end), 0)`,
-      })
-      .from(cashoutBetsTable)
-      .where(eq(cashoutBetsTable.roundId, bet.roundId));
-
-    const maxPayoutPool = toNum(agg?.totalStake) * (1 - toNum(round.targetMarginBps) / 10000);
-    const remainingPool = Math.max(0, maxPayoutPool - toNum(agg?.paidOut));
-    const payout = round2(Math.min(requestedPayout, remainingPool));
-    if (payout <= 0.009) throw new Error("CASHOUT_BLOCKED");
-
-    await creditWithdrawable(tx, userId, payout, "cashout_payout_credit", `Cashout Arena round #${round.id} payout`);
-    await appendWithdrawalForPayout(tx, {
-      amount: payout,
-      referenceId: bet.id,
-      userId,
-      description: `Cashout Arena payout — bet #${bet.id} round #${round.id}`,
-    });
-    await tx
-      .update(cashoutBetsTable)
-      .set({
-        status: "cashed_out",
-        payoutAmount: payout.toFixed(2),
-        cashoutMultiplier: String(round4(payout / toNum(bet.stakeAmount))),
-        settledAt: new Date(),
-      })
-      .where(eq(cashoutBetsTable.id, bet.id));
-
-    return { payout, multiplier: round4(payout / toNum(bet.stakeAmount)) };
+    return cashoutBetInTx(tx, userId, betId);
   });
 }
