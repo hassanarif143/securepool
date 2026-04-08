@@ -14,8 +14,9 @@ async function isGameEnabled(
   try {
     const res = await fetch(apiUrl(statePath), { credentials: "include" });
     if (res.ok) return true;
-    const err = (await res.json().catch(() => ({}))) as { code?: string };
-    if (err.code === disabledCode) return false;
+    const err = (await res.json().catch(() => ({}))) as { code?: string; error?: string };
+    const code = err.code ?? err.error ?? "";
+    if (code === disabledCode) return false;
     return true;
   } catch {
     // Keep game links visible on transient network errors.
