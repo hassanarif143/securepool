@@ -41,6 +41,12 @@ const TX_META: Record<string, { icon: string; label: string; sign: string; color
   stake_release:    { icon: "🔓", label: "Stake return", sign: "+", color: "#10b981", isCredit: true  },
   referral_bonus:   { icon: "⊕", label: "Referral",     sign: "+", color: "#10b981", isCredit: true  },
   withdraw:         { icon: "↓", label: "Withdrawal",   sign: "-", color: "#f87171", isCredit: false },
+  p2p_escrow_lock:  { icon: "🔒", label: "P2P Escrow Lock", sign: "-", color: "#f59e0b", isCredit: false },
+  p2p_trade_credit: { icon: "↗", label: "P2P Trade Credit", sign: "+", color: "#10b981", isCredit: true },
+  p2p_escrow_refund:{ icon: "↩", label: "P2P Escrow Refund", sign: "+", color: "#34d399", isCredit: true },
+  cashout_bet_lock: { icon: "🎮", label: "Arena Bet Lock", sign: "-", color: "#f59e0b", isCredit: false },
+  cashout_payout_credit: { icon: "🚀", label: "Arena Cashout Win", sign: "+", color: "#10b981", isCredit: true },
+  cashout_shield_refund: { icon: "🛡", label: "Arena Shield Refund", sign: "+", color: "#34d399", isCredit: true },
 };
 function txMeta(type: string) {
   return TX_META[type] ?? { icon: "—", label: type.replace(/_/g, " "), sign: "", color: "#64748b", isCredit: false };
@@ -55,6 +61,25 @@ function rowTxMeta(tx: { txType: string; note?: string | null }) {
     return { ...txMeta("promo_credit"), label: "Reward" };
   }
   return txMeta(tx.txType);
+}
+
+function txExplain(tx: { txType: string; note?: string | null }) {
+  switch (tx.txType) {
+    case "p2p_escrow_lock":
+      return "P2P order started: USDT temporarily locked in escrow.";
+    case "p2p_trade_credit":
+      return "P2P order completed: USDT released/credited.";
+    case "p2p_escrow_refund":
+      return "P2P cancelled/expired/dispute: escrow returned.";
+    case "cashout_bet_lock":
+      return "Cashout Arena bet placed: stake + boost fee locked.";
+    case "cashout_payout_credit":
+      return "Cashout Arena win: payout credited to withdrawable.";
+    case "cashout_shield_refund":
+      return "Cashout Arena shield used: partial/full stake refunded.";
+    default:
+      return tx.note ?? "";
+  }
 }
 
 function BlockchainFeeWarningBox() {
@@ -334,6 +359,18 @@ export default function WalletPage() {
               </Link>
             </Button>
           </div>
+        </div>
+      </div>
+
+      <div className={`${box} overflow-hidden`}>
+        <div className={headerBar}>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Finance transparency</p>
+        </div>
+        <div className="px-5 py-4 space-y-3 text-xs text-muted-foreground">
+          <p><span className="font-semibold text-foreground">Deposit:</span> you send USDT, admin verifies, then balance is credited.</p>
+          <p><span className="font-semibold text-foreground">P2P:</span> seller USDT goes into escrow lock, then either trade credit or escrow refund.</p>
+          <p><span className="font-semibold text-foreground">Cashout Arena:</span> bet lock deducts withdrawable, win credits payout, shield can refund.</p>
+          <p><span className="font-semibold text-foreground">Withdrawal:</span> only withdrawable balance can be withdrawn (network fee by blockchain applies).</p>
         </div>
       </div>
 
@@ -724,7 +761,7 @@ export default function WalletPage() {
                           </div>
                           <p className="text-[10px] text-muted-foreground mt-0.5">
                             {timeAgo(tx.createdAt)}
-                            {tx.note && <span> · {tx.note}</span>}
+                            {txExplain(tx) ? <span> · {txExplain(tx)}</span> : null}
                           </p>
                         </div>
                         {/* Amount + receipt */}
