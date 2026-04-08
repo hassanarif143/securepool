@@ -362,7 +362,7 @@ export default function SignupPage() {
               <div className="rounded-xl px-3 py-2.5 mb-1"
                 style={{ background: "hsla(38,92%,50%,0.08)", border: "1px solid hsla(38,92%,50%,0.25)" }}>
                 <p className="text-xs leading-relaxed" style={{ color: "hsl(38,90%,62%)" }}>
-                  Wallet address optional hai. Aap signup bina wallet ke kar sakte hain, lekin deposit/withdraw se pehle profile me add karna zaroori hoga.
+                  Wallet address is optional at signup. You can create your account now and add it later in Profile before deposit or withdraw.
                 </p>
               </div>
               <div className="space-y-1.5">

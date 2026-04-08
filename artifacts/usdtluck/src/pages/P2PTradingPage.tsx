@@ -369,18 +369,18 @@ export default function P2PTradingPage() {
         <h1 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight">P2P Trading</h1>
         <Card className="border-primary/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Naya user? Ye 3 step follow karein</CardTitle>
+            <CardTitle className="text-base">New user? Follow these 3 steps</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-1 text-muted-foreground">
-            <p>1) Offer select karein (Buy ya Sell tab se).</p>
-            <p>2) Amount dal ke order banayein, phir chat me payment proof share karein.</p>
-            <p>3) Buyer "Mark as Paid" kare, Seller payment check karke "Release USDT" kare.</p>
+            <p>1) Select an offer from Buy or Sell tab.</p>
+            <p>2) Enter amount, create order, then share payment proof in chat.</p>
+            <p>3) Buyer clicks "Mark as Paid", seller verifies payment, then clicks "Release USDT".</p>
           </CardContent>
         </Card>
         <div className="rounded-xl border px-4 py-3 text-sm flex items-center justify-between gap-3">
           <div>
             <p className="font-medium">Easy Mode</p>
-            <p className="text-xs text-muted-foreground">Naye users ke liye sirf recommended offers aur simple guidance.</p>
+            <p className="text-xs text-muted-foreground">Shows recommended offers and simplified guidance for beginners.</p>
           </div>
           <Button type="button" size="sm" variant={easyMode ? "default" : "outline"} onClick={() => setEasyMode((v) => !v)}>
             {easyMode ? "ON" : "OFF"}
@@ -435,7 +435,7 @@ export default function P2PTradingPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Simple rule: jitna USDT aap bechna chahte hain utna available rakhein, aur payment details bilkul sahi likhein.
+                Simple rule: keep enough available USDT for your sell offer and ensure payment details are accurate.
               </p>
               <div className="grid sm:grid-cols-2 gap-3">
                 <Input type="number" value={createPrice} onChange={(e) => setCreatePrice(e.target.value)} placeholder="Price per USDT" />
@@ -455,7 +455,7 @@ export default function P2PTradingPage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Payment details profile se auto-use hongi. Agar update karni hain to Profile page se karein.
+                Payment details are auto-filled from Profile. Update them from Profile if needed.
               </p>
               <div className="flex justify-end">
                 <Button
@@ -564,7 +564,7 @@ export default function P2PTradingPage() {
               <p className="text-xs text-muted-foreground">
                 Range {offerModal.offer.minUsdt} - {offerModal.offer.maxUsdt} · {offerModal.offer.pricePerUsdt} {offerModal.offer.fiatCurrency}/USDT
               </p>
-              <p className="text-xs text-muted-foreground">Tip: pehli trade me chota amount rakhein (jaise 500 ya 1000).</p>
+              <p className="text-xs text-muted-foreground">Tip: start with a small amount on your first trade.</p>
             </div>
           ) : null}
           <DialogFooter><Button variant="outline" onClick={() => setOfferModal(null)}>Cancel</Button><Button onClick={onCreateOrder}>Create Order</Button></DialogFooter>
@@ -631,8 +631,8 @@ export default function P2PTradingPage() {
                   </>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  {live.myRole === "buyer" && live.status === "pending_payment" ? <Button title="Agar payment bhej di hai to is button pe click karein" size="sm" className="bg-amber-600 text-white" onClick={() => setConfirmPaid(true)}>Mark as Paid</Button> : null}
-                  {live.myRole === "seller" && live.status === "paid" ? <Button title="Sirf payment receive confirm hone ke baad release karein" size="sm" onClick={() => setConfirmRelease(true)}>Release USDT</Button> : null}
+                  {live.myRole === "buyer" && live.status === "pending_payment" ? <Button title="Click only after sending payment." size="sm" className="bg-amber-600 text-white" onClick={() => setConfirmPaid(true)}>Mark as Paid</Button> : null}
+                  {live.myRole === "seller" && live.status === "paid" ? <Button title="Release only after payment is confirmed." size="sm" onClick={() => setConfirmRelease(true)}>Release USDT</Button> : null}
                   {live.status === "pending_payment" ? <Button size="sm" variant="outline" onClick={() => cancelMutation.mutate(live.id)}>Cancel</Button> : null}
                   {live.status === "paid" && !live.appeal ? <Button size="sm" variant="destructive" onClick={() => setAppealOpen(true)}>Raise Appeal</Button> : null}
                 </div>
@@ -683,7 +683,7 @@ export default function P2PTradingPage() {
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Offer ke payment details profile se sync hongi. Yahan sirf methods select karein.
+            Offer payment details sync from Profile. Select methods only here.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOffer(null)}>Cancel</Button>

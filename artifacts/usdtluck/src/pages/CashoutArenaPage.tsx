@@ -315,11 +315,11 @@ export default function CashoutArenaPage() {
             <CardTitle className="text-base">How to play (quick start)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <p>1) Stake select karein (1-5 USDT).</p>
-            <p>2) Round start hone ke baad crash se pehle Cash Out click karein.</p>
-            <p>3) Time par cashout kiya to win, miss hua to lose.</p>
+            <p>1) Select stake amount (1-5 USDT).</p>
+            <p>2) After round starts, click Cash Out before crash.</p>
+            <p>3) Cash out in time to win, miss it and the stake is lost.</p>
             <div className="flex items-center justify-between gap-2 pt-1">
-              <p className="text-xs text-muted-foreground">Tip: pehli rounds me 1.3x-1.8x auto cashout safer hota hai.</p>
+              <p className="text-xs text-muted-foreground">Tip: in early rounds, 1.3x-1.8x auto cashout is usually safer.</p>
               <Button
                 size="sm"
                 onClick={() => {
@@ -408,7 +408,7 @@ export default function CashoutArenaPage() {
             </div>
             {nearMiss ? (
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300 animate-pulse">
-                Near miss! Aap bohat close thay — next round me thora lower auto-cashout try karein.
+                Near miss! Very close — try a slightly lower auto-cashout next round.
               </div>
             ) : null}
 
@@ -474,7 +474,7 @@ export default function CashoutArenaPage() {
             </div>
             {showAutoHint ? (
               <p className="text-xs text-amber-300 rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-1">
-                Risk zone me enter ho gaye. Auto cashout set karna safer rahega.
+                You entered a higher-risk zone. Setting auto cashout is safer.
               </p>
             ) : null}
             <Button className="w-full transition-all hover:scale-[1.02] active:scale-[0.98]" disabled={!canPlace || placeBetMutation.isPending} onClick={() => placeBetMutation.mutate()}>

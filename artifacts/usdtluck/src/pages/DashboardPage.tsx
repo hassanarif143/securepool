@@ -180,20 +180,20 @@ export default function DashboardPage() {
         <div className="rounded-2xl border border-amber-500/35 bg-amber-500/[0.08] px-4 py-4 sm:px-5">
           <p className="text-sm font-semibold text-amber-200">Action required: Add your wallet address</p>
           <p className="mt-1 text-xs text-amber-100/90 leading-relaxed">
-            Aap signup complete kar chuke hain. Ab deposit/withdraw use karne ke liye profile me TRC20 wallet address add karna zaroori hai.
+            Your signup is complete. To use deposit and withdrawal, add your TRC20 wallet address in Profile.
           </p>
           <div className="mt-3 grid gap-2 text-xs text-amber-100/90 sm:grid-cols-3">
             <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2">
               <p className="font-semibold">Step 1</p>
-              <p>Profile open karein aur TRC20 wallet address save karein.</p>
+              <p>Open Profile and save your TRC20 wallet address.</p>
             </div>
             <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2">
               <p className="font-semibold">Step 2</p>
-              <p>Wallet page par Deposit tab me platform address copy karein.</p>
+              <p>Go to Wallet, open Deposit tab, and copy the platform address.</p>
             </div>
             <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2">
               <p className="font-semibold">Step 3</p>
-              <p>USDT send karke screenshot upload karein, admin verify karega.</p>
+              <p>Send USDT, upload your screenshot, and wait for admin verification.</p>
             </div>
           </div>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">

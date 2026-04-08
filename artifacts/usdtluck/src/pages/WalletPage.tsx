@@ -418,11 +418,11 @@ export default function WalletPage() {
               <div className="flex items-start gap-3 p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/8">
                 <span className="text-yellow-400 shrink-0 mt-0.5">⚠</span>
                 <p className="text-sm text-yellow-300">
-                  Deposit se pehle apna TRC20 wallet address{" "}
+                  Before deposit, add your TRC20 wallet address in{" "}
                   <Link href="/profile" className="font-semibold underline">
                     Profile
-                  </Link>{" "}
-                  me add karein. Ye security aur payout verification ke liye required hai.
+                  </Link>
+                  . This is required for security and payout verification.
                 </p>
               </div>
             )}

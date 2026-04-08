@@ -333,13 +333,13 @@ export default function ProfilePage() {
   const hasAnyP2pMethod = hasBankFull || Boolean(easypaisa) || Boolean(jazzcash);
   const p2pCompletionPct = Math.round(((hasBankFull ? 1 : 0) + (easypaisa ? 1 : 0) + (jazzcash ? 1 : 0)) / 3 * 100);
   const p2pFormError = !hasAnyP2pMethod
-    ? "At least 1 payment method required (Bank ya Easypaisa ya JazzCash)."
+    ? "At least one payment method is required (Bank, Easypaisa, or JazzCash)."
     : bankGroupError
-      ? "Bank method use karne ke liye Bank Name, Account Title, aur IBAN/Account tino required hain."
+      ? "To use Bank method, Bank Name, Account Title, and IBAN/Account are all required."
       : !easypaisaValid
-        ? "Easypaisa number invalid hai. Format: 03XXXXXXXXX"
+        ? "Easypaisa number is invalid. Format: 03XXXXXXXXX"
         : !jazzcashValid
-          ? "JazzCash number invalid hai. Format: 03XXXXXXXXX"
+          ? "JazzCash number is invalid. Format: 03XXXXXXXXX"
           : null;
   const canSaveProfile = !saving && trimmedName.length >= 2 && !p2pFormError;
 
@@ -626,7 +626,7 @@ export default function ProfilePage() {
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground">
-                User-friendly setup: kam az kam 1 payment method save karein. Buyer ko yahi details order screen par show hongi.
+                Save at least one payment method. Buyers will see these details on the order screen.
               </p>
               <div className="grid sm:grid-cols-3 gap-2">
                 <Input
@@ -647,7 +647,7 @@ export default function ProfilePage() {
               </div>
               {bankGroupError ? (
                 <p className="text-xs text-destructive">
-                  Bank details adhoori hain: Bank Name, Account Title, aur IBAN/Account tino fill karein.
+                  Incomplete bank details: enter Bank Name, Account Title, and IBAN/Account.
                 </p>
               ) : null}
               <div className="grid sm:grid-cols-2 gap-2">
@@ -665,15 +665,15 @@ export default function ProfilePage() {
                 />
               </div>
               {!easypaisaValid || !jazzcashValid ? (
-                <p className="text-xs text-destructive">Mobile wallet number ka format 03XXXXXXXXX hona chahiye.</p>
+                <p className="text-xs text-destructive">Mobile wallet number must be in 03XXXXXXXXX format.</p>
               ) : null}
               <p className="text-xs text-muted-foreground">
-                Tip: P2P order/place offer se pehle details save karein. Incomplete ya invalid details par save block hoga.
+                Tip: save these details before placing a P2P order or offer. Save is blocked for incomplete or invalid input.
               </p>
               {p2pFormError ? (
                 <p className="text-xs text-destructive">{p2pFormError}</p>
               ) : (
-                <p className="text-xs text-emerald-600">Looks good. Aap P2P ke liye ready hain.</p>
+                <p className="text-xs text-emerald-600">Looks good. Your P2P payment setup is ready.</p>
               )}
             </div>
 
