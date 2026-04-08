@@ -801,6 +801,9 @@ const MIN_PLATFORM_FEE_PER_JOIN_USDT = 0.01;
 const FACTORY_PRIZE_POOL_RATIO = 0.75;
 /** 3rd-place prize must be at least this much above per-ticket platform fee (when pool has 3 winners). */
 const THIRD_PRIZE_MIN_ABOVE_FEE_USDT = 0.15;
+/** After base split, move this fraction of 1st / 2nd into 3rd (same prize pool total). */
+const FACTORY_THIRD_BOOST_FROM_1ST = 0.065;
+const FACTORY_THIRD_BOOST_FROM_2ND = 0.085;
 
 function ensurePositivePlatformFeePerJoin(ticketPrice: number, totalTickets: number, rawFeePerJoin: number): number {
   const safeTicketPrice = Math.max(0.01, ticketPrice);
@@ -923,6 +926,50 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/**
+ * Slightly reduce 1st and 2nd and add the same total to 3rd so bronze is more attractive,
+ * while keeping 1st ≥ 2nd ≥ 3rd and sum === budget.
+ */
+function boostThirdByTrimmingFirstSecond(
+  p1: number,
+  p2: number,
+  p3: number,
+  budget: number,
+): [number, number, number] {
+  const b = Math.max(0, round2(budget));
+  if (b <= 0) return [0, 0, 0];
+  const t1 = p1 > 0 ? round2(p1 * FACTORY_THIRD_BOOST_FROM_1ST) : 0;
+  const t2 = p2 > 0 ? round2(p2 * FACTORY_THIRD_BOOST_FROM_2ND) : 0;
+  let np1 = round2(p1 - t1);
+  let np2 = round2(p2 - t2);
+  let np3 = round2(p3 + t1 + t2);
+  if (np1 < 0) np1 = 0;
+  if (np2 < 0) np2 = 0;
+  if (np3 < 0) np3 = 0;
+  if (np2 < np3) {
+    const over = round2(np3 - np2 + 0.01);
+    np3 = round2(Math.max(0, np2 - 0.01));
+    np1 = round2(np1 + over * 0.62);
+    np2 = round2(np2 + over * 0.38);
+  }
+  if (np1 < np2) {
+    const gap = round2(np2 - np1 + 0.01);
+    np2 = round2(np2 - gap);
+    np1 = round2(np1 + gap);
+  }
+  let sum = round2(np1 + np2 + np3);
+  let diff = round2(b - sum);
+  if (Math.abs(diff) >= 0.005) {
+    np1 = round2(np1 + diff);
+  }
+  sum = round2(np1 + np2 + np3);
+  diff = round2(b - sum);
+  if (Math.abs(diff) >= 0.005) {
+    np1 = round2(np1 + diff);
+  }
+  return [round2(np1), round2(np2), round2(np3)];
+}
+
 function buildFactoryMath(bp: FactoryBlueprint) {
   const totalPool = round2(bp.entryFee * bp.maxMembers);
   const rawPerJoin =
@@ -934,7 +981,10 @@ function buildFactoryMath(bp: FactoryBlueprint) {
   const prizePool = Math.max(0, round2(basePrizePool * FACTORY_PRIZE_POOL_RATIO));
   const feeAmount = round2(Math.max(baseFeeAmount, totalPool - prizePool));
   const platformFeePerJoin = round2(bp.maxMembers > 0 ? feeAmount / bp.maxMembers : 0);
-  const prizes = splitFactoryPrizesWithThirdFloor(prizePool, platformFeePerJoin, bp.winners, bp.distribution);
+  let prizes = splitFactoryPrizesWithThirdFloor(prizePool, platformFeePerJoin, bp.winners, bp.distribution);
+  if (bp.winners >= 3) {
+    prizes = boostThirdByTrimmingFirstSecond(prizes[0], prizes[1], prizes[2], prizePool);
+  }
   return { totalPool, feeAmount, prizePool, prizes, platformFeePerJoin };
 }
 
