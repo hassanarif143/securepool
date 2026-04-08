@@ -15,6 +15,7 @@ import {
 } from "@/lib/cashout-arena-api";
 import { getCelebrationSoundEnabled, setCelebrationSoundEnabled } from "@/lib/celebration-preferences";
 import { useAuth } from "@/context/AuthContext";
+import { useLocation } from "wouter";
 
 function zoneLabel(multiplier: number) {
   if (multiplier < 1.8) return "Safe Zone";
@@ -36,6 +37,7 @@ function zoneBg(multiplier: number) {
 
 export default function CashoutArenaPage() {
   const { user, setUser } = useAuth();
+  const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const [stake, setStake] = useState(1);
   const [autoCashoutAt, setAutoCashoutAt] = useState("2");
@@ -199,6 +201,17 @@ export default function CashoutArenaPage() {
     }
     prevMultiplierRef.current = m;
   }, [data?.round.multiplier]);
+
+  useEffect(() => {
+    if (!(error instanceof Error) || error.message !== "CASHOUT_ARENA_DISABLED") return;
+    const target = user ? "/dashboard" : "/login";
+    toast({
+      title: "Cashout Arena is disabled",
+      description: "Game is currently unavailable. Redirecting you now.",
+      variant: "destructive",
+    });
+    navigate(target);
+  }, [error, navigate, user]);
 
   useEffect(() => {
     if (!data?.wallet || !user) return;

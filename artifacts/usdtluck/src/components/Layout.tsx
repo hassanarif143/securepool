@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { apiUrl } from "@/lib/api-base";
+import { useGameAvailability } from "@/lib/game-availability";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
 import { ChevronRight, LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
 
@@ -496,6 +497,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, isLoading } = useAuth();
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { loading: gamesLoading, cashoutArenaEnabled, scratchCardEnabled } = useGameAvailability(!!user);
 
   /* Close mobile menu on navigation */
   useEffect(() => { setMobileOpen(false); }, [location]);
@@ -514,8 +516,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/referral", label: "Referral", icon: "🔗" },
     { href: "/staking", label: "Staking", icon: "🔒" },
     { href: "/p2p", label: "P2P Trading", icon: "💱" },
-    { href: "/cashout-arena", label: "Cashout Arena", icon: "🚀" },
-    { href: "/scratch-card", label: "Scratch Card", icon: "🪙" },
+    ...(!gamesLoading && cashoutArenaEnabled ? [{ href: "/cashout-arena", label: "Cashout Arena", icon: "🚀" }] : []),
+    ...(!gamesLoading && scratchCardEnabled ? [{ href: "/scratch-card", label: "Scratch Card", icon: "🪙" }] : []),
     { href: "/how-it-works", label: "How It Works", icon: "📘" },
     { href: "/reviews",    label: "Reviews",    icon: "💬" },
     ...(user.isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: "⚙️" }] : []),

@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { buyScratchCardApi, fetchScratchCardState, revealScratchBoxApi } from "@/lib/scratch-card-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 
 const SYMBOL_UI: Record<string, { emoji: string; label: string }> = {
   gem: { emoji: "💎", label: "Gem" },
@@ -112,6 +113,7 @@ function ScratchBox({
 
 export default function ScratchCardPage() {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { user, setUser } = useAuth();
   const [stake, setStake] = useState(1);
@@ -123,7 +125,7 @@ export default function ScratchCardPage() {
   const [winPulse, setWinPulse] = useState<{ payout: number; multiplier: number; rare?: boolean } | null>(null);
   const [soundOn, setSoundOn] = useState(() => window.localStorage.getItem("scratch:sound-on") !== "0");
 
-  const { data, isFetching, refetch } = useQuery({
+  const { data, isFetching, refetch, error } = useQuery({
     queryKey: ["scratch-card-state"],
     queryFn: fetchScratchCardState,
     refetchInterval: 1600,
@@ -136,6 +138,17 @@ export default function ScratchCardPage() {
   useEffect(() => {
     window.localStorage.setItem("scratch:sound-on", soundOn ? "1" : "0");
   }, [soundOn]);
+
+  useEffect(() => {
+    if (!(error instanceof Error) || error.message !== "SCRATCH_CARD_DISABLED") return;
+    const target = user ? "/dashboard" : "/login";
+    toast({
+      title: "Scratch Card is disabled",
+      description: "Game is currently unavailable. Redirecting you now.",
+      variant: "destructive",
+    });
+    navigate(target);
+  }, [error, navigate, toast, user]);
 
   useEffect(() => {
     if (!data?.wallet || !user) return;

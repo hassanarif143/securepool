@@ -22,6 +22,7 @@ import { poolWinnerCount } from "@/lib/pool-winners";
 import { BalanceCard } from "@/components/dashboard/BalanceCard";
 import { RewardsSummaryCard } from "@/components/rewards/RewardsSummaryCard";
 import { LiveWinnerTicker } from "@/components/winners/LiveWinnerTicker";
+import { useGameAvailability } from "@/lib/game-availability";
 
 function greeting() {
   const h = new Date().getHours();
@@ -115,6 +116,7 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
   const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
+  const { loading: gamesLoading, cashoutArenaEnabled, scratchCardEnabled, anyGameEnabled } = useGameAvailability(!!user);
   const [myEntries, setMyEntries] = useState<any[]>([]);
   const [comeback, setComeback] = useState<ActiveCouponJson | null>(null);
 
@@ -205,12 +207,16 @@ export default function DashboardPage() {
                 <ArrowRight className="h-4 w-4 opacity-90" aria-hidden />
               </Link>
             </Button>
-            <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[10rem]" asChild>
-              <Link href="/cashout-arena">Play Arena</Link>
-            </Button>
-            <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[10rem]" asChild>
-              <Link href="/scratch-card">Play Scratch Card</Link>
-            </Button>
+            {!gamesLoading && cashoutArenaEnabled && (
+              <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[10rem]" asChild>
+                <Link href="/cashout-arena">Play Arena</Link>
+              </Button>
+            )}
+            {!gamesLoading && scratchCardEnabled && (
+              <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[10rem]" asChild>
+                <Link href="/scratch-card">Play Scratch Card</Link>
+              </Button>
+            )}
             <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[9rem]" asChild>
               <Link href="/wallet?tab=deposit">Deposit</Link>
             </Button>
@@ -249,6 +255,31 @@ export default function DashboardPage() {
       </div>
       <LiveWinnerTicker />
       <LivePoolWatcher />
+      {!gamesLoading && anyGameEnabled && (
+        <div className={`${box} p-4 sm:p-5 space-y-3`}>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90 mb-1">Games</p>
+              <h2 className="font-display text-lg sm:text-xl font-bold tracking-tight">Play and win</h2>
+              <p className="text-xs text-muted-foreground mt-1">Fast rounds with transparent wallet updates.</p>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {cashoutArenaEnabled && (
+              <Link href="/cashout-arena" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
+                <p className="text-sm font-semibold">Cashout Arena</p>
+                <p className="text-xs text-muted-foreground mt-1">Time your cashout before crash for bigger multiplier.</p>
+              </Link>
+            )}
+            {scratchCardEnabled && (
+              <Link href="/scratch-card" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
+                <p className="text-sm font-semibold">Scratch Card</p>
+                <p className="text-xs text-muted-foreground mt-1">Scratch symbols and hit matches for instant payouts.</p>
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
       {(user.poolJoinCount ?? 0) > 0 && (user.totalWins ?? 0) === 0 && (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3.5 text-sm text-muted-foreground leading-relaxed">
