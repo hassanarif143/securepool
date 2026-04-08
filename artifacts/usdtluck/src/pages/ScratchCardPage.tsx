@@ -3,23 +3,36 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import confetti from "canvas-confetti";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import {
-  buyScratchCardApi,
-  fetchScratchCardState,
-  revealScratchBoxApi,
-  type ScratchCardState,
-} from "@/lib/scratch-card-api";
+import { buyScratchCardApi, fetchScratchCardState, revealScratchBoxApi } from "@/lib/scratch-card-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+
+const SYMBOL_UI: Record<string, { emoji: string; label: string }> = {
+  gem: { emoji: "💎", label: "Gem" },
+  crown: { emoji: "👑", label: "Crown" },
+  rocket: { emoji: "🚀", label: "Rocket" },
+  diamond: { emoji: "🔷", label: "Diamond" },
+  cherry: { emoji: "🍒", label: "Cherry" },
+  star: { emoji: "⭐", label: "Star" },
+  coin: { emoji: "🪙", label: "Coin" },
+  phoenix: { emoji: "🔥", label: "Rare Phoenix" },
+};
+
+function symbolView(symbol: string | null): string {
+  if (!symbol) return "?";
+  return SYMBOL_UI[symbol]?.emoji ?? symbol;
+}
 
 function ScratchBox({
   revealed,
   symbol,
   onReveal,
+  disabled,
 }: {
   revealed: boolean;
   symbol: string | null;
   onReveal: () => void;
+  disabled?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [done, setDone] = useState(false);
@@ -30,22 +43,25 @@ function ScratchBox({
     const ctx = c.getContext("2d");
     if (!ctx) return;
     ctx.globalCompositeOperation = "source-over";
-    ctx.fillStyle = "#8a8f98";
+    const g = ctx.createLinearGradient(0, 0, c.width, c.height);
+    g.addColorStop(0, "#8f96a3");
+    g.addColorStop(1, "#6f7787");
+    ctx.fillStyle = g;
     ctx.fillRect(0, 0, c.width, c.height);
-    ctx.fillStyle = "#b3b8c2";
-    ctx.font = "bold 14px sans-serif";
-    ctx.fillText("Scratch", c.width / 2 - 24, c.height / 2 + 4);
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    ctx.font = "bold 13px sans-serif";
+    ctx.fillText("Scratch me", c.width / 2 - 34, c.height / 2 + 4);
     setDone(false);
   }, [revealed]);
 
   useEffect(() => {
     const c = canvasRef.current;
-    if (!c || revealed) return;
+    if (!c || revealed || disabled) return;
     const ctx = c.getContext("2d");
     if (!ctx) return;
     let active = false;
     let scratched = 0;
-    const radius = 14;
+    const radius = 15;
 
     const mark = (clientX: number, clientY: number) => {
       const rect = c.getBoundingClientRect();
@@ -56,12 +72,11 @@ function ScratchBox({
       ctx.arc(x, y, radius, 0, Math.PI * 2);
       ctx.fill();
       scratched += 1;
-      if (scratched > 28 && !done) {
+      if (scratched > 26 && !done) {
         setDone(true);
         onReveal();
       }
     };
-
     const onDown = (e: PointerEvent) => {
       active = true;
       mark(e.clientX, e.clientY);
@@ -81,14 +96,16 @@ function ScratchBox({
       c.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [done, onReveal, revealed]);
+  }, [done, onReveal, revealed, disabled]);
 
   return (
-    <div className="relative h-20 rounded-xl border border-border/60 bg-gradient-to-br from-zinc-900 to-zinc-800 overflow-hidden">
-      <div className="absolute inset-0 flex items-center justify-center text-xl font-bold">
-        {revealed ? (symbol ?? "x") : "?"}
-      </div>
-      {!revealed && <canvas ref={canvasRef} width={280} height={160} className="absolute inset-0 h-full w-full touch-none" />}
+    <div
+      className={`relative h-24 rounded-xl border border-border/60 overflow-hidden transition-all ${
+        revealed ? "bg-gradient-to-br from-emerald-500/20 to-primary/5 scale-[1.01]" : "bg-gradient-to-br from-zinc-900 to-zinc-800"
+      }`}
+    >
+      <div className="absolute inset-0 flex items-center justify-center text-2xl font-bold">{revealed ? symbolView(symbol) : "❔"}</div>
+      {!revealed && <canvas ref={canvasRef} width={320} height={160} className="absolute inset-0 h-full w-full touch-none" />}
     </div>
   );
 }
@@ -103,13 +120,13 @@ export default function ScratchCardPage() {
   const [multiplierBoost, setMultiplierBoost] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [nearMissPulse, setNearMissPulse] = useState(false);
-  const [winPulse, setWinPulse] = useState<{ payout: number; multiplier: number } | null>(null);
+  const [winPulse, setWinPulse] = useState<{ payout: number; multiplier: number; rare?: boolean } | null>(null);
   const [soundOn, setSoundOn] = useState(() => window.localStorage.getItem("scratch:sound-on") !== "0");
 
   const { data, isFetching, refetch } = useQuery({
     queryKey: ["scratch-card-state"],
     queryFn: fetchScratchCardState,
-    refetchInterval: 2000,
+    refetchInterval: 1600,
   });
 
   useEffect(() => {
@@ -128,12 +145,27 @@ export default function ScratchCardPage() {
     setUser({ ...user, withdrawableBalance: nextWd, bonusBalance: nextBonus, walletBalance: nextTotal });
   }, [data?.wallet, user, setUser]);
 
+  const playWinSound = (rare = false) => {
+    if (!soundOn || typeof window === "undefined") return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = rare ? 1120 : 860;
+    gain.gain.value = 0.08;
+    osc.start();
+    osc.stop(ctx.currentTime + 0.16);
+  };
+
   const buy = useMutation({
     mutationFn: buyScratchCardApi,
     onSuccess: (r) => {
       toast({
-        title: "Card ready",
-        description: r.onboardingMode ? `Welcome mode active. ${r.onboardingRoundsLeft} guided rounds left.` : "Scratch and reveal symbols!",
+        title: "Card Ready",
+        description: r.onboardingMode
+          ? `Welcome rounds active (${r.onboardingRoundsLeft} left). Match ${r.requiredMatches} symbols.`
+          : `Match ${r.requiredMatches} symbols before timer ends.`,
       });
       void queryClient.invalidateQueries({ queryKey: ["scratch-card-state"] });
     },
@@ -144,27 +176,23 @@ export default function ScratchCardPage() {
     mutationFn: ({ cardId, boxIndex }: { cardId: string; boxIndex: number }) => revealScratchBoxApi(cardId, boxIndex),
     onSuccess: (r) => {
       if (r.status === "won") {
-        confetti({ particleCount: r.rareHit ? 220 : 120, spread: r.rareHit ? 110 : 70, origin: { y: 0.65 } });
-        setWinPulse({ payout: Number(r.payoutAmount ?? 0), multiplier: Number(r.multiplier ?? 1) });
-        window.setTimeout(() => setWinPulse(null), 1300);
-        if (soundOn && typeof window !== "undefined") {
-          const ctx = new AudioContext();
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.frequency.value = r.rareHit ? 1020 : 860;
-          gain.gain.value = 0.08;
-          osc.start();
-          osc.stop(ctx.currentTime + 0.14);
-        }
-        toast({ title: "You won!", description: `${(r.payoutAmount ?? 0).toFixed(2)} USDT credited instantly` });
+        const payout = Number(r.payoutAmount ?? 0);
+        const mult = Number(r.multiplier ?? 1);
+        setWinPulse({ payout, multiplier: mult, rare: r.rareHit });
+        window.setTimeout(() => setWinPulse(null), 1400);
+        confetti({
+          particleCount: r.rareHit ? 240 : 130,
+          spread: r.rareHit ? 120 : 72,
+          origin: { y: 0.62 },
+        });
+        playWinSound(Boolean(r.rareHit));
+        toast({ title: "Great win!", description: `You won ${payout.toFixed(2)} USDT (${mult.toFixed(2)}x)` });
       } else if (r.status === "lost") {
         if (r.nearMiss) {
           setNearMissPulse(true);
-          window.setTimeout(() => setNearMissPulse(false), 420);
+          window.setTimeout(() => setNearMissPulse(false), 440);
         }
-        toast({ title: "Card settled", description: r.nearMiss ? "Near miss! Next card can hit." : "Better luck next card." });
+        toast({ title: "Card settled", description: r.nearMiss ? "Near miss. Next card can hit big." : "Try another quick round." });
       }
       void queryClient.invalidateQueries({ queryKey: ["scratch-card-state"] });
     },
@@ -183,22 +211,33 @@ export default function ScratchCardPage() {
     [data?.history],
   );
 
+  const streakPct = Math.min(100, ((data?.streak ?? 0) / 7) * 100);
+
   return (
-    <div className={`space-y-4 transition-all ${nearMissPulse ? "animate-[wiggle_0.4s_ease-in-out]" : ""}`}>
+    <div className={`space-y-4 transition-all ${nearMissPulse ? "animate-[wiggle_0.45s_ease-in-out]" : ""}`}>
       {winPulse && (
         <div className="fixed inset-x-0 top-24 z-50 flex justify-center pointer-events-none">
-          <div className="rounded-2xl border border-emerald-400/50 bg-emerald-500/15 px-5 py-3 shadow-xl animate-[fade-in_0.2s_ease-out]">
-            <p className="text-sm font-semibold text-emerald-200">You won {winPulse.payout.toFixed(2)} USDT!</p>
-            <p className="text-xs text-emerald-300/90">{winPulse.multiplier.toFixed(2)}x multiplier locked</p>
+          <div className={`rounded-2xl border px-5 py-3 shadow-xl ${winPulse.rare ? "border-amber-400/60 bg-amber-500/15" : "border-emerald-400/50 bg-emerald-500/15"}`}>
+            <p className="text-sm font-semibold text-white">You won {winPulse.payout.toFixed(2)} USDT!</p>
+            <p className="text-xs text-white/80">{winPulse.multiplier.toFixed(2)}x multiplier locked</p>
           </div>
         </div>
       )}
+
       {showGuide && (
         <Card className="border-primary/40 bg-primary/5">
           <CardContent className="p-4 space-y-2 text-sm">
-            <p className="font-semibold">Quick start</p>
-            <p>Drag to scratch, reveal symbols, and match required symbols to win instantly.</p>
-            <Button size="sm" onClick={() => { setShowGuide(false); window.localStorage.setItem("scratch:guide-seen", "1"); }}>Start playing</Button>
+            <p className="font-semibold">How to play</p>
+            <p>Buy card, drag to scratch, reveal symbols, then match required symbols before timer to win.</p>
+            <Button
+              size="sm"
+              onClick={() => {
+                setShowGuide(false);
+                window.localStorage.setItem("scratch:guide-seen", "1");
+              }}
+            >
+              Got it, start game
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -207,7 +246,7 @@ export default function ScratchCardPage() {
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between">
-              <span>Scratch Card Arena</span>
+              <span>Scratch Card Pro</span>
               <div className="flex items-center gap-2">
                 <button
                   className={`text-[10px] px-2 py-1 rounded border ${soundOn ? "border-emerald-500/50 text-emerald-300" : "border-border text-muted-foreground"}`}
@@ -232,7 +271,7 @@ export default function ScratchCardPage() {
                 <div className="grid grid-cols-3 gap-2">
                   {[3, 6, 9].map((v) => (
                     <Button key={v} variant={boxCount === v ? "default" : "outline"} onClick={() => setBoxCount(v)}>
-                      {v} boxes
+                      {v} Boxes
                     </Button>
                   ))}
                 </div>
@@ -249,27 +288,30 @@ export default function ScratchCardPage() {
                   disabled={!canBuy}
                   onClick={() => buy.mutate({ stakeAmount: stake, boxCount, extraReveal, multiplierBoost })}
                 >
-                  {buy.isPending ? "Preparing..." : "Buy Scratch Card"}
+                  {buy.isPending ? "Preparing Card..." : "Buy & Start Scratch"}
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  Round resets in ~{roundLeftSec}s | You could win up to {Number(data?.round.maxPotentialMultiplier ?? 4).toFixed(1)}x your stake
+                  Round ~{roundLeftSec}s | You could win up to {Number(data?.round.maxPotentialMultiplier ?? 4).toFixed(1)}x stake
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  Onboarding rounds: first {data?.tuning?.onboardingRounds ?? 3} cards are tuned for trust-building wins.
+                  First {data?.tuning?.onboardingRounds ?? 3} rounds are tuned to build trust and momentum.
                 </p>
               </>
             ) : (
               <>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>Card #{activeCard.id}</span>
-                  <span>{cardLeftSec}s left · Match {activeCard.requiredMatches} symbols</span>
+                  <span>
+                    {cardLeftSec}s left · Match {activeCard.requiredMatches} symbols
+                  </span>
                 </div>
-                <div className={`grid gap-2 ${activeCard.boxCount <= 3 ? "grid-cols-3" : activeCard.boxCount <= 6 ? "grid-cols-3" : "grid-cols-3"}`}>
+                <div className="grid grid-cols-3 gap-2">
                   {Array.from({ length: activeCard.boxCount }).map((_, idx) => (
                     <ScratchBox
                       key={idx}
                       revealed={Boolean(activeCard.revealed[idx])}
                       symbol={activeCard.symbols[idx]}
+                      disabled={reveal.isPending}
                       onReveal={() => {
                         if (activeCard.revealed[idx]) return;
                         reveal.mutate({ cardId: activeCard.id, boxIndex: idx });
@@ -283,7 +325,9 @@ export default function ScratchCardPage() {
         </Card>
 
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Wallet & Hooks</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Wallet & Streak</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <p>Withdrawable: {(data?.wallet.withdrawableBalance ?? 0).toFixed(2)} USDT</p>
             <p>Non-withdrawable: {(data?.wallet.nonWithdrawableBalance ?? 0).toFixed(2)} USDT</p>
@@ -293,33 +337,43 @@ export default function ScratchCardPage() {
               <p>Cards won: {stats.winCount}</p>
               <p>Total won: {stats.totalWin.toFixed(2)} USDT</p>
               <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-primary to-emerald-400 transition-all" style={{ width: `${Math.min(100, ((data?.streak ?? 0) / 7) * 100)}%` }} />
+                <div className="h-full bg-gradient-to-r from-primary to-emerald-400 transition-all" style={{ width: `${streakPct}%` }} />
               </div>
               <p className="text-[10px] text-muted-foreground mt-1">Weekly streak progress</p>
             </div>
-            <Button size="sm" variant="outline" onClick={() => refetch()}>Refresh now</Button>
+            <Button size="sm" variant="outline" onClick={() => refetch()}>
+              Refresh now
+            </Button>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Recent Cards</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Recent Cards</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-2">
             {(data?.history ?? []).slice(0, 8).map((h) => (
               <div key={h.id} className="rounded-md border border-border/50 px-3 py-2 text-sm flex justify-between">
-                <span>#{h.id} · {h.status}</span>
+                <span>
+                  #{h.id} · {h.status}
+                </span>
                 <span>{h.payoutAmount > 0 ? `+${h.payoutAmount.toFixed(2)} USDT` : `-${h.stakeAmount.toFixed(2)} USDT`}</span>
               </div>
             ))}
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Leaderboard (24h)</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Leaderboard (24h)</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-2">
             {(data?.leaderboard ?? []).map((u, i) => (
               <div key={u.userId} className="rounded-md border border-border/50 px-3 py-2 text-sm flex justify-between">
-                <span>{i + 1}. {u.name}</span>
+                <span>
+                  {i + 1}. {u.name}
+                </span>
                 <span>{u.totalWin.toFixed(2)} USDT</span>
               </div>
             ))}

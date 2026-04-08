@@ -156,14 +156,15 @@ async function settleExpiredCards(tx: DbTx): Promise<void> {
 function chooseBaseMultiplier(onboarding: boolean): number {
   const r = Math.random();
   if (onboarding) {
-    if (r < 0.65) return round4(1.05 + Math.random() * 0.2);
-    if (r < 0.9) return round4(1.25 + Math.random() * 0.45);
-    return round4(1.75 + Math.random() * 0.65);
+    // Trust-building phase: keep first rounds mostly positive, mostly small wins.
+    if (r < 0.7) return round4(1.12 + Math.random() * 0.24);
+    if (r < 0.94) return round4(1.35 + Math.random() * 0.5);
+    return round4(1.9 + Math.random() * 0.8);
   }
-  if (r < 0.7) return 0;
-  if (r < 0.92) return round4(1.08 + Math.random() * 0.55);
-  if (r < 0.985) return round4(1.7 + Math.random() * 1.4);
-  return round4(3.2 + Math.random() * 1.2);
+  if (r < 0.66) return 0;
+  if (r < 0.91) return round4(1.06 + Math.random() * 0.6);
+  if (r < 0.985) return round4(1.7 + Math.random() * 1.5);
+  return round4(3.4 + Math.random() * 1.5);
 }
 
 export async function getScratchCardState(userId: number) {
