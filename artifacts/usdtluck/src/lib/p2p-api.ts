@@ -118,7 +118,7 @@ export async function createP2pOfferApi(payload: {
   maxUsdt: number;
   availableUsdt: number;
   methods: string[];
-  paymentDetails: Record<string, string>;
+  paymentDetails?: Record<string, string>;
   responseTimeLabel?: string;
 }): Promise<{ id: string }> {
   const res = await fetch(apiUrl("/api/p2p/offers"), {

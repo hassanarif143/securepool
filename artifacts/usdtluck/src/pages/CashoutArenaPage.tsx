@@ -153,6 +153,13 @@ export default function CashoutArenaPage() {
 
   if (error) {
     const msg = error instanceof Error ? error.message : "Unable to load";
+    const isSqlDebug = msg.includes("Failed query:");
+    const prettyMsg =
+      msg === "CASHOUT_ARENA_NOT_READY"
+        ? "Arena tables are not migrated yet. Run latest migrations and restart server."
+        : isSqlDebug
+          ? "Server temporary issue while loading arena stats. Retry in a few seconds."
+          : msg;
     return (
       <div className="max-w-xl mx-auto pt-10">
         <Card>
@@ -160,7 +167,7 @@ export default function CashoutArenaPage() {
             <CardTitle>Cashout Arena unavailable</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">{msg === "CASHOUT_ARENA_NOT_READY" ? "Arena tables are not migrated yet. Run latest migrations and restart server." : msg}</p>
+            <p className="text-sm text-muted-foreground">{prettyMsg}</p>
             <Button onClick={() => void refetch()}>Retry</Button>
           </CardContent>
         </Card>

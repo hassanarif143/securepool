@@ -138,7 +138,7 @@ const CreateOfferBody = z.object({
   maxUsdt: z.coerce.number().positive(),
   availableUsdt: z.coerce.number().positive(),
   methods: z.array(z.string()).min(1),
-  paymentDetails: z.record(z.string(), z.string()),
+  paymentDetails: z.record(z.string(), z.string()).optional(),
   responseTimeLabel: z.string().max(120).optional(),
 });
 

@@ -125,22 +125,12 @@ export default function P2PTradingPage() {
   const [createAvailable, setCreateAvailable] = useState("");
   const [createFiat, setCreateFiat] = useState("PKR");
   const [createMethods, setCreateMethods] = useState<PaymentMethod[]>(["bank"]);
-  const [createBankName, setCreateBankName] = useState("");
-  const [createAccountTitle, setCreateAccountTitle] = useState("");
-  const [createAccountNo, setCreateAccountNo] = useState("");
-  const [createEasypaisa, setCreateEasypaisa] = useState("");
-  const [createJazzcash, setCreateJazzcash] = useState("");
   const [editOffer, setEditOffer] = useState<MyP2POffer | null>(null);
   const [editPrice, setEditPrice] = useState("");
   const [editMin, setEditMin] = useState("");
   const [editMax, setEditMax] = useState("");
   const [editAvailable, setEditAvailable] = useState("");
   const [editMethods, setEditMethods] = useState<PaymentMethod[]>([]);
-  const [editBankName, setEditBankName] = useState("");
-  const [editAccountTitle, setEditAccountTitle] = useState("");
-  const [editAccountNo, setEditAccountNo] = useState("");
-  const [editEasypaisa, setEditEasypaisa] = useState("");
-  const [editJazzcash, setEditJazzcash] = useState("");
   const [easyMode, setEasyMode] = useState(true);
 
   const refreshAll = async () => {
@@ -240,13 +230,6 @@ export default function P2PTradingPage() {
         maxUsdt: Number(createMax),
         availableUsdt: Number(createAvailable),
         methods: createMethods,
-        paymentDetails: {
-          bankName: createBankName.trim(),
-          accountTitle: createAccountTitle.trim(),
-          ibanOrAccount: createAccountNo.trim(),
-          easypaisa: createEasypaisa.trim(),
-          jazzcash: createJazzcash.trim(),
-        },
         responseTimeLabel: "Usually replies in 15 min",
       }),
     onSuccess: async () => {
@@ -276,13 +259,6 @@ export default function P2PTradingPage() {
             maxUsdt: Number(editMax),
             availableUsdt: Number(editAvailable),
             methods: editMethods,
-            paymentDetails: {
-              bankName: editBankName.trim(),
-              accountTitle: editAccountTitle.trim(),
-              ibanOrAccount: editAccountNo.trim(),
-              easypaisa: editEasypaisa.trim(),
-              jazzcash: editJazzcash.trim(),
-            },
           })
         : Promise.resolve(),
     onSuccess: async () => {
@@ -369,24 +345,14 @@ export default function P2PTradingPage() {
     Number(createMax) >= Number(createMin) &&
     Number(createAvailable) >= Number(createMin) &&
     createMethods.length > 0;
-  const hasCreatePaymentDetails =
-    (!createMethods.includes("bank") ||
-      (createBankName.trim().length > 1 && createAccountTitle.trim().length > 1 && createAccountNo.trim().length > 3)) &&
-    (!createMethods.includes("easypaisa") || createEasypaisa.trim().length >= 8) &&
-    (!createMethods.includes("jazzcash") || createJazzcash.trim().length >= 8);
-  const canCreateOfferFinal = canCreateOffer && hasCreatePaymentDetails;
+  const canCreateOfferFinal = canCreateOffer;
   const canSaveEdit =
     Number(editPrice) > 0 &&
     Number(editMin) > 0 &&
     Number(editMax) >= Number(editMin) &&
     Number(editAvailable) >= 0 &&
     editMethods.length > 0;
-  const hasEditPaymentDetails =
-    (!editMethods.includes("bank") ||
-      (editBankName.trim().length > 1 && editAccountTitle.trim().length > 1 && editAccountNo.trim().length > 3)) &&
-    (!editMethods.includes("easypaisa") || editEasypaisa.trim().length >= 8) &&
-    (!editMethods.includes("jazzcash") || editJazzcash.trim().length >= 8);
-  const canSaveEditFinal = canSaveEdit && hasEditPaymentDetails;
+  const canSaveEditFinal = canSaveEdit;
   const activeMyOffers = myOffers.filter((o) => o.active);
   const archivedMyOffers = myOffers.filter((o) => !o.active);
 
@@ -488,16 +454,9 @@ export default function P2PTradingPage() {
                   ))}
                 </div>
               </div>
-              {createMethods.includes("bank") ? (
-                <div className="grid sm:grid-cols-3 gap-3">
-                  <Input value={createBankName} onChange={(e) => setCreateBankName(e.target.value)} placeholder="Bank name" />
-                  <Input value={createAccountTitle} onChange={(e) => setCreateAccountTitle(e.target.value)} placeholder="Account title" />
-                  <Input value={createAccountNo} onChange={(e) => setCreateAccountNo(e.target.value)} placeholder="IBAN / Account no" />
-                </div>
-              ) : null}
-              {createMethods.includes("easypaisa") ? <Input value={createEasypaisa} onChange={(e) => setCreateEasypaisa(e.target.value)} placeholder="Easypaisa number" /> : null}
-              {createMethods.includes("jazzcash") ? <Input value={createJazzcash} onChange={(e) => setCreateJazzcash(e.target.value)} placeholder="JazzCash number" /> : null}
-              {!hasCreatePaymentDetails ? <p className="text-xs text-amber-500">Selected method ke liye required payment details poori karein.</p> : null}
+              <p className="text-xs text-muted-foreground">
+                Payment details profile se auto-use hongi. Agar update karni hain to Profile page se karein.
+              </p>
               <div className="flex justify-end">
                 <Button
                   disabled={!canCreateOfferFinal || createOfferMutation.isPending}
@@ -543,11 +502,6 @@ export default function P2PTradingPage() {
                           setEditMax(String(o.maxUsdt));
                           setEditAvailable(String(o.availableUsdt));
                           setEditMethods([...o.methods]);
-                          setEditBankName(o.paymentDetails.bankName ?? "");
-                          setEditAccountTitle(o.paymentDetails.accountTitle ?? "");
-                          setEditAccountNo(o.paymentDetails.ibanOrAccount ?? "");
-                          setEditEasypaisa(o.paymentDetails.easypaisa ?? "");
-                          setEditJazzcash(o.paymentDetails.jazzcash ?? "");
                         }}
                       >
                         Edit
@@ -728,16 +682,9 @@ export default function P2PTradingPage() {
               ))}
             </div>
           </div>
-          {editMethods.includes("bank") ? (
-            <div className="grid sm:grid-cols-3 gap-3">
-              <Input value={editBankName} onChange={(e) => setEditBankName(e.target.value)} placeholder="Bank name" />
-              <Input value={editAccountTitle} onChange={(e) => setEditAccountTitle(e.target.value)} placeholder="Account title" />
-              <Input value={editAccountNo} onChange={(e) => setEditAccountNo(e.target.value)} placeholder="IBAN / Account no" />
-            </div>
-          ) : null}
-          {editMethods.includes("easypaisa") ? <Input value={editEasypaisa} onChange={(e) => setEditEasypaisa(e.target.value)} placeholder="Easypaisa number" /> : null}
-          {editMethods.includes("jazzcash") ? <Input value={editJazzcash} onChange={(e) => setEditJazzcash(e.target.value)} placeholder="JazzCash number" /> : null}
-          {!hasEditPaymentDetails ? <p className="text-xs text-amber-500">Selected method ke liye required payment details poori karein.</p> : null}
+          <p className="text-xs text-muted-foreground">
+            Offer ke payment details profile se sync hongi. Yahan sirf methods select karein.
+          </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOffer(null)}>Cancel</Button>
             <Button disabled={!canSaveEditFinal || editOfferMutation.isPending} onClick={() => editOfferMutation.mutate()}>

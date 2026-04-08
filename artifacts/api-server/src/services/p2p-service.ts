@@ -278,7 +278,7 @@ export async function createP2pOffer(
     maxUsdt: number;
     availableUsdt: number;
     methods: string[];
-    paymentDetails: Record<string, string>;
+    paymentDetails?: Record<string, string>;
     responseTimeLabel?: string;
   },
 ): Promise<number> {
@@ -339,11 +339,18 @@ export async function updateMyP2pOffer(
   const nextMax = body.maxUsdt ?? toNum(offer.maxUsdt);
   const nextAvailable = body.availableUsdt ?? toNum(offer.availableUsdt);
   const nextMethods = body.methods ?? (offer.methods as string[]);
+  const [u] = await db
+    .select({ p2pPaymentDetails: usersTable.p2pPaymentDetails })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  const profileDetails = (u?.p2pPaymentDetails as Record<string, string> | undefined) ?? {};
   if (!Number.isFinite(nextPrice) || nextPrice <= 0) throw new Error("INVALID_PRICE");
   if (!Number.isFinite(nextMin) || nextMin <= 0) throw new Error("INVALID_MIN");
   if (!Number.isFinite(nextMax) || nextMax < nextMin) throw new Error("INVALID_MAX");
   if (!Number.isFinite(nextAvailable) || nextAvailable < 0) throw new Error("INVALID_AVAILABLE");
   if (!Array.isArray(nextMethods) || nextMethods.length === 0) throw new Error("INVALID_METHODS");
+  if (!hasRequiredMethodDetails(nextMethods, profileDetails)) throw new Error("P2P_PAYMENT_DETAILS_REQUIRED");
 
   await db
     .update(p2pOffersTable)
@@ -353,7 +360,7 @@ export async function updateMyP2pOffer(
       maxUsdt: nextMax.toFixed(2),
       availableUsdt: nextAvailable.toFixed(2),
       methods: nextMethods,
-      paymentDetails: body.paymentDetails ?? (offer.paymentDetails as Record<string, string>),
+      paymentDetails: profileDetails,
       responseTimeLabel: body.responseTimeLabel ?? offer.responseTimeLabel,
       fiatCurrency: body.fiatCurrency ?? offer.fiatCurrency,
       updatedAt: new Date(),

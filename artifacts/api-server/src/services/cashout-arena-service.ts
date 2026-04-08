@@ -267,16 +267,25 @@ export async function getCashoutArenaState(userId: number) {
         rounds: sql<any>`coalesce(json_agg(json_build_object('id', r.id, 'crashMultiplier', r.crash_multiplier, 'startedAt', r.started_at) order by r.id desc), '[]'::json)`,
       })
       .from(sql`(select id, crash_multiplier, started_at from cashout_rounds where status = 'settled' order by id desc limit 20) r`);
-    const leaderboard = await tx.execute(sql`
-      select b.user_id as "userId", u.name as "name", coalesce(sum(b.payout_amount::numeric),0) as "totalWin"
-      from cashout_bets b
-      inner join users u on u.id = b.user_id
-      where b.status in ('cashed_out', 'shield_refunded')
-        and b.created_at > now() - interval '1 day'
-      group by b.user_id, u.name
-      order by "totalWin"::numeric desc
-      limit 8
-    `);
+    let leaderboardRows: Array<{ userId: number; name: string; totalWin: string }> = [];
+    try {
+      const leaderboard = await tx.execute(sql`
+        select
+          b.user_id as "userId",
+          u.name as "name",
+          coalesce(sum(coalesce(b.payout_amount, 0)::numeric), 0)::text as "totalWin"
+        from cashout_bets b
+        inner join users u on u.id = b.user_id
+        where b.status in ('cashed_out', 'shield_refunded')
+          and b.created_at > now() - interval '1 day'
+        group by b.user_id, u.name
+        order by coalesce(sum(coalesce(b.payout_amount, 0)::numeric), 0) desc
+        limit 8
+      `);
+      leaderboardRows = leaderboard.rows as Array<{ userId: number; name: string; totalWin: string }>;
+    } catch {
+      leaderboardRows = [];
+    }
 
     const [locked] = await tx
       .select({ amt: sql<string>`coalesce(sum(${cashoutBetsTable.stakeAmount}::numeric + ${cashoutBetsTable.boostFee}::numeric), 0)` })
@@ -314,7 +323,7 @@ export async function getCashoutArenaState(userId: number) {
         doubleBoostInfo: "Doubles multiplier only in 1.4x-1.8x window",
       },
       history: (hist?.rounds ?? []) as Array<{ id: number; crashMultiplier: string; startedAt: string }>,
-      leaderboard: (leaderboard.rows as Array<{ userId: number; name: string; totalWin: string }>).map((r) => ({
+      leaderboard: leaderboardRows.map((r) => ({
         userId: r.userId,
         name: `${String(r.name).slice(0, 4)}***`,
         totalWin: toNum(r.totalWin),
