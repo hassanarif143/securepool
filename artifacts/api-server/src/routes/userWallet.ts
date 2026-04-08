@@ -41,6 +41,20 @@ const changeLimiter = rateLimit({
   },
 });
 
+const setInitialAddressBody = z
+  .object({
+    address: z.string().trim(),
+    addressConfirm: z.string().trim(),
+  })
+  .refine((b) => b.address === b.addressConfirm, {
+    message: "Wallet addresses do not match",
+    path: ["addressConfirm"],
+  })
+  .refine((b) => isValidTrc20Address(b.address), {
+    message: "Invalid TRC20 wallet address format",
+    path: ["address"],
+  });
+
 router.get("/loyalty", async (req, res): Promise<void> => {
   const userId = getAuthedUserId(req);
   const [u] = await db
@@ -347,6 +361,51 @@ router.post("/wallet/change-request", changeLimiter, async (req, res): Promise<v
     message: "Your address change request has been submitted. Admin will review and approve it.",
   });
   return;
+});
+
+router.post("/wallet/set-initial-address", async (req, res): Promise<void> => {
+  const userId = getAuthedUserId(req);
+  const parse = setInitialAddressBody.safeParse(req.body ?? {});
+  if (!parse.success) {
+    const msg = parse.error.flatten().fieldErrors;
+    const first = Object.values(msg).flat()[0] ?? parse.error.message;
+    res.status(400).json({ error: "Validation error", message: first });
+    return;
+  }
+
+  const newAddr = parse.data.address.trim();
+  const [user] = await db
+    .select({ id: usersTable.id, cryptoAddress: usersTable.cryptoAddress })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  if (user.cryptoAddress && user.cryptoAddress.trim().length > 0) {
+    res.status(400).json({
+      error: "Wallet already set",
+      message: "Wallet already exists. Use address change request for updates.",
+    });
+    return;
+  }
+
+  const [dup] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(and(eq(usersTable.cryptoAddress, newAddr), ne(usersTable.id, userId)))
+    .limit(1);
+  if (dup) {
+    res.status(409).json({
+      error: "Duplicate wallet",
+      message: "This wallet address is already registered to another account. Each account must use a unique wallet address.",
+    });
+    return;
+  }
+
+  await db.update(usersTable).set({ cryptoAddress: newAddr }).where(eq(usersTable.id, userId));
+  res.status(201).json({ message: "Wallet address saved successfully.", address: newAddr });
 });
 
 export default router;

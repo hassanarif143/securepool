@@ -237,6 +237,9 @@ export default function ProfilePage() {
   const [newAddrConfirm, setNewAddrConfirm] = useState("");
   const [reason, setReason] = useState("");
   const [submittingChange, setSubmittingChange] = useState(false);
+  const [initialWalletAddr, setInitialWalletAddr] = useState("");
+  const [initialWalletConfirm, setInitialWalletConfirm] = useState("");
+  const [savingInitialWallet, setSavingInitialWallet] = useState(false);
   const [cooldownTick, setCooldownTick] = useState(0);
   const narrow = useNarrowScreen();
 
@@ -319,6 +322,15 @@ export default function ProfilePage() {
     TRC20_ADDRESS_REGEX.test(newAddr.trim()) &&
     newAddr.trim() === newAddrConfirm.trim() &&
     reason.trim().length >= 10;
+  const initialAddrPhase = trc20ValidationMessage(initialWalletAddr);
+  const initialWalletsMatch =
+    initialWalletAddr.trim().length > 0 &&
+    initialWalletAddr.trim() === initialWalletConfirm.trim();
+  const canSaveInitialWallet =
+    TRC20_ADDRESS_REGEX.test(initialWalletAddr.trim()) &&
+    TRC20_ADDRESS_REGEX.test(initialWalletConfirm.trim()) &&
+    initialWalletsMatch &&
+    !savingInitialWallet;
   const trimmedName = name.trim();
   const bankName = p2pBankName.trim();
   const accountTitle = p2pAccountTitle.trim();
@@ -441,6 +453,44 @@ export default function ProfilePage() {
     }
   }
 
+  async function saveInitialWalletAddress() {
+    if (!canSaveInitialWallet) return;
+    const newAddress = initialWalletAddr.trim();
+    setSavingInitialWallet(true);
+    try {
+      const res = await fetch(apiUrl("/api/user/wallet/set-initial-address"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          address: newAddress,
+          addressConfirm: initialWalletConfirm.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      toast({
+        title: "Wallet saved",
+        description: "Your wallet address is now linked. Future changes require admin approval.",
+      });
+      setInitialWalletAddr("");
+      setInitialWalletConfirm("");
+      await loadWallet();
+      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      setUser({
+        ...currentUser,
+        cryptoAddress: newAddress,
+      });
+    } catch (e: unknown) {
+      toast({
+        title: "Could not save wallet",
+        description: e instanceof Error ? e.message : "Network error",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingInitialWallet(false);
+    }
+  }
+
   const pending = walletInfo?.pendingRequest;
   const rejected = walletInfo?.lastRejected;
   const cooldownActive = Boolean(walletInfo?.cooldownUntil && cooldown);
@@ -523,36 +573,74 @@ export default function ProfilePage() {
                   <Lock className="h-3.5 w-3.5" />
                   Your TRC20 Wallet Address (for receiving USDT prizes)
                 </Label>
-                <div className="flex gap-2 mt-1.5">
-                  <Input
-                    readOnly
-                    disabled
-                    value={fullAddr ? (narrow ? shortAddr : fullAddr) : "—"}
-                    title={fullAddr || undefined}
-                    className="font-mono text-sm opacity-80 pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0"
-                    disabled={!fullAddr}
-                    onClick={() => void copyAddress()}
-                    aria-label="Copy wallet address"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-                <p className="text-xs font-mono text-muted-foreground mt-1 break-all hidden md:block">{fullAddr}</p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Wallet address is locked for security. To change it, submit a change request.
-                </p>
+                {fullAddr ? (
+                  <>
+                    <div className="flex gap-2 mt-1.5">
+                      <Input
+                        readOnly
+                        disabled
+                        value={narrow ? shortAddr : fullAddr}
+                        title={fullAddr || undefined}
+                        className="font-mono text-sm opacity-80 pr-10"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0"
+                        disabled={!fullAddr}
+                        onClick={() => void copyAddress()}
+                        aria-label="Copy wallet address"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs font-mono text-muted-foreground mt-1 break-all hidden md:block">{fullAddr}</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Wallet address is locked for security. To change it, submit a change request.
+                    </p>
+                  </>
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    <Input
+                      value={initialWalletAddr}
+                      onChange={(e) => setInitialWalletAddr(e.target.value)}
+                      placeholder="Enter TRC20 address (starts with T...)"
+                      className="font-mono text-sm"
+                      maxLength={64}
+                      spellCheck={false}
+                    />
+                    <Input
+                      value={initialWalletConfirm}
+                      onChange={(e) => setInitialWalletConfirm(e.target.value)}
+                      placeholder="Confirm TRC20 address"
+                      className="font-mono text-sm"
+                      maxLength={64}
+                      spellCheck={false}
+                    />
+                    {initialWalletAddr.trim() && initialAddrPhase === "invalid" ? (
+                      <p className="text-xs text-destructive">Invalid TRC20 address format.</p>
+                    ) : null}
+                    {initialWalletConfirm.trim() && !initialWalletsMatch ? (
+                      <p className="text-xs text-destructive">Wallet addresses do not match.</p>
+                    ) : null}
+                    {initialWalletsMatch && TRC20_ADDRESS_REGEX.test(initialWalletAddr.trim()) ? (
+                      <p className="text-xs text-emerald-600">Address looks valid and confirmed.</p>
+                    ) : null}
+                    <p className="text-xs text-muted-foreground">
+                      First-time wallet setup can be saved directly. Later updates require admin approval.
+                    </p>
+                    <Button type="button" className="w-full" disabled={!canSaveInitialWallet} onClick={() => void saveInitialWalletAddress()}>
+                      {savingInitialWallet ? "Saving..." : "Save Wallet Address"}
+                    </Button>
+                  </div>
+                )}
               </div>
               <Button
                 type="button"
                 variant="secondary"
                 className="w-full"
-                disabled={cooldownActive || Boolean(pending) || !fullAddr}
+                disabled={!fullAddr || cooldownActive || Boolean(pending)}
                 onClick={() => setChangeOpen(true)}
               >
                 Request Address Change
