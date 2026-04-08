@@ -63,10 +63,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       retry: false,
       // Avoid aggressive focus refetch; this caused false logout on tab switches.
       refetchOnWindowFocus: false,
-      staleTime: 30_000,
-      // Keep wallet and profile values fresh in UI without manual refresh.
-      refetchInterval: 5_000,
-      refetchIntervalInBackground: true,
+      staleTime: 60_000,
+      // Gentle background sync to avoid visible UI jerk from frequent full-user updates.
+      refetchInterval: 20_000,
+      refetchIntervalInBackground: false,
     },
   });
 
