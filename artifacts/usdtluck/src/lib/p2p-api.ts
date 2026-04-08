@@ -5,6 +5,7 @@ export type P2pSummary = {
   walletBalance: number;
   escrowLockedUsdt: number;
   availableToSellUsdt: number;
+  platformFeePerCompletedOrder?: number;
 };
 
 export type P2pLiveEvent = {

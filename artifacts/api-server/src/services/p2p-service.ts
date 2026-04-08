@@ -15,6 +15,7 @@ import { notifyUser } from "../lib/notify";
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 const PAYMENT_WINDOW_MS = 15 * 60 * 1000;
+const P2P_PLATFORM_FEE_USDT = 1;
 const p2pRealtimeBus = new EventEmitter();
 p2pRealtimeBus.setMaxListeners(200);
 
@@ -116,6 +117,33 @@ async function debitWithdrawableForEscrow(
   await mirrorAvailableFromUser(tx, userId);
 }
 
+async function debitWithdrawablePlatformFee(
+  tx: DbTx,
+  userId: number,
+  amount: number,
+  note: string,
+): Promise<void> {
+  const [u] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (!u) throw new Error("USER_NOT_FOUND");
+  const wd = toNum(u.withdrawableBalance);
+  if (wd < amount - 0.0001) throw new Error("INSUFFICIENT_PLATFORM_FEE_BALANCE");
+  const bonus = toNum(u.bonusBalance);
+  const nextWd = wd - amount;
+  const nextWallet = (bonus + nextWd).toFixed(2);
+  await tx
+    .update(usersTable)
+    .set({ withdrawableBalance: nextWd.toFixed(2), walletBalance: nextWallet })
+    .where(eq(usersTable.id, userId));
+  await tx.insert(transactionsTable).values({
+    userId,
+    txType: "p2p_escrow_lock",
+    amount: amount.toFixed(2),
+    status: "completed",
+    note,
+  });
+  await mirrorAvailableFromUser(tx, userId);
+}
+
 async function insertSystemMessage(tx: DbTx, orderId: number, body: string): Promise<void> {
   await tx.insert(p2pMessagesTable).values({
     orderId,
@@ -176,6 +204,7 @@ export async function getP2pSummary(userId: number): Promise<{
   walletBalance: number;
   escrowLockedUsdt: number;
   availableToSellUsdt: number;
+  platformFeePerCompletedOrder: number;
 }> {
   await expireStaleP2pOrders();
   const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
@@ -196,6 +225,7 @@ export async function getP2pSummary(userId: number): Promise<{
     escrowLockedUsdt: escrow,
     /** Withdrawable is already net of P2P locks (escrow debited from it). */
     availableToSellUsdt: wd,
+    platformFeePerCompletedOrder: P2P_PLATFORM_FEE_USDT,
   };
 }
 
@@ -511,11 +541,21 @@ export async function releaseP2pOrder(orderId: number, userId: number): Promise<
       "p2p_trade_credit",
       `P2P trade complete — order #${orderId}`,
     );
+    await debitWithdrawablePlatformFee(
+      tx,
+      o.sellerUserId,
+      P2P_PLATFORM_FEE_USDT,
+      `P2P platform fee — order #${orderId} completed`,
+    );
     await tx
       .update(p2pOrdersTable)
       .set({ status: "completed", completedAt: new Date() })
       .where(eq(p2pOrdersTable.id, orderId));
-    await insertSystemMessage(tx, orderId, "USDT released to buyer. Trade completed.");
+    await insertSystemMessage(
+      tx,
+      orderId,
+      `USDT released to buyer. Trade completed. Platform fee charged to seller: ${P2P_PLATFORM_FEE_USDT.toFixed(2)} USDT.`,
+    );
     await notifyUser(o.buyerUserId, "P2P: USDT received", `Order #${orderId} completed — ${amt.toFixed(2)} USDT credited.`, "p2p");
     emitP2pRealtime([
       { userId: o.buyerUserId, scope: "orders", orderId },
@@ -721,12 +761,22 @@ export async function adminResolveP2pAppealForBuyer(orderId: number): Promise<vo
       "p2p_trade_credit",
       `P2P order #${orderId} — admin released to buyer`,
     );
+    await debitWithdrawablePlatformFee(
+      tx,
+      o.sellerUserId,
+      P2P_PLATFORM_FEE_USDT,
+      `P2P platform fee — order #${orderId} completed`,
+    );
     await tx
       .update(p2pOrdersTable)
       .set({ status: "completed", completedAt: new Date() })
       .where(eq(p2pOrdersTable.id, orderId));
     await tx.update(p2pAppealsTable).set({ status: "resolved" }).where(eq(p2pAppealsTable.orderId, orderId));
-    await insertSystemMessage(tx, orderId, "Appeal resolved: USDT released to buyer.");
+    await insertSystemMessage(
+      tx,
+      orderId,
+      `Appeal resolved: USDT released to buyer. Platform fee charged to seller: ${P2P_PLATFORM_FEE_USDT.toFixed(2)} USDT.`,
+    );
     emitP2pRealtime([
       { userId: o.buyerUserId, scope: "orders", orderId },
       { userId: o.sellerUserId, scope: "orders", orderId },

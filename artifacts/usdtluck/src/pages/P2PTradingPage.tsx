@@ -132,6 +132,7 @@ export default function P2PTradingPage() {
   const [editAvailable, setEditAvailable] = useState("");
   const [editMethods, setEditMethods] = useState<PaymentMethod[]>([]);
   const [easyMode, setEasyMode] = useState(true);
+  const [chatPreset, setChatPreset] = useState("");
 
   const refreshAll = async () => {
     await Promise.all([
@@ -369,12 +370,13 @@ export default function P2PTradingPage() {
         <h1 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight">P2P Trading</h1>
         <Card className="border-primary/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">New user? Follow these 3 steps</CardTitle>
+            <CardTitle className="text-base">New user? Follow this simple flow</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-1 text-muted-foreground">
-            <p>1) Select an offer from Buy or Sell tab.</p>
-            <p>2) Enter amount, create order, then share payment proof in chat.</p>
-            <p>3) Buyer clicks "Mark as Paid", seller verifies payment, then clicks "Release USDT".</p>
+            <p>1) Pick a trusted offer from Buy or Sell tab.</p>
+            <p>2) Enter amount and create order (escrow locks seller USDT).</p>
+            <p>3) Buyer sends payment and clicks Mark as Paid.</p>
+            <p>4) Seller verifies payment and clicks Release USDT to complete.</p>
           </CardContent>
         </Card>
         <div className="rounded-xl border px-4 py-3 text-sm flex items-center justify-between gap-3">
@@ -396,6 +398,9 @@ export default function P2PTradingPage() {
         <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.08] px-4 py-3 text-sm flex items-center gap-2">
           <Shield className="h-4 w-4 text-amber-400" />
           Trade safely using escrow protection
+        </div>
+        <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/[0.08] px-4 py-3 text-sm">
+          Platform fee: <span className="font-semibold">1 USDT</span> is charged on every completed P2P order (seller side).
         </div>
         <div className="rounded-xl border border-destructive/20 bg-destructive/[0.06] px-4 py-3 text-sm flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
@@ -585,9 +590,9 @@ export default function P2PTradingPage() {
                     <p className="text-xs text-muted-foreground mb-1">Progress</p>
                     <div className="grid grid-cols-3 gap-2 text-[11px]">
                       {[
-                        { n: 1 as const, label: "Order Bana" },
-                        { n: 2 as const, label: "Payment Sent" },
-                        { n: 3 as const, label: "USDT Release" },
+                        { n: 1 as const, label: "Order Created" },
+                        { n: 2 as const, label: "Payment Marked" },
+                        { n: 3 as const, label: "USDT Released" },
                       ].map((step) => (
                         <div key={step.n} className={cn("rounded-md px-2 py-1 text-center border", progressStep(live.status) >= step.n ? "border-primary text-primary bg-primary/10" : "border-muted text-muted-foreground")}>
                           {step.label}
@@ -597,6 +602,9 @@ export default function P2PTradingPage() {
                   </div>
                   {(live.status === "pending_payment" || live.status === "paid") ? <p className="text-sm text-amber-400">Timer: {formatCountdown(live.paymentDeadlineAt - Date.now())}</p> : null}
                   <div className="text-sm">Amount: <strong>{live.usdtAmount} USDT</strong> · {live.fiatTotal.toFixed(2)} {live.fiatCurrency}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Completion fee: {summary?.platformFeePerCompletedOrder ?? 1} USDT charged to seller only.
+                  </p>
                   <div className="flex flex-wrap gap-1">{live.methods.map((m) => <Badge key={m} variant="secondary">{paymentMethodIcon(m)} {P2P_PAYMENT_LABELS[m]}</Badge>)}</div>
                   <div className="rounded-lg border p-3 text-xs space-y-1">
                     <p className="font-medium">Payment Details (Seller)</p>
@@ -624,10 +632,43 @@ export default function P2PTradingPage() {
                 {["completed", "cancelled", "expired"].includes(live.status) ? null : (
                   <>
                     <Textarea rows={2} value={chatText} onChange={(e) => setChatText(e.target.value)} placeholder="Message..." />
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-primary cursor-pointer">Attach<input type="file" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; try { setChatFileUrl(await uploadSingle(f)); } catch (er: any) { toast({ title: er?.message ?? "Upload failed", variant: "destructive" }); } }} /></label>
-                      <Button size="sm" className="ml-auto" onClick={() => chatMutation.mutate({ orderId: live.id, body: chatText, attachmentUrl: chatFileUrl ?? undefined })}>Send</Button>
+                    <div className="flex flex-wrap gap-1">
+                      {(
+                        live.myRole === "buyer"
+                          ? ["Payment sent. Please confirm.", "Sharing payment screenshot now.", "Please release once received."]
+                          : ["Checking payment now.", "Payment received. Releasing soon.", "Need more proof, please share screenshot."]
+                      ).map((p) => (
+                        <Button
+                          key={p}
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[10px]"
+                          onClick={() => {
+                            setChatPreset(p);
+                            setChatText((prev) => (prev.trim() ? `${prev}\n${p}` : p));
+                          }}
+                        >
+                          {p}
+                        </Button>
+                      ))}
                     </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-primary cursor-pointer">Attach proof<input type="file" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; try { setChatFileUrl(await uploadSingle(f)); } catch (er: any) { toast({ title: er?.message ?? "Upload failed", variant: "destructive" }); } }} /></label>
+                      <span className="text-[10px] text-muted-foreground truncate">{chatFileUrl ? "Attachment ready" : "No file"}</span>
+                      <Button
+                        size="sm"
+                        className="ml-auto"
+                        disabled={chatMutation.isPending || (!chatText.trim() && !chatFileUrl)}
+                        onClick={() => {
+                          chatMutation.mutate({ orderId: live.id, body: chatText, attachmentUrl: chatFileUrl ?? undefined });
+                          setChatPreset("");
+                        }}
+                      >
+                        {chatMutation.isPending ? "Sending..." : "Send"}
+                      </Button>
+                    </div>
+                    {chatPreset ? <p className="text-[10px] text-muted-foreground">Quick template used.</p> : null}
                   </>
                 )}
                 <div className="flex flex-wrap gap-2">
