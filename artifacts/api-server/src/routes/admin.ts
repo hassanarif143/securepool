@@ -2245,6 +2245,52 @@ router.patch("/rewards/config", async (req, res) => {
   res.json(next);
 });
 
+router.get("/games/settings", async (_req, res) => {
+  const [row] = await db.select().from(platformSettingsTable).where(eq(platformSettingsTable.id, 1)).limit(1);
+  res.json({
+    cashoutArenaEnabled: row?.cashoutArenaEnabled ?? true,
+    scratchCardEnabled: row?.scratchCardEnabled ?? true,
+  });
+});
+
+const PatchGamesSettings = z.object({
+  cashoutArenaEnabled: z.boolean().optional(),
+  scratchCardEnabled: z.boolean().optional(),
+});
+
+router.patch("/games/settings", async (req, res) => {
+  const parsed = PatchGamesSettings.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", message: parsed.error.message });
+    return;
+  }
+  const [current] = await db.select().from(platformSettingsTable).where(eq(platformSettingsTable.id, 1)).limit(1);
+  const next = {
+    cashoutArenaEnabled: parsed.data.cashoutArenaEnabled ?? (current?.cashoutArenaEnabled ?? true),
+    scratchCardEnabled: parsed.data.scratchCardEnabled ?? (current?.scratchCardEnabled ?? true),
+  };
+  await db
+    .insert(platformSettingsTable)
+    .values({
+      id: 1,
+      drawDesiredProfitUsdt: String(await getDrawDesiredProfitUsdt()),
+      rewardConfigJson: (await getRewardConfig()) as unknown as Record<string, unknown>,
+      cashoutArenaEnabled: next.cashoutArenaEnabled,
+      scratchCardEnabled: next.scratchCardEnabled,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: platformSettingsTable.id,
+      set: {
+        cashoutArenaEnabled: next.cashoutArenaEnabled,
+        scratchCardEnabled: next.scratchCardEnabled,
+        updatedAt: new Date(),
+      },
+    });
+  await logAction(getAdminId(req), "system", null, "update_game_settings", `Game toggles updated: arena=${next.cashoutArenaEnabled}, scratch=${next.scratchCardEnabled}`);
+  res.json(next);
+});
+
 router.post("/p2p/orders/:orderId/resolve-buyer", async (req, res) => {
   const orderId = parseInt(req.params.orderId, 10);
   if (Number.isNaN(orderId)) {

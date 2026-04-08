@@ -99,6 +99,7 @@ export default function AdminPage() {
           <TabsTrigger value="pools" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Pools</TabsTrigger>
           <TabsTrigger value="create" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Create</TabsTrigger>
           <TabsTrigger value="users" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Users</TabsTrigger>
+          <TabsTrigger value="games" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Games</TabsTrigger>
           <TabsTrigger value="transactions" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Txns</TabsTrigger>
           <TabsTrigger value="reviews" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Reviews</TabsTrigger>
           <TabsTrigger value="wallets" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Wallets</TabsTrigger>
@@ -111,6 +112,7 @@ export default function AdminPage() {
         <TabsContent value="pools"><PoolsTab /></TabsContent>
         <TabsContent value="create"><CreatePoolTab /></TabsContent>
         <TabsContent value="users"><UsersTab /></TabsContent>
+        <TabsContent value="games"><GamesTab /></TabsContent>
         <TabsContent value="transactions"><TransactionsTab /></TabsContent>
         <TabsContent value="reviews"><ReviewsTab /></TabsContent>
         <TabsContent value="wallets"><WalletRequestsTab /></TabsContent>
@@ -244,6 +246,99 @@ function NumberField({ label, value, onChange }: { label: string; value: number;
     <div>
       <Label className="text-xs text-muted-foreground mb-1.5 block">{label}</Label>
       <Input type="number" value={String(value ?? 0)} onChange={(e) => onChange(Number(e.target.value))} className="h-9" />
+    </div>
+  );
+}
+
+function GamesTab() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [cashoutArenaEnabled, setCashoutArenaEnabled] = useState(true);
+  const [scratchCardEnabled, setScratchCardEnabled] = useState(true);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch(apiUrl("/api/admin/games/settings"), { credentials: "include" });
+        if (!res.ok) throw new Error(await readApiErrorMessage(res));
+        const data = await res.json();
+        setCashoutArenaEnabled(data.cashoutArenaEnabled !== false);
+        setScratchCardEnabled(data.scratchCardEnabled !== false);
+      } catch (err: any) {
+        appToast.error({ title: "Failed to load game settings", description: err?.message });
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch(apiUrl("/api/admin/games/settings"), {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cashoutArenaEnabled, scratchCardEnabled }),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      appToast.success({ title: "Game controls updated" });
+    } catch (err: any) {
+      appToast.error({ title: "Save failed", description: err?.message });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <p className="text-muted-foreground py-8 text-center">Loading game controls…</p>;
+
+  return (
+    <div className="space-y-4 mt-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Global Game Controls</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Disable/enable entire games globally. Disabled games block all player API actions.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="rounded-lg border border-border/60 bg-muted/20 p-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Cashout Arena</p>
+              <p className="text-xs text-muted-foreground">Controls access to `/cashout-arena` gameplay APIs.</p>
+            </div>
+            <Button
+              type="button"
+              variant={cashoutArenaEnabled ? "default" : "outline"}
+              className="min-w-[120px]"
+              onClick={() => setCashoutArenaEnabled((v) => !v)}
+            >
+              {cashoutArenaEnabled ? "Enabled" : "Disabled"}
+            </Button>
+          </div>
+
+          <div className="rounded-lg border border-border/60 bg-muted/20 p-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Scratch Card</p>
+              <p className="text-xs text-muted-foreground">Controls access to `/scratch-card` gameplay APIs.</p>
+            </div>
+            <Button
+              type="button"
+              variant={scratchCardEnabled ? "default" : "outline"}
+              className="min-w-[120px]"
+              onClick={() => setScratchCardEnabled((v) => !v)}
+            >
+              {scratchCardEnabled ? "Enabled" : "Disabled"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button onClick={() => void save()} disabled={saving}>
+          {saving ? "Saving..." : "Save game controls"}
+        </Button>
+      </div>
     </div>
   );
 }

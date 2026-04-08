@@ -1,5 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
+import { db, platformSettingsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { getAuthedUserId, requireAuth, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
 import { cashoutBet, getCashoutArenaState, placeBet } from "../services/cashout-arena-service";
@@ -27,9 +29,15 @@ function mapErr(e: unknown): { status: number; error: string } {
     CASHOUT_BLOCKED: 400,
     BET_ALREADY_REFUNDED: 400,
     ARENA_DISABLED_FOR_USER: 403,
+    CASHOUT_ARENA_DISABLED: 503,
     CASHOUT_ARENA_NOT_READY: 503,
   };
   return { status: table[m] ?? 500, error: m };
+}
+
+async function assertArenaGloballyEnabled(): Promise<void> {
+  const [row] = await db.select().from(platformSettingsTable).where(eq(platformSettingsTable.id, 1)).limit(1);
+  if (row?.cashoutArenaEnabled === false) throw new Error("CASHOUT_ARENA_DISABLED");
 }
 
 router.get("/state", async (req, res) => {
@@ -37,6 +45,7 @@ router.get("/state", async (req, res) => {
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;
   try {
+    await assertArenaGloballyEnabled();
     const state = await getCashoutArenaState(userId);
     return res.json(state);
   } catch (e) {
@@ -60,6 +69,7 @@ router.post("/bet", async (req, res) => {
   const parsed = PlaceBetBody.safeParse(req.body ?? {});
   if (!parsed.success) return res.status(400).json({ error: "Invalid body", message: parsed.error.message });
   try {
+    await assertArenaGloballyEnabled();
     const out = await placeBet(userId, parsed.data);
     return res.status(201).json(out);
   } catch (e) {
@@ -75,6 +85,7 @@ router.post("/bets/:betId/cashout", async (req, res) => {
   const betId = parseInt(req.params.betId, 10);
   if (Number.isNaN(betId)) return res.status(400).json({ error: "Invalid bet" });
   try {
+    await assertArenaGloballyEnabled();
     const out = await cashoutBet(userId, betId);
     return res.json(out);
   } catch (e) {

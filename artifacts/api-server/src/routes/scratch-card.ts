@@ -1,5 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
+import { db, platformSettingsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { getAuthedUserId, requireAuth, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
 import { buyScratchCard, getScratchCardState, revealScratchBox } from "../services/scratch-card-service";
@@ -19,8 +21,14 @@ function mapErr(e: unknown): { status: number; error: string } {
     INVALID_BOX: 400,
     ALREADY_REVEALED: 400,
     SCRATCH_DISABLED_FOR_USER: 403,
+    SCRATCH_CARD_DISABLED: 503,
   };
   return { status: table[m] ?? 500, error: m };
+}
+
+async function assertScratchGloballyEnabled(): Promise<void> {
+  const [row] = await db.select().from(platformSettingsTable).where(eq(platformSettingsTable.id, 1)).limit(1);
+  if (row?.scratchCardEnabled === false) throw new Error("SCRATCH_CARD_DISABLED");
 }
 
 router.get("/state", async (req, res) => {
@@ -28,6 +36,7 @@ router.get("/state", async (req, res) => {
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;
   try {
+    await assertScratchGloballyEnabled();
     return res.json(await getScratchCardState(userId));
   } catch (e) {
     const { status, error } = mapErr(e);
@@ -49,6 +58,7 @@ router.post("/buy", async (req, res) => {
   const parsed = BuyBody.safeParse(req.body ?? {});
   if (!parsed.success) return res.status(400).json({ error: "Invalid body", message: parsed.error.message });
   try {
+    await assertScratchGloballyEnabled();
     return res.status(201).json(await buyScratchCard(userId, parsed.data));
   } catch (e) {
     const { status, error } = mapErr(e);
@@ -67,6 +77,7 @@ router.post("/cards/:cardId/reveal", async (req, res) => {
   const parsed = RevealBody.safeParse(req.body ?? {});
   if (!parsed.success) return res.status(400).json({ error: "Invalid body", message: parsed.error.message });
   try {
+    await assertScratchGloballyEnabled();
     return res.json(await revealScratchBox(userId, cardId, parsed.data.boxIndex));
   } catch (e) {
     const { status, error } = mapErr(e);
