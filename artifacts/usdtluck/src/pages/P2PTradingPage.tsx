@@ -13,6 +13,7 @@ import {
   fetchMyP2pOffers,
   fetchP2pOffers,
   fetchP2pOrders,
+  fetchP2pReferenceRate,
   fetchP2pSummary,
   markP2pPaidApi,
   postP2pMessageApi,
@@ -144,6 +145,11 @@ export default function P2PTradingPage() {
   };
 
   const { data: summary } = useQuery({ queryKey: ["p2p-summary"], queryFn: fetchP2pSummary, refetchInterval: 8000 });
+  const { data: referenceRate } = useQuery({
+    queryKey: ["p2p-reference-rate"],
+    queryFn: fetchP2pReferenceRate,
+    refetchInterval: 60_000,
+  });
   const { data: buyOffers = [] } = useQuery({
     queryKey: ["p2p-offers", "buy"],
     queryFn: () => fetchP2pOffers("buy"),
@@ -356,6 +362,20 @@ export default function P2PTradingPage() {
   const canSaveEditFinal = canSaveEdit;
   const activeMyOffers = myOffers.filter((o) => o.active);
   const archivedMyOffers = myOffers.filter((o) => !o.active);
+  const createPriceNum = Number(createPrice);
+  const createAvailableNum = Number(createAvailable);
+  const createFiatAtMarket = createAvailableNum > 0 && referenceRate ? createAvailableNum * referenceRate.usdtRate : 0;
+  const createRateDriftPct =
+    createPriceNum > 0 && referenceRate?.usdtRate
+      ? Math.abs(((createPriceNum - referenceRate.usdtRate) / referenceRate.usdtRate) * 100)
+      : 0;
+  const orderAmountNum = Number(orderAmount);
+  const offerFiatTotal = offerModal && Number.isFinite(orderAmountNum) ? orderAmountNum * offerModal.offer.pricePerUsdt : 0;
+  const marketFiatTotal = referenceRate && Number.isFinite(orderAmountNum) ? orderAmountNum * referenceRate.usdtRate : 0;
+  const orderRateDriftPct =
+    offerModal && referenceRate?.usdtRate
+      ? Math.abs(((offerModal.offer.pricePerUsdt - referenceRate.usdtRate) / referenceRate.usdtRate) * 100)
+      : 0;
 
   const toggleEditMethod = (m: PaymentMethod) => {
     setEditMethods((prev) => {
@@ -449,6 +469,19 @@ export default function P2PTradingPage() {
                 <Input type="number" value={createMax} onChange={(e) => setCreateMax(e.target.value)} placeholder="Max USDT" />
                 <Input type="number" value={createAvailable} onChange={(e) => setCreateAvailable(e.target.value)} placeholder="Available USDT" />
               </div>
+              <div className="rounded-lg border p-2 text-xs space-y-1 text-muted-foreground">
+                <p>
+                  Reference rate: <span className="font-medium text-foreground">{referenceRate?.usdtRate?.toFixed(2) ?? "--"} PKR/USDT</span>
+                  {" · "}
+                  Source: {referenceRate?.source ?? "--"}
+                </p>
+                <p>
+                  Est. fiat for available amount: <span className="font-medium text-foreground">{createFiatAtMarket.toFixed(2)} PKR</span>
+                </p>
+                {createRateDriftPct > 3 ? (
+                  <p className="text-amber-500">Your price is {createRateDriftPct.toFixed(2)}% away from market reference.</p>
+                ) : null}
+              </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium">Payment methods</p>
                 <div className="flex flex-wrap gap-2">
@@ -463,18 +496,28 @@ export default function P2PTradingPage() {
                 Payment details are auto-filled from Profile. Update them from Profile if needed.
               </p>
               <div className="flex justify-end">
-                <Button
-                  disabled={!canCreateOfferFinal || createOfferMutation.isPending}
-                  onClick={() => {
-                    if (!hasAnyProfilePaymentDetails((user?.p2pPaymentDetails as Record<string, string> | undefined) ?? {})) {
-                      toast({ title: "P2P payment details required", description: "Please add payment details from Profile page first.", variant: "destructive" });
-                      return;
-                    }
-                    createOfferMutation.mutate();
-                  }}
-                >
-                  {createOfferMutation.isPending ? "Creating..." : "Create Offer"}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    type="button"
+                    disabled={!referenceRate}
+                    onClick={() => setCreatePrice(referenceRate ? referenceRate.usdtRate.toFixed(2) : createPrice)}
+                  >
+                    Use Market Rate
+                  </Button>
+                  <Button
+                    disabled={!canCreateOfferFinal || createOfferMutation.isPending}
+                    onClick={() => {
+                      if (!hasAnyProfilePaymentDetails((user?.p2pPaymentDetails as Record<string, string> | undefined) ?? {})) {
+                        toast({ title: "P2P payment details required", description: "Please add payment details from Profile page first.", variant: "destructive" });
+                        return;
+                      }
+                      createOfferMutation.mutate();
+                    }}
+                  >
+                    {createOfferMutation.isPending ? "Creating..." : "Create Offer"}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -569,6 +612,20 @@ export default function P2PTradingPage() {
               <p className="text-xs text-muted-foreground">
                 Range {offerModal.offer.minUsdt} - {offerModal.offer.maxUsdt} · {offerModal.offer.pricePerUsdt} {offerModal.offer.fiatCurrency}/USDT
               </p>
+              <div className="rounded-lg border p-2 text-xs space-y-1 text-muted-foreground">
+                <p>
+                  Offer conversion: <span className="font-medium text-foreground">{offerFiatTotal.toFixed(2)} {offerModal.offer.fiatCurrency}</span>
+                </p>
+                <p>
+                  Market conversion (ref):{" "}
+                  <span className="font-medium text-foreground">{marketFiatTotal.toFixed(2)} {offerModal.offer.fiatCurrency}</span>
+                </p>
+                {orderRateDriftPct > 3 ? (
+                  <p className="text-amber-500">Offer rate is {orderRateDriftPct.toFixed(2)}% away from market reference.</p>
+                ) : (
+                  <p>Rate is close to market.</p>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">Tip: start with a small amount on your first trade.</p>
             </div>
           ) : null}

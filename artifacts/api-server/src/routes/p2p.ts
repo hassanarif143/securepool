@@ -7,6 +7,7 @@ import { assertEmailVerified } from "../middleware/require-email-verified";
 import { getUploadsDir } from "../paths";
 import {
   createP2pAppeal,
+  getP2pReferenceUsdtRate,
   createP2pOffer,
   createP2pOrderFromOffer,
   cancelP2pOrder,
@@ -92,6 +93,22 @@ router.get("/summary", async (req, res) => {
   try {
     const s = await getP2pSummary(userId);
     res.json(s);
+  } catch (e) {
+    const { status, error } = mapErr(e);
+    res.status(status).json({ error });
+  }
+});
+
+router.get("/reference-rate", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  if (!(await assertEmailVerified(res, userId))) return;
+  try {
+    const rate = await getP2pReferenceUsdtRate();
+    res.json(rate);
   } catch (e) {
     const { status, error } = mapErr(e);
     res.status(status).json({ error });

@@ -18,12 +18,58 @@ const PAYMENT_WINDOW_MS = 15 * 60 * 1000;
 const P2P_PLATFORM_FEE_USDT = 1;
 const p2pRealtimeBus = new EventEmitter();
 p2pRealtimeBus.setMaxListeners(200);
+const RATE_CACHE_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_USDT_PKR_RATE = 280;
+
+let cachedUsdtPkrRate: { rate: number; asOf: number; source: string } | null = null;
 
 export type P2pRealtimeEvent = {
   userId: number | null;
   scope: "orders" | "offers" | "summary";
   orderId?: number;
 };
+
+export async function getP2pReferenceUsdtRate(): Promise<{
+  fiatCurrency: "PKR";
+  usdtRate: number;
+  source: string;
+  asOf: number;
+}> {
+  const now = Date.now();
+  if (cachedUsdtPkrRate && now - cachedUsdtPkrRate.asOf < RATE_CACHE_TTL_MS) {
+    return {
+      fiatCurrency: "PKR",
+      usdtRate: cachedUsdtPkrRate.rate,
+      source: cachedUsdtPkrRate.source,
+      asOf: cachedUsdtPkrRate.asOf,
+    };
+  }
+
+  try {
+    const res = await fetch("https://open.er-api.com/v6/latest/USD");
+    if (res.ok) {
+      const data = (await res.json()) as { rates?: Record<string, unknown> };
+      const pkr = Number(data?.rates?.PKR);
+      if (Number.isFinite(pkr) && pkr > 10) {
+        cachedUsdtPkrRate = { rate: Math.round(pkr * 10000) / 10000, asOf: now, source: "open.er-api.com" };
+        return { fiatCurrency: "PKR", usdtRate: cachedUsdtPkrRate.rate, source: cachedUsdtPkrRate.source, asOf: now };
+      }
+    }
+  } catch {
+    // ignore upstream failures and fallback to local pricing.
+  }
+
+  const localRateRows = await db
+    .select({
+      avgRate: sql<string>`coalesce(avg(${p2pOffersTable.pricePerUsdt}::numeric), 0)`,
+    })
+    .from(p2pOffersTable)
+    .where(and(eq(p2pOffersTable.active, true), eq(p2pOffersTable.fiatCurrency, "PKR")));
+  const localAvg = toNum(localRateRows[0]?.avgRate);
+  const fallback = localAvg > 10 ? localAvg : DEFAULT_USDT_PKR_RATE;
+  cachedUsdtPkrRate = { rate: Math.round(fallback * 10000) / 10000, asOf: now, source: localAvg > 10 ? "local_market_avg" : "default_fallback" };
+  return { fiatCurrency: "PKR", usdtRate: cachedUsdtPkrRate.rate, source: cachedUsdtPkrRate.source, asOf: now };
+}
 
 function emitP2pRealtime(events: P2pRealtimeEvent[]): void {
   for (const ev of events) p2pRealtimeBus.emit("p2p-event", ev);

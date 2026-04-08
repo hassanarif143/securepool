@@ -8,6 +8,13 @@ export type P2pSummary = {
   platformFeePerCompletedOrder?: number;
 };
 
+export type P2pReferenceRate = {
+  fiatCurrency: "PKR";
+  usdtRate: number;
+  source: string;
+  asOf: number;
+};
+
 export type P2pLiveEvent = {
   userId: number | null;
   scope: "orders" | "offers" | "summary";
@@ -22,6 +29,11 @@ async function readJson<T>(res: Response): Promise<T> {
 export async function fetchP2pSummary(): Promise<P2pSummary> {
   const res = await fetch(apiUrl("/api/p2p/summary"), { credentials: "include" });
   return readJson<P2pSummary>(res);
+}
+
+export async function fetchP2pReferenceRate(): Promise<P2pReferenceRate> {
+  const res = await fetch(apiUrl("/api/p2p/reference-rate"), { credentials: "include" });
+  return readJson<P2pReferenceRate>(res);
 }
 
 export async function fetchP2pOffers(side: "buy" | "sell"): Promise<P2POffer[]> {
