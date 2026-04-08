@@ -216,6 +216,11 @@ export default function ProfilePage() {
   const queryClient = useQueryClient();
 
   const [name, setName] = useState(user?.name ?? "");
+  const [p2pBankName, setP2pBankName] = useState(user?.p2pPaymentDetails?.bankName ?? "");
+  const [p2pAccountTitle, setP2pAccountTitle] = useState(user?.p2pPaymentDetails?.accountTitle ?? "");
+  const [p2pIban, setP2pIban] = useState(user?.p2pPaymentDetails?.ibanOrAccount ?? "");
+  const [p2pEasypaisa, setP2pEasypaisa] = useState(user?.p2pPaymentDetails?.easypaisa ?? "");
+  const [p2pJazzcash, setP2pJazzcash] = useState(user?.p2pPaymentDetails?.jazzcash ?? "");
   const [saving, setSaving] = useState(false);
   const [walletInfo, setWalletInfo] = useState<WalletApi | null>(null);
   const [walletLoading, setWalletLoading] = useState(true);
@@ -260,6 +265,14 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (user) setName(user.name);
+  }, [user]);
+  useEffect(() => {
+    if (!user) return;
+    setP2pBankName(user.p2pPaymentDetails?.bankName ?? "");
+    setP2pAccountTitle(user.p2pPaymentDetails?.accountTitle ?? "");
+    setP2pIban(user.p2pPaymentDetails?.ibanOrAccount ?? "");
+    setP2pEasypaisa(user.p2pPaymentDetails?.easypaisa ?? "");
+    setP2pJazzcash(user.p2pPaymentDetails?.jazzcash ?? "");
   }, [user]);
 
   const [hasLuckyBadge, setHasLuckyBadge] = useState(false);
@@ -307,11 +320,25 @@ export default function ProfilePage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({
+          name,
+          p2pPaymentDetails: {
+            bankName: p2pBankName,
+            accountTitle: p2pAccountTitle,
+            ibanOrAccount: p2pIban,
+            easypaisa: p2pEasypaisa,
+            jazzcash: p2pJazzcash,
+          },
+        }),
       });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
       const updated = await res.json();
-      setUser({ ...currentUser, name: updated.name, cryptoAddress: updated.cryptoAddress });
+      setUser({
+        ...currentUser,
+        name: updated.name,
+        cryptoAddress: updated.cryptoAddress,
+        p2pPaymentDetails: updated.p2pPaymentDetails ?? currentUser.p2pPaymentDetails ?? {},
+      });
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       toast({ title: "Profile updated", description: "Your details have been saved." });
     } catch (e: unknown) {
@@ -535,7 +562,7 @@ export default function ProfilePage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Account Information</CardTitle>
-          <CardDescription>Update your display name</CardDescription>
+          <CardDescription>Update your profile and P2P payment details</CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
           <form onSubmit={handleSave} className="space-y-4">
@@ -554,6 +581,20 @@ export default function ProfilePage() {
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
               <Input id="email" value={currentUser.email} disabled className="opacity-60" />
+            </div>
+
+            <div className="rounded-lg border p-3 space-y-3">
+              <p className="text-sm font-medium">P2P Payment Details (required for P2P)</p>
+              <div className="grid sm:grid-cols-3 gap-2">
+                <Input value={p2pBankName} onChange={(e) => setP2pBankName(e.target.value)} placeholder="Bank name" />
+                <Input value={p2pAccountTitle} onChange={(e) => setP2pAccountTitle(e.target.value)} placeholder="Account title" />
+                <Input value={p2pIban} onChange={(e) => setP2pIban(e.target.value)} placeholder="IBAN / Account no" />
+              </div>
+              <div className="grid sm:grid-cols-2 gap-2">
+                <Input value={p2pEasypaisa} onChange={(e) => setP2pEasypaisa(e.target.value)} placeholder="Easypaisa number" />
+                <Input value={p2pJazzcash} onChange={(e) => setP2pJazzcash(e.target.value)} placeholder="JazzCash number" />
+              </div>
+              <p className="text-xs text-muted-foreground">Tip: P2P order/place offer se pehle ye details save zaroor karein.</p>
             </div>
 
             <Button type="submit" disabled={saving} className="w-full">

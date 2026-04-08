@@ -57,6 +57,16 @@ export const usersTable = pgTable("users", {
   firstWinAt: timestamp("first_win_at", { withTimezone: true }),
   lastWinAt: timestamp("last_win_at", { withTimezone: true }),
   winCount7d: integer("win_count_7d").notNull().default(0),
+  p2pPaymentDetails: jsonb("p2p_payment_details")
+    .$type<{
+      bankName?: string;
+      accountTitle?: string;
+      ibanOrAccount?: string;
+      easypaisa?: string;
+      jazzcash?: string;
+    }>()
+    .notNull()
+    .default({}),
 });
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({

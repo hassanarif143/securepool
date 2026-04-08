@@ -33,6 +33,13 @@ interface UserType {
   totalWins?: number;
   firstWinAt?: string | null;
   emailVerified?: boolean;
+  p2pPaymentDetails?: {
+    bankName?: string;
+    accountTitle?: string;
+    ibanOrAccount?: string;
+    easypaisa?: string;
+    jazzcash?: string;
+  };
 }
 
 interface AuthContextType {

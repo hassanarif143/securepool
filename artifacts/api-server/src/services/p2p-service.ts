@@ -45,6 +45,23 @@ function sanitizeChatBody(text: string): string {
   return text.replace(/https?:\/\/\S+/gi, "[external link removed]").trim();
 }
 
+function hasAnyP2pPaymentDetails(details: Record<string, string> | null | undefined): boolean {
+  if (!details) return false;
+  return Object.values(details).some((v) => String(v ?? "").trim().length > 0);
+}
+
+function hasRequiredMethodDetails(methods: string[], details: Record<string, string>): boolean {
+  const needsBank = methods.includes("bank");
+  const needsEp = methods.includes("easypaisa");
+  const needsJc = methods.includes("jazzcash");
+  if (needsBank) {
+    if (!details.bankName?.trim() || !details.accountTitle?.trim() || !details.ibanOrAccount?.trim()) return false;
+  }
+  if (needsEp && !details.easypaisa?.trim()) return false;
+  if (needsJc && !details.jazzcash?.trim()) return false;
+  return true;
+}
+
 async function creditWithdrawable(
   tx: DbTx,
   userId: number,
@@ -272,6 +289,13 @@ export async function createP2pOffer(
   if (!Number.isFinite(body.maxUsdt) || body.maxUsdt < body.minUsdt) throw new Error("INVALID_MAX");
   if (!Number.isFinite(body.availableUsdt) || body.availableUsdt < body.minUsdt) throw new Error("INVALID_AVAILABLE");
   if (!Array.isArray(body.methods) || body.methods.length === 0) throw new Error("INVALID_METHODS");
+  const [u] = await db
+    .select({ p2pPaymentDetails: usersTable.p2pPaymentDetails })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  const profileDetails = (u?.p2pPaymentDetails as Record<string, string> | undefined) ?? {};
+  if (!hasRequiredMethodDetails(body.methods, profileDetails)) throw new Error("P2P_PAYMENT_DETAILS_REQUIRED");
 
   const [row] = await db
     .insert(p2pOffersTable)
@@ -284,7 +308,7 @@ export async function createP2pOffer(
       maxUsdt: body.maxUsdt.toFixed(2),
       availableUsdt: body.availableUsdt.toFixed(2),
       methods: body.methods,
-      paymentDetails: body.paymentDetails,
+      paymentDetails: profileDetails,
       responseTimeLabel: body.responseTimeLabel,
     })
     .returning({ id: p2pOffersTable.id });
@@ -383,6 +407,14 @@ export async function createP2pOrderFromOffer(
       sellerId = currentUserId;
     }
     if (buyerId === sellerId) throw new Error("SELF_TRADE");
+    const [actor] = await tx
+      .select({ p2pPaymentDetails: usersTable.p2pPaymentDetails })
+      .from(usersTable)
+      .where(eq(usersTable.id, currentUserId))
+      .limit(1);
+    if (!hasAnyP2pPaymentDetails((actor?.p2pPaymentDetails as Record<string, string> | undefined) ?? {})) {
+      throw new Error("P2P_PAYMENT_DETAILS_REQUIRED");
+    }
 
     const price = toNum(offer.pricePerUsdt);
     const fiatTotal = Math.round(usdtAmount * price * 100) / 100;

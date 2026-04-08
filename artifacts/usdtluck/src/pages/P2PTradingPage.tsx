@@ -58,6 +58,11 @@ function quickAmountOptions(minUsdt: number, maxUsdt: number): number[] {
   return base.filter((x) => x >= Math.ceil(minUsdt) && x <= Math.floor(maxUsdt));
 }
 
+function hasAnyProfilePaymentDetails(details: Record<string, string> | undefined): boolean {
+  if (!details) return false;
+  return Object.values(details).some((v) => String(v ?? "").trim().length > 0);
+}
+
 function statusLabel(s: P2POrder["status"]) {
   if (s === "pending_payment") return "Pending payment";
   if (s === "paid") return "Paid";
@@ -333,6 +338,10 @@ export default function P2PTradingPage() {
 
   const onCreateOrder = () => {
     if (!offerModal) return;
+    if (!hasAnyProfilePaymentDetails((user?.p2pPaymentDetails as Record<string, string> | undefined) ?? {})) {
+      toast({ title: "P2P payment details required", description: "Please add your payment details in Profile first.", variant: "destructive" });
+      return;
+    }
     const amt = Number(orderAmount);
     if (!Number.isFinite(amt) || amt < offerModal.offer.minUsdt || amt > offerModal.offer.maxUsdt) {
       toast({ title: "Invalid amount", variant: "destructive" });
@@ -490,7 +499,16 @@ export default function P2PTradingPage() {
               {createMethods.includes("jazzcash") ? <Input value={createJazzcash} onChange={(e) => setCreateJazzcash(e.target.value)} placeholder="JazzCash number" /> : null}
               {!hasCreatePaymentDetails ? <p className="text-xs text-amber-500">Selected method ke liye required payment details poori karein.</p> : null}
               <div className="flex justify-end">
-                <Button disabled={!canCreateOfferFinal || createOfferMutation.isPending} onClick={() => createOfferMutation.mutate()}>
+                <Button
+                  disabled={!canCreateOfferFinal || createOfferMutation.isPending}
+                  onClick={() => {
+                    if (!hasAnyProfilePaymentDetails((user?.p2pPaymentDetails as Record<string, string> | undefined) ?? {})) {
+                      toast({ title: "P2P payment details required", description: "Please add payment details from Profile page first.", variant: "destructive" });
+                      return;
+                    }
+                    createOfferMutation.mutate();
+                  }}
+                >
                   {createOfferMutation.isPending ? "Creating..." : "Create Offer"}
                 </Button>
               </div>
@@ -626,6 +644,15 @@ export default function P2PTradingPage() {
                   {(live.status === "pending_payment" || live.status === "paid") ? <p className="text-sm text-amber-400">Timer: {formatCountdown(live.paymentDeadlineAt - Date.now())}</p> : null}
                   <div className="text-sm">Amount: <strong>{live.usdtAmount} USDT</strong> · {live.fiatTotal.toFixed(2)} {live.fiatCurrency}</div>
                   <div className="flex flex-wrap gap-1">{live.methods.map((m) => <Badge key={m} variant="secondary">{paymentMethodIcon(m)} {P2P_PAYMENT_LABELS[m]}</Badge>)}</div>
+                  <div className="rounded-lg border p-3 text-xs space-y-1">
+                    <p className="font-medium">Payment Details (Seller)</p>
+                    {live.paymentDetails.bankName ? <p>Bank: {live.paymentDetails.bankName}</p> : null}
+                    {live.paymentDetails.accountTitle ? <p>A/C Title: {live.paymentDetails.accountTitle}</p> : null}
+                    {live.paymentDetails.ibanOrAccount ? <p>IBAN/A/C: {live.paymentDetails.ibanOrAccount}</p> : null}
+                    {live.paymentDetails.easypaisa ? <p>Easypaisa: {live.paymentDetails.easypaisa}</p> : null}
+                    {live.paymentDetails.jazzcash ? <p>JazzCash: {live.paymentDetails.jazzcash}</p> : null}
+                    {Object.values(live.paymentDetails).filter(Boolean).length === 0 ? <p className="text-muted-foreground">No payment detail provided.</p> : null}
+                  </div>
                   {live.appeal ? <div className="rounded-lg border p-3 text-sm"><Sparkles className="h-4 w-4 inline mr-1" /> Appeal {live.appeal.status}</div> : null}
                   <div className="space-y-2 rounded-lg border p-2">
                     <p className="text-sm font-medium flex items-center gap-1"><MessageCircle className="h-4 w-4" /> Chat</p>

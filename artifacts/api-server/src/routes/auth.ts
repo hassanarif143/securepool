@@ -502,7 +502,8 @@ router.get("/me", async (req, res) => {
               COALESCE(pool_vip_tier, 'bronze') AS pool_vip_tier,
               COALESCE(total_wins, 0)::int AS total_wins,
               first_win_at,
-              COALESCE(email_verified, true) AS email_verified
+              COALESCE(email_verified, true) AS email_verified,
+              COALESCE(p2p_payment_details, '{}'::jsonb) AS p2p_payment_details
        FROM users WHERE id = $1 LIMIT 1`,
       [userId],
     );
@@ -525,6 +526,7 @@ router.get("/me", async (req, res) => {
       total_wins: 0,
       first_win_at: null,
       email_verified: true,
+      p2p_payment_details: {},
     }));
   }
 
@@ -576,6 +578,7 @@ router.get("/me", async (req, res) => {
       (user as { first_win_at?: Date | null }).first_win_at instanceof Date
         ? ((user as { first_win_at: Date }).first_win_at.toISOString?.() ?? null)
         : (user as { first_win_at?: string | null }).first_win_at ?? null,
+    p2pPaymentDetails: ((user as { p2p_payment_details?: Record<string, string> }).p2p_payment_details ?? {}) as Record<string, string>,
   });
 });
 

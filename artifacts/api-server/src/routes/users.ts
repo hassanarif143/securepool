@@ -12,6 +12,15 @@ const UpdateUserBodySchema = z.object({
   name: z.string().min(2).optional(),
   phone: z.string().min(8).max(20).regex(/^[0-9+\-\s()]+$/).optional(),
   city: z.string().min(2).max(80).optional(),
+  p2pPaymentDetails: z
+    .object({
+      bankName: z.string().max(120).optional(),
+      accountTitle: z.string().max(120).optional(),
+      ibanOrAccount: z.string().max(120).optional(),
+      easypaisa: z.string().max(40).optional(),
+      jazzcash: z.string().max(40).optional(),
+    })
+    .optional(),
 });
 
 const userPublicCols = {
@@ -22,6 +31,7 @@ const userPublicCols = {
   city: usersTable.city,
   walletBalance: usersTable.walletBalance,
   cryptoAddress: usersTable.cryptoAddress,
+  p2pPaymentDetails: usersTable.p2pPaymentDetails,
   isAdmin: usersTable.isAdmin,
   joinedAt: usersTable.joinedAt,
 } as const;
@@ -41,6 +51,7 @@ router.get("/:userId", async (req, res) => {
     city: user.city ?? null,
     walletBalance: parseFloat(user.walletBalance),
     cryptoAddress: user.cryptoAddress ?? null,
+    p2pPaymentDetails: (user.p2pPaymentDetails as Record<string, string> | null) ?? {},
     isAdmin: user.isAdmin,
     joinedAt: user.joinedAt,
   });
@@ -67,6 +78,15 @@ router.patch("/:userId", async (req, res) => {
   if (parse.data.name !== undefined) updates.name = sanitizeText(parse.data.name, 80);
   if (parse.data.phone !== undefined) updates.phone = sanitizeText(parse.data.phone, 20);
   if (parse.data.city !== undefined) updates.city = sanitizeText(parse.data.city, 80);
+  if (parse.data.p2pPaymentDetails !== undefined) {
+    updates.p2pPaymentDetails = {
+      bankName: sanitizeText(parse.data.p2pPaymentDetails.bankName ?? "", 120),
+      accountTitle: sanitizeText(parse.data.p2pPaymentDetails.accountTitle ?? "", 120),
+      ibanOrAccount: sanitizeText(parse.data.p2pPaymentDetails.ibanOrAccount ?? "", 120),
+      easypaisa: sanitizeText(parse.data.p2pPaymentDetails.easypaisa ?? "", 40),
+      jazzcash: sanitizeText(parse.data.p2pPaymentDetails.jazzcash ?? "", 40),
+    };
+  }
 
   const [user] = await db
     .update(usersTable)
@@ -83,6 +103,7 @@ router.patch("/:userId", async (req, res) => {
     city: user.city ?? null,
     walletBalance: parseFloat(user.walletBalance),
     cryptoAddress: user.cryptoAddress ?? null,
+    p2pPaymentDetails: (user.p2pPaymentDetails as Record<string, string> | null) ?? {},
     isAdmin: user.isAdmin,
     joinedAt: user.joinedAt,
   });

@@ -75,6 +75,7 @@ function mapErr(e: unknown): { status: number; error: string } {
     CHAT_CLOSED: 400,
     EMPTY_APPEAL: 400,
     APPEAL_EXISTS: 400,
+    P2P_PAYMENT_DETAILS_REQUIRED: 400,
     NO_FIELDS: 400,
   };
   return { status: table[m] ?? 500, error: m };
