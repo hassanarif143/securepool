@@ -18,15 +18,6 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
   const noTimeLimit = new Date(pool.endTime).getUTCFullYear() >= 2099;
   const showRevealState = (status === "open" || status === "closed") && isFull;
   const wc = poolWinnerCount(pool);
-  const ext = pool as unknown as {
-    totalPoolAmount?: number;
-    platformFeeAmount?: number;
-    prizePoolAmount?: number;
-    poolType?: "small" | "large";
-  };
-  const totalPool = Number(ext.totalPoolAmount ?? (pool.entryFee * pool.maxUsers));
-  const platformFee = Number(ext.platformFeeAmount ?? 0);
-  const prizePool = Number(ext.prizePoolAmount ?? Math.max(0, totalPool - platformFee));
 
   return (
     <div
@@ -93,27 +84,6 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
           ) : (
             <CountdownTimer endTime={status === "upcoming" ? pool.startTime : pool.endTime} variant="fomo" className="w-full" />
           ))}
-
-        <div className="rounded-xl bg-black/25 border border-white/5 px-3 py-3">
-          <p className="text-[11px] text-muted-foreground mb-2">Trust Breakdown</p>
-          <div className="grid grid-cols-3 gap-2 text-[11px]">
-            <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
-              <p className="text-muted-foreground">Total Pool</p>
-              <p className="font-semibold tabular-nums">{totalPool.toFixed(2)}</p>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
-              <p className="text-muted-foreground">Platform Fee</p>
-              <p className="font-semibold tabular-nums">{platformFee.toFixed(2)}</p>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
-              <p className="text-muted-foreground">Prize Pool</p>
-              <p className="font-semibold tabular-nums">{prizePool.toFixed(2)}</p>
-            </div>
-          </div>
-          <p className="text-[10px] text-muted-foreground mt-2 capitalize">
-            Pool type: {ext.poolType ?? "small"}
-          </p>
-        </div>
 
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-[11px] text-muted-foreground">

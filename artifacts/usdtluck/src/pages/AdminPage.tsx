@@ -1624,6 +1624,22 @@ function CreatePoolTab() {
   });
   const [submitted, setSubmitted] = useState(false);
   const [factoryLoading, setFactoryLoading] = useState<null | "small" | "large" | "delete" | "upcoming" | "activate">(null);
+  const [factoryReview, setFactoryReview] = useState<{
+    kind: "small" | "large" | "upcoming";
+    endpoint: string;
+    title: string;
+    items: Array<{
+      title: string;
+      entryFee: number;
+      maxMembers: number;
+      winners: number;
+      platformFeeAmount: number;
+      totalPoolAmount: number;
+      prizePoolAmount: number;
+      prizes: number[];
+    }>;
+    totals: { pools: number; totalPoolAmount: number; totalPlatformFeeAmount: number; totalPrizePoolAmount: number };
+  } | null>(null);
 
   function setDuration(days: number) {
     const start = new Date();
@@ -1751,9 +1767,9 @@ function CreatePoolTab() {
     kind: "small" | "large" | "delete" | "upcoming" | "activate",
     endpoint: string,
     successTitle: string,
-    confirmText: string,
   ) {
-    if (!window.confirm(confirmText)) return;
+    if (kind === "delete" && !window.confirm("Delete all non-completed pools and refund participants?")) return;
+    if (kind === "activate" && !window.confirm("Activate all due upcoming pools now?")) return;
     setFactoryLoading(kind);
     try {
       const res = await fetch(apiUrl(endpoint), { method: "POST", credentials: "include" });
@@ -1768,22 +1784,83 @@ function CreatePoolTab() {
     }
   }
 
+  async function openFactoryReview(kind: "small" | "large" | "upcoming", endpoint: string, title: string) {
+    setFactoryLoading(kind);
+    try {
+      const res = await fetch(apiUrl(`/api/admin/pool-factory/preview?type=${kind}`), { credentials: "include" });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      const preview = await res.json();
+      setFactoryReview({
+        kind,
+        endpoint,
+        title,
+        items: preview.items ?? [],
+        totals: preview.totals ?? { pools: 0, totalPoolAmount: 0, totalPlatformFeeAmount: 0, totalPrizePoolAmount: 0 },
+      });
+    } catch (err: any) {
+      toast({ title: "Preview failed", description: err?.message ?? "Failed to load preview", variant: "destructive" });
+    } finally {
+      setFactoryLoading(null);
+    }
+  }
+
   return (
     <div className="mt-4">
+      <Dialog open={factoryReview != null} onOpenChange={(o) => !o && setFactoryReview(null)}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{factoryReview?.title ?? "Factory Review"}</DialogTitle>
+            <DialogDescription>
+              Verify full profit/prize breakdown before publishing pools.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="rounded-lg border p-2"><p className="text-muted-foreground">Pools</p><p className="font-semibold">{factoryReview?.totals.pools ?? 0}</p></div>
+              <div className="rounded-lg border p-2"><p className="text-muted-foreground">Total Pool</p><p className="font-semibold">{(factoryReview?.totals.totalPoolAmount ?? 0).toFixed(2)}</p></div>
+              <div className="rounded-lg border p-2"><p className="text-muted-foreground">Platform Fee</p><p className="font-semibold text-emerald-500">{(factoryReview?.totals.totalPlatformFeeAmount ?? 0).toFixed(2)}</p></div>
+              <div className="rounded-lg border p-2"><p className="text-muted-foreground">Prize Pool</p><p className="font-semibold">{(factoryReview?.totals.totalPrizePoolAmount ?? 0).toFixed(2)}</p></div>
+            </div>
+            <div className="space-y-2">
+              {(factoryReview?.items ?? []).map((item) => (
+                <div key={item.title} className="rounded-lg border p-2 text-xs">
+                  <p className="font-semibold">{item.title}</p>
+                  <p className="text-muted-foreground mt-1">
+                    Entry {item.entryFee} · Members {item.maxMembers} · Winners {item.winners} · Fee {item.platformFeeAmount.toFixed(2)} · Prize {item.prizePoolAmount.toFixed(2)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFactoryReview(null)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (!factoryReview) return;
+                setFactoryReview(null);
+                void runFactoryAction(factoryReview.kind, factoryReview.endpoint, `${factoryReview.title} published`);
+              }}
+            >
+              Verify & Publish
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="mb-4 rounded-2xl p-4 space-y-3" style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}>
         <p className="text-sm font-semibold">Pool Factory Dashboard</p>
         <p className="text-xs text-muted-foreground">One-click generation for small and large pools with transparent fee and prize logic.</p>
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-2">
           <Button
             type="button"
-            onClick={() => void runFactoryAction("small", "/api/admin/pool-factory/generate-small", "Small pools created", "Generate small pools now?")}
+            onClick={() => void openFactoryReview("small", "/api/admin/pool-factory/generate-small", "Generate Small Pools")}
             disabled={factoryLoading !== null}
           >
             {factoryLoading === "small" ? "Generating..." : "Generate Small Pools"}
           </Button>
           <Button
             type="button"
-            onClick={() => void runFactoryAction("large", "/api/admin/pool-factory/generate-large", "Large pools created", "Generate large pools now?")}
+            onClick={() => void openFactoryReview("large", "/api/admin/pool-factory/generate-large", "Generate Large Pools")}
             disabled={factoryLoading !== null}
             variant="outline"
           >
@@ -1791,7 +1868,7 @@ function CreatePoolTab() {
           </Button>
           <Button
             type="button"
-            onClick={() => void runFactoryAction("upcoming", "/api/admin/pool-factory/create-upcoming", "Upcoming pools created", "Create upcoming small + large pools?")}
+            onClick={() => void openFactoryReview("upcoming", "/api/admin/pool-factory/create-upcoming", "Create Upcoming Pools")}
             disabled={factoryLoading !== null}
             variant="outline"
           >
@@ -1799,7 +1876,7 @@ function CreatePoolTab() {
           </Button>
           <Button
             type="button"
-            onClick={() => void runFactoryAction("activate", "/api/admin/pool-factory/activate-upcoming", "Upcoming pools activated", "Activate all due upcoming pools now?")}
+            onClick={() => void runFactoryAction("activate", "/api/admin/pool-factory/activate-upcoming", "Upcoming pools activated")}
             disabled={factoryLoading !== null}
             variant="outline"
           >
@@ -1807,7 +1884,7 @@ function CreatePoolTab() {
           </Button>
           <Button
             type="button"
-            onClick={() => void runFactoryAction("delete", "/api/admin/pool-factory/delete-all", "Pools deleted", "Delete all non-completed pools and refund participants?")}
+            onClick={() => void runFactoryAction("delete", "/api/admin/pool-factory/delete-all", "Pools deleted")}
             disabled={factoryLoading !== null}
             variant="destructive"
           >

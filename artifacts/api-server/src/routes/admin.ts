@@ -795,7 +795,7 @@ function computePerTicketFeeFromMode(ticketPrice: number, mode?: "fixed" | "perc
   return Math.min(ticketPrice, Math.max(0, value));
 }
 
-const MIN_POOL_PLATFORM_FEE_TOTAL_USDT = 1;
+const MIN_POOL_PLATFORM_FEE_TOTAL_USDT = 0.5;
 const MIN_PLATFORM_FEE_PER_JOIN_USDT = 0.01;
 
 function ensurePositivePlatformFeePerJoin(ticketPrice: number, totalTickets: number, rawFeePerJoin: number): number {
@@ -884,6 +884,50 @@ function buildFactoryMath(bp: FactoryBlueprint) {
   const prizes = normalizePrizePlanForProfit(bp.winners, [desired[0] ?? 0, desired[1] ?? 0, desired[2] ?? 0], prizePool);
   return { totalPool, feeAmount, prizePool, prizes, platformFeePerJoin };
 }
+
+function buildFactoryPreview(type: "small" | "large" | "upcoming") {
+  const blueprints =
+    type === "small"
+      ? buildSmallFactoryBlueprints("open")
+      : type === "large"
+        ? buildLargeFactoryBlueprints("open")
+        : [...buildSmallFactoryBlueprints("upcoming"), ...buildLargeFactoryBlueprints("upcoming")];
+  const items = blueprints.map((bp) => {
+    const m = buildFactoryMath(bp);
+    return {
+      title: bp.title,
+      poolType: bp.poolType,
+      status: bp.status,
+      entryFee: bp.entryFee,
+      maxMembers: bp.maxMembers,
+      winners: bp.winners,
+      platformFeePerJoin: m.platformFeePerJoin,
+      totalPoolAmount: m.totalPool,
+      platformFeeAmount: m.feeAmount,
+      prizePoolAmount: m.prizePool,
+      prizes: m.prizes,
+      prizeDistribution: bp.distribution,
+      startsAfterMinutes: bp.startsAfterMinutes ?? 0,
+    };
+  });
+  return {
+    type,
+    items,
+    totals: {
+      pools: items.length,
+      totalPoolAmount: round2(items.reduce((a, x) => a + x.totalPoolAmount, 0)),
+      totalPlatformFeeAmount: round2(items.reduce((a, x) => a + x.platformFeeAmount, 0)),
+      totalPrizePoolAmount: round2(items.reduce((a, x) => a + x.prizePoolAmount, 0)),
+    },
+  };
+}
+
+router.get("/pool-factory/preview", async (req, res) => {
+  const raw = String(req.query.type ?? "small");
+  const type: "small" | "large" | "upcoming" =
+    raw === "large" ? "large" : raw === "upcoming" ? "upcoming" : "small";
+  res.json(buildFactoryPreview(type));
+});
 
 function buildSmallFactoryBlueprints(mode: "open" | "upcoming"): FactoryBlueprint[] {
   return [
