@@ -51,6 +51,7 @@ export default function CashoutArenaPage() {
   const [roundsPlayed, setRoundsPlayed] = useState(0);
   const prevMultiplierRef = useRef(1);
   const [bigWinFlash, setBigWinFlash] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   const streakGoal = 5;
   const missionGoal = 8;
@@ -71,9 +72,14 @@ export default function CashoutArenaPage() {
         slowMotion,
         doubleBoost,
       }),
-    onSuccess: async () => {
+    onSuccess: async (d) => {
       await queryClient.invalidateQueries({ queryKey: ["cashout-arena-state"] });
-      toast({ title: "Bet locked", description: "Round started. Cash out before crash." });
+      toast({
+        title: "Bet locked",
+        description: d.onboardingMode
+          ? `Onboarding round active. ${d.onboardingRoundsLeft} guided round(s) left.`
+          : "Round started. Cash out before crash.",
+      });
       setRoundsPlayed((x) => x + 1);
     },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
@@ -119,6 +125,8 @@ export default function CashoutArenaPage() {
   });
 
   useEffect(() => {
+    const seen = localStorage.getItem("cashout:guide-seen") === "1";
+    setShowGuide(!seen);
     const s = Number(localStorage.getItem("cashout:daily-streak") ?? "0");
     setStreakCount(Number.isFinite(s) ? s : 0);
     const rp = Number(localStorage.getItem("cashout:rounds-played") ?? "0");
@@ -232,6 +240,7 @@ export default function CashoutArenaPage() {
   }, [data?.history]);
   const missionProgressPct = Math.min(100, (roundsPlayed / missionGoal) * 100);
   const streakPct = Math.min(100, (streakCount / streakGoal) * 100);
+  const showAutoHint = (data?.round.multiplier ?? 1) >= 1.8 && Number(autoCashoutAt || "0") <= 0;
   const confettiBits = useMemo(
     () =>
       new Array(18).fill(0).map((_, i) => ({
@@ -268,6 +277,30 @@ export default function CashoutArenaPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+      {showGuide ? (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">How to play (quick start)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p>1) Stake select karein (1-5 USDT).</p>
+            <p>2) Round start hone ke baad crash se pehle Cash Out click karein.</p>
+            <p>3) Time par cashout kiya to win, miss hua to lose.</p>
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <p className="text-xs text-muted-foreground">Tip: pehli rounds me 1.3x-1.8x auto cashout safer hota hai.</p>
+              <Button
+                size="sm"
+                onClick={() => {
+                  localStorage.setItem("cashout:guide-seen", "1");
+                  setShowGuide(false);
+                }}
+              >
+                Got it
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight">Smart Cashout Arena</h1>
@@ -407,6 +440,11 @@ export default function CashoutArenaPage() {
             <div className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 p-2 text-xs">
               Auto preview payout: <strong>{autoPreviewPayout != null ? `${autoPreviewPayout.toFixed(2)} USDT` : "set auto cashout"}</strong>
             </div>
+            {showAutoHint ? (
+              <p className="text-xs text-amber-300 rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-1">
+                Risk zone me enter ho gaye. Auto cashout set karna safer rahega.
+              </p>
+            ) : null}
             <Button className="w-full transition-all hover:scale-[1.02] active:scale-[0.98]" disabled={!canPlace || placeBetMutation.isPending} onClick={() => placeBetMutation.mutate()}>
               {placeBetMutation.isPending ? "Placing..." : "Place Bet"}
             </Button>

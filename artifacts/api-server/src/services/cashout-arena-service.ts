@@ -6,7 +6,7 @@ import {
   transactionsTable,
   usersTable,
 } from "@workspace/db";
-import { and, desc, eq, lte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, lte, sql } from "drizzle-orm";
 import { appendDepositFromTicketPurchase, appendWithdrawalForPayout } from "./admin-wallet-service";
 import { mirrorAvailableFromUser } from "./user-wallet-service";
 
@@ -15,6 +15,9 @@ type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 const ADV_LOCK_CASHOUT = 948_221_099;
 const ROUND_GROWTH_K = 0.13;
 const TARGET_MARGIN_BPS = 1200;
+const ONBOARDING_ROUNDS = 3;
+const ONBOARDING_MIN_MULTIPLIER = 1.1;
+const ONBOARDING_SETTLE_MULTIPLIER = 1.06;
 
 function toNum(v: unknown): number {
   const n = Number(v);
@@ -137,6 +140,30 @@ async function settleCrashedRounds(tx: DbTx): Promise<void> {
 
     const activeBets = await tx.select().from(cashoutBetsTable).where(and(eq(cashoutBetsTable.roundId, round.id), eq(cashoutBetsTable.status, "active")));
     for (const bet of activeBets) {
+      const priorSettled = await userSettledBetsBefore(tx, bet.userId, new Date(bet.createdAt));
+      if (priorSettled < ONBOARDING_ROUNDS && remaining > 0) {
+        const onboardingPayout = Math.min(remaining, round2(toNum(bet.stakeAmount) * ONBOARDING_SETTLE_MULTIPLIER));
+        if (onboardingPayout > 0.009) {
+          await creditWithdrawable(tx, bet.userId, onboardingPayout, "cashout_payout_credit", `Cashout Arena onboarding payout — round #${round.id}`);
+          await appendWithdrawalForPayout(tx, {
+            amount: onboardingPayout,
+            referenceId: bet.id,
+            userId: bet.userId,
+            description: `Cashout Arena onboarding payout — bet #${bet.id} round #${round.id}`,
+          });
+          await tx
+            .update(cashoutBetsTable)
+            .set({
+              status: "cashed_out",
+              payoutAmount: String(round2(onboardingPayout)),
+              cashoutMultiplier: String(round4(onboardingPayout / Math.max(0.0001, toNum(bet.stakeAmount)))),
+              settledAt: new Date(),
+            })
+            .where(eq(cashoutBetsTable.id, bet.id));
+          remaining -= onboardingPayout;
+          continue;
+        }
+      }
       if (bet.usedShield && remaining > 0) {
         const refund = Math.min(remaining, toNum(bet.stakeAmount));
         if (refund > 0.009) {
@@ -176,6 +203,20 @@ async function ensureState(tx: DbTx): Promise<typeof cashoutRoundsTable.$inferSe
   return getOrCreateRunningRound(tx);
 }
 
+async function userSettledBetsBefore(tx: DbTx, userId: number, createdAt: Date): Promise<number> {
+  const [row] = await tx
+    .select({ c: sql<string>`count(*)` })
+    .from(cashoutBetsTable)
+    .where(
+      and(
+        eq(cashoutBetsTable.userId, userId),
+        lt(cashoutBetsTable.createdAt, createdAt),
+        inArray(cashoutBetsTable.status, ["cashed_out", "lost", "shield_refunded"]),
+      ),
+    );
+  return Number(row?.c ?? 0);
+}
+
 async function cashoutBetInTx(
   tx: DbTx,
   userId: number,
@@ -185,6 +226,13 @@ async function cashoutBetInTx(
   const [bet] = await tx.select().from(cashoutBetsTable).where(eq(cashoutBetsTable.id, betId)).limit(1);
   if (!bet) throw new Error("BET_NOT_FOUND");
   if (bet.userId !== userId) throw new Error("FORBIDDEN");
+  if (bet.status === "cashed_out") {
+    const payout = toNum(bet.payoutAmount);
+    const multiplier = bet.cashoutMultiplier ? toNum(bet.cashoutMultiplier) : round4(payout / Math.max(0.0001, toNum(bet.stakeAmount)));
+    return { payout: round2(payout), multiplier: round4(multiplier) };
+  }
+  if (bet.status === "shield_refunded") throw new Error("BET_ALREADY_REFUNDED");
+  if (bet.status === "lost") throw new Error("ROUND_CRASHED");
   if (bet.status !== "active") throw new Error("INVALID_STATE");
 
   const [round] = await tx.select().from(cashoutRoundsTable).where(eq(cashoutRoundsTable.id, bet.roundId)).limit(1);
@@ -192,7 +240,11 @@ async function cashoutBetInTx(
   if (new Date(round.crashAt).getTime() <= now || round.status !== "running") throw new Error("ROUND_CRASHED");
 
   const rawMult = currentMultiplierForRound(round, now);
-  const boosted = Math.min(toNum(round.maxCashoutMultiplier), effectiveMultiplier(rawMult, bet));
+  const priorSettled = await userSettledBetsBefore(tx, userId, new Date(bet.createdAt));
+  const boosted = Math.min(
+    toNum(round.maxCashoutMultiplier),
+    Math.max(priorSettled < ONBOARDING_ROUNDS ? ONBOARDING_MIN_MULTIPLIER : 1, effectiveMultiplier(rawMult, bet)),
+  );
   const requestedPayout = round2(toNum(bet.stakeAmount) * boosted);
 
   const [agg] = await tx
@@ -335,7 +387,7 @@ export async function getCashoutArenaState(userId: number) {
 export async function placeBet(
   userId: number,
   input: { stakeAmount: number; autoCashoutAt?: number | null; shield?: boolean; slowMotion?: boolean; doubleBoost?: boolean },
-) {
+): Promise<{ roundId: string; betId: string; onboardingMode: boolean; onboardingRoundsLeft: number }> {
   const stakeAmount = round2(input.stakeAmount);
   if (!Number.isFinite(stakeAmount) || stakeAmount < 1 || stakeAmount > 5) throw new Error("INVALID_STAKE");
   if (input.autoCashoutAt != null && (!Number.isFinite(input.autoCashoutAt) || input.autoCashoutAt < 1.05 || input.autoCashoutAt > 10)) {
@@ -385,7 +437,14 @@ export async function placeBet(
     if (shield) {
       await tx.insert(cashoutBoostUsageTable).values({ userId, roundId: round.id, boostType: "shield", consumed: false });
     }
-    return { roundId: String(round.id), betId: String(bet.id) };
+    const [countRow] = await tx.select({ c: sql<string>`count(*)` }).from(cashoutBetsTable).where(eq(cashoutBetsTable.userId, userId));
+    const totalBets = Number(countRow?.c ?? 0);
+    return {
+      roundId: String(round.id),
+      betId: String(bet.id),
+      onboardingMode: totalBets <= ONBOARDING_ROUNDS,
+      onboardingRoundsLeft: Math.max(0, ONBOARDING_ROUNDS - totalBets),
+    };
   });
 }
 

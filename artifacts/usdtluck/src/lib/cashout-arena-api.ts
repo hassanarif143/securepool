@@ -47,14 +47,14 @@ export async function placeCashoutBetApi(payload: {
   shield?: boolean;
   slowMotion?: boolean;
   doubleBoost?: boolean;
-}): Promise<{ roundId: string; betId: string }> {
+}): Promise<{ roundId: string; betId: string; onboardingMode: boolean; onboardingRoundsLeft: number }> {
   const res = await fetch(apiUrl("/api/cashout-arena/bet"), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  return readJson<{ roundId: string; betId: string }>(res);
+  return readJson<{ roundId: string; betId: string; onboardingMode: boolean; onboardingRoundsLeft: number }>(res);
 }
 
 export async function cashoutArenaBetApi(betId: string): Promise<{ payout: number; multiplier: number }> {
