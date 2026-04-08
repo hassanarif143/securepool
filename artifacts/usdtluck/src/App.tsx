@@ -29,6 +29,7 @@ import ReferralPage from "@/pages/ReferralPage";
 import MyTicketsPage from "@/pages/MyTicketsPage";
 import P2PTradingPage from "@/pages/P2PTradingPage";
 import CashoutArenaPage from "@/pages/CashoutArenaPage";
+import ScratchCardPage from "@/pages/ScratchCardPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -202,6 +203,11 @@ function Router() {
         <Route path="/cashout-arena">
           <RequireAuth>
             <CashoutArenaPage />
+          </RequireAuth>
+        </Route>
+        <Route path="/scratch-card">
+          <RequireAuth>
+            <ScratchCardPage />
           </RequireAuth>
         </Route>
         <Route path="/how-it-works" component={HowItWorksPage} />

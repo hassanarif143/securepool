@@ -16,6 +16,8 @@ export const txTypeEnum = pgEnum("tx_type", [
   "cashout_bet_lock",
   "cashout_payout_credit",
   "cashout_shield_refund",
+  "scratch_bet_lock",
+  "scratch_payout_credit",
 ]);
 export const txStatusEnum = pgEnum("tx_status", ["pending", "under_review", "completed", "rejected", "failed"]);
 

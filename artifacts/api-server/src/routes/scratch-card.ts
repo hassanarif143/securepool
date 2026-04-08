@@ -1,0 +1,76 @@
+import { Router, type IRouter } from "express";
+import { z } from "zod";
+import { getAuthedUserId, requireAuth, type AuthedRequest } from "../middleware/auth";
+import { assertEmailVerified } from "../middleware/require-email-verified";
+import { buyScratchCard, getScratchCardState, revealScratchBox } from "../services/scratch-card-service";
+
+const router: IRouter = Router();
+router.use((req, res, next) => requireAuth(req as AuthedRequest, res, next));
+
+function mapErr(e: unknown): { status: number; error: string } {
+  const m = e instanceof Error ? e.message : "ERR";
+  const table: Record<string, number> = {
+    USER_NOT_FOUND: 404,
+    INSUFFICIENT_BALANCE: 400,
+    CARD_ALREADY_ACTIVE: 400,
+    INVALID_STAKE: 400,
+    CARD_NOT_FOUND: 404,
+    FORBIDDEN: 403,
+    INVALID_BOX: 400,
+    ALREADY_REVEALED: 400,
+  };
+  return { status: table[m] ?? 500, error: m };
+}
+
+router.get("/state", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  if (!(await assertEmailVerified(res, userId))) return;
+  try {
+    return res.json(await getScratchCardState(userId));
+  } catch (e) {
+    const { status, error } = mapErr(e);
+    return res.status(status).json({ error });
+  }
+});
+
+const BuyBody = z.object({
+  stakeAmount: z.coerce.number().min(1).max(5),
+  boxCount: z.coerce.number().int().min(3).max(9),
+  extraReveal: z.boolean().optional(),
+  multiplierBoost: z.boolean().optional(),
+});
+
+router.post("/buy", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  if (!(await assertEmailVerified(res, userId))) return;
+  const parsed = BuyBody.safeParse(req.body ?? {});
+  if (!parsed.success) return res.status(400).json({ error: "Invalid body", message: parsed.error.message });
+  try {
+    return res.status(201).json(await buyScratchCard(userId, parsed.data));
+  } catch (e) {
+    const { status, error } = mapErr(e);
+    return res.status(status).json({ error });
+  }
+});
+
+const RevealBody = z.object({ boxIndex: z.coerce.number().int().min(0).max(20) });
+
+router.post("/cards/:cardId/reveal", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  if (!(await assertEmailVerified(res, userId))) return;
+  const cardId = parseInt(req.params.cardId, 10);
+  if (Number.isNaN(cardId)) return res.status(400).json({ error: "Invalid card" });
+  const parsed = RevealBody.safeParse(req.body ?? {});
+  if (!parsed.success) return res.status(400).json({ error: "Invalid body", message: parsed.error.message });
+  try {
+    return res.json(await revealScratchBox(userId, cardId, parsed.data.boxIndex));
+  } catch (e) {
+    const { status, error } = mapErr(e);
+    return res.status(status).json({ error });
+  }
+});
+
+export default router;

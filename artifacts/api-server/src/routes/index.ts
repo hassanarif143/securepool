@@ -15,6 +15,7 @@ import activityRouter from "./activity";
 import referralRouter from "./referral";
 import p2pRouter from "./p2p";
 import cashoutArenaRouter from "./cashout-arena";
+import scratchCardRouter from "./scratch-card";
 
 const router: IRouter = Router();
 
@@ -35,5 +36,6 @@ router.use("/reviews", reviewsRouter);
 router.use("/notifications", notificationsRouter);
 router.use("/p2p", p2pRouter);
 router.use("/cashout-arena", cashoutArenaRouter);
+router.use("/scratch-card", scratchCardRouter);
 
 export default router;

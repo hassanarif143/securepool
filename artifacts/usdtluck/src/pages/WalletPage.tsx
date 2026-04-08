@@ -47,6 +47,8 @@ const TX_META: Record<string, { icon: string; label: string; sign: string; color
   cashout_bet_lock: { icon: "🎮", label: "Arena Bet Lock", sign: "-", color: "#f59e0b", isCredit: false },
   cashout_payout_credit: { icon: "🚀", label: "Arena Cashout Win", sign: "+", color: "#10b981", isCredit: true },
   cashout_shield_refund: { icon: "🛡", label: "Arena Shield Refund", sign: "+", color: "#34d399", isCredit: true },
+  scratch_bet_lock: { icon: "🎫", label: "Scratch Card Stake", sign: "-", color: "#f59e0b", isCredit: false },
+  scratch_payout_credit: { icon: "✨", label: "Scratch Card Win", sign: "+", color: "#10b981", isCredit: true },
 };
 function txMeta(type: string) {
   return TX_META[type] ?? { icon: "—", label: type.replace(/_/g, " "), sign: "", color: "#64748b", isCredit: false };
@@ -77,6 +79,10 @@ function txExplain(tx: { txType: string; note?: string | null }) {
       return "Cashout Arena win: payout credited to withdrawable.";
     case "cashout_shield_refund":
       return "Cashout Arena shield used: partial/full stake refunded.";
+    case "scratch_bet_lock":
+      return "Scratch Card started: stake (and boost fee) locked.";
+    case "scratch_payout_credit":
+      return "Scratch Card win: payout credited instantly.";
     default:
       return tx.note ?? "";
   }
