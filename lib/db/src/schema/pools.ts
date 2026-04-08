@@ -1,9 +1,10 @@
-import { pgTable, serial, text, integer, numeric, timestamp, pgEnum, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, numeric, timestamp, pgEnum, boolean, jsonb } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const poolStatusEnum = pgEnum("pool_status", ["open", "closed", "completed"]);
+export const poolStatusEnum = pgEnum("pool_status", ["open", "closed", "completed", "upcoming", "paused"]);
+export const poolTypeEnum = pgEnum("pool_type", ["small", "large"]);
 
 export const poolsTable = pgTable("pools", {
   id: serial("id").primaryKey(),
@@ -40,6 +41,12 @@ export const poolsTable = pgTable("pools", {
   allowMultiWin: boolean("allow_multi_win").notNull().default(false),
   cooldownPeriodDays: integer("cooldown_period_days").notNull().default(7),
   cooldownWeight: numeric("cooldown_weight", { precision: 8, scale: 4 }).notNull().default("0.2000"),
+  poolType: poolTypeEnum("pool_type").notNull().default("small"),
+  /** Admin-facing breakdown for transparency cards. */
+  prizeDistribution: jsonb("prize_distribution").$type<number[]>().notNull().default([]),
+  totalPoolAmount: numeric("total_pool_amount", { precision: 18, scale: 2 }).notNull().default("0"),
+  platformFeeAmount: numeric("platform_fee_amount", { precision: 18, scale: 2 }).notNull().default("0"),
+  currentMembers: integer("current_members").notNull().default(0),
 });
 
 export const insertPoolSchema = createInsertSchema(poolsTable).omit({ id: true, createdAt: true });

@@ -115,6 +115,28 @@ function formatPool(
     prizeThird,
     winnerCount,
     noTimeLimit,
+    poolType: (pool as any).poolType ?? "small",
+    prizeDistribution: ((pool as any).prizeDistribution as number[] | null) ?? [],
+    totalPoolAmount:
+      (pool as any).totalPoolAmount != null
+        ? parseFloat(String((pool as any).totalPoolAmount))
+        : Number((entryFee * totalTickets).toFixed(2)),
+    platformFeeAmount:
+      (pool as any).platformFeeAmount != null
+        ? parseFloat(String((pool as any).platformFeeAmount))
+        : Number((joinFee * totalTickets).toFixed(2)),
+    prizePoolAmount:
+      Number(
+        (
+          ((pool as any).totalPoolAmount != null
+            ? parseFloat(String((pool as any).totalPoolAmount))
+            : entryFee * totalTickets) -
+          ((pool as any).platformFeeAmount != null
+            ? parseFloat(String((pool as any).platformFeeAmount))
+            : joinFee * totalTickets)
+        ).toFixed(2),
+      ),
+    currentMembers: participantCount,
     createdAt: pool.createdAt,
     minPoolVipTier: "bronze",
     loserRefundIfNotWinListUsdt,

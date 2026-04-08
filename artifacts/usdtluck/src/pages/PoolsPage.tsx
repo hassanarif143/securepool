@@ -5,17 +5,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function PoolsPage() {
   const { data: pools, isLoading } = useListPools();
-
-  const openRaw = pools?.filter((p) => p.status === "open") ?? [];
-  const open = [...openRaw].sort((a, b) => {
+  const poolStatus = (p: any) => String(p?.status ?? "");
+  const activeRaw = pools?.filter((p) => poolStatus(p) === "open") ?? [];
+  const active = [...activeRaw].sort((a, b) => {
     const aFull = a.participantCount >= a.maxUsers ? 1 : 0;
     const bFull = b.participantCount >= b.maxUsers ? 1 : 0;
     if (aFull !== bFull) return bFull - aFull;
     return b.participantCount - a.participantCount;
   });
-  const closed = pools?.filter((p) => p.status === "closed") ?? [];
-  const completed = pools?.filter((p) => p.status === "completed") ?? [];
-  const closingSoon = open.filter((p) => {
+  const upcoming = pools?.filter((p) => poolStatus(p) === "upcoming") ?? [];
+  const closed = pools?.filter((p) => poolStatus(p) === "closed") ?? [];
+  const completed = pools?.filter((p) => poolStatus(p) === "completed") ?? [];
+  const closingSoon = active.filter((p) => {
     const endMs = new Date(p.endTime).getTime();
     if (!Number.isFinite(endMs)) return false;
     // Ignore "no time limit" pools and show real soon-ending pools only.
@@ -24,27 +25,27 @@ export default function PoolsPage() {
     return minsLeft > 0 && minsLeft <= 120;
   });
   const closingSoonIds = new Set(closingSoon.map((p) => p.id));
-  const startingSoon = open.filter(
+  const startingSoon = active.filter(
     (p) => new Date(p.startTime).getTime() > Date.now() && !closingSoonIds.has(p.id),
   );
   const startingSoonIds = new Set(startingSoon.map((p) => p.id));
-  const liveDraws = open.filter((p) => !closingSoonIds.has(p.id) && !startingSoonIds.has(p.id));
-  const revealQueueCount = [...open, ...closed].filter((p) => p.participantCount >= p.maxUsers).length;
-  const openTickets = open.reduce((sum, p) => sum + Math.max(0, p.maxUsers - p.participantCount), 0);
+  const liveDraws = active.filter((p) => !closingSoonIds.has(p.id) && !startingSoonIds.has(p.id));
+  const revealQueueCount = [...active, ...closed].filter((p) => p.participantCount >= p.maxUsers).length;
+  const openTickets = active.reduce((sum, p) => sum + Math.max(0, p.maxUsers - p.participantCount), 0);
 
   return (
     <div className="space-y-6 sm:space-y-8">
       <div className="space-y-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/90">Draws</p>
-        <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Pick a pool, buy tickets</h1>
+        <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Pool Marketplace</h1>
         <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-2xl">
           Each card shows ticket price, winners, time left, and how full the pool is — same layout everywhere so you can decide fast. Rules stay visible on the pool page before you pay.
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-3xl">
-          <QuickStat label="Open draws" value={String(open.length)} />
+          <QuickStat label="Active pools" value={String(active.length)} />
+          <QuickStat label="Upcoming" value={String(upcoming.length)} />
           <QuickStat label="Tickets left" value={String(openTickets)} />
-          <QuickStat label="Closed" value={String(closed.length)} />
-          <QuickStat label="Completed" value={String(completed.length)} />
+          <QuickStat label="Completed" value={String(completed.length + closed.length)} />
         </div>
         {revealQueueCount > 0 && (
           <div className="inline-flex items-center gap-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs sm:text-sm font-semibold text-amber-200 animate-pulse">
@@ -56,9 +57,9 @@ export default function PoolsPage() {
 
       <Tabs defaultValue="browse">
         <TabsList className="w-full sm:w-auto h-auto flex-wrap gap-1 p-1">
-          <TabsTrigger value="browse">Browse ({open.length})</TabsTrigger>
-          <TabsTrigger value="closed">Closed ({closed.length})</TabsTrigger>
-          <TabsTrigger value="completed">Completed ({completed.length})</TabsTrigger>
+          <TabsTrigger value="browse">🔥 Active ({active.length})</TabsTrigger>
+          <TabsTrigger value="upcoming">⏳ Upcoming ({upcoming.length})</TabsTrigger>
+          <TabsTrigger value="completed">🏁 Completed ({completed.length + closed.length})</TabsTrigger>
         </TabsList>
 
         {isLoading ? (
@@ -68,7 +69,7 @@ export default function PoolsPage() {
         ) : (
           <>
             <TabsContent value="browse" className="space-y-8 sm:space-y-10 mt-4">
-              {open.length === 0 ? (
+              {active.length === 0 ? (
                 <p className="text-muted-foreground py-8 text-center">No open draws right now. Check back soon.</p>
               ) : (
                 <>
@@ -132,21 +133,21 @@ export default function PoolsPage() {
                 </>
               )}
             </TabsContent>
-            <TabsContent value="closed">
-              {closed.length === 0 ? (
-                <p className="text-muted-foreground py-8 text-center">No closed pools</p>
+            <TabsContent value="upcoming">
+              {upcoming.length === 0 ? (
+                <p className="text-muted-foreground py-8 text-center">No upcoming pools</p>
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                  {closed.map((pool) => <PoolCard key={pool.id} pool={pool as any} />)}
+                  {upcoming.map((pool) => <PoolCard key={pool.id} pool={pool as any} />)}
                 </div>
               )}
             </TabsContent>
             <TabsContent value="completed">
-              {completed.length === 0 ? (
+              {completed.length + closed.length === 0 ? (
                 <p className="text-muted-foreground py-8 text-center">No completed pools</p>
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                  {completed.map((pool) => <PoolCard key={pool.id} pool={pool} />)}
+                  {[...completed, ...closed].map((pool) => <PoolCard key={pool.id} pool={pool} />)}
                 </div>
               )}
             </TabsContent>

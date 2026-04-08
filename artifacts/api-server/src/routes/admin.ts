@@ -820,6 +820,159 @@ const DEFAULT_POOL_BLUEPRINTS: Array<{
   { title: "Mega 50 USDT", entryFee: 50, maxUsers: 80, prizeFirst: 2500, prizeSecond: 700, prizeThird: 350, winnerCount: 3 },
 ];
 
+type FactoryBlueprint = {
+  title: string;
+  entryFee: number;
+  maxMembers: number;
+  winners: number;
+  poolType: "small" | "large";
+  platformFeeMode: "fixed" | "percent";
+  platformFeeValue: number;
+  distribution: number[];
+  status: "open" | "upcoming";
+  startsAfterMinutes?: number;
+};
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function buildFactoryMath(bp: FactoryBlueprint) {
+  const totalPool = round2(bp.entryFee * bp.maxMembers);
+  const feeAmount =
+    bp.platformFeeMode === "fixed"
+      ? round2(bp.platformFeeValue * bp.maxMembers)
+      : round2((totalPool * bp.platformFeeValue) / 100);
+  const prizePool = Math.max(0, round2(totalPool - feeAmount));
+  const normalizedDist = bp.distribution
+    .slice(0, bp.winners)
+    .map((x) => Math.max(0, x));
+  const distSum = normalizedDist.reduce((a, b) => a + b, 0) || 1;
+  const prizes = normalizedDist.map((pct) => round2((prizePool * pct) / distSum));
+  const platformFeePerJoin =
+    bp.platformFeeMode === "fixed" ? round2(bp.platformFeeValue) : round2((bp.entryFee * bp.platformFeeValue) / 100);
+  return { totalPool, feeAmount, prizePool, prizes, platformFeePerJoin };
+}
+
+function buildSmallFactoryBlueprints(mode: "open" | "upcoming"): FactoryBlueprint[] {
+  return [
+    { title: "Factory Small $2", entryFee: 2, maxMembers: 12, winners: 3, poolType: "small", platformFeeMode: "fixed", platformFeeValue: 1, distribution: [60, 30, 10], status: mode, startsAfterMinutes: 20 },
+    { title: "Factory Small $3", entryFee: 3, maxMembers: 12, winners: 3, poolType: "small", platformFeeMode: "fixed", platformFeeValue: 1, distribution: [60, 30, 10], status: mode, startsAfterMinutes: 30 },
+    { title: "Factory Small $5", entryFee: 5, maxMembers: 15, winners: 3, poolType: "small", platformFeeMode: "fixed", platformFeeValue: 1, distribution: [60, 30, 10], status: mode, startsAfterMinutes: 40 },
+    { title: "Factory Small $10", entryFee: 10, maxMembers: 15, winners: 3, poolType: "small", platformFeeMode: "fixed", platformFeeValue: 2, distribution: [70, 30], status: mode, startsAfterMinutes: 50 },
+    { title: "Factory Small $15", entryFee: 15, maxMembers: 12, winners: 2, poolType: "small", platformFeeMode: "fixed", platformFeeValue: 2, distribution: [70, 30], status: mode, startsAfterMinutes: 60 },
+    { title: "Factory Small $20", entryFee: 20, maxMembers: 10, winners: 2, poolType: "small", platformFeeMode: "fixed", platformFeeValue: 2, distribution: [70, 30], status: mode, startsAfterMinutes: 70 },
+  ];
+}
+
+function buildLargeFactoryBlueprints(mode: "open" | "upcoming"): FactoryBlueprint[] {
+  return [
+    { title: "Factory Large $10", entryFee: 10, maxMembers: 20, winners: 3, poolType: "large", platformFeeMode: "percent", platformFeeValue: 6, distribution: [50, 30, 20], status: mode, startsAfterMinutes: 30 },
+    { title: "Factory Large $15", entryFee: 15, maxMembers: 30, winners: 3, poolType: "large", platformFeeMode: "percent", platformFeeValue: 7, distribution: [50, 30, 20], status: mode, startsAfterMinutes: 45 },
+    { title: "Factory Large $20", entryFee: 20, maxMembers: 30, winners: 3, poolType: "large", platformFeeMode: "percent", platformFeeValue: 8, distribution: [45, 30, 25], status: mode, startsAfterMinutes: 60 },
+    { title: "Factory Large $30", entryFee: 30, maxMembers: 40, winners: 3, poolType: "large", platformFeeMode: "percent", platformFeeValue: 9, distribution: [45, 30, 25], status: mode, startsAfterMinutes: 90 },
+    { title: "Factory Large $50", entryFee: 50, maxMembers: 40, winners: 3, poolType: "large", platformFeeMode: "percent", platformFeeValue: 10, distribution: [40, 35, 25], status: mode, startsAfterMinutes: 120 },
+  ];
+}
+
+async function createFactoryPools(blueprints: FactoryBlueprint[]) {
+  let created = 0;
+  const now = new Date();
+  for (const bp of blueprints) {
+    const startsAt = new Date(now.getTime() + (bp.startsAfterMinutes ?? 0) * 60_000);
+    const endsAt = new Date(startsAt.getTime() + 24 * 60 * 60_000);
+    const titleWithDate = `${bp.title} (${startsAt.toISOString().slice(0, 10)})`;
+    const existing = await db
+      .select({ id: poolsTable.id })
+      .from(poolsTable)
+      .where(and(eq(poolsTable.title, titleWithDate), ne(poolsTable.status, "completed")))
+      .limit(1);
+    if (existing.length > 0) continue;
+
+    const math = buildFactoryMath(bp);
+    await db.insert(poolsTable).values({
+      title: titleWithDate,
+      entryFee: bp.entryFee.toFixed(2),
+      ticketPrice: bp.entryFee.toFixed(2),
+      maxUsers: bp.maxMembers,
+      totalTickets: bp.maxMembers,
+      soldTickets: 0,
+      startTime: startsAt,
+      endTime: endsAt,
+      status: bp.status,
+      winnerCount: Math.min(3, Math.max(1, bp.winners)),
+      prizeFirst: (math.prizes[0] ?? 0).toFixed(2),
+      prizeSecond: (math.prizes[1] ?? 0).toFixed(2),
+      prizeThird: (math.prizes[2] ?? 0).toFixed(2),
+      platformFeePerJoin: math.platformFeePerJoin.toFixed(2),
+      poolType: bp.poolType,
+      prizeDistribution: bp.distribution,
+      totalPoolAmount: math.totalPool.toFixed(2),
+      platformFeeAmount: math.feeAmount.toFixed(2),
+      currentMembers: 0,
+      isFrozen: bp.status !== "open",
+      minPoolVipTier: "bronze",
+    } as any);
+    created += 1;
+  }
+  return created;
+}
+
+router.post("/pool-factory/generate-small", async (_req, res) => {
+  const created = await createFactoryPools(buildSmallFactoryBlueprints("open"));
+  res.json({ message: "Small pools generated", created });
+});
+
+router.post("/pool-factory/generate-large", async (_req, res) => {
+  const created = await createFactoryPools(buildLargeFactoryBlueprints("open"));
+  res.json({ message: "Large pools generated", created });
+});
+
+router.post("/pool-factory/create-upcoming", async (_req, res) => {
+  const createdSmall = await createFactoryPools(buildSmallFactoryBlueprints("upcoming"));
+  const createdLarge = await createFactoryPools(buildLargeFactoryBlueprints("upcoming"));
+  res.json({ message: "Upcoming pools created", created: createdSmall + createdLarge });
+});
+
+router.post("/pool-factory/delete-all", async (_req, res) => {
+  const rows = await db
+    .select({ id: poolsTable.id })
+    .from(poolsTable)
+    .where(ne(poolsTable.status, "completed"));
+  if (rows.length === 0) {
+    res.json({ message: "No removable pools found", deleted: 0 });
+    return;
+  }
+  let deleted = 0;
+  for (const row of rows) {
+    const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, row.id)).limit(1);
+    if (!pool) continue;
+    await refundAllPoolParticipants(row.id, pool, `[Admin] Factory bulk delete`);
+    await db.delete(poolsTable).where(eq(poolsTable.id, row.id));
+    deleted += 1;
+  }
+  res.json({ message: "Pools deleted", deleted });
+});
+
+router.post("/pool-factory/activate-upcoming", async (_req, res) => {
+  const now = new Date();
+  const rows = await db
+    .select()
+    .from(poolsTable)
+    .where(eq(poolsTable.status, "upcoming"));
+  let activated = 0;
+  for (const pool of rows) {
+    if (new Date(pool.startTime).getTime() <= now.getTime()) {
+      await db
+        .update(poolsTable)
+        .set({ status: "open", isFrozen: false })
+        .where(eq(poolsTable.id, pool.id));
+      activated += 1;
+    }
+  }
+  res.json({ message: "Upcoming pools activated", activated });
+});
+
 router.post("/pool/create", async (req, res) => {
   const parsed = AdminPoolCreateBody.safeParse(req.body ?? {});
   if (!parsed.success) {
@@ -1075,6 +1228,34 @@ router.post("/pool/:id/freeze", async (req, res) => {
   await db.update(poolsTable).set({ isFrozen: freeze }).where(eq(poolsTable.id, poolId));
   await logAction(getAdminId(req), "pool", poolId, freeze ? "freeze_pool" : "unfreeze_pool", `${freeze ? "Froze" : "Unfroze"} pool "${pool.title}"`);
   res.json({ message: freeze ? "Pool frozen" : "Pool unfrozen", isFrozen: freeze });
+});
+
+router.post("/pool/:id/status", async (req, res) => {
+  const poolId = parseInt(req.params.id, 10);
+  if (Number.isNaN(poolId)) {
+    res.status(400).json({ error: "Invalid pool ID" });
+    return;
+  }
+  const parsed = z
+    .object({ status: z.enum(["open", "upcoming", "paused", "closed", "completed"]) })
+    .safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid status" });
+    return;
+  }
+  const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  if (!pool) {
+    res.status(404).json({ error: "Pool not found" });
+    return;
+  }
+  await db
+    .update(poolsTable)
+    .set({
+      status: parsed.data.status as any,
+      isFrozen: parsed.data.status === "open" ? false : pool.isFrozen,
+    })
+    .where(eq(poolsTable.id, poolId));
+  res.json({ message: "Pool status updated", status: parsed.data.status });
 });
 
 router.get("/pool/:id/participants", async (req, res) => {

@@ -764,6 +764,18 @@ function StatsTab() {
 
 /* ── Shared status chip ── */
 function PoolStatusChip({ status }: { status: string }) {
+  if (status === "upcoming") return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+      style={{ background: "hsla(200,90%,50%,0.12)", color: "hsl(200,90%,70%)", border: "1px solid hsla(200,90%,50%,0.25)" }}>
+      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />Upcoming
+    </span>
+  );
+  if (status === "paused") return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+      style={{ background: "hsla(260,90%,60%,0.12)", color: "hsl(260,90%,75%)", border: "1px solid hsla(260,90%,60%,0.25)" }}>
+      <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />Paused
+    </span>
+  );
   if (status === "open") return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
       style={{ background: "hsla(152,72%,44%,0.12)", color: "hsl(152,72%,55%)", border: "1px solid hsla(152,72%,44%,0.3)" }}>
@@ -825,7 +837,7 @@ function PoolsTab() {
   const [distParticipants, setDistParticipants] = useState<{ userId: number; userName: string }[]>([]);
   const [distLoading, setDistLoading] = useState(false);
 
-  const [filterStatus, setFilterStatus] = useState<"all" | "open" | "closed" | "completed">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "open" | "upcoming" | "paused" | "closed" | "completed">("all");
 
   function startEdit(pool: any) {
     setEditingId(pool.id);
@@ -955,16 +967,9 @@ function PoolsTab() {
     void queryClient.invalidateQueries({ queryKey: getGetAdminFinanceOverviewQueryKey() });
   }
 
-  function handleStatusChange(poolId: number, status: "open" | "closed" | "completed") {
-    updatePool.mutate(
-      { poolId, data: { status } },
-      {
-        onSuccess: () => {
-          toast({ title: "Pool status updated" });
-          queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
-        },
-        onError: () => toast({ title: "Update failed", variant: "destructive" }),
-      }
+  function handleStatusChange(poolId: number, status: "open" | "upcoming" | "paused" | "closed" | "completed") {
+    void adminPoolAction(`/api/admin/pool/${poolId}/status`, "Pool status updated", { status }).catch((err) =>
+      toast({ title: "Update failed", description: String(err?.message ?? err), variant: "destructive" }),
     );
   }
 
@@ -1037,9 +1042,11 @@ function PoolsTab() {
 
   const counts = {
     all: pools?.length ?? 0,
-    open: pools?.filter((p) => p.status === "open").length ?? 0,
-    closed: pools?.filter((p) => p.status === "closed").length ?? 0,
-    completed: pools?.filter((p) => p.status === "completed").length ?? 0,
+    open: pools?.filter((p) => String((p as any).status) === "open").length ?? 0,
+    upcoming: pools?.filter((p) => String((p as any).status) === "upcoming").length ?? 0,
+    paused: pools?.filter((p) => String((p as any).status) === "paused").length ?? 0,
+    closed: pools?.filter((p) => String((p as any).status) === "closed").length ?? 0,
+    completed: pools?.filter((p) => String((p as any).status) === "completed").length ?? 0,
   };
 
   return (
@@ -1170,7 +1177,7 @@ function PoolsTab() {
     <div className="space-y-4 mt-4">
       {/* Filter pills + summary */}
       <div className="flex items-center gap-2 flex-wrap">
-        {(["all", "open", "closed", "completed"] as const).map((s) => (
+        {(["all", "open", "upcoming", "paused", "closed", "completed"] as const).map((s) => (
           <button
             key={s}
             onClick={() => setFilterStatus(s)}
@@ -1448,6 +1455,20 @@ function PoolsTab() {
                           ⏸ Close
                         </button>
                       )}
+                      {String((pool as any).status) !== "upcoming" && (
+                        <button onClick={() => handleStatusChange(pool.id, "upcoming")}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                          style={{ background: "hsla(200,90%,50%,0.08)", color: "hsl(200,90%,70%)", border: "1px solid hsla(200,90%,50%,0.2)" }}>
+                          ⏳ Upcoming
+                        </button>
+                      )}
+                      {String((pool as any).status) !== "paused" && (
+                        <button onClick={() => handleStatusChange(pool.id, "paused")}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                          style={{ background: "hsla(260,90%,60%,0.08)", color: "hsl(260,90%,75%)", border: "1px solid hsla(260,90%,60%,0.2)" }}>
+                          ⏸ Pause
+                        </button>
+                      )}
                       <button
                         onClick={() => void openDistributeModal(pool.id, pool.title, wc)}
                         disabled={!drawReady}
@@ -1602,6 +1623,7 @@ function CreatePoolTab() {
     platformFeePerJoinStr: "",
   });
   const [submitted, setSubmitted] = useState(false);
+  const [factoryLoading, setFactoryLoading] = useState<null | "small" | "large" | "delete" | "upcoming" | "activate">(null);
 
   function setDuration(days: number) {
     const start = new Date();
@@ -1725,8 +1747,74 @@ function CreatePoolTab() {
     }
   }
 
+  async function runFactoryAction(
+    kind: "small" | "large" | "delete" | "upcoming" | "activate",
+    endpoint: string,
+    successTitle: string,
+    confirmText: string,
+  ) {
+    if (!window.confirm(confirmText)) return;
+    setFactoryLoading(kind);
+    try {
+      const res = await fetch(apiUrl(endpoint), { method: "POST", credentials: "include" });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      const j = await res.json().catch(() => ({}));
+      toast({ title: successTitle, description: typeof j.created === "number" ? `${j.created} pool(s) processed.` : undefined });
+      void queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
+    } catch (err: any) {
+      toast({ title: "Factory action failed", description: err?.message ?? "Request failed", variant: "destructive" });
+    } finally {
+      setFactoryLoading(null);
+    }
+  }
+
   return (
     <div className="mt-4">
+      <div className="mb-4 rounded-2xl p-4 space-y-3" style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}>
+        <p className="text-sm font-semibold">Pool Factory Dashboard</p>
+        <p className="text-xs text-muted-foreground">One-click generation for small and large pools with transparent fee and prize logic.</p>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-2">
+          <Button
+            type="button"
+            onClick={() => void runFactoryAction("small", "/api/admin/pool-factory/generate-small", "Small pools created", "Generate small pools now?")}
+            disabled={factoryLoading !== null}
+          >
+            {factoryLoading === "small" ? "Generating..." : "Generate Small Pools"}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void runFactoryAction("large", "/api/admin/pool-factory/generate-large", "Large pools created", "Generate large pools now?")}
+            disabled={factoryLoading !== null}
+            variant="outline"
+          >
+            {factoryLoading === "large" ? "Generating..." : "Generate Large Pools"}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void runFactoryAction("upcoming", "/api/admin/pool-factory/create-upcoming", "Upcoming pools created", "Create upcoming small + large pools?")}
+            disabled={factoryLoading !== null}
+            variant="outline"
+          >
+            {factoryLoading === "upcoming" ? "Creating..." : "Create Upcoming Pools"}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void runFactoryAction("activate", "/api/admin/pool-factory/activate-upcoming", "Upcoming pools activated", "Activate all due upcoming pools now?")}
+            disabled={factoryLoading !== null}
+            variant="outline"
+          >
+            {factoryLoading === "activate" ? "Activating..." : "Auto-start Upcoming"}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void runFactoryAction("delete", "/api/admin/pool-factory/delete-all", "Pools deleted", "Delete all non-completed pools and refund participants?")}
+            disabled={factoryLoading !== null}
+            variant="destructive"
+          >
+            {factoryLoading === "delete" ? "Deleting..." : "Delete All Pools"}
+          </Button>
+        </div>
+      </div>
       <div className="mb-4 flex items-center justify-end">
         <Button type="button" variant="outline" onClick={() => void seedDefaultPools()}>
           Seed 10 Default Pools
