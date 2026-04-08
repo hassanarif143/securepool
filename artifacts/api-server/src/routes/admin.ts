@@ -797,6 +797,7 @@ function computePerTicketFeeFromMode(ticketPrice: number, mode?: "fixed" | "perc
 
 const MIN_POOL_PLATFORM_FEE_TOTAL_USDT = 0.5;
 const MIN_PLATFORM_FEE_PER_JOIN_USDT = 0.01;
+const FACTORY_PRIZE_POOL_RATIO = 0.9;
 
 function ensurePositivePlatformFeePerJoin(ticketPrice: number, totalTickets: number, rawFeePerJoin: number): number {
   const safeTicketPrice = Math.max(0.01, ticketPrice);
@@ -873,9 +874,13 @@ function buildFactoryMath(bp: FactoryBlueprint) {
   const totalPool = round2(bp.entryFee * bp.maxMembers);
   const rawPerJoin =
     bp.platformFeeMode === "fixed" ? bp.platformFeeValue : (bp.entryFee * bp.platformFeeValue) / 100;
-  const platformFeePerJoin = ensurePositivePlatformFeePerJoin(bp.entryFee, bp.maxMembers, rawPerJoin);
-  const feeAmount = round2(platformFeePerJoin * bp.maxMembers);
-  const prizePool = Math.max(0, round2(totalPool - feeAmount));
+  const basePlatformFeePerJoin = ensurePositivePlatformFeePerJoin(bp.entryFee, bp.maxMembers, rawPerJoin);
+  const baseFeeAmount = round2(basePlatformFeePerJoin * bp.maxMembers);
+  const basePrizePool = Math.max(0, round2(totalPool - baseFeeAmount));
+  // Keep pool logic same but trim factory payouts slightly for better margin control.
+  const prizePool = Math.max(0, round2(basePrizePool * FACTORY_PRIZE_POOL_RATIO));
+  const feeAmount = round2(Math.max(baseFeeAmount, totalPool - prizePool));
+  const platformFeePerJoin = round2(bp.maxMembers > 0 ? feeAmount / bp.maxMembers : 0);
   const normalizedDist = bp.distribution
     .slice(0, bp.winners)
     .map((x) => Math.max(0, x));
