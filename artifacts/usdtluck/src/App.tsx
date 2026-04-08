@@ -79,26 +79,25 @@ function RequireGuest({ children }: { children: React.ReactNode }) {
 }
 
 function PersistAndRestoreRoute() {
-  const { user, isLoading } = useAuth();
+  const { isLoading } = useAuth();
   const [location, navigate] = useLocation();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!user || isLoading) return;
     const isAuthPage = location.startsWith("/login") || location.startsWith("/signup");
-    if (!isAuthPage) {
+    if (!isAuthPage && location) {
       window.sessionStorage.setItem(LAST_ROUTE_KEY, location || "/dashboard");
     }
-  }, [location, user, isLoading]);
+  }, [location, isLoading]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!user || isLoading) return;
+    if (isLoading) return;
     if (location !== "/") return;
     const saved = window.sessionStorage.getItem(LAST_ROUTE_KEY);
     if (!saved || saved === "/" || saved.startsWith("/login") || saved.startsWith("/signup")) return;
     navigate(saved);
-  }, [location, navigate, user, isLoading]);
+  }, [location, navigate, isLoading]);
 
   return null;
 }
