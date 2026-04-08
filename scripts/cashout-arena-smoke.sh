@@ -103,9 +103,11 @@ print_call() {
   local method="$1"
   local path="$2"
   local body="${3:-}"
-  mapfile -t out < <(request_json "$method" "$path" "$body")
-  local status="${out[0]:-000}"
-  local payload="${out[1]:-}"
+  local out
+  out="$(request_json "$method" "$path" "$body")"
+  local status="${out%%$'\n'*}"
+  local payload="${out#*$'\n'}"
+  [[ "$payload" == "$out" ]] && payload=""
   echo "$method $path -> $status"
   if [[ -n "$payload" ]]; then
     echo "$payload"
@@ -130,9 +132,10 @@ if [[ -z "$COOKIE" ]]; then
 fi
 
 step "Authenticated state check"
-mapfile -t state_out < <(request_json "GET" "/api/cashout-arena/state")
-state_status="${state_out[0]:-000}"
-state_json="${state_out[1]:-}"
+state_out="$(request_json "GET" "/api/cashout-arena/state")"
+state_status="${state_out%%$'\n'*}"
+state_json="${state_out#*$'\n'}"
+[[ "$state_json" == "$state_out" ]] && state_json=""
 echo "GET /api/cashout-arena/state -> $state_status"
 echo "$state_json"
 echo
@@ -156,9 +159,10 @@ fi
 
 step "Place bet (real wallet action)"
 bet_body="{\"stakeAmount\":$STAKE_AMOUNT,\"autoCashoutAt\":$AUTO_CASHOUT_AT}"
-mapfile -t bet_out < <(request_json "POST" "/api/cashout-arena/bet" "$bet_body")
-bet_status="${bet_out[0]:-000}"
-bet_json="${bet_out[1]:-}"
+bet_out="$(request_json "POST" "/api/cashout-arena/bet" "$bet_body")"
+bet_status="${bet_out%%$'\n'*}"
+bet_json="${bet_out#*$'\n'}"
+[[ "$bet_json" == "$bet_out" ]] && bet_json=""
 echo "POST /api/cashout-arena/bet -> $bet_status"
 echo "$bet_json"
 echo
@@ -184,9 +188,10 @@ if [[ -z "$bet_id" ]]; then
 fi
 
 step "Manual cashout attempt"
-mapfile -t co_out < <(request_json "POST" "/api/cashout-arena/bets/$bet_id/cashout")
-co_status="${co_out[0]:-000}"
-co_json="${co_out[1]:-}"
+co_out="$(request_json "POST" "/api/cashout-arena/bets/$bet_id/cashout")"
+co_status="${co_out%%$'\n'*}"
+co_json="${co_out#*$'\n'}"
+[[ "$co_json" == "$co_out" ]] && co_json=""
 echo "POST /api/cashout-arena/bets/$bet_id/cashout -> $co_status"
 echo "$co_json"
 echo
