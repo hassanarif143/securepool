@@ -801,6 +801,8 @@ const MIN_PLATFORM_FEE_PER_JOIN_USDT = 0.01;
 const FACTORY_PRIZE_POOL_RATIO = 0.75;
 /** 3rd-place prize must be at least this much above per-ticket platform fee (when pool has 3 winners). */
 const THIRD_PRIZE_MIN_ABOVE_FEE_USDT = 0.15;
+/** 3rd-place prize must exceed one ticket (entry) by at least this amount (USDT). */
+const THIRD_MIN_ABOVE_ENTRY_USDT = 0.05;
 /** After base split, move this fraction of 1st / 2nd into 3rd (same prize pool total). */
 const FACTORY_THIRD_BOOST_FROM_1ST = 0.065;
 const FACTORY_THIRD_BOOST_FROM_2ND = 0.085;
@@ -816,7 +818,7 @@ function ensurePositivePlatformFeePerJoin(ticketPrice: number, totalTickets: num
 }
 
 /**
- * For factory pools with 3 winners: aim for 3rd >= platform fee per join + small bump, then split the rest
+ * For factory pools with 3 winners: aim for 3rd above platform fee and above one ticket price, then split the rest
  * between 1st/2nd using the first two distribution weights. Caps 3rd when needed so 2nd >= 3rd (rank order).
  */
 function splitFactoryPrizesWithThirdFloor(
@@ -824,6 +826,7 @@ function splitFactoryPrizesWithThirdFloor(
   platformFeePerJoin: number,
   winners: number,
   distribution: number[],
+  entryFee: number,
 ): [number, number, number] {
   const wc = Math.min(3, Math.max(1, winners));
   const normalizedDist = distribution.slice(0, wc).map((x) => Math.max(0, x));
@@ -837,7 +840,10 @@ function splitFactoryPrizesWithThirdFloor(
   const budget = Math.max(0, round2(prizePool));
   if (budget <= 0) return [0, 0, 0];
 
-  const minThirdDesired = round2(platformFeePerJoin + THIRD_PRIZE_MIN_ABOVE_FEE_USDT);
+  const minAboveOneTicket = round2(Math.max(0, entryFee) + THIRD_MIN_ABOVE_ENTRY_USDT);
+  const minThirdDesired = round2(
+    Math.max(platformFeePerJoin + THIRD_PRIZE_MIN_ABOVE_FEE_USDT, minAboveOneTicket),
+  );
   const w0 = normalizedDist[0] ?? 0;
   const w1 = normalizedDist[1] ?? 0;
   const w12 = w0 + w1;
@@ -970,6 +976,57 @@ function boostThirdByTrimmingFirstSecond(
   return [round2(np1), round2(np2), round2(np3)];
 }
 
+function fixPrizeTripleToBudget(p1: number, p2: number, p3: number, budget: number): [number, number, number] {
+  let a = round2(p1);
+  let b = round2(p2);
+  let c = round2(p3);
+  let diff = round2(budget - round2(a + b + c));
+  if (Math.abs(diff) >= 0.005) {
+    a = round2(a + diff);
+  }
+  diff = round2(budget - round2(a + b + c));
+  if (Math.abs(diff) >= 0.005) {
+    a = round2(a + diff);
+  }
+  return [round2(a), round2(b), round2(c)];
+}
+
+/**
+ * If 3rd is still below one ticket + epsilon, move tiny slices from 1st/2nd (same total prize pool).
+ */
+function ensureThirdExceedsOneTicketPrice(
+  p1: number,
+  p2: number,
+  p3: number,
+  budget: number,
+  ticketPrice: number,
+): [number, number, number] {
+  const target = round2(Math.min(ticketPrice + THIRD_MIN_ABOVE_ENTRY_USDT, budget));
+  if (budget <= 0) {
+    return [0, 0, 0];
+  }
+  if (p3 >= target - 0.005) {
+    return fixPrizeTripleToBudget(p1, p2, p3, budget);
+  }
+  let a = round2(p1);
+  let b = round2(p2);
+  let c = round2(p3);
+  let guard = 0;
+  while (c < target - 0.015 && guard < 100_000) {
+    guard += 1;
+    if (a > b + 0.02) {
+      a = round2(a - 0.01);
+      c = round2(c + 0.01);
+    } else if (b > c + 0.02) {
+      b = round2(b - 0.01);
+      c = round2(c + 0.01);
+    } else {
+      break;
+    }
+  }
+  return fixPrizeTripleToBudget(a, b, c, budget);
+}
+
 function buildFactoryMath(bp: FactoryBlueprint) {
   const totalPool = round2(bp.entryFee * bp.maxMembers);
   const rawPerJoin =
@@ -981,9 +1038,10 @@ function buildFactoryMath(bp: FactoryBlueprint) {
   const prizePool = Math.max(0, round2(basePrizePool * FACTORY_PRIZE_POOL_RATIO));
   const feeAmount = round2(Math.max(baseFeeAmount, totalPool - prizePool));
   const platformFeePerJoin = round2(bp.maxMembers > 0 ? feeAmount / bp.maxMembers : 0);
-  let prizes = splitFactoryPrizesWithThirdFloor(prizePool, platformFeePerJoin, bp.winners, bp.distribution);
+  let prizes = splitFactoryPrizesWithThirdFloor(prizePool, platformFeePerJoin, bp.winners, bp.distribution, bp.entryFee);
   if (bp.winners >= 3) {
     prizes = boostThirdByTrimmingFirstSecond(prizes[0], prizes[1], prizes[2], prizePool);
+    prizes = ensureThirdExceedsOneTicketPrice(prizes[0], prizes[1], prizes[2], prizePool, bp.entryFee);
   }
   return { totalPool, feeAmount, prizePool, prizes, platformFeePerJoin };
 }
