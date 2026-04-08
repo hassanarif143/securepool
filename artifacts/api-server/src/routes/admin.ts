@@ -795,6 +795,38 @@ function computePerTicketFeeFromMode(ticketPrice: number, mode?: "fixed" | "perc
   return Math.min(ticketPrice, Math.max(0, value));
 }
 
+const MIN_POOL_PLATFORM_FEE_TOTAL_USDT = 1;
+const MIN_PLATFORM_FEE_PER_JOIN_USDT = 0.01;
+
+function ensurePositivePlatformFeePerJoin(ticketPrice: number, totalTickets: number, rawFeePerJoin: number): number {
+  const safeTicketPrice = Math.max(0.01, ticketPrice);
+  const safeTickets = Math.max(1, Math.floor(totalTickets));
+  const base = Math.min(safeTicketPrice, Math.max(MIN_PLATFORM_FEE_PER_JOIN_USDT, rawFeePerJoin));
+  const totalFee = round2(base * safeTickets);
+  if (totalFee >= MIN_POOL_PLATFORM_FEE_TOTAL_USDT) return base;
+  const neededPerJoin = MIN_POOL_PLATFORM_FEE_TOTAL_USDT / safeTickets;
+  return Math.min(safeTicketPrice, round2(Math.max(base, neededPerJoin)));
+}
+
+function normalizePrizePlanForProfit(
+  winnerCount: number,
+  desiredPrizes: [number, number, number],
+  maxPrizeBudget: number,
+): [number, number, number] {
+  const wc = Math.min(3, Math.max(1, winnerCount));
+  const src = desiredPrizes.map((x) => Math.max(0, x));
+  const desiredTotal = src.slice(0, wc).reduce((a, b) => a + b, 0);
+  const budget = Math.max(0, round2(maxPrizeBudget));
+  if (desiredTotal <= 0 || budget <= 0) return [0, 0, 0];
+  if (desiredTotal <= budget + 0.0001) return [round2(src[0]), round2(src[1]), round2(src[2])];
+  const factor = budget / desiredTotal;
+  const scaled = src.slice(0, wc).map((x) => round2(x * factor));
+  const sumScaled = round2(scaled.reduce((a, b) => a + b, 0));
+  const remainder = round2(budget - sumScaled);
+  if (scaled.length > 0 && Math.abs(remainder) >= 0.01) scaled[0] = round2(scaled[0] + remainder);
+  return [round2(scaled[0] ?? 0), round2(scaled[1] ?? 0), round2(scaled[2] ?? 0)];
+}
+
 const AdminSelectWinnersBody = z.object({
   winnerUserIds: z.array(z.number().int().positive()).min(1).max(3),
 });
@@ -839,18 +871,17 @@ function round2(n: number): number {
 
 function buildFactoryMath(bp: FactoryBlueprint) {
   const totalPool = round2(bp.entryFee * bp.maxMembers);
-  const feeAmount =
-    bp.platformFeeMode === "fixed"
-      ? round2(bp.platformFeeValue * bp.maxMembers)
-      : round2((totalPool * bp.platformFeeValue) / 100);
+  const rawPerJoin =
+    bp.platformFeeMode === "fixed" ? bp.platformFeeValue : (bp.entryFee * bp.platformFeeValue) / 100;
+  const platformFeePerJoin = ensurePositivePlatformFeePerJoin(bp.entryFee, bp.maxMembers, rawPerJoin);
+  const feeAmount = round2(platformFeePerJoin * bp.maxMembers);
   const prizePool = Math.max(0, round2(totalPool - feeAmount));
   const normalizedDist = bp.distribution
     .slice(0, bp.winners)
     .map((x) => Math.max(0, x));
   const distSum = normalizedDist.reduce((a, b) => a + b, 0) || 1;
-  const prizes = normalizedDist.map((pct) => round2((prizePool * pct) / distSum));
-  const platformFeePerJoin =
-    bp.platformFeeMode === "fixed" ? round2(bp.platformFeeValue) : round2((bp.entryFee * bp.platformFeeValue) / 100);
+  const desired = normalizedDist.map((pct) => round2((prizePool * pct) / distSum));
+  const prizes = normalizePrizePlanForProfit(bp.winners, [desired[0] ?? 0, desired[1] ?? 0, desired[2] ?? 0], prizePool);
   return { totalPool, feeAmount, prizePool, prizes, platformFeePerJoin };
 }
 
@@ -982,9 +1013,22 @@ router.post("/pool/create", async (req, res) => {
   const body = parsed.data;
   const ticketPrice = body.ticketPrice ?? body.entryFee;
   const totalTickets = body.totalTickets ?? body.maxUsers;
-  const platformFeePerJoin =
+  const rawPlatformFeePerJoin =
     body.platformFeePerJoin ??
     computePerTicketFeeFromMode(ticketPrice, body.feeMode, body.feeValue);
+  const platformFeePerJoin = ensurePositivePlatformFeePerJoin(
+    ticketPrice,
+    totalTickets,
+    rawPlatformFeePerJoin ?? platformFeePerJoinUsdt(ticketPrice, null),
+  );
+  const totalPoolAmount = round2(ticketPrice * totalTickets);
+  const platformFeeAmount = round2(platformFeePerJoin * totalTickets);
+  const prizeBudget = Math.max(0, round2(totalPoolAmount - platformFeeAmount));
+  const normalizedPrizes = normalizePrizePlanForProfit(
+    body.winnerCount ?? 3,
+    [body.prizeFirst, body.prizeSecond, body.prizeThird],
+    prizeBudget,
+  );
   const [created] = await db
     .insert(poolsTable)
     .values({
@@ -1001,13 +1045,17 @@ router.post("/pool/create", async (req, res) => {
       startTime: new Date(body.startTime),
       endTime: new Date(body.endTime),
       status: "open",
-      prizeFirst: body.prizeFirst.toFixed(2),
-      prizeSecond: body.prizeSecond.toFixed(2),
-      prizeThird: body.prizeThird.toFixed(2),
+      prizeFirst: normalizedPrizes[0].toFixed(2),
+      prizeSecond: normalizedPrizes[1].toFixed(2),
+      prizeThird: normalizedPrizes[2].toFixed(2),
       minPoolVipTier: body.minPoolVipTier ?? "bronze",
       winnerCount: body.winnerCount ?? 3,
-      platformFeePerJoin:
-        platformFeePerJoin != null ? platformFeePerJoin.toFixed(2) : null,
+      platformFeePerJoin: platformFeePerJoin.toFixed(2),
+      totalPoolAmount: totalPoolAmount.toFixed(2),
+      platformFeeAmount: platformFeeAmount.toFixed(2),
+      prizeDistribution: body.winnerCount === 1 ? [100] : body.winnerCount === 2 ? [70, 30] : [60, 30, 10],
+      poolType: "small",
+      currentMembers: 0,
       isFrozen: false,
       selectedWinnerUserIds: null,
     })
