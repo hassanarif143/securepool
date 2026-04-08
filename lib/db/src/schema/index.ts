@@ -27,3 +27,4 @@ export * from "./userWalletTransactions";
 export * from "./platformSettings";
 export * from "./poolDrawFinancials";
 export * from "./p2p";
+export * from "./cashoutArena";
