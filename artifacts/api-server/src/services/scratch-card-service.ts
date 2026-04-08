@@ -10,6 +10,7 @@ const ROUND_MS = 60_000;
 const CARD_MS = 15_000;
 const TARGET_MARGIN_BPS = 1200;
 const ONBOARDING_ROUNDS = 3;
+const RARE_HIT_CHANCE = 0.28;
 
 const SYMBOLS = ["gem", "crown", "rocket", "diamond", "cherry", "star", "coin"] as const;
 const RARE_SYMBOL = "phoenix";
@@ -131,7 +132,7 @@ function buildSymbols(boxCount: number, required: number, multiplier: number): {
     for (let i = 0; i < Math.min(required - 1, boxCount); i++) symbols[i] = miss;
     return { symbols, winSymbol: null, rare: false };
   }
-  const rare = multiplier >= 3.5 && Math.random() < 0.35;
+  const rare = multiplier >= 3.5 && Math.random() < RARE_HIT_CHANCE;
   const winSymbol = rare ? RARE_SYMBOL : pick(SYMBOLS);
   for (let i = 0; i < required; i++) symbols[i] = winSymbol;
   return { symbols: symbols.sort(() => Math.random() - 0.5), winSymbol, rare };
@@ -216,6 +217,7 @@ export async function getScratchCardState(userId: number) {
         id: String(round.id),
         endsAt: new Date(round.endsAt).getTime(),
         targetMarginBps: round.targetMarginBps,
+        maxPotentialMultiplier: toNum(round.maxPayoutMultiplier),
       },
       wallet: {
         withdrawableBalance: toNum(u.withdrawableBalance),
@@ -251,6 +253,10 @@ export async function getScratchCardState(userId: number) {
         totalWin: toNum(r.totalWin),
       })),
       streak: Math.max(0, Number(streakRow?.c ?? 0)),
+      tuning: {
+        onboardingRounds: ONBOARDING_ROUNDS,
+        rareHitChance: RARE_HIT_CHANCE,
+      },
     };
   });
 }
@@ -273,7 +279,7 @@ export async function buyScratchCard(
     const stake = round2(input.stakeAmount);
     if (!Number.isFinite(stake) || stake < 1 || stake > 5) throw new Error("INVALID_STAKE");
     const boxCount = Math.max(3, Math.min(9, Math.round(input.boxCount)));
-    const requiredMatches = Math.min(3, boxCount);
+    const requiredMatches = boxCount <= 4 ? 2 : 3;
     const boostFee = round2((input.extraReveal ? stake * 0.05 : 0) + (input.multiplierBoost ? stake * 0.1 : 0));
     const totalDebit = round2(stake + boostFee);
 
@@ -322,7 +328,12 @@ export async function buyScratchCard(
         expiresAt: new Date(Date.now() + CARD_MS),
       })
       .returning();
-    return { cardId: String(card.id), onboardingMode: onboarding, onboardingRoundsLeft: Math.max(0, ONBOARDING_ROUNDS - (prior + 1)) };
+    return {
+      cardId: String(card.id),
+      onboardingMode: onboarding,
+      onboardingRoundsLeft: Math.max(0, ONBOARDING_ROUNDS - (prior + 1)),
+      requiredMatches,
+    };
   });
 }
 

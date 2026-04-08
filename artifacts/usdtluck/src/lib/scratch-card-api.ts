@@ -1,7 +1,7 @@
 import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
 
 export type ScratchCardState = {
-  round: { id: string; endsAt: number; targetMarginBps: number };
+  round: { id: string; endsAt: number; targetMarginBps: number; maxPotentialMultiplier: number };
   wallet: { withdrawableBalance: number; nonWithdrawableBalance: number; lockedBalance: number };
   activeCard: {
     id: string;
@@ -26,6 +26,7 @@ export type ScratchCardState = {
   }>;
   leaderboard: Array<{ userId: number; name: string; totalWin: number }>;
   streak: number;
+  tuning: { onboardingRounds: number; rareHitChance: number };
 };
 
 async function readJson<T>(res: Response): Promise<T> {
@@ -43,14 +44,14 @@ export async function buyScratchCardApi(payload: {
   boxCount: number;
   extraReveal?: boolean;
   multiplierBoost?: boolean;
-}): Promise<{ cardId: string; onboardingMode: boolean; onboardingRoundsLeft: number }> {
+}): Promise<{ cardId: string; onboardingMode: boolean; onboardingRoundsLeft: number; requiredMatches: number }> {
   const res = await fetch(apiUrl("/api/scratch-card/buy"), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  return readJson<{ cardId: string; onboardingMode: boolean; onboardingRoundsLeft: number }>(res);
+  return readJson<{ cardId: string; onboardingMode: boolean; onboardingRoundsLeft: number; requiredMatches: number }>(res);
 }
 
 export async function revealScratchBoxApi(cardId: string, boxIndex: number): Promise<{

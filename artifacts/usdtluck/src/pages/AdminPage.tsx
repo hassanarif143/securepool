@@ -2660,6 +2660,109 @@ function UsersTab() {
                 </div>
               </div>
 
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Game Access Control</p>
+                  <div className="flex items-center gap-2 text-[10px]">
+                    <span className={`px-2 py-1 rounded border ${(u as { isArenaDisabled?: boolean }).isArenaDisabled ? "border-orange-500/40 bg-orange-500/10 text-orange-300" : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"}`}>
+                      Arena {(u as { isArenaDisabled?: boolean }).isArenaDisabled ? "Disabled" : "Enabled"}
+                    </span>
+                    <span className={`px-2 py-1 rounded border ${(u as { isScratchDisabled?: boolean }).isScratchDisabled ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-300" : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"}`}>
+                      Scratch {(u as { isScratchDisabled?: boolean }).isScratchDisabled ? "Disabled" : "Enabled"}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {!(u as { isArenaDisabled?: boolean }).isArenaDisabled ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs"
+                      disabled={busy || u.id === me?.id}
+                      onClick={async () => {
+                        setBusy(true);
+                        try {
+                          await postJson(`/api/admin/users/${u.id}/arena-disable`);
+                          toast({ title: "Arena disabled for user" });
+                          refetch();
+                        } catch (e: any) {
+                          toast({ title: "Failed", description: e.message, variant: "destructive" });
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                    >
+                      Disable Arena
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs"
+                      disabled={busy}
+                      onClick={async () => {
+                        setBusy(true);
+                        try {
+                          await postJson(`/api/admin/users/${u.id}/arena-enable`);
+                          toast({ title: "Arena enabled for user" });
+                          refetch();
+                        } catch (e: any) {
+                          toast({ title: "Failed", description: e.message, variant: "destructive" });
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                    >
+                      Enable Arena
+                    </Button>
+                  )}
+
+                  {!(u as { isScratchDisabled?: boolean }).isScratchDisabled ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs"
+                      disabled={busy || u.id === me?.id}
+                      onClick={async () => {
+                        setBusy(true);
+                        try {
+                          await postJson(`/api/admin/users/${u.id}/scratch-disable`);
+                          toast({ title: "Scratch disabled for user" });
+                          refetch();
+                        } catch (e: any) {
+                          toast({ title: "Failed", description: e.message, variant: "destructive" });
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                    >
+                      Disable Scratch
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs"
+                      disabled={busy}
+                      onClick={async () => {
+                        setBusy(true);
+                        try {
+                          await postJson(`/api/admin/users/${u.id}/scratch-enable`);
+                          toast({ title: "Scratch enabled for user" });
+                          refetch();
+                        } catch (e: any) {
+                          toast({ title: "Failed", description: e.message, variant: "destructive" });
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                    >
+                      Enable Scratch
+                    </Button>
+                  )}
+                </div>
+              </div>
+
               {adjustingId === u.id && (
                 <div className="border rounded-lg p-3 bg-muted/30 space-y-2">
                   <p className="text-xs font-medium text-muted-foreground">

@@ -102,6 +102,9 @@ export default function ScratchCardPage() {
   const [extraReveal, setExtraReveal] = useState(false);
   const [multiplierBoost, setMultiplierBoost] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [nearMissPulse, setNearMissPulse] = useState(false);
+  const [winPulse, setWinPulse] = useState<{ payout: number; multiplier: number } | null>(null);
+  const [soundOn, setSoundOn] = useState(() => window.localStorage.getItem("scratch:sound-on") !== "0");
 
   const { data, isFetching, refetch } = useQuery({
     queryKey: ["scratch-card-state"],
@@ -113,6 +116,9 @@ export default function ScratchCardPage() {
     const seen = window.localStorage.getItem("scratch:guide-seen");
     if (!seen) setShowGuide(true);
   }, []);
+  useEffect(() => {
+    window.localStorage.setItem("scratch:sound-on", soundOn ? "1" : "0");
+  }, [soundOn]);
 
   useEffect(() => {
     if (!data?.wallet || !user) return;
@@ -139,8 +145,25 @@ export default function ScratchCardPage() {
     onSuccess: (r) => {
       if (r.status === "won") {
         confetti({ particleCount: r.rareHit ? 220 : 120, spread: r.rareHit ? 110 : 70, origin: { y: 0.65 } });
+        setWinPulse({ payout: Number(r.payoutAmount ?? 0), multiplier: Number(r.multiplier ?? 1) });
+        window.setTimeout(() => setWinPulse(null), 1300);
+        if (soundOn && typeof window !== "undefined") {
+          const ctx = new AudioContext();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = r.rareHit ? 1020 : 860;
+          gain.gain.value = 0.08;
+          osc.start();
+          osc.stop(ctx.currentTime + 0.14);
+        }
         toast({ title: "You won!", description: `${(r.payoutAmount ?? 0).toFixed(2)} USDT credited instantly` });
       } else if (r.status === "lost") {
+        if (r.nearMiss) {
+          setNearMissPulse(true);
+          window.setTimeout(() => setNearMissPulse(false), 420);
+        }
         toast({ title: "Card settled", description: r.nearMiss ? "Near miss! Next card can hit." : "Better luck next card." });
       }
       void queryClient.invalidateQueries({ queryKey: ["scratch-card-state"] });
@@ -161,12 +184,20 @@ export default function ScratchCardPage() {
   );
 
   return (
-    <div className="space-y-4">
+    <div className={`space-y-4 transition-all ${nearMissPulse ? "animate-[wiggle_0.4s_ease-in-out]" : ""}`}>
+      {winPulse && (
+        <div className="fixed inset-x-0 top-24 z-50 flex justify-center pointer-events-none">
+          <div className="rounded-2xl border border-emerald-400/50 bg-emerald-500/15 px-5 py-3 shadow-xl animate-[fade-in_0.2s_ease-out]">
+            <p className="text-sm font-semibold text-emerald-200">You won {winPulse.payout.toFixed(2)} USDT!</p>
+            <p className="text-xs text-emerald-300/90">{winPulse.multiplier.toFixed(2)}x multiplier locked</p>
+          </div>
+        </div>
+      )}
       {showGuide && (
         <Card className="border-primary/40 bg-primary/5">
           <CardContent className="p-4 space-y-2 text-sm">
             <p className="font-semibold">Quick start</p>
-            <p>Buy card → scratch boxes with finger/mouse → match 3 symbols to win instantly.</p>
+            <p>Drag to scratch, reveal symbols, and match required symbols to win instantly.</p>
             <Button size="sm" onClick={() => { setShowGuide(false); window.localStorage.setItem("scratch:guide-seen", "1"); }}>Start playing</Button>
           </CardContent>
         </Card>
@@ -177,7 +208,15 @@ export default function ScratchCardPage() {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between">
               <span>Scratch Card Arena</span>
-              <span className="text-xs text-muted-foreground">{isFetching ? "Syncing..." : "Live"}</span>
+              <div className="flex items-center gap-2">
+                <button
+                  className={`text-[10px] px-2 py-1 rounded border ${soundOn ? "border-emerald-500/50 text-emerald-300" : "border-border text-muted-foreground"}`}
+                  onClick={() => setSoundOn((s) => !s)}
+                >
+                  Sound {soundOn ? "On" : "Off"}
+                </button>
+                <span className="text-xs text-muted-foreground">{isFetching ? "Syncing..." : "Live"}</span>
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -206,19 +245,24 @@ export default function ScratchCardPage() {
                   </Button>
                 </div>
                 <Button
-                  className="w-full"
+                  className="w-full transition-transform hover:scale-[1.01] active:scale-[0.99]"
                   disabled={!canBuy}
                   onClick={() => buy.mutate({ stakeAmount: stake, boxCount, extraReveal, multiplierBoost })}
                 >
                   {buy.isPending ? "Preparing..." : "Buy Scratch Card"}
                 </Button>
-                <p className="text-xs text-muted-foreground">Round resets in ~{roundLeftSec}s | Target min margin: {(data?.round.targetMarginBps ?? 1200) / 100}%</p>
+                <p className="text-xs text-muted-foreground">
+                  Round resets in ~{roundLeftSec}s | You could win up to {Number(data?.round.maxPotentialMultiplier ?? 4).toFixed(1)}x your stake
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Onboarding rounds: first {data?.tuning?.onboardingRounds ?? 3} cards are tuned for trust-building wins.
+                </p>
               </>
             ) : (
               <>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>Card #{activeCard.id}</span>
-                  <span>{cardLeftSec}s left</span>
+                  <span>{cardLeftSec}s left · Match {activeCard.requiredMatches} symbols</span>
                 </div>
                 <div className={`grid gap-2 ${activeCard.boxCount <= 3 ? "grid-cols-3" : activeCard.boxCount <= 6 ? "grid-cols-3" : "grid-cols-3"}`}>
                   {Array.from({ length: activeCard.boxCount }).map((_, idx) => (
@@ -248,6 +292,10 @@ export default function ScratchCardPage() {
               <p>Daily streak: {data?.streak ?? 0} day(s)</p>
               <p>Cards won: {stats.winCount}</p>
               <p>Total won: {stats.totalWin.toFixed(2)} USDT</p>
+              <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-primary to-emerald-400 transition-all" style={{ width: `${Math.min(100, ((data?.streak ?? 0) / 7) * 100)}%` }} />
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">Weekly streak progress</p>
             </div>
             <Button size="sm" variant="outline" onClick={() => refetch()}>Refresh now</Button>
           </CardContent>
