@@ -53,6 +53,11 @@ function formatCountdown(ms: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+function quickAmountOptions(minUsdt: number, maxUsdt: number): number[] {
+  const base = [500, 1000, 2000, 5000];
+  return base.filter((x) => x >= Math.ceil(minUsdt) && x <= Math.floor(maxUsdt));
+}
+
 function statusLabel(s: P2POrder["status"]) {
   if (s === "pending_payment") return "Pending payment";
   if (s === "paid") return "Paid";
@@ -60,6 +65,12 @@ function statusLabel(s: P2POrder["status"]) {
   if (s === "cancelled") return "Cancelled";
   if (s === "expired") return "Expired";
   return "Disputed";
+}
+
+function progressStep(s: P2POrder["status"]): 1 | 2 | 3 {
+  if (s === "pending_payment") return 1;
+  if (s === "paid" || s === "disputed") return 2;
+  return 3;
 }
 
 function statusTone(s: P2POrder["status"]): "ok" | "warn" | "bad" {
@@ -125,6 +136,7 @@ export default function P2PTradingPage() {
   const [editAccountNo, setEditAccountNo] = useState("");
   const [editEasypaisa, setEditEasypaisa] = useState("");
   const [editJazzcash, setEditJazzcash] = useState("");
+  const [easyMode, setEasyMode] = useState(true);
 
   const refreshAll = async () => {
     await Promise.all([
@@ -296,6 +308,8 @@ export default function P2PTradingPage() {
       return true;
     });
   }, [sellOffers, methodFilter, priceMin, priceMax]);
+  const recommendedBuy = useMemo(() => filteredBuy.filter((o) => o.verified && o.availableUsdt >= o.minUsdt), [filteredBuy]);
+  const recommendedSell = useMemo(() => filteredSell.filter((o) => o.verified && o.availableUsdt >= o.minUsdt), [filteredSell]);
 
   const activeOrders = orders.filter((o) => o.status === "pending_payment" || o.status === "paid");
   const historyOrders = orders.filter((o) => ["completed", "cancelled", "expired", "disputed"].includes(o.status));
@@ -346,12 +360,24 @@ export default function P2PTradingPage() {
     Number(createMax) >= Number(createMin) &&
     Number(createAvailable) >= Number(createMin) &&
     createMethods.length > 0;
+  const hasCreatePaymentDetails =
+    (!createMethods.includes("bank") ||
+      (createBankName.trim().length > 1 && createAccountTitle.trim().length > 1 && createAccountNo.trim().length > 3)) &&
+    (!createMethods.includes("easypaisa") || createEasypaisa.trim().length >= 8) &&
+    (!createMethods.includes("jazzcash") || createJazzcash.trim().length >= 8);
+  const canCreateOfferFinal = canCreateOffer && hasCreatePaymentDetails;
   const canSaveEdit =
     Number(editPrice) > 0 &&
     Number(editMin) > 0 &&
     Number(editMax) >= Number(editMin) &&
     Number(editAvailable) >= 0 &&
     editMethods.length > 0;
+  const hasEditPaymentDetails =
+    (!editMethods.includes("bank") ||
+      (editBankName.trim().length > 1 && editAccountTitle.trim().length > 1 && editAccountNo.trim().length > 3)) &&
+    (!editMethods.includes("easypaisa") || editEasypaisa.trim().length >= 8) &&
+    (!editMethods.includes("jazzcash") || editJazzcash.trim().length >= 8);
+  const canSaveEditFinal = canSaveEdit && hasEditPaymentDetails;
   const activeMyOffers = myOffers.filter((o) => o.active);
   const archivedMyOffers = myOffers.filter((o) => !o.active);
 
@@ -366,6 +392,25 @@ export default function P2PTradingPage() {
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="space-y-3">
         <h1 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight">P2P Trading</h1>
+        <Card className="border-primary/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Naya user? Ye 3 step follow karein</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm space-y-1 text-muted-foreground">
+            <p>1) Offer select karein (Buy ya Sell tab se).</p>
+            <p>2) Amount dal ke order banayein, phir chat me payment proof share karein.</p>
+            <p>3) Buyer "Mark as Paid" kare, Seller payment check karke "Release USDT" kare.</p>
+          </CardContent>
+        </Card>
+        <div className="rounded-xl border px-4 py-3 text-sm flex items-center justify-between gap-3">
+          <div>
+            <p className="font-medium">Easy Mode</p>
+            <p className="text-xs text-muted-foreground">Naye users ke liye sirf recommended offers aur simple guidance.</p>
+          </div>
+          <Button type="button" size="sm" variant={easyMode ? "default" : "outline"} onClick={() => setEasyMode((v) => !v)}>
+            {easyMode ? "ON" : "OFF"}
+          </Button>
+        </div>
         <div className="flex flex-wrap gap-2">
           {["Secure", "Escrow Protected", "Verified Users"].map((x) => (
             <Badge key={x} variant="outline" className="border-primary/25 bg-primary/5">
@@ -406,7 +451,7 @@ export default function P2PTradingPage() {
         </CardContent></Card>
 
         <TabsContent value="buy" className="space-y-3 mt-4">
-          <OfferGrid offers={filteredBuy} action="Buy" onAction={(offer) => { setOrderAmount(String(offer.minUsdt)); setOfferModal({ offer, side: "buy" }); }} />
+          <OfferGrid offers={easyMode ? recommendedBuy : filteredBuy} action="Buy" onAction={(offer) => { setOrderAmount(String(offer.minUsdt)); setOfferModal({ offer, side: "buy" }); }} />
         </TabsContent>
         <TabsContent value="sell" className="space-y-3 mt-4">
           <Card>
@@ -414,6 +459,9 @@ export default function P2PTradingPage() {
               <CardTitle className="text-base">Create Sell Offer</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Simple rule: jitna USDT aap bechna chahte hain utna available rakhein, aur payment details bilkul sahi likhein.
+              </p>
               <div className="grid sm:grid-cols-2 gap-3">
                 <Input type="number" value={createPrice} onChange={(e) => setCreatePrice(e.target.value)} placeholder="Price per USDT" />
                 <Input value={createFiat} onChange={(e) => setCreateFiat(e.target.value.toUpperCase())} placeholder="Fiat (e.g. PKR)" />
@@ -440,8 +488,9 @@ export default function P2PTradingPage() {
               ) : null}
               {createMethods.includes("easypaisa") ? <Input value={createEasypaisa} onChange={(e) => setCreateEasypaisa(e.target.value)} placeholder="Easypaisa number" /> : null}
               {createMethods.includes("jazzcash") ? <Input value={createJazzcash} onChange={(e) => setCreateJazzcash(e.target.value)} placeholder="JazzCash number" /> : null}
+              {!hasCreatePaymentDetails ? <p className="text-xs text-amber-500">Selected method ke liye required payment details poori karein.</p> : null}
               <div className="flex justify-end">
-                <Button disabled={!canCreateOffer || createOfferMutation.isPending} onClick={() => createOfferMutation.mutate()}>
+                <Button disabled={!canCreateOfferFinal || createOfferMutation.isPending} onClick={() => createOfferMutation.mutate()}>
                   {createOfferMutation.isPending ? "Creating..." : "Create Offer"}
                 </Button>
               </div>
@@ -511,7 +560,7 @@ export default function P2PTradingPage() {
               ) : null}
             </CardContent>
           </Card>
-          <OfferGrid offers={filteredSell} action="Sell" onAction={(offer) => { setOrderAmount(String(offer.minUsdt)); setOfferModal({ offer, side: "sell" }); }} />
+          <OfferGrid offers={easyMode ? recommendedSell : filteredSell} action="Sell" onAction={(offer) => { setOrderAmount(String(offer.minUsdt)); setOfferModal({ offer, side: "sell" }); }} />
         </TabsContent>
         <TabsContent value="orders" className="space-y-3 mt-4">
           {activeOrders.map((o) => <OrderCard key={o.id} o={o} onOpen={() => setDetailOrder(o)} />)}
@@ -533,9 +582,17 @@ export default function P2PTradingPage() {
             <div className="space-y-2">
               <Label>USDT Amount</Label>
               <Input type="number" value={orderAmount} onChange={(e) => setOrderAmount(e.target.value)} />
+              <div className="flex flex-wrap gap-2">
+                {quickAmountOptions(offerModal.offer.minUsdt, offerModal.offer.maxUsdt).map((amt) => (
+                  <Button key={amt} type="button" size="sm" variant="outline" onClick={() => setOrderAmount(String(amt))}>
+                    {amt}
+                  </Button>
+                ))}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Range {offerModal.offer.minUsdt} - {offerModal.offer.maxUsdt} · {offerModal.offer.pricePerUsdt} {offerModal.offer.fiatCurrency}/USDT
               </p>
+              <p className="text-xs text-muted-foreground">Tip: pehli trade me chota amount rakhein (jaise 500 ya 1000).</p>
             </div>
           ) : null}
           <DialogFooter><Button variant="outline" onClick={() => setOfferModal(null)}>Cancel</Button><Button onClick={onCreateOrder}>Create Order</Button></DialogFooter>
@@ -552,6 +609,20 @@ export default function P2PTradingPage() {
               </div>
               <ScrollArea className="max-h-[55vh] p-4">
                 <div className="space-y-3">
+                  <div className="rounded-lg border p-2">
+                    <p className="text-xs text-muted-foreground mb-1">Progress</p>
+                    <div className="grid grid-cols-3 gap-2 text-[11px]">
+                      {[
+                        { n: 1 as const, label: "Order Bana" },
+                        { n: 2 as const, label: "Payment Sent" },
+                        { n: 3 as const, label: "USDT Release" },
+                      ].map((step) => (
+                        <div key={step.n} className={cn("rounded-md px-2 py-1 text-center border", progressStep(live.status) >= step.n ? "border-primary text-primary bg-primary/10" : "border-muted text-muted-foreground")}>
+                          {step.label}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   {(live.status === "pending_payment" || live.status === "paid") ? <p className="text-sm text-amber-400">Timer: {formatCountdown(live.paymentDeadlineAt - Date.now())}</p> : null}
                   <div className="text-sm">Amount: <strong>{live.usdtAmount} USDT</strong> · {live.fiatTotal.toFixed(2)} {live.fiatCurrency}</div>
                   <div className="flex flex-wrap gap-1">{live.methods.map((m) => <Badge key={m} variant="secondary">{paymentMethodIcon(m)} {P2P_PAYMENT_LABELS[m]}</Badge>)}</div>
@@ -579,8 +650,8 @@ export default function P2PTradingPage() {
                   </>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  {live.myRole === "buyer" && live.status === "pending_payment" ? <Button size="sm" className="bg-amber-600 text-white" onClick={() => setConfirmPaid(true)}>Mark as Paid</Button> : null}
-                  {live.myRole === "seller" && live.status === "paid" ? <Button size="sm" onClick={() => setConfirmRelease(true)}>Release USDT</Button> : null}
+                  {live.myRole === "buyer" && live.status === "pending_payment" ? <Button title="Agar payment bhej di hai to is button pe click karein" size="sm" className="bg-amber-600 text-white" onClick={() => setConfirmPaid(true)}>Mark as Paid</Button> : null}
+                  {live.myRole === "seller" && live.status === "paid" ? <Button title="Sirf payment receive confirm hone ke baad release karein" size="sm" onClick={() => setConfirmRelease(true)}>Release USDT</Button> : null}
                   {live.status === "pending_payment" ? <Button size="sm" variant="outline" onClick={() => cancelMutation.mutate(live.id)}>Cancel</Button> : null}
                   {live.status === "paid" && !live.appeal ? <Button size="sm" variant="destructive" onClick={() => setAppealOpen(true)}>Raise Appeal</Button> : null}
                 </div>
@@ -639,9 +710,10 @@ export default function P2PTradingPage() {
           ) : null}
           {editMethods.includes("easypaisa") ? <Input value={editEasypaisa} onChange={(e) => setEditEasypaisa(e.target.value)} placeholder="Easypaisa number" /> : null}
           {editMethods.includes("jazzcash") ? <Input value={editJazzcash} onChange={(e) => setEditJazzcash(e.target.value)} placeholder="JazzCash number" /> : null}
+          {!hasEditPaymentDetails ? <p className="text-xs text-amber-500">Selected method ke liye required payment details poori karein.</p> : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOffer(null)}>Cancel</Button>
-            <Button disabled={!canSaveEdit || editOfferMutation.isPending} onClick={() => editOfferMutation.mutate()}>
+            <Button disabled={!canSaveEditFinal || editOfferMutation.isPending} onClick={() => editOfferMutation.mutate()}>
               {editOfferMutation.isPending ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
