@@ -158,6 +158,8 @@ export default function WalletPage() {
 
   const currentUser = user;
   const withdrawableBal = currentUser.withdrawableBalance ?? 0;
+  const rewardsUsdt = Number((currentUser.rewardPoints ?? 0) as number) / 300;
+  const lockedEstimated = Math.max(0, Number(currentUser.walletBalance ?? 0) - withdrawableBal - rewardsUsdt);
 
   const txArr = transactions as any[];
   const pendingDeposit = txArr.find((t) => t.txType === "deposit" && t.status === "pending");
@@ -352,6 +354,24 @@ export default function WalletPage() {
             <p className="text-xs text-muted-foreground">
               Wallet focus: <span className="font-semibold text-foreground">Withdrawable balance</span> only.
             </p>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.08] p-3">
+              <p className="text-[11px] text-emerald-300">Withdrawable</p>
+              <p className="text-sm font-semibold tabular-nums text-emerald-100">{withdrawableBal.toFixed(2)} USDT</p>
+              <p className="text-[10px] text-emerald-100/80 mt-1">Cash-out eligible</p>
+            </div>
+            <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/[0.08] p-3">
+              <p className="text-[11px] text-cyan-300">Rewards</p>
+              <p className="text-sm font-semibold tabular-nums text-cyan-100">{rewardsUsdt.toFixed(2)} USDT</p>
+              <p className="text-[10px] text-cyan-100/80 mt-1">Used in platform features</p>
+            </div>
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.08] p-3">
+              <p className="text-[11px] text-amber-300">Locked / In-use</p>
+              <p className="text-sm font-semibold tabular-nums text-amber-100">{lockedEstimated.toFixed(2)} USDT</p>
+              <p className="text-[10px] text-amber-100/80 mt-1">Temporarily unavailable</p>
+            </div>
           </div>
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -665,7 +685,7 @@ export default function WalletPage() {
               onConfirm={() => void confirmWithdraw()}
               loading={withdrawLoading}
               title="Confirm withdrawal"
-              description={`Send ${parseFloat(amount || "0").toFixed(2)} USDT to ${withdrawWallet.slice(0, 8)}… (TRC-20).`}
+              description={`You request ${parseFloat(amount || "0").toFixed(2)} USDT to ${withdrawWallet.slice(0, 8)}… (TRC-20). Estimated blockchain network fee is ~1 USDT, so expected receive is about ${Math.max(0, parseFloat(amount || "0") - 1).toFixed(2)} USDT.`}
               confirmLabel="Confirm withdrawal"
             />
             {withdrawConfirmOpen && (

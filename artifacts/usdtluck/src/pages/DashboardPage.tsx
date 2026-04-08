@@ -171,6 +171,8 @@ export default function DashboardPage() {
 
   const activeJoined = myEntries.filter((e) => e.status === "open");
   const firstName = user.name.split(" ")[0] ?? user.name;
+  const rewardsUsdt = Number((user.rewardPoints ?? 0) as number) / 300;
+  const lockedEstimated = Math.max(0, Number(user.walletBalance ?? 0) - Number(user.withdrawableBalance ?? 0) - rewardsUsdt);
 
   return (
     <div className="space-y-8 sm:space-y-10 pb-12 max-w-6xl mx-auto">
@@ -253,6 +255,28 @@ export default function DashboardPage() {
             <Button variant="secondary" className="min-h-12 w-full font-medium sm:w-auto sm:min-w-[9rem]" asChild>
               <Link href="/wallet">Wallet</Link>
             </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-primary/20 bg-primary/[0.05] p-4 sm:p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary/90">Wallet Snapshot</p>
+        <p className="text-xs text-muted-foreground mt-1">Simple balance view for non-technical users.</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3">
+            <p className="text-[11px] text-emerald-300">Withdrawable</p>
+            <p className="text-xl font-semibold tabular-nums text-emerald-200">{Number(user.withdrawableBalance ?? 0).toFixed(2)} USDT</p>
+            <p className="text-[11px] text-emerald-100/80 mt-1">Can be withdrawn anytime</p>
+          </div>
+          <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/[0.08] p-3">
+            <p className="text-[11px] text-cyan-300">Rewards Balance</p>
+            <p className="text-xl font-semibold tabular-nums text-cyan-200">{rewardsUsdt.toFixed(2)} USDT</p>
+            <p className="text-[11px] text-cyan-100/80 mt-1">Used for in-platform rewards</p>
+          </div>
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.08] p-3">
+            <p className="text-[11px] text-amber-300">Locked / In-use</p>
+            <p className="text-xl font-semibold tabular-nums text-amber-200">{lockedEstimated.toFixed(2)} USDT</p>
+            <p className="text-[11px] text-amber-100/80 mt-1">Staking, open rounds, or temporary holds</p>
           </div>
         </div>
       </div>

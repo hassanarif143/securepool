@@ -690,8 +690,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {(
             [
               { href: "/dashboard", label: "Home", Icon: LayoutDashboard },
-              { href: "/pools", label: "Pools", Icon: Layers },
               { href: "/wallet", label: "Wallet", Icon: Wallet },
+              { href: "/p2p", label: "P2P", Icon: Layers },
+              ...(!gamesLoading && cashoutArenaEnabled ? [{ href: "/cashout-arena", label: "Arena", Icon: Trophy }] as const : []),
+              ...(!gamesLoading && scratchCardEnabled ? [{ href: "/scratch-card", label: "Scratch", Icon: Trophy }] as const : []),
               ...(user.isAdmin ? [{ href: "/admin", label: "Admin", Icon: Shield }] as const : []),
               { href: "/winners", label: "Wins", Icon: Trophy },
             ] as const

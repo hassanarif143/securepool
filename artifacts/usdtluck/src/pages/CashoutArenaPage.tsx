@@ -337,6 +337,7 @@ export default function CashoutArenaPage() {
         <div>
           <h1 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight">Smart Cashout Arena</h1>
           <p className="text-sm text-muted-foreground">Fast rounds, instant cashout, transparent risk zones.</p>
+          <p className="text-xs text-muted-foreground mt-1">All amounts on this page are in USDT.</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="border-primary/40">Profit-safe engine</Badge>
@@ -440,7 +441,7 @@ export default function CashoutArenaPage() {
             <div className="grid grid-cols-5 gap-2">
               {[1, 2, 3, 4, 5].map((n) => (
                 <Button key={n} size="sm" variant={stake === n ? "default" : "outline"} onClick={() => setStake(n)}>
-                  ${n}
+                  {n} USDT
                 </Button>
               ))}
             </div>
@@ -477,11 +478,11 @@ export default function CashoutArenaPage() {
                 You entered a higher-risk zone. Setting auto cashout is safer.
               </p>
             ) : null}
-            <Button className="w-full transition-all hover:scale-[1.02] active:scale-[0.98]" disabled={!canPlace || placeBetMutation.isPending} onClick={() => placeBetMutation.mutate()}>
+            <Button className="w-full min-h-12 transition-all hover:scale-[1.02] active:scale-[0.98]" disabled={!canPlace || placeBetMutation.isPending} onClick={() => placeBetMutation.mutate()}>
               {placeBetMutation.isPending ? "Placing..." : "Place Bet"}
             </Button>
             <Button
-              className="w-full bg-amber-600 hover:bg-amber-500 text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full min-h-12 bg-amber-600 hover:bg-amber-500 text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
               disabled={!canCashout || cashoutMutation.isPending}
               onClick={() => data?.myBet && cashoutMutation.mutate(data.myBet.id)}
             >
