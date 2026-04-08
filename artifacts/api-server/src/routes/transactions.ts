@@ -121,13 +121,20 @@ router.post("/deposit", uploadScreenshot, async (req: Request, res: Response) =>
 
     /* Narrow columns so missing optional DB columns (e.g. is_blocked) do not break SELECT */
     const [user] = await db
-      .select({ id: usersTable.id, name: usersTable.name })
+      .select({ id: usersTable.id, name: usersTable.name, cryptoAddress: usersTable.cryptoAddress })
       .from(usersTable)
       .where(eq(usersTable.id, userId))
       .limit(1);
 
     if (!user) {
       res.status(404).json({ error: "User not found" });
+      return;
+    }
+    if (!user.cryptoAddress) {
+      res.status(400).json({
+        error: "Wallet address required",
+        message: "Please add your TRC20 wallet address in Profile before submitting deposit.",
+      });
       return;
     }
 
@@ -196,6 +203,7 @@ router.post("/withdraw", async (req, res) => {
       .select({
         id: usersTable.id,
         name: usersTable.name,
+        cryptoAddress: usersTable.cryptoAddress,
         walletBalance: usersTable.walletBalance,
         bonusBalance: usersTable.bonusBalance,
         withdrawableBalance: usersTable.withdrawableBalance,
@@ -206,6 +214,20 @@ router.post("/withdraw", async (req, res) => {
 
     if (!user) {
       res.status(404).json({ error: "User not found" });
+      return;
+    }
+    if (!user.cryptoAddress) {
+      res.status(400).json({
+        error: "Wallet address required",
+        message: "Please add your TRC20 wallet address in Profile before withdrawing.",
+      });
+      return;
+    }
+    if (walletAddress.trim() !== user.cryptoAddress.trim()) {
+      res.status(400).json({
+        error: "Wallet mismatch",
+        message: "Withdrawal address must match your saved profile wallet address.",
+      });
       return;
     }
 

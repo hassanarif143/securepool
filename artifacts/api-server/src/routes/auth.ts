@@ -27,13 +27,37 @@ const SignupSchema = z
     name: z.string().min(2),
     email: z.string().trim().email(),
     password: z.string().min(6),
-    cryptoAddress: trc20AddressZod(),
-    cryptoAddressConfirm: trc20AddressZod(),
+    cryptoAddress: z.string().trim().optional(),
+    cryptoAddressConfirm: z.string().trim().optional(),
     referralCode: z.string().optional(),
   })
-  .refine((d) => d.cryptoAddress === d.cryptoAddressConfirm, {
-    message: "Wallet addresses do not match",
-    path: ["cryptoAddressConfirm"],
+  .superRefine((d, ctx) => {
+    const a = (d.cryptoAddress ?? "").trim();
+    const b = (d.cryptoAddressConfirm ?? "").trim();
+    const hasAny = a.length > 0 || b.length > 0;
+    if (!hasAny) return;
+    const trc = trc20AddressZod();
+    if (!trc.safeParse(a).success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["cryptoAddress"],
+        message: "Invalid TRC20 wallet address format",
+      });
+    }
+    if (!trc.safeParse(b).success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["cryptoAddressConfirm"],
+        message: "Invalid TRC20 wallet address format",
+      });
+    }
+    if (a !== b) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["cryptoAddressConfirm"],
+        message: "Wallet addresses do not match",
+      });
+    }
   });
 
 const LoginSchema = z.object({
@@ -150,7 +174,8 @@ router.post("/signup", signupLimiter, async (req, res) => {
 
   const cleanName = sanitizeText(parse.data.name, 80);
   const email = parse.data.email.toLowerCase();
-  const { password, cryptoAddress } = parse.data;
+  const { password } = parse.data;
+  const cryptoAddress = parse.data.cryptoAddress?.trim() || null;
   const referralCode = parse.data.referralCode;
 
   const existingByEmail = await dbPool.query(
@@ -161,14 +186,16 @@ router.post("/signup", signupLimiter, async (req, res) => {
     res.status(409).json({ error: "Email already in use", message: "An account with this email already exists." });
     return;
   }
-  const existingWallet = await db.select().from(usersTable).where(eq(usersTable.cryptoAddress, cryptoAddress)).limit(1);
-  if (existingWallet.length > 0) {
-    res.status(409).json({
-      error: "Duplicate wallet",
-      message:
-        "This wallet address is already registered to another account. Each account must use a unique wallet address.",
-    });
-    return;
+  if (cryptoAddress) {
+    const existingWallet = await db.select().from(usersTable).where(eq(usersTable.cryptoAddress, cryptoAddress)).limit(1);
+    if (existingWallet.length > 0) {
+      res.status(409).json({
+        error: "Duplicate wallet",
+        message:
+          "This wallet address is already registered to another account. Each account must use a unique wallet address.",
+      });
+      return;
+    }
   }
 
   /* Resolve referrer if code provided */
@@ -185,7 +212,7 @@ router.post("/signup", signupLimiter, async (req, res) => {
     .values({
       name: cleanName,
       email,
-      cryptoAddress,
+      cryptoAddress: cryptoAddress ?? undefined,
       passwordHash,
       walletBalance: "0",
       bonusBalance: "0",

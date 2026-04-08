@@ -199,6 +199,13 @@ export default function WalletPage() {
 
   async function handleDeposit(e: React.FormEvent) {
     e.preventDefault();
+    if (!currentUser.cryptoAddress) {
+      appToast.error({
+        title: "Wallet address required",
+        description: "Please add your TRC20 wallet address in Profile before deposit.",
+      });
+      return;
+    }
     const val = parseFloat(amount);
     if (!val || val <= 0) { appToast.error({ title: "Invalid amount" }); return; }
     if (!screenshotFile) { appToast.error({ title: "Please upload your payment screenshot" }); return; }
@@ -407,6 +414,18 @@ export default function WalletPage() {
         {/* ── DEPOSIT TAB ── */}
         {tab === "deposit" && (
           <div className="p-5 space-y-5">
+            {!currentUser.cryptoAddress && (
+              <div className="flex items-start gap-3 p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/8">
+                <span className="text-yellow-400 shrink-0 mt-0.5">⚠</span>
+                <p className="text-sm text-yellow-300">
+                  Deposit se pehle apna TRC20 wallet address{" "}
+                  <Link href="/profile" className="font-semibold underline">
+                    Profile
+                  </Link>{" "}
+                  me add karein. Ye security aur payout verification ke liye required hai.
+                </p>
+              </div>
+            )}
 
             {/* Pending deposit banner */}
             {pendingDeposit && (
@@ -503,7 +522,7 @@ export default function WalletPage() {
                   onChange={handleFileChange}
                   className="hidden"
                   required={!screenshotFile}
-                  disabled={!!pendingDeposit}
+                  disabled={!!pendingDeposit || !currentUser.cryptoAddress}
                 />
               </div>
 
@@ -529,10 +548,10 @@ export default function WalletPage() {
               ) : (
                 <Button
                   type="submit"
-                  disabled={depositLoading}
+                  disabled={depositLoading || !currentUser.cryptoAddress}
                   className="min-h-12 w-full font-semibold shadow-lg shadow-primary/25 transition-transform duration-200 active:scale-[0.99]"
                 >
-                  {depositLoading ? "Submitting…" : "Submit deposit request"}
+                  {depositLoading ? "Submitting…" : !currentUser.cryptoAddress ? "Add wallet in profile first" : "Submit deposit request"}
                 </Button>
               )}
             </form>

@@ -72,23 +72,28 @@ export default function SignupPage() {
   }, [search]);
 
   const addrPhase = trc20ValidationMessage(cryptoAddress);
+  const hasWalletInput = cryptoAddress.trim().length > 0 || cryptoAddressConfirm.trim().length > 0;
   const addressesMatch =
     cryptoAddress.trim() === cryptoAddressConfirm.trim() && cryptoAddress.trim().length > 0;
   const canSubmit = useMemo(() => {
     if (name.trim().length < 2 || !email.trim() || password.length < 6) return false;
-    if (!TRC20_ADDRESS_REGEX.test(cryptoAddress.trim())) return false;
-    if (cryptoAddress.trim() !== cryptoAddressConfirm.trim()) return false;
+    if (hasWalletInput) {
+      if (!TRC20_ADDRESS_REGEX.test(cryptoAddress.trim())) return false;
+      if (cryptoAddress.trim() !== cryptoAddressConfirm.trim()) return false;
+    }
     return true;
-  }, [name, email, password, cryptoAddress, cryptoAddressConfirm]);
+  }, [name, email, password, cryptoAddress, cryptoAddressConfirm, hasWalletInput]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) {
       toast({
-        title: "Check wallet fields",
-        description: !TRC20_ADDRESS_REGEX.test(cryptoAddress.trim())
-          ? "Enter a valid TRC20 address (T + 33 letters/numbers)."
-          : "Both wallet fields must match exactly.",
+        title: "Please check your form",
+        description: hasWalletInput
+          ? !TRC20_ADDRESS_REGEX.test(cryptoAddress.trim())
+            ? "Enter a valid TRC20 address (T + 33 letters/numbers)."
+            : "Both wallet fields must match exactly."
+          : "Please complete required fields.",
         variant: "destructive",
       });
       return;
@@ -114,8 +119,8 @@ export default function SignupPage() {
         },
         body: JSON.stringify({
           name,
-          cryptoAddress: cryptoAddress.trim(),
-          cryptoAddressConfirm: cryptoAddressConfirm.trim(),
+          cryptoAddress: cryptoAddress.trim() || undefined,
+          cryptoAddressConfirm: cryptoAddressConfirm.trim() || undefined,
           email,
           password,
           referralCode: referralCode || undefined,
@@ -353,16 +358,16 @@ export default function SignupPage() {
                 </div>
               </div>
 
-              {/* TRC20 wallet — required, double entry */}
+              {/* TRC20 wallet — optional at signup */}
               <div className="rounded-xl px-3 py-2.5 mb-1"
                 style={{ background: "hsla(38,92%,50%,0.08)", border: "1px solid hsla(38,92%,50%,0.25)" }}>
                 <p className="text-xs leading-relaxed" style={{ color: "hsl(38,90%,62%)" }}>
-                  ⚠️ Please double-check your wallet address carefully. USDT sent to a wrong address cannot be recovered.
+                  Wallet address optional hai. Aap signup bina wallet ke kar sakte hain, lekin deposit/withdraw se pehle profile me add karna zaroori hoga.
                 </p>
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium" htmlFor="cryptoAddress">
-                  Your TRC20 Wallet Address (for receiving USDT prizes)
+                  Your TRC20 Wallet Address <span className="text-muted-foreground">(optional)</span>
                 </label>
                 <input
                   id="cryptoAddress"
@@ -372,7 +377,6 @@ export default function SignupPage() {
                   value={cryptoAddress}
                   onChange={(e) => setCryptoAddress(e.target.value)}
                   placeholder="T..."
-                  required
                   maxLength={64}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all font-mono"
                   style={walletInputStyle(addrPhase)}
@@ -399,7 +403,9 @@ export default function SignupPage() {
                 )}
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="cryptoAddressConfirm">Confirm your TRC20 Wallet Address</label>
+                <label className="text-sm font-medium" htmlFor="cryptoAddressConfirm">
+                  Confirm your TRC20 Wallet Address <span className="text-muted-foreground">(if entered)</span>
+                </label>
                 <input
                   id="cryptoAddressConfirm"
                   type="text"
@@ -408,7 +414,6 @@ export default function SignupPage() {
                   value={cryptoAddressConfirm}
                   onChange={(e) => setCryptoAddressConfirm(e.target.value)}
                   placeholder="T..."
-                  required
                   maxLength={64}
                   className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all font-mono"
                   style={walletInputStyle(

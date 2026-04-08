@@ -176,6 +176,36 @@ export default function DashboardPage() {
     <div className="space-y-8 sm:space-y-10 pb-12 max-w-6xl mx-auto">
       {/* Subtle trust grid — above overview, low visual weight */}
       <TrustStrip />
+      {!user.cryptoAddress && (
+        <div className="rounded-2xl border border-amber-500/35 bg-amber-500/[0.08] px-4 py-4 sm:px-5">
+          <p className="text-sm font-semibold text-amber-200">Action required: Add your wallet address</p>
+          <p className="mt-1 text-xs text-amber-100/90 leading-relaxed">
+            Aap signup complete kar chuke hain. Ab deposit/withdraw use karne ke liye profile me TRC20 wallet address add karna zaroori hai.
+          </p>
+          <div className="mt-3 grid gap-2 text-xs text-amber-100/90 sm:grid-cols-3">
+            <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2">
+              <p className="font-semibold">Step 1</p>
+              <p>Profile open karein aur TRC20 wallet address save karein.</p>
+            </div>
+            <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2">
+              <p className="font-semibold">Step 2</p>
+              <p>Wallet page par Deposit tab me platform address copy karein.</p>
+            </div>
+            <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2">
+              <p className="font-semibold">Step 3</p>
+              <p>USDT send karke screenshot upload karein, admin verify karega.</p>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <Button size="sm" className="font-semibold sm:w-auto" asChild>
+              <Link href="/profile">Add wallet in Profile</Link>
+            </Button>
+            <Button size="sm" variant="outline" className="border-amber-400/40 text-amber-100 hover:bg-amber-500/10 sm:w-auto" asChild>
+              <Link href="/wallet?tab=deposit">Open Deposit Guide</Link>
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Page intro */}
       <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-br from-[hsl(222,30%,10%)] via-[hsl(222,30%,9%)] to-[hsl(224,30%,8%)] px-5 py-5 sm:px-6 sm:py-6 shadow-lg shadow-black/20 ring-1 ring-white/[0.04]">
