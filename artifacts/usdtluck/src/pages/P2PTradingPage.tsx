@@ -59,6 +59,9 @@ function quickAmountOptions(minUsdt: number, maxUsdt: number): number[] {
   return base.filter((x) => x >= Math.ceil(minUsdt) && x <= Math.floor(maxUsdt));
 }
 
+/** Max implied PKR/USDT drift from the offer's listed price (matches server). */
+const P2P_MAX_IMPLIED_PRICE_DRIFT = 0.45;
+
 function hasAnyProfilePaymentDetails(details: Record<string, string> | undefined): boolean {
   if (!details) return false;
   return Object.values(details).some((v) => String(v ?? "").trim().length > 0);
@@ -124,7 +127,7 @@ export default function P2PTradingPage() {
   const [createMin, setCreateMin] = useState("");
   const [createMax, setCreateMax] = useState("");
   const [createAvailable, setCreateAvailable] = useState("");
-  const [createFiat, setCreateFiat] = useState("PKR");
+  const [createPriceFollowRef, setCreatePriceFollowRef] = useState(true);
   const [createMethods, setCreateMethods] = useState<PaymentMethod[]>(["bank"]);
   const [editOffer, setEditOffer] = useState<MyP2POffer | null>(null);
   const [editPrice, setEditPrice] = useState("");
@@ -134,6 +137,8 @@ export default function P2PTradingPage() {
   const [editMethods, setEditMethods] = useState<PaymentMethod[]>([]);
   const [easyMode, setEasyMode] = useState(true);
   const [chatPreset, setChatPreset] = useState("");
+  const [orderFiatPkr, setOrderFiatPkr] = useState("");
+  const [orderFiatTouched, setOrderFiatTouched] = useState(false);
 
   const refreshAll = async () => {
     await Promise.all([
@@ -168,7 +173,8 @@ export default function P2PTradingPage() {
   });
 
   const createOrderMutation = useMutation({
-    mutationFn: ({ offerId, usdtAmount }: { offerId: string; usdtAmount: number }) => createP2pOrderApi(offerId, usdtAmount),
+    mutationFn: ({ offerId, usdtAmount, fiatTotal }: { offerId: string; usdtAmount: number; fiatTotal: number }) =>
+      createP2pOrderApi(offerId, usdtAmount, fiatTotal),
     onSuccess: async (d) => {
       await refreshAll();
       const fresh = await queryClient.fetchQuery({ queryKey: ["p2p-orders"], queryFn: fetchP2pOrders });
@@ -232,7 +238,7 @@ export default function P2PTradingPage() {
       createP2pOfferApi({
         side: "sell_usdt",
         pricePerUsdt: Number(createPrice),
-        fiatCurrency: createFiat.trim() || "PKR",
+        fiatCurrency: "PKR",
         minUsdt: Number(createMin),
         maxUsdt: Number(createMax),
         availableUsdt: Number(createAvailable),
@@ -319,6 +325,20 @@ export default function P2PTradingPage() {
     });
   }, []);
 
+  useEffect(() => {
+    if (!referenceRate?.usdtRate || !createPriceFollowRef) return;
+    setCreatePrice(referenceRate.usdtRate.toFixed(2));
+  }, [referenceRate?.usdtRate, createPriceFollowRef]);
+
+  useEffect(() => {
+    if (!offerModal || orderFiatTouched) return;
+    const amt = Number(orderAmount);
+    const rate = referenceRate?.usdtRate ?? offerModal.offer.pricePerUsdt;
+    if (Number.isFinite(amt) && amt > 0 && Number.isFinite(rate)) {
+      setOrderFiatPkr((amt * rate).toFixed(2));
+    }
+  }, [offerModal, orderAmount, referenceRate?.usdtRate, orderFiatTouched]);
+
   const onCreateOrder = () => {
     if (!offerModal) return;
     if (!hasAnyProfilePaymentDetails((user?.p2pPaymentDetails as Record<string, string> | undefined) ?? {})) {
@@ -330,7 +350,23 @@ export default function P2PTradingPage() {
       toast({ title: "Invalid amount", variant: "destructive" });
       return;
     }
-    createOrderMutation.mutate({ offerId: offerModal.offer.id, usdtAmount: amt });
+    const fiat = Number(orderFiatPkr);
+    if (!Number.isFinite(fiat) || fiat <= 0) {
+      toast({ title: "Enter PKR total", description: "Set how much PKR you are paying or receiving for this USDT amount.", variant: "destructive" });
+      return;
+    }
+    const offerP = offerModal.offer.pricePerUsdt;
+    const implied = fiat / amt;
+    const rel = Math.abs(implied - offerP) / Math.max(offerP, 1e-9);
+    if (rel > P2P_MAX_IMPLIED_PRICE_DRIFT) {
+      toast({
+        title: "PKR total too far from this offer",
+        description: `Implied rate must stay within about ${(P2P_MAX_IMPLIED_PRICE_DRIFT * 100).toFixed(0)}% of the offer (${offerP} PKR/USDT). Adjust PKR or choose another offer.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    createOrderMutation.mutate({ offerId: offerModal.offer.id, usdtAmount: amt, fiatTotal: fiat });
     setOfferModal(null);
   };
 
@@ -370,11 +406,14 @@ export default function P2PTradingPage() {
       ? Math.abs(((createPriceNum - referenceRate.usdtRate) / referenceRate.usdtRate) * 100)
       : 0;
   const orderAmountNum = Number(orderAmount);
-  const offerFiatTotal = offerModal && Number.isFinite(orderAmountNum) ? orderAmountNum * offerModal.offer.pricePerUsdt : 0;
-  const marketFiatTotal = referenceRate && Number.isFinite(orderAmountNum) ? orderAmountNum * referenceRate.usdtRate : 0;
-  const orderRateDriftPct =
-    offerModal && referenceRate?.usdtRate
-      ? Math.abs(((offerModal.offer.pricePerUsdt - referenceRate.usdtRate) / referenceRate.usdtRate) * 100)
+  const orderFiatNum = Number(orderFiatPkr);
+  const orderImpliedPkrPerUsdt =
+    offerModal && Number.isFinite(orderAmountNum) && orderAmountNum > 0 && Number.isFinite(orderFiatNum)
+      ? orderFiatNum / orderAmountNum
+      : 0;
+  const orderDriftVsOfferPct =
+    offerModal && orderImpliedPkrPerUsdt > 0
+      ? Math.abs((orderImpliedPkrPerUsdt - offerModal.offer.pricePerUsdt) / offerModal.offer.pricePerUsdt) * 100
       : 0;
 
   const toggleEditMethod = (m: PaymentMethod) => {
@@ -451,7 +490,15 @@ export default function P2PTradingPage() {
         </CardContent></Card>
 
         <TabsContent value="buy" className="space-y-3 mt-4">
-          <OfferGrid offers={easyMode ? recommendedBuy : filteredBuy} action="Buy" onAction={(offer) => { setOrderAmount(String(offer.minUsdt)); setOfferModal({ offer, side: "buy" }); }} />
+          <OfferGrid
+            offers={easyMode ? recommendedBuy : filteredBuy}
+            action="Buy"
+            onAction={(offer) => {
+              setOrderFiatTouched(false);
+              setOrderAmount(String(offer.minUsdt));
+              setOfferModal({ offer, side: "buy" });
+            }}
+          />
         </TabsContent>
         <TabsContent value="sell" className="space-y-3 mt-4">
           <Card>
@@ -460,14 +507,37 @@ export default function P2PTradingPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Simple rule: keep enough available USDT for your sell offer and ensure payment details are accurate.
+                Add your USDT limits. PKR per USDT defaults to the live reference rate — you can change it. All prices are in PKR.
               </p>
               <div className="grid sm:grid-cols-2 gap-3">
-                <Input type="number" value={createPrice} onChange={(e) => setCreatePrice(e.target.value)} placeholder="Price per USDT" />
-                <Input value={createFiat} onChange={(e) => setCreateFiat(e.target.value.toUpperCase())} placeholder="Fiat (e.g. PKR)" />
-                <Input type="number" value={createMin} onChange={(e) => setCreateMin(e.target.value)} placeholder="Min USDT" />
-                <Input type="number" value={createMax} onChange={(e) => setCreateMax(e.target.value)} placeholder="Max USDT" />
-                <Input type="number" value={createAvailable} onChange={(e) => setCreateAvailable(e.target.value)} placeholder="Available USDT" />
+                <div className="sm:col-span-2 space-y-1.5">
+                  <Label className="text-xs">PKR per 1 USDT (editable, default = reference)</Label>
+                  <div className="flex flex-wrap gap-2">
+                    <Input
+                      type="number"
+                      className="max-w-[220px]"
+                      value={createPrice}
+                      onChange={(e) => {
+                        setCreatePriceFollowRef(false);
+                        setCreatePrice(e.target.value);
+                      }}
+                      placeholder="PKR per USDT"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      disabled={!referenceRate}
+                      onClick={() => setCreatePriceFollowRef(true)}
+                    >
+                      Use reference rate
+                    </Button>
+                  </div>
+                </div>
+                <Input type="number" value={createMin} onChange={(e) => setCreateMin(e.target.value)} placeholder="Min USDT per order" />
+                <Input type="number" value={createMax} onChange={(e) => setCreateMax(e.target.value)} placeholder="Max USDT per order" />
+                <Input type="number" className="sm:col-span-2" value={createAvailable} onChange={(e) => setCreateAvailable(e.target.value)} placeholder="Available USDT (for sale)" />
               </div>
               <div className="rounded-lg border p-2 text-xs space-y-1 text-muted-foreground">
                 <p>
@@ -476,10 +546,10 @@ export default function P2PTradingPage() {
                   Source: {referenceRate?.source ?? "--"}
                 </p>
                 <p>
-                  Est. fiat for available amount: <span className="font-medium text-foreground">{createFiatAtMarket.toFixed(2)} PKR</span>
+                  Est. PKR for your listed available amount: <span className="font-medium text-foreground">{createFiatAtMarket.toFixed(2)} PKR</span>
                 </p>
                 {createRateDriftPct > 3 ? (
-                  <p className="text-amber-500">Your price is {createRateDriftPct.toFixed(2)}% away from market reference.</p>
+                  <p className="text-amber-500">Your listed PKR/USDT is {createRateDriftPct.toFixed(2)}% away from the reference rate.</p>
                 ) : null}
               </div>
               <div className="space-y-2">
@@ -497,14 +567,6 @@ export default function P2PTradingPage() {
               </p>
               <div className="flex justify-end">
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    type="button"
-                    disabled={!referenceRate}
-                    onClick={() => setCreatePrice(referenceRate ? referenceRate.usdtRate.toFixed(2) : createPrice)}
-                  >
-                    Use Market Rate
-                  </Button>
                   <Button
                     disabled={!canCreateOfferFinal || createOfferMutation.isPending}
                     onClick={() => {
@@ -580,7 +642,15 @@ export default function P2PTradingPage() {
               ) : null}
             </CardContent>
           </Card>
-          <OfferGrid offers={easyMode ? recommendedSell : filteredSell} action="Sell" onAction={(offer) => { setOrderAmount(String(offer.minUsdt)); setOfferModal({ offer, side: "sell" }); }} />
+          <OfferGrid
+            offers={easyMode ? recommendedSell : filteredSell}
+            action="Sell"
+            onAction={(offer) => {
+              setOrderFiatTouched(false);
+              setOrderAmount(String(offer.minUsdt));
+              setOfferModal({ offer, side: "sell" });
+            }}
+          />
         </TabsContent>
         <TabsContent value="orders" className="space-y-3 mt-4">
           {activeOrders.map((o) => <OrderCard key={o.id} o={o} onOpen={() => setDetailOrder(o)} />)}
@@ -599,34 +669,107 @@ export default function P2PTradingPage() {
             <DialogDescription>{offerModal?.offer.displayName}</DialogDescription>
           </DialogHeader>
           {offerModal ? (
-            <div className="space-y-2">
-              <Label>USDT Amount</Label>
-              <Input type="number" value={orderAmount} onChange={(e) => setOrderAmount(e.target.value)} />
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Enter how much USDT you want. PKR total fills from the live reference rate — edit PKR if you agree on a different amount (must stay close to this offer&apos;s listed rate).
+              </p>
+              <div className="space-y-1.5">
+                <Label>USDT amount</Label>
+                <Input
+                  type="number"
+                  value={orderAmount}
+                  onChange={(e) => {
+                    setOrderAmount(e.target.value);
+                    if (!orderFiatTouched) {
+                      const a = Number(e.target.value);
+                      const rate = referenceRate?.usdtRate ?? offerModal.offer.pricePerUsdt;
+                      if (Number.isFinite(a) && a > 0 && Number.isFinite(rate)) {
+                        setOrderFiatPkr((a * rate).toFixed(2));
+                      }
+                    }
+                  }}
+                />
+              </div>
               <div className="flex flex-wrap gap-2">
                 {quickAmountOptions(offerModal.offer.minUsdt, offerModal.offer.maxUsdt).map((amt) => (
-                  <Button key={amt} type="button" size="sm" variant="outline" onClick={() => setOrderAmount(String(amt))}>
+                  <Button
+                    key={amt}
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setOrderFiatTouched(false);
+                      setOrderAmount(String(amt));
+                    }}
+                  >
                     {amt}
                   </Button>
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                Range {offerModal.offer.minUsdt} - {offerModal.offer.maxUsdt} · {offerModal.offer.pricePerUsdt} {offerModal.offer.fiatCurrency}/USDT
+                Allowed USDT: {offerModal.offer.minUsdt} – {offerModal.offer.maxUsdt} · Offer listed: {offerModal.offer.pricePerUsdt} PKR/USDT
               </p>
+              <div className="space-y-1.5">
+                <Label>Total PKR (editable)</Label>
+                <Input
+                  type="number"
+                  value={orderFiatPkr}
+                  onChange={(e) => {
+                    setOrderFiatTouched(true);
+                    setOrderFiatPkr(e.target.value);
+                  }}
+                  placeholder="PKR to pay or receive"
+                />
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!referenceRate}
+                    onClick={() => {
+                      setOrderFiatTouched(false);
+                    }}
+                  >
+                    Use reference PKR total
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const amt = Number(orderAmount);
+                      if (!Number.isFinite(amt) || amt <= 0) return;
+                      setOrderFiatTouched(true);
+                      setOrderFiatPkr((amt * offerModal.offer.pricePerUsdt).toFixed(2));
+                    }}
+                  >
+                    Use offer-listed PKR total
+                  </Button>
+                </div>
+              </div>
               <div className="rounded-lg border p-2 text-xs space-y-1 text-muted-foreground">
                 <p>
-                  Offer conversion: <span className="font-medium text-foreground">{offerFiatTotal.toFixed(2)} {offerModal.offer.fiatCurrency}</span>
+                  Reference: <span className="font-medium text-foreground">{referenceRate?.usdtRate?.toFixed(2) ?? "--"}</span> PKR/USDT
+                  {referenceRate ? (
+                    <>
+                      {" "}
+                      → <span className="font-medium text-foreground">{(orderAmountNum * referenceRate.usdtRate).toFixed(2)}</span> PKR for this USDT size
+                    </>
+                  ) : null}
                 </p>
                 <p>
-                  Market conversion (ref):{" "}
-                  <span className="font-medium text-foreground">{marketFiatTotal.toFixed(2)} {offerModal.offer.fiatCurrency}</span>
+                  Implied rate from your PKR:{" "}
+                  <span className="font-medium text-foreground">{orderImpliedPkrPerUsdt > 0 ? orderImpliedPkrPerUsdt.toFixed(2) : "--"}</span> PKR/USDT
                 </p>
-                {orderRateDriftPct > 3 ? (
-                  <p className="text-amber-500">Offer rate is {orderRateDriftPct.toFixed(2)}% away from market reference.</p>
+                {orderDriftVsOfferPct > 3 ? (
+                  <p className="text-amber-600 dark:text-amber-400">
+                    {orderDriftVsOfferPct.toFixed(1)}% from this offer&apos;s listed PKR/USDT (max about {(P2P_MAX_IMPLIED_PRICE_DRIFT * 100).toFixed(0)}% allowed).
+                  </p>
                 ) : (
-                  <p>Rate is close to market.</p>
+                  <p>Within range of this offer&apos;s listed rate.</p>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">Tip: start with a small amount on your first trade.</p>
+              <p className="text-xs text-muted-foreground">Tip: start with a small USDT amount on your first trade.</p>
             </div>
           ) : null}
           <DialogFooter><Button variant="outline" onClick={() => setOfferModal(null)}>Cancel</Button><Button onClick={onCreateOrder}>Create Order</Button></DialogFooter>

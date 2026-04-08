@@ -16,6 +16,8 @@ type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 const PAYMENT_WINDOW_MS = 15 * 60 * 1000;
 const P2P_PLATFORM_FEE_USDT = 1;
+/** Max deviation of agreed implied PKR/USDT from the offer's listed price (safety vs abuse). */
+const P2P_ORDER_MAX_IMPLIED_PRICE_DEVIATION_FROM_OFFER = 0.45;
 const p2pRealtimeBus = new EventEmitter();
 p2pRealtimeBus.setMaxListeners(200);
 const RATE_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -463,6 +465,7 @@ export async function createP2pOrderFromOffer(
   currentUserId: number,
   offerId: number,
   usdtAmount: number,
+  fiatTotalOverride?: number,
 ): Promise<{ orderId: number }> {
   await expireStaleP2pOrders();
   if (!Number.isFinite(usdtAmount) || usdtAmount <= 0) throw new Error("INVALID_AMOUNT");
@@ -499,8 +502,22 @@ export async function createP2pOrderFromOffer(
       throw new Error("P2P_PAYMENT_DETAILS_REQUIRED");
     }
 
-    const price = toNum(offer.pricePerUsdt);
-    const fiatTotal = Math.round(usdtAmount * price * 100) / 100;
+    const offerPrice = toNum(offer.pricePerUsdt);
+    let fiatTotal: number;
+    let priceForOrder: number;
+    if (fiatTotalOverride != null && Number.isFinite(fiatTotalOverride)) {
+      if (fiatTotalOverride <= 0) throw new Error("INVALID_FIAT_TOTAL");
+      fiatTotal = Math.round(fiatTotalOverride * 100) / 100;
+      priceForOrder = Math.round((fiatTotal / usdtAmount) * 10000) / 10000;
+      if (priceForOrder <= 0) throw new Error("INVALID_FIAT_TOTAL");
+      const rel = Math.abs(priceForOrder - offerPrice) / Math.max(offerPrice, 1e-9);
+      if (rel > P2P_ORDER_MAX_IMPLIED_PRICE_DEVIATION_FROM_OFFER) {
+        throw new Error("FIAT_OUT_OF_OFFER_RANGE");
+      }
+    } else {
+      priceForOrder = offerPrice;
+      fiatTotal = Math.round(usdtAmount * priceForOrder * 100) / 100;
+    }
     const deadline = new Date(Date.now() + PAYMENT_WINDOW_MS);
 
     await debitWithdrawableForEscrow(
@@ -525,7 +542,7 @@ export async function createP2pOrderFromOffer(
         buyerUserId: buyerId,
         sellerUserId: sellerId,
         usdtAmount: usdtAmount.toFixed(2),
-        pricePerUsdt: price.toFixed(4),
+        pricePerUsdt: priceForOrder.toFixed(4),
         fiatTotal: fiatTotal.toFixed(2),
         fiatCurrency: offer.fiatCurrency,
         status: "pending_payment",

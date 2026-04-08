@@ -64,6 +64,8 @@ function mapErr(e: unknown): { status: number; error: string } {
     INVALID_AVAILABLE: 400,
     INVALID_METHODS: 400,
     INVALID_AMOUNT: 400,
+    INVALID_FIAT_TOTAL: 400,
+    FIAT_OUT_OF_OFFER_RANGE: 400,
     OFFER_NOT_FOUND: 404,
     INSUFFICIENT_OFFER_LIQUIDITY: 400,
     AMOUNT_OUT_OF_RANGE: 400,
@@ -249,6 +251,8 @@ router.post("/offers/:offerId/set-active", async (req, res) => {
 const CreateOrderBody = z.object({
   offerId: z.coerce.number().int().positive(),
   usdtAmount: z.coerce.number().positive(),
+  /** Agreed PKR total for this trade; implied PKR/USDT must stay within range of the offer's listed price. */
+  fiatTotal: z.coerce.number().positive().optional(),
 });
 
 router.post("/orders", async (req, res) => {
@@ -264,7 +268,12 @@ router.post("/orders", async (req, res) => {
     return;
   }
   try {
-    const out = await createP2pOrderFromOffer(userId, parsed.data.offerId, parsed.data.usdtAmount);
+    const out = await createP2pOrderFromOffer(
+      userId,
+      parsed.data.offerId,
+      parsed.data.usdtAmount,
+      parsed.data.fiatTotal,
+    );
     res.status(201).json({ orderId: String(out.orderId) });
   } catch (e) {
     const { status, error } = mapErr(e);

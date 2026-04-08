@@ -54,12 +54,12 @@ export async function fetchP2pOrders(): Promise<P2POrder[]> {
   return readJson<P2POrder[]>(res);
 }
 
-export async function createP2pOrderApi(offerId: string, usdtAmount: number): Promise<{ orderId: string }> {
+export async function createP2pOrderApi(offerId: string, usdtAmount: number, fiatTotal: number): Promise<{ orderId: string }> {
   const res = await fetch(apiUrl("/api/p2p/orders"), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ offerId: Number(offerId), usdtAmount }),
+    body: JSON.stringify({ offerId: Number(offerId), usdtAmount, fiatTotal }),
   });
   return readJson<{ orderId: string }>(res);
 }
