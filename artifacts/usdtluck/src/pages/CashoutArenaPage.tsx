@@ -14,6 +14,7 @@ import {
   type CashoutArenaState,
 } from "@/lib/cashout-arena-api";
 import { getCelebrationSoundEnabled, setCelebrationSoundEnabled } from "@/lib/celebration-preferences";
+import { useAuth } from "@/context/AuthContext";
 
 function zoneLabel(multiplier: number) {
   if (multiplier < 1.8) return "Safe Zone";
@@ -34,6 +35,7 @@ function zoneBg(multiplier: number) {
 }
 
 export default function CashoutArenaPage() {
+  const { user, setUser } = useAuth();
   const queryClient = useQueryClient();
   const [stake, setStake] = useState(1);
   const [autoCashoutAt, setAutoCashoutAt] = useState("2");
@@ -197,6 +199,23 @@ export default function CashoutArenaPage() {
     }
     prevMultiplierRef.current = m;
   }, [data?.round.multiplier]);
+
+  useEffect(() => {
+    if (!data?.wallet || !user) return;
+    const nextWd = Number(data.wallet.withdrawableBalance ?? 0);
+    const nextBonus = Number(data.wallet.nonWithdrawableBalance ?? 0);
+    const nextTotal = Number((nextWd + nextBonus).toFixed(2));
+    const curWd = Number(user.withdrawableBalance ?? 0);
+    const curBonus = Number(user.bonusBalance ?? 0);
+    const curTotal = Number(user.walletBalance ?? curWd + curBonus);
+    if (Math.abs(nextWd - curWd) < 0.0001 && Math.abs(nextBonus - curBonus) < 0.0001 && Math.abs(nextTotal - curTotal) < 0.0001) return;
+    setUser({
+      ...user,
+      withdrawableBalance: nextWd,
+      bonusBalance: nextBonus,
+      walletBalance: nextTotal,
+    });
+  }, [data?.wallet, user, setUser]);
 
   const canPlace = !data?.myBet || data.myBet.status !== "active";
   const canCashout = !!data?.myBet && data.myBet.status === "active";

@@ -99,6 +99,7 @@ const SQL_ADMIN_USERS_LIST_FULL = `
         u.referral_code,
         u.referred_by,
         u.is_blocked,
+        COALESCE(u.is_arena_disabled, false) AS is_arena_disabled,
         u.blocked_at,
         u.blocked_reason,
         COALESCE(dep.total_dep, 0) AS total_deposited,
@@ -153,6 +154,7 @@ const SQL_ADMIN_USERS_LIST_COMPAT = `
         NULL::text AS referral_code,
         NULL::integer AS referred_by,
         false AS is_blocked,
+        false AS is_arena_disabled,
         NULL::timestamptz AS blocked_at,
         NULL::text AS blocked_reason,
         COALESCE(dep.total_dep, 0) AS total_deposited,
@@ -201,6 +203,7 @@ const SQL_ADMIN_USER_DETAIL_FULL = `
         u.referral_code,
         u.referred_by,
         u.is_blocked,
+        COALESCE(u.is_arena_disabled, false) AS is_arena_disabled,
         u.blocked_at,
         u.blocked_reason,
         COALESCE(dep.total_dep, 0) AS total_deposited,
@@ -255,6 +258,7 @@ const SQL_ADMIN_USER_DETAIL_COMPAT = `
         NULL::text AS referral_code,
         NULL::integer AS referred_by,
         false AS is_blocked,
+        false AS is_arena_disabled,
         NULL::timestamptz AS blocked_at,
         NULL::text AS blocked_reason,
         COALESCE(dep.total_dep, 0) AS total_deposited,
@@ -439,6 +443,7 @@ router.get("/users", async (req, res) => {
       referralCode: user.referral_code ?? null,
       referredBy: user.referred_by ?? null,
       isBlocked: user.is_blocked === true,
+      isArenaDisabled: user.is_arena_disabled === true,
       blockedAt: user.blocked_at,
       blockedReason: user.blocked_reason ?? null,
       emailVerified: user.email_verified !== false,
@@ -558,6 +563,7 @@ router.get("/users/:id", async (req, res) => {
       referralCode: user.referral_code ?? null,
       referredBy: user.referred_by ?? null,
       isBlocked: user.is_blocked === true,
+      isArenaDisabled: user.is_arena_disabled === true,
       blockedAt: user.blocked_at,
       blockedReason: user.blocked_reason ?? null,
       emailVerified: user.email_verified !== false,
@@ -1634,6 +1640,34 @@ router.post("/users/:id/unblock", async (req, res) => {
 
   await logAction(getAdminId(req), "user", targetId, "unblock_user", `Unblocked ${target.name} <${target.email}>`);
   return res.json({ message: "User unblocked" });
+});
+
+router.post("/users/:id/arena-disable", async (req, res) => {
+  const targetId = parseInt(req.params.id);
+  if (isNaN(targetId)) return res.status(400).json({ error: "Invalid user ID" });
+  const adminId = getAdminId(req);
+  if (targetId === adminId) return res.status(400).json({ error: "Cannot disable arena for yourself" });
+
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+  if (!target) return res.status(404).json({ error: "User not found" });
+  if (target.isArenaDisabled) return res.status(400).json({ error: "Arena already disabled for this user" });
+
+  await db.update(usersTable).set({ isArenaDisabled: true }).where(eq(usersTable.id, targetId));
+  await logAction(adminId, "user", targetId, "disable_arena", `Disabled arena for ${target.name} <${target.email}>`);
+  return res.json({ message: "Arena disabled for user" });
+});
+
+router.post("/users/:id/arena-enable", async (req, res) => {
+  const targetId = parseInt(req.params.id);
+  if (isNaN(targetId)) return res.status(400).json({ error: "Invalid user ID" });
+
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+  if (!target) return res.status(404).json({ error: "User not found" });
+  if (!target.isArenaDisabled) return res.status(400).json({ error: "Arena already enabled for this user" });
+
+  await db.update(usersTable).set({ isArenaDisabled: false }).where(eq(usersTable.id, targetId));
+  await logAction(getAdminId(req), "user", targetId, "enable_arena", `Enabled arena for ${target.name} <${target.email}>`);
+  return res.json({ message: "Arena enabled for user" });
 });
 
 router.delete("/users/:id", async (req, res) => {

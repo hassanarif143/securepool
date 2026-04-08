@@ -26,6 +26,7 @@ function mapErr(e: unknown): { status: number; error: string } {
     ROUND_CRASHED: 400,
     CASHOUT_BLOCKED: 400,
     BET_ALREADY_REFUNDED: 400,
+    ARENA_DISABLED_FOR_USER: 403,
     CASHOUT_ARENA_NOT_READY: 503,
   };
   return { status: table[m] ?? 500, error: m };

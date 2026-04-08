@@ -2500,6 +2500,11 @@ function UsersTab() {
                         </TooltipContent>
                       </Tooltip>
                     )}
+                    {(u as { isArenaDisabled?: boolean }).isArenaDisabled && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-orange-500/40 bg-orange-500/10 text-orange-400">
+                        Arena Disabled
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">{u.email}</p>
                   <p className="text-[10px] text-muted-foreground capitalize">
@@ -2558,6 +2563,36 @@ function UsersTab() {
                             toast({ title: "Unblocked" }); refetch();
                           } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
                         }}>🔓 Unblock user</DropdownMenuItem>
+                      )}
+                      {!(u as { isArenaDisabled?: boolean }).isArenaDisabled ? (
+                        <DropdownMenuItem
+                          disabled={u.id === me?.id}
+                          onClick={async () => {
+                            try {
+                              await postJson(`/api/admin/users/${u.id}/arena-disable`);
+                              toast({ title: "Arena disabled for user" });
+                              refetch();
+                            } catch (e: any) {
+                              toast({ title: "Failed", description: e.message, variant: "destructive" });
+                            }
+                          }}
+                        >
+                          🎮 Disable arena
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          onClick={async () => {
+                            try {
+                              await postJson(`/api/admin/users/${u.id}/arena-enable`);
+                              toast({ title: "Arena enabled for user" });
+                              refetch();
+                            } catch (e: any) {
+                              toast({ title: "Failed", description: e.message, variant: "destructive" });
+                            }
+                          }}
+                        >
+                          ✅ Enable arena
+                        </DropdownMenuItem>
                       )}
                       <DropdownMenuItem onClick={() => { setNotifyTarget(u); setNotifyOpen(true); }}>📩 Send notification</DropdownMenuItem>
                       <DropdownMenuItem onClick={async () => {

@@ -290,9 +290,20 @@ async function canUseShieldToday(tx: DbTx, userId: number): Promise<boolean> {
   return !row;
 }
 
+async function assertArenaEnabledForUser(tx: DbTx, userId: number): Promise<void> {
+  const [u] = await tx
+    .select({ id: usersTable.id, isArenaDisabled: usersTable.isArenaDisabled })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  if (!u) throw new Error("USER_NOT_FOUND");
+  if (u.isArenaDisabled) throw new Error("ARENA_DISABLED_FOR_USER");
+}
+
 export async function getCashoutArenaState(userId: number) {
   return db.transaction(async (tx) => {
     await lockCashout(tx);
+    await assertArenaEnabledForUser(tx, userId);
     const round = await ensureState(tx);
     let nowMult = currentMultiplierForRound(round);
 
@@ -396,6 +407,7 @@ export async function placeBet(
 
   return db.transaction(async (tx) => {
     await lockCashout(tx);
+    await assertArenaEnabledForUser(tx, userId);
     const round = await ensureState(tx);
     const [existing] = await tx
       .select({ id: cashoutBetsTable.id })
@@ -451,6 +463,7 @@ export async function placeBet(
 export async function cashoutBet(userId: number, betId: number): Promise<{ payout: number; multiplier: number }> {
   return db.transaction(async (tx) => {
     await lockCashout(tx);
+    await assertArenaEnabledForUser(tx, userId);
     await settleCrashedRounds(tx);
     return cashoutBetInTx(tx, userId, betId);
   });

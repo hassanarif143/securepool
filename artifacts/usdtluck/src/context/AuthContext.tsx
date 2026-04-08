@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refetchOnWindowFocus: false,
       staleTime: 30_000,
       // Keep wallet and profile values fresh in UI without manual refresh.
-      refetchInterval: 15_000,
+      refetchInterval: 5_000,
       refetchIntervalInBackground: true,
     },
   });
