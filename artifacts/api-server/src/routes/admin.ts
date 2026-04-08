@@ -799,6 +799,8 @@ const MIN_POOL_PLATFORM_FEE_TOTAL_USDT = 0.5;
 const MIN_PLATFORM_FEE_PER_JOIN_USDT = 0.01;
 /** Share of post-fee prize budget paid to winners; remainder stays as extra platform margin. */
 const FACTORY_PRIZE_POOL_RATIO = 0.75;
+/** 3rd-place prize must be at least this much above per-ticket platform fee (when pool has 3 winners). */
+const THIRD_PRIZE_MIN_ABOVE_FEE_USDT = 0.15;
 
 function ensurePositivePlatformFeePerJoin(ticketPrice: number, totalTickets: number, rawFeePerJoin: number): number {
   const safeTicketPrice = Math.max(0.01, ticketPrice);
@@ -808,6 +810,56 @@ function ensurePositivePlatformFeePerJoin(ticketPrice: number, totalTickets: num
   if (totalFee >= MIN_POOL_PLATFORM_FEE_TOTAL_USDT) return base;
   const neededPerJoin = MIN_POOL_PLATFORM_FEE_TOTAL_USDT / safeTickets;
   return Math.min(safeTicketPrice, round2(Math.max(base, neededPerJoin)));
+}
+
+/**
+ * For factory pools with 3 winners: aim for 3rd >= platform fee per join + small bump, then split the rest
+ * between 1st/2nd using the first two distribution weights. Caps 3rd when needed so 2nd >= 3rd (rank order).
+ */
+function splitFactoryPrizesWithThirdFloor(
+  prizePool: number,
+  platformFeePerJoin: number,
+  winners: number,
+  distribution: number[],
+): [number, number, number] {
+  const wc = Math.min(3, Math.max(1, winners));
+  const normalizedDist = distribution.slice(0, wc).map((x) => Math.max(0, x));
+  const distSum = normalizedDist.reduce((a, b) => a + b, 0) || 1;
+
+  if (wc !== 3) {
+    const desired = normalizedDist.map((pct) => round2((prizePool * pct) / distSum));
+    return normalizePrizePlanForProfit(wc, [desired[0] ?? 0, desired[1] ?? 0, desired[2] ?? 0], prizePool);
+  }
+
+  const budget = Math.max(0, round2(prizePool));
+  if (budget <= 0) return [0, 0, 0];
+
+  const minThirdDesired = round2(platformFeePerJoin + THIRD_PRIZE_MIN_ABOVE_FEE_USDT);
+  const w0 = normalizedDist[0] ?? 0;
+  const w1 = normalizedDist[1] ?? 0;
+  const w12 = w0 + w1;
+
+  if (w12 <= 0) {
+    const desired = normalizedDist.map((pct) => round2((budget * pct) / distSum));
+    return normalizePrizePlanForProfit(3, [desired[0] ?? 0, desired[1] ?? 0, desired[2] ?? 0], budget);
+  }
+
+  // Max 3rd such that 2nd >= 3rd when 1st/2nd share (budget - p3) in ratio w0:w1.
+  // (budget - p3) * w1/(w0+w1) >= p3  =>  p3 <= budget * w1 / (w0 + 2*w1)
+  const p3MaxRankSafe =
+    w1 > 0 ? round2((budget * w1) / (w0 + 2 * w1)) : round2(budget * 0.25);
+
+  if (p3MaxRankSafe < 0.01) {
+    const desired = normalizedDist.map((pct) => round2((budget * pct) / distSum));
+    return normalizePrizePlanForProfit(3, [desired[0] ?? 0, desired[1] ?? 0, desired[2] ?? 0], budget);
+  }
+
+  const p3 = round2(Math.min(minThirdDesired, p3MaxRankSafe, budget));
+
+  const remaining = round2(budget - p3);
+  const p1 = round2((remaining * w0) / w12);
+  const p2 = round2(remaining - p1);
+  return [p1, p2, p3];
 }
 
 function normalizePrizePlanForProfit(
@@ -882,12 +934,7 @@ function buildFactoryMath(bp: FactoryBlueprint) {
   const prizePool = Math.max(0, round2(basePrizePool * FACTORY_PRIZE_POOL_RATIO));
   const feeAmount = round2(Math.max(baseFeeAmount, totalPool - prizePool));
   const platformFeePerJoin = round2(bp.maxMembers > 0 ? feeAmount / bp.maxMembers : 0);
-  const normalizedDist = bp.distribution
-    .slice(0, bp.winners)
-    .map((x) => Math.max(0, x));
-  const distSum = normalizedDist.reduce((a, b) => a + b, 0) || 1;
-  const desired = normalizedDist.map((pct) => round2((prizePool * pct) / distSum));
-  const prizes = normalizePrizePlanForProfit(bp.winners, [desired[0] ?? 0, desired[1] ?? 0, desired[2] ?? 0], prizePool);
+  const prizes = splitFactoryPrizesWithThirdFloor(prizePool, platformFeePerJoin, bp.winners, bp.distribution);
   return { totalPool, feeAmount, prizePool, prizes, platformFeePerJoin };
 }
 
