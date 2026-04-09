@@ -34,15 +34,26 @@ export function issueCsrfToken(req: Request, res: Response, next: NextFunction) 
 }
 
 function normalizeOrigin(value: string): string {
-  return value.trim().replace(/\/+$/, "");
+  // Railway/Vercel envs are sometimes pasted with quotes; strip them.
+  return value.trim().replace(/^['"]+|['"]+$/g, "").replace(/\/+$/, "");
 }
 
 function getAllowedOrigins(req: Request): Set<string> {
+  const productionFrontendOrigin = "https://securepool-usdtluck.vercel.app";
+  const frontendOrigins = (process.env.FRONTEND_ORIGINS ?? "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0);
+  const forwardedHost = req.get("x-forwarded-host");
+  const forwardedProto = req.get("x-forwarded-proto");
   const values = [
+    productionFrontendOrigin,
+    ...frontendOrigins,
     process.env.FRONTEND_URL,
     process.env.FRONTEND_ORIGIN,
     process.env.CORS_ORIGIN,
     `${req.protocol}://${req.get("host") ?? ""}`,
+    forwardedHost ? `${forwardedProto ?? req.protocol}://${forwardedHost}` : "",
   ].filter((v): v is string => typeof v === "string" && v.trim().length > 0);
   return new Set(values.map(normalizeOrigin));
 }
