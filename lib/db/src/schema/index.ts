@@ -30,3 +30,4 @@ export * from "./p2p";
 export * from "./cashoutArena";
 export * from "./scratchCard";
 export * from "./security";
+export * from "./simulation";

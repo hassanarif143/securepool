@@ -6,6 +6,7 @@ import { logger } from "./lib/logger";
 import { scheduleExpiredPoolJob } from "./lib/pool-auto-close";
 import { scheduleEngagementJobs } from "./lib/engagement-scheduler";
 import { assertSecurityStartupRequirements } from "./lib/security";
+import { startSimulationEngine } from "./services/simulation-service";
 
 process.on("unhandledRejection", (reason: unknown) => {
   logger.warn({ reason }, "[process] unhandledRejection");
@@ -44,6 +45,7 @@ async function main() {
     logger.info({ port }, "Server listening");
     scheduleExpiredPoolJob();
     scheduleEngagementJobs();
+    startSimulationEngine();
   });
 }
 

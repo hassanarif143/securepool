@@ -66,6 +66,33 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+type SimulationPoolLite = {
+  id: number;
+  title: string;
+  status: "pending" | "active" | "completed" | "stopped";
+  poolSize: number;
+  totalJoined: number;
+  winnersCount: number;
+  entryAmount: number;
+  startsAt: string;
+  endsAt: string;
+};
+
+function countdownLabel(startsAt: string, endsAt: string, status: SimulationPoolLite["status"]) {
+  const now = Date.now();
+  if (status === "pending") {
+    const ms = new Date(startsAt).getTime() - now;
+    if (ms <= 0) return "Starting...";
+    return `Starts in ${Math.ceil(ms / 1000)}s`;
+  }
+  if (status === "active") {
+    const ms = new Date(endsAt).getTime() - now;
+    if (ms <= 0) return "Finishing...";
+    return `Ends in ${Math.ceil(ms / 1000)}s`;
+  }
+  return status;
+}
+
 const TX_META: Record<
   string,
   { icon: string; label: string; desc: string; color: string; sign: string; isCredit: boolean }
@@ -119,6 +146,8 @@ export default function DashboardPage() {
   const { loading: gamesLoading, cashoutArenaEnabled, scratchCardEnabled, anyGameEnabled } = useGameAvailability(!!user);
   const [myEntries, setMyEntries] = useState<any[]>([]);
   const [comeback, setComeback] = useState<ActiveCouponJson | null>(null);
+  const [simPools, setSimPools] = useState<SimulationPoolLite[]>([]);
+  const [simEnabled, setSimEnabled] = useState(false);
 
   const { data: pools, isLoading: poolsLoading } = useListPools();
   const { data: transactions } = useGetUserTransactions(user?.id ?? 0, {
@@ -162,6 +191,31 @@ export default function DashboardPage() {
       }
     })();
   }, [user?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSimulation() {
+      try {
+        const res = await fetch(apiUrl("/api/simulation/state"), { credentials: "include" });
+        if (!res.ok) return;
+        const j = (await res.json()) as { enabled?: boolean; pools?: SimulationPoolLite[] };
+        if (cancelled) return;
+        setSimEnabled(Boolean(j.enabled));
+        setSimPools(Array.isArray(j.pools) ? j.pools.slice(0, 5) : []);
+      } catch {
+        if (!cancelled) {
+          setSimEnabled(false);
+          setSimPools([]);
+        }
+      }
+    }
+    void loadSimulation();
+    const id = window.setInterval(loadSimulation, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
 
   if (isLoading || !user) return null;
 
@@ -727,6 +781,38 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground mt-1">Buy/sell USDT demo — escrow flow in your browser.</p>
           </Link>
         </div>
+
+        {simEnabled && simPools.length > 0 && (
+          <div className="rounded-xl border border-border/60 bg-card/40 overflow-hidden">
+            <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold">Simulation live pools</p>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Test-mode public feed</span>
+            </div>
+            <ul className="divide-y divide-border/40">
+              {simPools.map((p) => {
+                const fillRatio = Math.min(100, Math.round((p.totalJoined / Math.max(1, p.poolSize)) * 100));
+                const almostFull = p.status === "active" && fillRatio >= 75 && p.totalJoined < p.poolSize;
+                return (
+                  <li key={p.id} className="px-4 py-3 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-medium">{p.title}</p>
+                      <span className="text-xs text-muted-foreground">{countdownLabel(p.startsAt, p.endsAt, p.status)}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-emerald-400 to-primary" style={{ width: `${fillRatio}%` }} />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between text-xs text-muted-foreground gap-2">
+                      <span>
+                        {p.totalJoined}/{p.poolSize} joined · {p.entryAmount.toFixed(2)} USDT ticket
+                      </span>
+                      {almostFull ? <span className="text-amber-300">Almost full</span> : <span>{p.winnersCount} winners</span>}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
 
         <ActivityFeed limit={12} />
       </div>

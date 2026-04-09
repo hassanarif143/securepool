@@ -100,6 +100,7 @@ export default function AdminPage() {
           <TabsTrigger value="create" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Create</TabsTrigger>
           <TabsTrigger value="users" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Users</TabsTrigger>
           <TabsTrigger value="games" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Games</TabsTrigger>
+          <TabsTrigger value="simulation" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Simulation</TabsTrigger>
           <TabsTrigger value="transactions" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Txns</TabsTrigger>
           <TabsTrigger value="reviews" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Reviews</TabsTrigger>
           <TabsTrigger value="wallets" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Wallets</TabsTrigger>
@@ -113,6 +114,7 @@ export default function AdminPage() {
         <TabsContent value="create"><CreatePoolTab /></TabsContent>
         <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="games"><GamesTab /></TabsContent>
+        <TabsContent value="simulation"><SimulationTab /></TabsContent>
         <TabsContent value="transactions"><TransactionsTab /></TabsContent>
         <TabsContent value="reviews"><ReviewsTab /></TabsContent>
         <TabsContent value="wallets"><WalletRequestsTab /></TabsContent>
@@ -125,6 +127,211 @@ export default function AdminPage() {
 function financeOverviewNum(v: unknown, fallback = 0): number {
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function SimulationTab() {
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [cfg, setCfg] = useState<any>(null);
+  const [users, setUsers] = useState<any[]>([]);
+  const [pools, setPools] = useState<any[]>([]);
+  const [winners, setWinners] = useState<any[]>([]);
+  const [seedCount, setSeedCount] = useState(150);
+  const [newPoolCount, setNewPoolCount] = useState(5);
+
+  async function loadAll() {
+    setLoading(true);
+    try {
+      const [cfgRes, usersRes, poolsRes, winnersRes] = await Promise.all([
+        fetch(apiUrl("/api/simulation/admin/config"), { credentials: "include" }),
+        fetch(apiUrl("/api/simulation/admin/users?limit=20"), { credentials: "include" }),
+        fetch(apiUrl("/api/simulation/admin/pools?limit=20"), { credentials: "include" }),
+        fetch(apiUrl("/api/simulation/admin/winners?limit=20"), { credentials: "include" }),
+      ]);
+      if (!cfgRes.ok) throw new Error(await readApiErrorMessage(cfgRes));
+      setCfg(await cfgRes.json());
+      setUsers(usersRes.ok ? await usersRes.json() : []);
+      setPools(poolsRes.ok ? await poolsRes.json() : []);
+      setWinners(winnersRes.ok ? await winnersRes.json() : []);
+    } catch (err: any) {
+      appToast.error({ title: "Simulation panel failed", description: err?.message ?? "Could not load simulation data." });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadAll();
+  }, []);
+
+  async function post(path: string, body?: Record<string, unknown>) {
+    setBusy(true);
+    try {
+      const res = await fetch(apiUrl(path), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : "{}",
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      appToast.success({ title: "Done" });
+      await loadAll();
+    } catch (err: any) {
+      appToast.error({ title: "Action failed", description: err?.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveConfig() {
+    if (!cfg) return;
+    setBusy(true);
+    try {
+      const res = await fetch(apiUrl("/api/simulation/admin/config"), {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dailyPoolCount: Number(cfg.dailyPoolCount),
+          minPoolSize: Number(cfg.minPoolSize),
+          maxPoolSize: Number(cfg.maxPoolSize),
+          minWinnersCount: Number(cfg.minWinnersCount),
+          maxWinnersCount: Number(cfg.maxWinnersCount),
+          simulatedTicketPrice: Number(cfg.simulatedTicketPrice),
+          simulatedPlatformFeeBps: Number(cfg.simulatedPlatformFeeBps),
+          minJoinDelaySec: Number(cfg.minJoinDelaySec),
+          maxJoinDelaySec: Number(cfg.maxJoinDelaySec),
+          minPoolDurationSec: Number(cfg.minPoolDurationSec),
+          maxPoolDurationSec: Number(cfg.maxPoolDurationSec),
+        }),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      appToast.success({ title: "Simulation config saved" });
+      await loadAll();
+    } catch (err: any) {
+      appToast.error({ title: "Save failed", description: err?.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loading || !cfg) {
+    return <p className="text-muted-foreground py-8 text-center">Loading simulation controls…</p>;
+  }
+
+  return (
+    <div className="space-y-4 mt-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Simulation Mode (safe test-only)</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Runs fully isolated fake pools/users/balances. Real users and real USDT are untouched.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={busy} onClick={() => void post("/api/simulation/admin/start")}>Start simulation</Button>
+            <Button variant="outline" disabled={busy} onClick={() => void post("/api/simulation/admin/stop")}>Stop simulation</Button>
+            <Badge variant={cfg.enabled ? "default" : "secondary"}>{cfg.enabled ? "Running" : "Stopped"}</Badge>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-3">
+            <NumberField label="Daily pools count" value={cfg.dailyPoolCount} onChange={(v) => setCfg({ ...cfg, dailyPoolCount: v })} />
+            <NumberField label="Simulated ticket price (USDT)" value={cfg.simulatedTicketPrice} onChange={(v) => setCfg({ ...cfg, simulatedTicketPrice: v })} />
+            <NumberField label="Minimum pool size" value={cfg.minPoolSize} onChange={(v) => setCfg({ ...cfg, minPoolSize: v })} />
+            <NumberField label="Maximum pool size" value={cfg.maxPoolSize} onChange={(v) => setCfg({ ...cfg, maxPoolSize: v })} />
+            <NumberField label="Minimum winners" value={cfg.minWinnersCount} onChange={(v) => setCfg({ ...cfg, minWinnersCount: v })} />
+            <NumberField label="Maximum winners" value={cfg.maxWinnersCount} onChange={(v) => setCfg({ ...cfg, maxWinnersCount: v })} />
+            <NumberField label="Platform fee (bps)" value={cfg.simulatedPlatformFeeBps} onChange={(v) => setCfg({ ...cfg, simulatedPlatformFeeBps: v })} />
+            <NumberField label="Join delay min (sec)" value={cfg.minJoinDelaySec} onChange={(v) => setCfg({ ...cfg, minJoinDelaySec: v })} />
+            <NumberField label="Join delay max (sec)" value={cfg.maxJoinDelaySec} onChange={(v) => setCfg({ ...cfg, maxJoinDelaySec: v })} />
+            <NumberField label="Pool duration min (sec)" value={cfg.minPoolDurationSec} onChange={(v) => setCfg({ ...cfg, minPoolDurationSec: v })} />
+            <NumberField label="Pool duration max (sec)" value={cfg.maxPoolDurationSec} onChange={(v) => setCfg({ ...cfg, maxPoolDurationSec: v })} />
+          </div>
+          <div className="flex justify-end">
+            <Button disabled={busy} onClick={() => void saveConfig()}>{busy ? "Saving..." : "Save simulation config"}</Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Quick actions</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Generate fake users</Label>
+              <div className="flex gap-2">
+                <Input type="number" value={seedCount} onChange={(e) => setSeedCount(Number(e.target.value || 0))} />
+                <Button disabled={busy} onClick={() => void post("/api/simulation/admin/generate-users", { count: seedCount })}>Generate</Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Create pools now</Label>
+              <div className="flex gap-2">
+                <Input type="number" value={newPoolCount} onChange={(e) => setNewPoolCount(Number(e.target.value || 0))} />
+                <Button disabled={busy} onClick={() => void post("/api/simulation/admin/create-pools", { count: newPoolCount })}>Create</Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Latest simulation pools</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {pools.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No simulation pools yet.</p>
+          ) : (
+            pools.slice(0, 12).map((p) => (
+              <div key={p.id} className="rounded-md border border-border/60 p-2.5 text-sm flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-medium">#{p.id} · {p.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {p.status} · {p.totalJoined}/{p.poolSize} joined · entry {Number(p.entryAmount).toFixed(2)} USDT
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => void post(`/api/simulation/admin/pools/${p.id}/start`)}>Start</Button>
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => void post(`/api/simulation/admin/pools/${p.id}/complete`)}>Complete</Button>
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => void post(`/api/simulation/admin/pools/${p.id}/stop`)}>Stop</Button>
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Fake users & winner history</CardTitle></CardHeader>
+        <CardContent className="grid lg:grid-cols-2 gap-3">
+          <div className="rounded-md border border-border/60 p-3">
+            <p className="text-sm font-medium mb-2">Fake users ({users.length})</p>
+            <ul className="space-y-1.5 text-xs max-h-56 overflow-auto">
+              {users.map((u) => (
+                <li key={u.id} className="flex items-center justify-between gap-2">
+                  <span>{u.displayName}</span>
+                  <span className="tabular-nums text-muted-foreground">{Number(u.simulatedBalance).toFixed(2)} USDT</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-md border border-border/60 p-3">
+            <p className="text-sm font-medium mb-2">Recent winners ({winners.length})</p>
+            <ul className="space-y-1.5 text-xs max-h-56 overflow-auto">
+              {winners.map((w) => (
+                <li key={w.id} className="flex items-center justify-between gap-2">
+                  <span>Pool #{w.poolId} · #{w.place} {w.displayName}</span>
+                  <span className="tabular-nums text-emerald-400">{Number(w.rewardAmount).toFixed(2)} USDT</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 function RewardsConfigTab() {

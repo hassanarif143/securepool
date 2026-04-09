@@ -39,10 +39,36 @@ export function ActivityFeed({ limit = 18, className = "" }: { limit?: number; c
       }
     }
     void load();
-    const id = setInterval(load, 30_000);
+    const id = setInterval(load, 15_000);
     return () => {
       cancelled = true;
       clearInterval(id);
+    };
+  }, [limit]);
+
+  useEffect(() => {
+    const es = new EventSource(apiUrl("/api/simulation/stream"), { withCredentials: true });
+    es.onmessage = (evt) => {
+      try {
+        const parsed = JSON.parse(evt.data) as { type?: string; message?: string; createdAt?: string };
+        if (!parsed?.message || !parsed?.type) return;
+        const synthetic: Item = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          type: parsed.type,
+          message: parsed.message,
+          createdAt: parsed.createdAt ?? new Date().toISOString(),
+          metadata: null,
+        };
+        setItems((prev) => [synthetic, ...prev].slice(0, limit));
+      } catch {
+        // no-op
+      }
+    };
+    es.onerror = () => {
+      es.close();
+    };
+    return () => {
+      es.close();
     };
   }, [limit]);
 
@@ -67,7 +93,7 @@ export function ActivityFeed({ limit = 18, className = "" }: { limit?: number; c
     <div className={`rounded-xl border border-border/60 bg-card/40 overflow-hidden ${className}`}>
       <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
         <p className="text-sm font-semibold">Live activity</p>
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Updates every 30s</span>
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Live + 15s sync</span>
       </div>
       <ul className="max-h-[320px] overflow-y-auto divide-y divide-border/40">
         {items.map((it) => (
