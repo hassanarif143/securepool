@@ -220,6 +220,9 @@ function SimulationTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           dailyPoolCount: Number(cfg.dailyPoolCount),
+          dailyWinnersTarget: Number(cfg.dailyWinnersTarget),
+          autoPoolLiveDelaySec: Number(cfg.autoPoolLiveDelaySec),
+          autoPoolFillWindowSec: Number(cfg.autoPoolFillWindowSec),
           poolsEnabled: Boolean(cfg.poolsEnabled),
           minPoolSize: Number(cfg.minPoolSize),
           maxPoolSize: Number(cfg.maxPoolSize),
@@ -324,10 +327,17 @@ function SimulationTab() {
               <Button size="sm" variant="outline" disabled={busy} onClick={() => void createQuickPools("2,5,10", 5)}>2) Create 5 pools (2/5/10)</Button>
               <Button size="sm" variant="outline" disabled={busy} onClick={() => void post("/api/simulation/admin/spawn-stake-sequence", { items: [{ amount: 100, delaySec: 0 }, { amount: 1000, delaySec: 2 }] })}>3) Run staking sequence</Button>
             </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button size="sm" variant="secondary" disabled={busy} onClick={() => void createQuickPools("2,5,10", 10)}>Quick preset: 10 pools/day</Button>
+              <Button size="sm" variant="secondary" disabled={busy} onClick={() => void post("/api/simulation/admin/spawn-30day-stakes", { count: 10, minAmount: 100, maxAmount: 1000, stepDelaySec: 2 })}>
+                Run 30-day challenge (10 users)
+              </Button>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-3">
             <NumberField label="Daily pools count" value={cfg.dailyPoolCount} onChange={(v) => setCfg({ ...cfg, dailyPoolCount: v })} />
+            <NumberField label="Daily winners target" value={cfg.dailyWinnersTarget ?? 15} onChange={(v) => setCfg({ ...cfg, dailyWinnersTarget: v })} />
             <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2">
               <p className="text-xs text-muted-foreground">Pool simulation engine</p>
               <Button variant={cfg.poolsEnabled ? "default" : "outline"} size="sm" onClick={() => setCfg({ ...cfg, poolsEnabled: !cfg.poolsEnabled })}>
@@ -342,6 +352,8 @@ function SimulationTab() {
               </div>
             </div>
             <NumberField label="Default ticket price (USDT)" value={cfg.simulatedTicketPrice} onChange={(v) => setCfg({ ...cfg, simulatedTicketPrice: v })} />
+            <NumberField label="Pools live after (sec)" value={cfg.autoPoolLiveDelaySec ?? 3600} onChange={(v) => setCfg({ ...cfg, autoPoolLiveDelaySec: v })} />
+            <NumberField label="Pool fill window (sec)" value={cfg.autoPoolFillWindowSec ?? 3600} onChange={(v) => setCfg({ ...cfg, autoPoolFillWindowSec: v })} />
             <div className="space-y-1.5">
               <Label className="text-xs">Ticket tiers (comma separated)</Label>
               <Input

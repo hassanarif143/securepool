@@ -78,6 +78,13 @@ type SimulationPoolLite = {
   endsAt: string;
 };
 
+type SimulationEventLite = {
+  id: number;
+  type: string;
+  message: string;
+  createdAt: string;
+};
+
 function countdownLabel(startsAt: string, endsAt: string, status: SimulationPoolLite["status"]) {
   const now = Date.now();
   if (status === "pending") {
@@ -147,6 +154,12 @@ export default function DashboardPage() {
   const [myEntries, setMyEntries] = useState<any[]>([]);
   const [comeback, setComeback] = useState<ActiveCouponJson | null>(null);
   const [simPools, setSimPools] = useState<SimulationPoolLite[]>([]);
+  const [simEvents, setSimEvents] = useState<SimulationEventLite[]>([]);
+  const [simStats, setSimStats] = useState<{ totalSimUsers: number; totalWinners: number; totalRewardsPaidUsdt: number }>({
+    totalSimUsers: 0,
+    totalWinners: 0,
+    totalRewardsPaidUsdt: 0,
+  });
   const [simEnabled, setSimEnabled] = useState(false);
   const [simDisclosureRequired, setSimDisclosureRequired] = useState(true);
 
@@ -199,15 +212,28 @@ export default function DashboardPage() {
       try {
         const res = await fetch(apiUrl("/api/simulation/state"), { credentials: "include" });
         if (!res.ok) return;
-        const j = (await res.json()) as { enabled?: boolean; pools?: SimulationPoolLite[]; disclosureRequired?: boolean };
+        const j = (await res.json()) as {
+          enabled?: boolean;
+          pools?: SimulationPoolLite[];
+          events?: SimulationEventLite[];
+          stats?: { totalSimUsers?: number; totalWinners?: number; totalRewardsPaidUsdt?: number };
+          disclosureRequired?: boolean;
+        };
         if (cancelled) return;
         setSimEnabled(Boolean(j.enabled));
         setSimPools(Array.isArray(j.pools) ? j.pools.slice(0, 5) : []);
+        setSimEvents(Array.isArray(j.events) ? j.events.slice(0, 8) : []);
+        setSimStats({
+          totalSimUsers: Number(j.stats?.totalSimUsers ?? 0),
+          totalWinners: Number(j.stats?.totalWinners ?? 0),
+          totalRewardsPaidUsdt: Number(j.stats?.totalRewardsPaidUsdt ?? 0),
+        });
         setSimDisclosureRequired(j.disclosureRequired !== false);
       } catch {
         if (!cancelled) {
           setSimEnabled(false);
           setSimPools([]);
+          setSimEvents([]);
         }
       }
     }
@@ -830,6 +856,33 @@ export default function DashboardPage() {
                 );
               })}
             </ul>
+            <div className="border-t border-border/40 px-4 py-3 grid sm:grid-cols-3 gap-2 text-xs">
+              <div className="rounded-lg border border-border/50 px-3 py-2">
+                <p className="text-muted-foreground">Sim users joined</p>
+                <p className="font-semibold">{simStats.totalSimUsers}</p>
+              </div>
+              <div className="rounded-lg border border-border/50 px-3 py-2">
+                <p className="text-muted-foreground">Winners announced</p>
+                <p className="font-semibold">{simStats.totalWinners}</p>
+              </div>
+              <div className="rounded-lg border border-border/50 px-3 py-2">
+                <p className="text-muted-foreground">Sim rewards paid</p>
+                <p className="font-semibold">{simStats.totalRewardsPaidUsdt.toFixed(2)} USDT</p>
+              </div>
+            </div>
+            {simEvents.length > 0 ? (
+              <div className="border-t border-border/40 px-4 py-3">
+                <p className="text-xs font-semibold mb-2">Live user activity</p>
+                <ul className="space-y-1.5">
+                  {simEvents.map((e) => (
+                    <li key={e.id} className="text-xs text-muted-foreground flex items-center justify-between gap-2">
+                      <span className="truncate">{e.message}</span>
+                      <span className="shrink-0">{timeAgo(e.createdAt)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
         )}
 

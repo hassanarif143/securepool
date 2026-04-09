@@ -17,6 +17,7 @@ import {
   onSimulationEvent,
   resetSimulationData,
   setSimulationEnabled,
+  spawnThirtyDayStakeChallenge,
   spawnDemoStakeSequence,
   spawnDemoStakes,
   updateSimulationConfig,
@@ -121,6 +122,9 @@ router.patch("/admin/config", requireAdmin, async (req, res) => {
   const parsed = z
     .object({
       dailyPoolCount: z.number().int().min(1).max(20).optional(),
+      dailyWinnersTarget: z.number().int().min(1).max(200).optional(),
+      autoPoolLiveDelaySec: z.number().int().min(1).max(86_400).optional(),
+      autoPoolFillWindowSec: z.number().int().min(30).max(86_400).optional(),
       poolsEnabled: z.boolean().optional(),
       minPoolSize: z.number().int().min(2).max(30).optional(),
       maxPoolSize: z.number().int().min(2).max(30).optional(),
@@ -250,6 +254,27 @@ router.post("/admin/spawn-stake-sequence", requireAdmin, async (req, res) => {
     return;
   }
   const out = await spawnDemoStakeSequence(parsed.data.items);
+  res.json(out);
+});
+
+router.post("/admin/spawn-30day-stakes", requireAdmin, async (req, res) => {
+  if (!simModeEnabled()) {
+    res.status(400).json({ error: "SIMULATION_MODE_DISABLED", message: "Set SIMULATION_MODE=true in backend env first." });
+    return;
+  }
+  const parsed = z
+    .object({
+      count: z.number().int().min(1).max(100).optional(),
+      minAmount: z.number().min(1).max(100000).optional(),
+      maxAmount: z.number().min(1).max(100000).optional(),
+      stepDelaySec: z.number().int().min(0).max(600).optional(),
+    })
+    .safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "VALIDATION_ERROR", message: parsed.error.message });
+    return;
+  }
+  const out = await spawnThirtyDayStakeChallenge(parsed.data);
   res.json(out);
 });
 

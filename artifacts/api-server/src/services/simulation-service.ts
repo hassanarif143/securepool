@@ -232,14 +232,18 @@ export async function createDailySimulationPools(
     const startsAt = new Date(now.getTime() + startOffsetSec * 1000);
     const durationSec = closeAfterSec > 0 ? closeAfterSec : randBetween(cfg.minPoolDurationSec, cfg.maxPoolDurationSec);
     const endsAt = new Date(startsAt.getTime() + durationSec * 1000);
+    const selectedPoolSize = randBetween(poolMin, poolMax);
+    const selectedWinnersCount = randBetween(winMin, winMax);
+    const computedFillDelay =
+      fillDelaySec > 0 ? fillDelaySec : closeAfterSec > 0 ? Math.max(1, Math.ceil(closeAfterSec / Math.max(1, selectedPoolSize))) : randBetween(cfg.minJoinDelaySec, cfg.maxJoinDelaySec);
     const p = await createSimulationPool({
-      poolSize: randBetween(poolMin, poolMax),
-      winnersCount: randBetween(winMin, winMax),
+      poolSize: selectedPoolSize,
+      winnersCount: selectedWinnersCount,
       entryAmount: optionTiers.length > 0 ? optionTiers[randomInt(0, optionTiers.length)] : pickTicketTier(cfg.simulatedTicketTiers),
       platformFeeBps: cfg.simulatedPlatformFeeBps,
       startsAt,
       endsAt,
-      joinDelaySec: fillDelaySec > 0 ? fillDelaySec : randBetween(cfg.minJoinDelaySec, cfg.maxJoinDelaySec),
+      joinDelaySec: computedFillDelay,
       isManual: true,
       adminId,
     });
@@ -265,7 +269,23 @@ async function ensureDailyPools() {
   const currentCount = Number(row?.c ?? 0);
   const need = Math.max(0, cfg.dailyPoolCount - currentCount);
   if (need <= 0) return;
-  await createDailySimulationPools(need);
+  const [winnersRow] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(simulationWinnersTable)
+    .where(and(gte(simulationWinnersTable.createdAt, start), lte(simulationWinnersTable.createdAt, end)));
+  const winnersToday = Number(winnersRow?.c ?? 0);
+  const winnersRemaining = Math.max(0, Number(cfg.dailyWinnersTarget ?? 15) - winnersToday);
+  const avgTarget = Math.max(1, Math.ceil(winnersRemaining / need));
+  const liveDelay = Math.max(1, Number(cfg.autoPoolLiveDelaySec ?? 3600));
+  const fillWindow = Math.max(30, Number(cfg.autoPoolFillWindowSec ?? 3600));
+  const winMin = Math.max(1, Math.min(10, avgTarget - 1));
+  const winMax = Math.max(winMin, Math.min(10, avgTarget + 1));
+  await createDailySimulationPools(need, undefined, {
+    minWinnersCount: winMin,
+    maxWinnersCount: winMax,
+    openDelaySec: liveDelay,
+    closeAfterSec: fillWindow,
+  });
 }
 
 async function activatePendingPools(now: Date) {
@@ -545,7 +565,7 @@ export async function spawnDemoStakes(count: number) {
   return true;
 }
 
-export async function spawnDemoStakeSequence(items: Array<{ amount: number; delaySec: number }>) {
+export async function spawnDemoStakeSequence(items: Array<{ amount: number; delaySec: number; durationSec?: number }>) {
   const cfg = await ensureConfigRow();
   if (!cfg.stakingEnabled) {
     await db.update(simulationConfigTable).set({ stakingEnabled: true, updatedAt: new Date() }).where(eq(simulationConfigTable.id, 1));
@@ -554,6 +574,7 @@ export async function spawnDemoStakeSequence(items: Array<{ amount: number; dela
     .map((x) => ({
       amount: round2(Math.max(0.1, Number(x.amount))),
       delaySec: Math.max(0, Math.min(600, Math.floor(Number(x.delaySec)))),
+      durationSec: x.durationSec == null ? undefined : Math.max(60, Math.min(60 * 60 * 24 * 365, Math.floor(Number(x.durationSec)))),
     }))
     .filter((x) => Number.isFinite(x.amount) && Number.isFinite(x.delaySec))
     .slice(0, 50);
@@ -577,7 +598,7 @@ export async function spawnDemoStakeSequence(items: Array<{ amount: number; dela
     if (eligible.length === 0) continue;
     const pick = eligible[randomInt(0, eligible.length)];
     used.add(pick.id);
-    const durationSec = randBetween(cfg.stakingMinDurationSec, cfg.stakingMaxDurationSec);
+    const durationSec = item.durationSec ?? randBetween(cfg.stakingMinDurationSec, cfg.stakingMaxDurationSec);
     const rewardRateBps = randBetween(cfg.stakingRewardRateMinBps, cfg.stakingRewardRateMaxBps);
     const startsAt = new Date(now + item.delaySec * 1000);
     const endsAt = new Date(startsAt.getTime() + durationSec * 1000);
@@ -606,6 +627,19 @@ export async function spawnDemoStakeSequence(items: Array<{ amount: number; dela
     created += 1;
   }
   return { created };
+}
+
+export async function spawnThirtyDayStakeChallenge(input?: { count?: number; minAmount?: number; maxAmount?: number; stepDelaySec?: number }) {
+  const count = Math.max(1, Math.min(100, Math.floor(Number(input?.count ?? 10))));
+  const minAmount = Math.max(1, Math.min(100000, Number(input?.minAmount ?? 100)));
+  const maxAmount = Math.max(minAmount, Math.min(100000, Number(input?.maxAmount ?? 1000)));
+  const stepDelaySec = Math.max(0, Math.min(600, Math.floor(Number(input?.stepDelaySec ?? 2))));
+  const items = Array.from({ length: count }, (_, i) => ({
+    amount: round2(minAmount + (randomInt(0, 10001) / 10000) * (maxAmount - minAmount)),
+    delaySec: i * stepDelaySec,
+    durationSec: 30 * 24 * 60 * 60,
+  }));
+  return spawnDemoStakeSequence(items);
 }
 
 async function advanceDemoStakes(now: Date) {
@@ -772,6 +806,9 @@ export async function resetSimulationData() {
 export async function updateSimulationConfig(input: {
   poolsEnabled?: boolean;
   dailyPoolCount?: number;
+  dailyWinnersTarget?: number;
+  autoPoolLiveDelaySec?: number;
+  autoPoolFillWindowSec?: number;
   minPoolSize?: number;
   maxPoolSize?: number;
   minWinnersCount?: number;
@@ -901,7 +938,12 @@ export async function forceCompleteSimulationPool(poolId: number) {
 export async function getSimulationPublicState() {
   const pools = await db.select().from(simulationPoolsTable).orderBy(desc(simulationPoolsTable.id)).limit(12);
   const stakes = await listSimulationStakes(20);
-  const events = await listSimulationEvents(20);
+  const events = await listSimulationEvents(40);
+  const [usersCountRow, winnersCountRow, rewardsSumRow] = await Promise.all([
+    db.select({ c: sql<number>`count(*)::int` }).from(simulationUsersTable),
+    db.select({ c: sql<number>`count(*)::int` }).from(simulationWinnersTable),
+    db.select({ s: sql<number>`coalesce(sum(${simulationWinnersTable.rewardAmount}::numeric),0)::numeric` }).from(simulationWinnersTable),
+  ]);
   return {
     pools: pools.map((p) => ({
       id: p.id,
@@ -936,6 +978,13 @@ export async function getSimulationPublicState() {
       startsAt: s.startsAt,
       endsAt: s.endsAt,
       completedAt: s.completedAt,
+      achievementLevel:
+        toNum(s.principalAmount) >= 800 ? "Whale" : toNum(s.principalAmount) >= 400 ? "Pro" : toNum(s.principalAmount) >= 150 ? "Rising" : "Starter",
     })),
+    stats: {
+      totalSimUsers: Number(usersCountRow[0]?.c ?? 0),
+      totalWinners: Number(winnersCountRow[0]?.c ?? 0),
+      totalRewardsPaidUsdt: round2(Number(rewardsSumRow[0]?.s ?? 0)),
+    },
   };
 }

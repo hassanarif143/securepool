@@ -50,7 +50,7 @@ export default function StakingPage() {
   const [unstaking, setUnstaking] = useState(false);
   const [nowTs, setNowTs] = useState(Date.now());
   const [simStakes, setSimStakes] = useState<
-    Array<{ id: number; displayName: string; principalAmount: number; rewardAccrued: number; progressPct: number; status: string; endsAt: string }>
+    Array<{ id: number; displayName: string; principalAmount: number; rewardAccrued: number; progressPct: number; status: string; endsAt: string; achievementLevel?: string }>
   >([]);
   const [simEnabled, setSimEnabled] = useState(false);
   const [simDisclosureRequired, setSimDisclosureRequired] = useState(true);
@@ -276,6 +276,9 @@ export default function StakingPage() {
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {Number(s.principalAmount).toFixed(2)} USDT staked · Reward {Number(s.rewardAccrued).toFixed(2)} USDT
                   </p>
+                  {s.achievementLevel ? (
+                    <p className="text-[11px] mt-1 text-amber-300">Achievement: {s.achievementLevel} staker</p>
+                  ) : null}
                   <div className="h-2 rounded-full bg-muted overflow-hidden mt-2">
                     <div className="h-full bg-gradient-to-r from-emerald-400 to-primary" style={{ width: `${Math.min(100, Math.max(0, Number(s.progressPct ?? 0)))}%` }} />
                   </div>
