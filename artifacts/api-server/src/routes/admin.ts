@@ -928,6 +928,55 @@ type FactoryBlueprint = {
   startsAfterMinutes?: number;
 };
 
+type FactoryDistributionOverride = {
+  firstPct: number;
+  secondPct: number;
+  thirdPct: number;
+};
+
+const FactoryDistributionBody = z.object({
+  firstPct: z.coerce.number().min(0).max(100).optional(),
+  secondPct: z.coerce.number().min(0).max(100).optional(),
+  thirdPct: z.coerce.number().min(0).max(100).optional(),
+});
+
+function parseFactoryDistributionFromBody(body: unknown): FactoryDistributionOverride | null {
+  const parsed = FactoryDistributionBody.safeParse(body ?? {});
+  if (!parsed.success) return null;
+  const firstPct = Number(parsed.data.firstPct ?? 60);
+  const secondPct = Number(parsed.data.secondPct ?? 30);
+  const thirdPct = Number(parsed.data.thirdPct ?? 10);
+  const sum = firstPct + secondPct + thirdPct;
+  if (!Number.isFinite(sum) || sum <= 0) return null;
+  return { firstPct, secondPct, thirdPct };
+}
+
+function parseFactoryDistributionFromQuery(q: Record<string, unknown>): FactoryDistributionOverride | null {
+  const firstPct = Number(q.firstPct ?? NaN);
+  const secondPct = Number(q.secondPct ?? NaN);
+  const thirdPct = Number(q.thirdPct ?? NaN);
+  if (![firstPct, secondPct, thirdPct].every((x) => Number.isFinite(x))) return null;
+  const sum = firstPct + secondPct + thirdPct;
+  if (sum <= 0) return null;
+  return { firstPct, secondPct, thirdPct };
+}
+
+function withDistributionOverride(
+  blueprints: FactoryBlueprint[],
+  override: FactoryDistributionOverride | null,
+): FactoryBlueprint[] {
+  if (!override) return blueprints;
+  return blueprints.map((bp) => {
+    if (bp.winners <= 1) return bp;
+    const d1 = Math.max(0, override.firstPct);
+    const d2 = Math.max(0, override.secondPct);
+    const d3 = Math.max(0, override.thirdPct);
+    const distribution = bp.winners >= 3 ? [d1, d2, d3] : [d1, d2];
+    if (distribution.reduce((a, b) => a + b, 0) <= 0) return bp;
+    return { ...bp, distribution };
+  });
+}
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -1046,13 +1095,14 @@ function buildFactoryMath(bp: FactoryBlueprint) {
   return { totalPool, feeAmount, prizePool, prizes, platformFeePerJoin };
 }
 
-function buildFactoryPreview(type: "small" | "large" | "upcoming") {
-  const blueprints =
+function buildFactoryPreview(type: "small" | "large" | "upcoming", override: FactoryDistributionOverride | null = null) {
+  const baseBlueprints =
     type === "small"
       ? buildSmallFactoryBlueprints("open")
       : type === "large"
         ? buildLargeFactoryBlueprints("open")
         : [...buildSmallFactoryBlueprints("upcoming"), ...buildLargeFactoryBlueprints("upcoming")];
+  const blueprints = withDistributionOverride(baseBlueprints, override);
   const items = blueprints.map((bp) => {
     const m = buildFactoryMath(bp);
     return {
@@ -1087,7 +1137,8 @@ router.get("/pool-factory/preview", async (req, res) => {
   const raw = String(req.query.type ?? "small");
   const type: "small" | "large" | "upcoming" =
     raw === "large" ? "large" : raw === "upcoming" ? "upcoming" : "small";
-  res.json(buildFactoryPreview(type));
+  const distributionOverride = parseFactoryDistributionFromQuery(req.query as Record<string, unknown>);
+  res.json(buildFactoryPreview(type, distributionOverride));
 });
 
 function buildSmallFactoryBlueprints(mode: "open" | "upcoming"): FactoryBlueprint[] {
@@ -1154,19 +1205,22 @@ async function createFactoryPools(blueprints: FactoryBlueprint[]) {
   return created;
 }
 
-router.post("/pool-factory/generate-small", async (_req, res) => {
-  const created = await createFactoryPools(buildSmallFactoryBlueprints("open"));
+router.post("/pool-factory/generate-small", async (req, res) => {
+  const distributionOverride = parseFactoryDistributionFromBody(req.body);
+  const created = await createFactoryPools(withDistributionOverride(buildSmallFactoryBlueprints("open"), distributionOverride));
   res.json({ message: "Small pools generated", created });
 });
 
-router.post("/pool-factory/generate-large", async (_req, res) => {
-  const created = await createFactoryPools(buildLargeFactoryBlueprints("open"));
+router.post("/pool-factory/generate-large", async (req, res) => {
+  const distributionOverride = parseFactoryDistributionFromBody(req.body);
+  const created = await createFactoryPools(withDistributionOverride(buildLargeFactoryBlueprints("open"), distributionOverride));
   res.json({ message: "Large pools generated", created });
 });
 
-router.post("/pool-factory/create-upcoming", async (_req, res) => {
-  const createdSmall = await createFactoryPools(buildSmallFactoryBlueprints("upcoming"));
-  const createdLarge = await createFactoryPools(buildLargeFactoryBlueprints("upcoming"));
+router.post("/pool-factory/create-upcoming", async (req, res) => {
+  const distributionOverride = parseFactoryDistributionFromBody(req.body);
+  const createdSmall = await createFactoryPools(withDistributionOverride(buildSmallFactoryBlueprints("upcoming"), distributionOverride));
+  const createdLarge = await createFactoryPools(withDistributionOverride(buildLargeFactoryBlueprints("upcoming"), distributionOverride));
   res.json({ message: "Upcoming pools created", created: createdSmall + createdLarge });
 });
 

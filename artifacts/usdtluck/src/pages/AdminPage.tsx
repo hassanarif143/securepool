@@ -1624,6 +1624,9 @@ function CreatePoolTab() {
   });
   const [submitted, setSubmitted] = useState(false);
   const [factoryLoading, setFactoryLoading] = useState<null | "small" | "large" | "delete" | "upcoming" | "activate">(null);
+  const [factoryFirstPct, setFactoryFirstPct] = useState("60");
+  const [factorySecondPct, setFactorySecondPct] = useState("30");
+  const [factoryThirdPct, setFactoryThirdPct] = useState("10");
   const [factoryReview, setFactoryReview] = useState<{
     kind: "small" | "large" | "upcoming";
     endpoint: string;
@@ -1640,6 +1643,15 @@ function CreatePoolTab() {
     }>;
     totals: { pools: number; totalPoolAmount: number; totalPlatformFeeAmount: number; totalPrizePoolAmount: number };
   } | null>(null);
+
+  const factoryDistributionPayload = (() => {
+    const first = Number(factoryFirstPct);
+    const second = Number(factorySecondPct);
+    const third = Number(factoryThirdPct);
+    if (![first, second, third].every((x) => Number.isFinite(x) && x >= 0)) return null;
+    if (first + second + third <= 0) return null;
+    return { firstPct: first, secondPct: second, thirdPct: third };
+  })();
 
   function setDuration(days: number) {
     const start = new Date();
@@ -1772,7 +1784,13 @@ function CreatePoolTab() {
     if (kind === "activate" && !window.confirm("Activate all due upcoming pools now?")) return;
     setFactoryLoading(kind);
     try {
-      const res = await fetch(apiUrl(endpoint), { method: "POST", credentials: "include" });
+      const shouldSendDistribution = kind === "small" || kind === "large" || kind === "upcoming";
+      const res = await fetch(apiUrl(endpoint), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: shouldSendDistribution ? JSON.stringify(factoryDistributionPayload ?? {}) : undefined,
+      });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
       const j = await res.json().catch(() => ({}));
       toast({ title: successTitle, description: typeof j.created === "number" ? `${j.created} pool(s) processed.` : undefined });
@@ -1787,7 +1805,13 @@ function CreatePoolTab() {
   async function openFactoryReview(kind: "small" | "large" | "upcoming", endpoint: string, title: string) {
     setFactoryLoading(kind);
     try {
-      const res = await fetch(apiUrl(`/api/admin/pool-factory/preview?type=${kind}`), { credentials: "include" });
+      const params = new URLSearchParams({
+        type: kind,
+        firstPct: String(factoryDistributionPayload?.firstPct ?? 60),
+        secondPct: String(factoryDistributionPayload?.secondPct ?? 30),
+        thirdPct: String(factoryDistributionPayload?.thirdPct ?? 10),
+      });
+      const res = await fetch(apiUrl(`/api/admin/pool-factory/preview?${params.toString()}`), { credentials: "include" });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
       const preview = await res.json();
       setFactoryReview({
@@ -1850,18 +1874,39 @@ function CreatePoolTab() {
       <div className="mb-4 rounded-2xl p-4 space-y-3" style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}>
         <p className="text-sm font-semibold">Pool Factory Dashboard</p>
         <p className="text-xs text-muted-foreground">One-click generation for small and large pools with transparent fee and prize logic.</p>
+        <div className="rounded-lg border p-3 space-y-2">
+          <p className="text-xs font-medium">Prize distribution control (percent)</p>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <Label className="text-[11px] text-muted-foreground">1st %</Label>
+              <Input type="number" min="0" max="100" value={factoryFirstPct} onChange={(e) => setFactoryFirstPct(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">2nd %</Label>
+              <Input type="number" min="0" max="100" value={factorySecondPct} onChange={(e) => setFactorySecondPct(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">3rd %</Label>
+              <Input type="number" min="0" max="100" value={factoryThirdPct} onChange={(e) => setFactoryThirdPct(e.target.value)} />
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Ratios are normalized automatically. Used for factory pools on preview + publish.
+          </p>
+          {!factoryDistributionPayload ? <p className="text-[11px] text-destructive">Enter valid non-negative percentages (sum must be greater than 0).</p> : null}
+        </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-2">
           <Button
             type="button"
             onClick={() => void openFactoryReview("small", "/api/admin/pool-factory/generate-small", "Generate Small Pools")}
-            disabled={factoryLoading !== null}
+            disabled={factoryLoading !== null || !factoryDistributionPayload}
           >
             {factoryLoading === "small" ? "Generating..." : "Generate Small Pools"}
           </Button>
           <Button
             type="button"
             onClick={() => void openFactoryReview("large", "/api/admin/pool-factory/generate-large", "Generate Large Pools")}
-            disabled={factoryLoading !== null}
+            disabled={factoryLoading !== null || !factoryDistributionPayload}
             variant="outline"
           >
             {factoryLoading === "large" ? "Generating..." : "Generate Large Pools"}
@@ -1869,7 +1914,7 @@ function CreatePoolTab() {
           <Button
             type="button"
             onClick={() => void openFactoryReview("upcoming", "/api/admin/pool-factory/create-upcoming", "Create Upcoming Pools")}
-            disabled={factoryLoading !== null}
+            disabled={factoryLoading !== null || !factoryDistributionPayload}
             variant="outline"
           >
             {factoryLoading === "upcoming" ? "Creating..." : "Create Upcoming Pools"}
