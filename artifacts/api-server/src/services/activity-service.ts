@@ -1,8 +1,24 @@
 import { db, activityLogsTable } from "@workspace/db";
-import { desc } from "drizzle-orm";
+import { desc, inArray } from "drizzle-orm";
 import { logger } from "../lib/logger";
 
 export type ActivityType = "user_joined" | "pool_filled" | "winner_drawn" | "payout_sent" | "loyalty_bonus" | "referral_point";
+
+export const PUBLIC_ACTIVITY_TYPES = [
+  "user_joined",
+  "pool_filled",
+  "winner_drawn",
+  "payout_sent",
+  "stake_lock",
+  "stake_release",
+  "reward",
+] as const;
+
+const PUBLIC_ACTIVITY_TYPE_SET = new Set<string>(PUBLIC_ACTIVITY_TYPES);
+
+export function sanitizePublicActivityTypes(types: string[]): string[] {
+  return types.filter((t) => PUBLIC_ACTIVITY_TYPE_SET.has(t));
+}
 
 export async function logActivity(params: {
   type: ActivityType | string;
@@ -25,6 +41,7 @@ export async function logActivity(params: {
 }
 
 export async function getRecentActivityFeed(limit: number) {
+  const safeLimit = Math.min(Math.max(limit, 1), 50);
   const rows = await db
     .select({
       id: activityLogsTable.id,
@@ -34,7 +51,8 @@ export async function getRecentActivityFeed(limit: number) {
       metadata: activityLogsTable.metadata,
     })
     .from(activityLogsTable)
+    .where(inArray(activityLogsTable.type, PUBLIC_ACTIVITY_TYPES as unknown as string[]))
     .orderBy(desc(activityLogsTable.createdAt))
-    .limit(Math.min(Math.max(limit, 1), 50));
+    .limit(safeLimit);
   return rows;
 }
