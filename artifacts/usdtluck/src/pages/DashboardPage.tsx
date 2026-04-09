@@ -66,39 +66,6 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-type SimulationPoolLite = {
-  id: number;
-  title: string;
-  status: "pending" | "active" | "completed" | "stopped";
-  poolSize: number;
-  totalJoined: number;
-  winnersCount: number;
-  entryAmount: number;
-  startsAt: string;
-  endsAt: string;
-};
-
-type SimulationEventLite = {
-  id: number;
-  type: string;
-  message: string;
-  createdAt: string;
-};
-
-function countdownLabel(startsAt: string, endsAt: string, status: SimulationPoolLite["status"]) {
-  const now = Date.now();
-  if (status === "pending") {
-    const ms = new Date(startsAt).getTime() - now;
-    if (ms <= 0) return "Starting...";
-    return `Starts in ${Math.ceil(ms / 1000)}s`;
-  }
-  if (status === "active") {
-    const ms = new Date(endsAt).getTime() - now;
-    if (ms <= 0) return "Finishing...";
-    return `Ends in ${Math.ceil(ms / 1000)}s`;
-  }
-  return status;
-}
 
 const TX_META: Record<
   string,
@@ -153,15 +120,6 @@ export default function DashboardPage() {
   const { loading: gamesLoading, cashoutArenaEnabled, scratchCardEnabled, anyGameEnabled } = useGameAvailability(!!user);
   const [myEntries, setMyEntries] = useState<any[]>([]);
   const [comeback, setComeback] = useState<ActiveCouponJson | null>(null);
-  const [simPools, setSimPools] = useState<SimulationPoolLite[]>([]);
-  const [simEvents, setSimEvents] = useState<SimulationEventLite[]>([]);
-  const [simStats, setSimStats] = useState<{ totalSimUsers: number; totalWinners: number; totalRewardsPaidUsdt: number }>({
-    totalSimUsers: 0,
-    totalWinners: 0,
-    totalRewardsPaidUsdt: 0,
-  });
-  const [simEnabled, setSimEnabled] = useState(false);
-  const [simDisclosureRequired, setSimDisclosureRequired] = useState(true);
 
   const { data: pools, isLoading: poolsLoading } = useListPools();
   const { data: transactions } = useGetUserTransactions(user?.id ?? 0, {
@@ -206,44 +164,6 @@ export default function DashboardPage() {
     })();
   }, [user?.id]);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadSimulation() {
-      try {
-        const res = await fetch(apiUrl("/api/simulation/state"), { credentials: "include" });
-        if (!res.ok) return;
-        const j = (await res.json()) as {
-          enabled?: boolean;
-          pools?: SimulationPoolLite[];
-          events?: SimulationEventLite[];
-          stats?: { totalSimUsers?: number; totalWinners?: number; totalRewardsPaidUsdt?: number };
-          disclosureRequired?: boolean;
-        };
-        if (cancelled) return;
-        setSimEnabled(Boolean(j.enabled));
-        setSimPools(Array.isArray(j.pools) ? j.pools.slice(0, 5) : []);
-        setSimEvents(Array.isArray(j.events) ? j.events.slice(0, 8) : []);
-        setSimStats({
-          totalSimUsers: Number(j.stats?.totalSimUsers ?? 0),
-          totalWinners: Number(j.stats?.totalWinners ?? 0),
-          totalRewardsPaidUsdt: Number(j.stats?.totalRewardsPaidUsdt ?? 0),
-        });
-        setSimDisclosureRequired(j.disclosureRequired !== false);
-      } catch {
-        if (!cancelled) {
-          setSimEnabled(false);
-          setSimPools([]);
-          setSimEvents([]);
-        }
-      }
-    }
-    void loadSimulation();
-    const id = window.setInterval(loadSimulation, 5000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, []);
 
   if (isLoading || !user) return null;
 
@@ -809,82 +729,6 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground mt-1">Buy/sell USDT demo — escrow flow in your browser.</p>
           </Link>
         </div>
-
-        {simEnabled && simPools.length > 0 && (
-          <div className="rounded-xl border border-border/60 bg-card/40 overflow-hidden">
-            <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between gap-2">
-              <div>
-                <p className="text-sm font-semibold">Live demo pools</p>
-                {simDisclosureRequired ? <p className="text-[11px] text-muted-foreground">Public test rounds for product demonstration.</p> : null}
-              </div>
-              {simDisclosureRequired ? (
-                <span className="rounded-full border border-violet-400/35 bg-violet-500/[0.12] px-2 py-0.5 text-[10px] font-medium text-violet-200">
-                  Demo mode
-                </span>
-              ) : null}
-            </div>
-            <ul className="divide-y divide-border/40">
-              {simPools.map((p) => {
-                const fillRatio = Math.min(100, Math.round((p.totalJoined / Math.max(1, p.poolSize)) * 100));
-                const almostFull = p.status === "active" && fillRatio >= 75 && p.totalJoined < p.poolSize;
-                return (
-                  <li key={p.id} className="px-4 py-3 space-y-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-medium">{p.title}</p>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${
-                          p.status === "active"
-                            ? "bg-emerald-500/15 text-emerald-300"
-                            : p.status === "pending"
-                              ? "bg-sky-500/15 text-sky-300"
-                              : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {countdownLabel(p.startsAt, p.endsAt, p.status)}
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-emerald-400 to-primary" style={{ width: `${fillRatio}%` }} />
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between text-xs text-muted-foreground gap-2">
-                      <span>
-                        {p.totalJoined}/{p.poolSize} joined · {p.entryAmount.toFixed(2)} USDT ticket
-                      </span>
-                      {almostFull ? <span className="text-amber-300">Almost full</span> : <span>{p.winnersCount} winners</span>}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            <div className="border-t border-border/40 px-4 py-3 grid sm:grid-cols-3 gap-2 text-xs">
-              <div className="rounded-lg border border-border/50 px-3 py-2">
-                <p className="text-muted-foreground">Sim users joined</p>
-                <p className="font-semibold">{simStats.totalSimUsers}</p>
-              </div>
-              <div className="rounded-lg border border-border/50 px-3 py-2">
-                <p className="text-muted-foreground">Winners announced</p>
-                <p className="font-semibold">{simStats.totalWinners}</p>
-              </div>
-              <div className="rounded-lg border border-border/50 px-3 py-2">
-                <p className="text-muted-foreground">Sim rewards paid</p>
-                <p className="font-semibold">{simStats.totalRewardsPaidUsdt.toFixed(2)} USDT</p>
-              </div>
-            </div>
-            {simEvents.length > 0 ? (
-              <div className="border-t border-border/40 px-4 py-3">
-                <p className="text-xs font-semibold mb-2">Live user activity</p>
-                <ul className="space-y-1.5">
-                  {simEvents.map((e) => (
-                    <li key={e.id} className="text-xs text-muted-foreground flex items-center justify-between gap-2">
-                      <span className="truncate">{e.message}</span>
-                      <span className="shrink-0">{timeAgo(e.createdAt)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-        )}
 
         <ActivityFeed limit={12} />
       </div>

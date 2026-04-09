@@ -49,11 +49,6 @@ export default function StakingPage() {
   const [claimTarget, setClaimTarget] = useState<StakeRow | null>(null);
   const [unstaking, setUnstaking] = useState(false);
   const [nowTs, setNowTs] = useState(Date.now());
-  const [simStakes, setSimStakes] = useState<
-    Array<{ id: number; displayName: string; principalAmount: number; rewardAccrued: number; progressPct: number; status: string; endsAt: string; achievementLevel?: string }>
-  >([]);
-  const [simEnabled, setSimEnabled] = useState(false);
-  const [simDisclosureRequired, setSimDisclosureRequired] = useState(true);
 
   async function refresh() {
     const [cfgRes, meRes] = await Promise.all([
@@ -77,31 +72,6 @@ export default function StakingPage() {
     return () => window.clearInterval(t);
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadSim() {
-      try {
-        const r = await fetch(apiUrl("/api/simulation/state"), { credentials: "include" });
-        if (!r.ok) return;
-        const j = (await r.json()) as { enabled?: boolean; stakes?: any[]; disclosureRequired?: boolean };
-        if (cancelled) return;
-        setSimEnabled(Boolean(j.enabled));
-        setSimStakes(Array.isArray(j.stakes) ? j.stakes.slice(0, 8) : []);
-        setSimDisclosureRequired(j.disclosureRequired !== false);
-      } catch {
-        if (!cancelled) {
-          setSimEnabled(false);
-          setSimStakes([]);
-        }
-      }
-    }
-    void loadSim();
-    const id = window.setInterval(loadSim, 5000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, []);
 
   const active = useMemo(() => rows.filter((r) => r.status === "active"), [rows]);
   const completed = useMemo(() => rows.filter((r) => r.status === "completed"), [rows]);
@@ -258,40 +228,6 @@ export default function StakingPage() {
           </CardContent>
         </Card>
       </div>
-
-      {simEnabled && simStakes.length > 0 && (
-        <Card className="border-border/70">
-          <CardHeader>
-            <CardTitle className="text-lg">{simDisclosureRequired ? "Live demo staking activity" : "Live staking activity"}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {simStakes.map((s) => {
-              const secLeft = Math.max(0, Math.ceil((new Date(s.endsAt).getTime() - Date.now()) / 1000));
-              return (
-                <div key={s.id} className="rounded-xl border border-border/70 p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium">{s.displayName}</p>
-                    <span className="text-xs text-muted-foreground">{s.status}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {Number(s.principalAmount).toFixed(2)} USDT staked · Reward {Number(s.rewardAccrued).toFixed(2)} USDT
-                  </p>
-                  {s.achievementLevel ? (
-                    <p className="text-[11px] mt-1 text-amber-300">Achievement: {s.achievementLevel} staker</p>
-                  ) : null}
-                  <div className="h-2 rounded-full bg-muted overflow-hidden mt-2">
-                    <div className="h-full bg-gradient-to-r from-emerald-400 to-primary" style={{ width: `${Math.min(100, Math.max(0, Number(s.progressPct ?? 0)))}%` }} />
-                  </div>
-                  <div className="text-[11px] text-muted-foreground mt-1 flex items-center justify-between">
-                    <span>{Number(s.progressPct ?? 0).toFixed(0)}% complete</span>
-                    <span>{secLeft}s left</span>
-                  </div>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      )}
 
       <Card className="border-border/70">
         <CardHeader>

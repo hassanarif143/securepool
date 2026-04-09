@@ -35,8 +35,7 @@ export function ActivityFeed({ limit = 18, className = "" }: { limit?: number; c
       try {
         const r = await fetch(apiUrl(`/api/activity/feed?limit=${limit}`), { credentials: "include" });
         const j = r.ok ? ((await r.json()) as Item[]) : [];
-        const cleaned = (Array.isArray(j) ? j : []).filter((it) => !String(it.type ?? "").startsWith("simulation."));
-        if (!cancelled) setItems(cleaned);
+        if (!cancelled) setItems(Array.isArray(j) ? j : []);
       } catch {
         if (!cancelled) setItems([]);
       } finally {
