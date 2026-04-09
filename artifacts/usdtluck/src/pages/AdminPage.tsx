@@ -148,6 +148,7 @@ function SimulationTab() {
   const [createCloseAfterSec, setCreateCloseAfterSec] = useState(180);
   const [createFillDelaySec, setCreateFillDelaySec] = useState(5);
   const [stakeSequence, setStakeSequence] = useState("100@0,1000@2");
+  const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
 
   async function loadAll() {
     setLoading(true);
@@ -254,6 +255,27 @@ function SimulationTab() {
     }
   }
 
+  function parseEntryTiers(csv: string): number[] {
+    return csv
+      .split(",")
+      .map((v) => Number(v.trim()))
+      .filter((n) => Number.isFinite(n) && n >= 0.1);
+  }
+
+  async function createQuickPools(tiers: string, count: number) {
+    await post("/api/simulation/admin/create-pools", {
+      count,
+      entryAmounts: parseEntryTiers(tiers),
+      minPoolSize: createMinPoolSize,
+      maxPoolSize: createMaxPoolSize,
+      minWinnersCount: createMinWinners,
+      maxWinnersCount: createMaxWinners,
+      openDelaySec: createOpenDelaySec,
+      closeAfterSec: createCloseAfterSec,
+      fillDelaySec: createFillDelaySec,
+    });
+  }
+
   if (loading || !cfg) {
     return <p className="text-muted-foreground py-8 text-center">Loading simulation controls…</p>;
   }
@@ -295,6 +317,15 @@ function SimulationTab() {
             <Badge variant={cfg.enabled ? "default" : "secondary"}>{cfg.enabled ? "Live" : "Paused"}</Badge>
           </div>
 
+          <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-2">
+            <p className="text-xs text-muted-foreground">Quick setup (simple mode)</p>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <Button size="sm" disabled={busy} onClick={() => void post("/api/simulation/admin/generate-users", { count: 120 })}>1) Generate 120 users</Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => void createQuickPools("2,5,10", 5)}>2) Create 5 pools (2/5/10)</Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => void post("/api/simulation/admin/spawn-stake-sequence", { items: [{ amount: 100, delaySec: 0 }, { amount: 1000, delaySec: 2 }] })}>3) Run staking sequence</Button>
+            </div>
+          </div>
+
           <div className="grid md:grid-cols-2 gap-3">
             <NumberField label="Daily pools count" value={cfg.dailyPoolCount} onChange={(v) => setCfg({ ...cfg, dailyPoolCount: v })} />
             <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2">
@@ -319,25 +350,6 @@ function SimulationTab() {
                 placeholder="2,5,10"
               />
             </div>
-            <NumberField label="Minimum pool size" value={cfg.minPoolSize} onChange={(v) => setCfg({ ...cfg, minPoolSize: v })} />
-            <NumberField label="Maximum pool size" value={cfg.maxPoolSize} onChange={(v) => setCfg({ ...cfg, maxPoolSize: v })} />
-            <NumberField label="Minimum winners" value={cfg.minWinnersCount} onChange={(v) => setCfg({ ...cfg, minWinnersCount: v })} />
-            <NumberField label="Maximum winners" value={cfg.maxWinnersCount} onChange={(v) => setCfg({ ...cfg, maxWinnersCount: v })} />
-            <NumberField label="Platform fee (bps)" value={cfg.simulatedPlatformFeeBps} onChange={(v) => setCfg({ ...cfg, simulatedPlatformFeeBps: v })} />
-            <NumberField label="Join delay min (sec)" value={cfg.minJoinDelaySec} onChange={(v) => setCfg({ ...cfg, minJoinDelaySec: v })} />
-            <NumberField label="Join delay max (sec)" value={cfg.maxJoinDelaySec} onChange={(v) => setCfg({ ...cfg, maxJoinDelaySec: v })} />
-            <NumberField label="Pool duration min (sec)" value={cfg.minPoolDurationSec} onChange={(v) => setCfg({ ...cfg, minPoolDurationSec: v })} />
-            <NumberField label="Pool duration max (sec)" value={cfg.maxPoolDurationSec} onChange={(v) => setCfg({ ...cfg, maxPoolDurationSec: v })} />
-            <NumberField label="Staking concurrent users" value={cfg.stakingConcurrentUsers} onChange={(v) => setCfg({ ...cfg, stakingConcurrentUsers: v })} />
-            <NumberField label="Staking min amount" value={cfg.stakingMinAmount} onChange={(v) => setCfg({ ...cfg, stakingMinAmount: v })} />
-            <NumberField label="Staking max amount" value={cfg.stakingMaxAmount} onChange={(v) => setCfg({ ...cfg, stakingMaxAmount: v })} />
-            <NumberField label="Staking min duration (sec)" value={cfg.stakingMinDurationSec} onChange={(v) => setCfg({ ...cfg, stakingMinDurationSec: v })} />
-            <NumberField label="Staking max duration (sec)" value={cfg.stakingMaxDurationSec} onChange={(v) => setCfg({ ...cfg, stakingMaxDurationSec: v })} />
-            <NumberField label="Staking reward min (bps)" value={cfg.stakingRewardRateMinBps} onChange={(v) => setCfg({ ...cfg, stakingRewardRateMinBps: v })} />
-            <NumberField label="Staking reward max (bps)" value={cfg.stakingRewardRateMaxBps} onChange={(v) => setCfg({ ...cfg, stakingRewardRateMaxBps: v })} />
-            <NumberField label="Staking platform fee (bps)" value={cfg.stakingPlatformFeeBps} onChange={(v) => setCfg({ ...cfg, stakingPlatformFeeBps: v })} />
-            <NumberField label="Stake start delay min (sec)" value={cfg.stakingMinStartDelaySec} onChange={(v) => setCfg({ ...cfg, stakingMinStartDelaySec: v })} />
-            <NumberField label="Stake start delay max (sec)" value={cfg.stakingMaxStartDelaySec} onChange={(v) => setCfg({ ...cfg, stakingMaxStartDelaySec: v })} />
           </div>
           <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2">
             <p className="text-xs text-muted-foreground">Staking simulation engine</p>
@@ -345,6 +357,35 @@ function SimulationTab() {
               {cfg.stakingEnabled ? "Enabled" : "Disabled"}
             </Button>
           </div>
+          <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+            <p className="text-xs text-muted-foreground">Need more controls?</p>
+            <Button variant="outline" size="sm" onClick={() => setShowAdvancedConfig((v) => !v)}>
+              {showAdvancedConfig ? "Hide advanced" : "Show advanced"}
+            </Button>
+          </div>
+          {showAdvancedConfig ? (
+            <div className="grid md:grid-cols-2 gap-3">
+              <NumberField label="Minimum pool size" value={cfg.minPoolSize} onChange={(v) => setCfg({ ...cfg, minPoolSize: v })} />
+              <NumberField label="Maximum pool size" value={cfg.maxPoolSize} onChange={(v) => setCfg({ ...cfg, maxPoolSize: v })} />
+              <NumberField label="Minimum winners" value={cfg.minWinnersCount} onChange={(v) => setCfg({ ...cfg, minWinnersCount: v })} />
+              <NumberField label="Maximum winners" value={cfg.maxWinnersCount} onChange={(v) => setCfg({ ...cfg, maxWinnersCount: v })} />
+              <NumberField label="Platform fee (bps)" value={cfg.simulatedPlatformFeeBps} onChange={(v) => setCfg({ ...cfg, simulatedPlatformFeeBps: v })} />
+              <NumberField label="Join delay min (sec)" value={cfg.minJoinDelaySec} onChange={(v) => setCfg({ ...cfg, minJoinDelaySec: v })} />
+              <NumberField label="Join delay max (sec)" value={cfg.maxJoinDelaySec} onChange={(v) => setCfg({ ...cfg, maxJoinDelaySec: v })} />
+              <NumberField label="Pool duration min (sec)" value={cfg.minPoolDurationSec} onChange={(v) => setCfg({ ...cfg, minPoolDurationSec: v })} />
+              <NumberField label="Pool duration max (sec)" value={cfg.maxPoolDurationSec} onChange={(v) => setCfg({ ...cfg, maxPoolDurationSec: v })} />
+              <NumberField label="Staking concurrent users" value={cfg.stakingConcurrentUsers} onChange={(v) => setCfg({ ...cfg, stakingConcurrentUsers: v })} />
+              <NumberField label="Staking min amount" value={cfg.stakingMinAmount} onChange={(v) => setCfg({ ...cfg, stakingMinAmount: v })} />
+              <NumberField label="Staking max amount" value={cfg.stakingMaxAmount} onChange={(v) => setCfg({ ...cfg, stakingMaxAmount: v })} />
+              <NumberField label="Staking min duration (sec)" value={cfg.stakingMinDurationSec} onChange={(v) => setCfg({ ...cfg, stakingMinDurationSec: v })} />
+              <NumberField label="Staking max duration (sec)" value={cfg.stakingMaxDurationSec} onChange={(v) => setCfg({ ...cfg, stakingMaxDurationSec: v })} />
+              <NumberField label="Staking reward min (bps)" value={cfg.stakingRewardRateMinBps} onChange={(v) => setCfg({ ...cfg, stakingRewardRateMinBps: v })} />
+              <NumberField label="Staking reward max (bps)" value={cfg.stakingRewardRateMaxBps} onChange={(v) => setCfg({ ...cfg, stakingRewardRateMaxBps: v })} />
+              <NumberField label="Staking platform fee (bps)" value={cfg.stakingPlatformFeeBps} onChange={(v) => setCfg({ ...cfg, stakingPlatformFeeBps: v })} />
+              <NumberField label="Stake start delay min (sec)" value={cfg.stakingMinStartDelaySec} onChange={(v) => setCfg({ ...cfg, stakingMinStartDelaySec: v })} />
+              <NumberField label="Stake start delay max (sec)" value={cfg.stakingMaxStartDelaySec} onChange={(v) => setCfg({ ...cfg, stakingMaxStartDelaySec: v })} />
+            </div>
+          ) : null}
           <div className="flex justify-end">
             <Button disabled={busy} onClick={() => void saveConfig()}>{busy ? "Saving..." : "Save simulation config"}</Button>
           </div>
