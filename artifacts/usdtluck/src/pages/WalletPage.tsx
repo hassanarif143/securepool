@@ -19,6 +19,7 @@ import { appToast } from "@/components/feedback/AppToast";
 const PLATFORM_ADDRESS = "TBjGU8jfZvsfDVPpjJXVb47khVyKjQqjqp";
 const NETWORK = "TRC-20 (Tron)";
 const MIN_WITHDRAW_USDT = 10;
+type WithdrawPinStatusApi = { hasWithdrawPin: boolean };
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -132,6 +133,8 @@ export default function WalletPage() {
   const [depositLoading, setDepositLoading] = useState(false);
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [withdrawConfirmOpen, setWithdrawConfirmOpen] = useState(false);
+  const [hasWithdrawPin, setHasWithdrawPin] = useState(false);
+  const [withdrawPinStatusLoading, setWithdrawPinStatusLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -158,6 +161,30 @@ export default function WalletPage() {
   useEffect(() => {
     if (user?.email && !confirmEmail) setConfirmEmail(user.email);
   }, [user?.email, confirmEmail]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setHasWithdrawPin(false);
+      setWithdrawPinStatusLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setWithdrawPinStatusLoading(true);
+    fetch(apiUrl("/api/user/wallet/withdraw-pin/status"), { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: WithdrawPinStatusApi | null) => {
+        if (!cancelled) setHasWithdrawPin(Boolean(j?.hasWithdrawPin));
+      })
+      .catch(() => {
+        if (!cancelled) setHasWithdrawPin(false);
+      })
+      .finally(() => {
+        if (!cancelled) setWithdrawPinStatusLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   if (isLoading || !user) return null;
 
@@ -247,6 +274,10 @@ export default function WalletPage() {
     }
     if (!withdrawWallet) {
       appToast.error({ title: "Wallet address required" });
+      return;
+    }
+    if (!hasWithdrawPin) {
+      appToast.error({ title: "Set withdraw PIN first", description: "Open Profile and set your 6-digit withdraw PIN." });
       return;
     }
     if (!/^\d{6}$/.test(withdrawPin.trim())) {
@@ -627,6 +658,18 @@ export default function WalletPage() {
                 </p>
               </div>
             )}
+            {!withdrawPinStatusLoading && !hasWithdrawPin && (
+              <div className="flex items-start gap-3 p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/8">
+                <span className="text-yellow-400 shrink-0 mt-0.5">⚠</span>
+                <p className="text-sm text-yellow-300">
+                  Before first withdrawal, set your 6-digit Withdraw PIN in{" "}
+                  <Link href="/profile" className="font-semibold underline">
+                    Profile
+                  </Link>
+                  . This keeps your wallet secure.
+                </p>
+              </div>
+            )}
 
             <BlockchainFeeWarningBox />
 
@@ -735,11 +778,15 @@ export default function WalletPage() {
               <Button
                 type="submit"
                 variant="secondary"
-                disabled={withdrawLoading || withdrawableBal < MIN_WITHDRAW_USDT}
+                  disabled={withdrawLoading || withdrawableBal < MIN_WITHDRAW_USDT || !hasWithdrawPin || withdrawPinStatusLoading}
                 className="min-h-12 w-full border border-border font-semibold transition-transform duration-200 active:scale-[0.99] disabled:opacity-40"
               >
                 {withdrawLoading
                   ? "Submitting…"
+                  : withdrawPinStatusLoading
+                    ? "Checking security status..."
+                    : !hasWithdrawPin
+                      ? "Set Withdraw PIN in Profile"
                   : withdrawableBal < MIN_WITHDRAW_USDT
                     ? `Minimum ${MIN_WITHDRAW_USDT} USDT required`
                     : "Review withdrawal"}

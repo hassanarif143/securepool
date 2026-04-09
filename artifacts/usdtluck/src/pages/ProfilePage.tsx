@@ -41,6 +41,10 @@ type WalletApi = {
   total_bonus?: number;
 };
 
+type WithdrawPinStatusApi = {
+  hasWithdrawPin: boolean;
+};
+
 function truncateAddr(addr: string): { short: string; full: string } {
   const full = addr.trim();
   if (full.length <= 18) return { short: full, full };
@@ -241,6 +245,14 @@ export default function ProfilePage() {
   const [initialWalletConfirm, setInitialWalletConfirm] = useState("");
   const [savingInitialWallet, setSavingInitialWallet] = useState(false);
   const [cooldownTick, setCooldownTick] = useState(0);
+  const [hasWithdrawPin, setHasWithdrawPin] = useState(false);
+  const [withdrawPinLoading, setWithdrawPinLoading] = useState(true);
+  const [pinSaving, setPinSaving] = useState(false);
+  const [newWithdrawPin, setNewWithdrawPin] = useState("");
+  const [newWithdrawPinConfirm, setNewWithdrawPinConfirm] = useState("");
+  const [currentWithdrawPin, setCurrentWithdrawPin] = useState("");
+  const [changeWithdrawPin, setChangeWithdrawPin] = useState("");
+  const [changeWithdrawPinConfirm, setChangeWithdrawPinConfirm] = useState("");
   const narrow = useNarrowScreen();
 
   const loadWallet = useCallback(async () => {
@@ -267,6 +279,26 @@ export default function ProfilePage() {
   useEffect(() => {
     if (user) void loadWallet();
   }, [user, loadWallet]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    setWithdrawPinLoading(true);
+    fetch(apiUrl("/api/user/wallet/withdraw-pin/status"), { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: WithdrawPinStatusApi | null) => {
+        if (!cancelled) setHasWithdrawPin(Boolean(j?.hasWithdrawPin));
+      })
+      .catch(() => {
+        if (!cancelled) setHasWithdrawPin(false);
+      })
+      .finally(() => {
+        if (!cancelled) setWithdrawPinLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!walletInfo?.cooldownUntil) return;
@@ -354,6 +386,16 @@ export default function ProfilePage() {
           ? "JazzCash number is invalid. Format: 03XXXXXXXXX"
           : null;
   const canSaveProfile = !saving && trimmedName.length >= 2 && !p2pFormError;
+  const canSetWithdrawPin =
+    /^\d{6}$/.test(newWithdrawPin.trim()) &&
+    newWithdrawPin.trim() === newWithdrawPinConfirm.trim() &&
+    !pinSaving;
+  const canChangeWithdrawPin =
+    /^\d{6}$/.test(currentWithdrawPin.trim()) &&
+    /^\d{6}$/.test(changeWithdrawPin.trim()) &&
+    changeWithdrawPin.trim() === changeWithdrawPinConfirm.trim() &&
+    currentWithdrawPin.trim() !== changeWithdrawPin.trim() &&
+    !pinSaving;
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -488,6 +530,65 @@ export default function ProfilePage() {
       });
     } finally {
       setSavingInitialWallet(false);
+    }
+  }
+
+  async function setWithdrawPin() {
+    if (!canSetWithdrawPin) return;
+    setPinSaving(true);
+    try {
+      const res = await fetch(apiUrl("/api/user/wallet/withdraw-pin/set"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pin: newWithdrawPin.trim(),
+          confirmPin: newWithdrawPinConfirm.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      setHasWithdrawPin(true);
+      setNewWithdrawPin("");
+      setNewWithdrawPinConfirm("");
+      toast({ title: "Withdraw PIN set", description: "Your 6-digit withdraw PIN is now active." });
+    } catch (e: unknown) {
+      toast({
+        title: "Could not set PIN",
+        description: e instanceof Error ? e.message : "Network error",
+        variant: "destructive",
+      });
+    } finally {
+      setPinSaving(false);
+    }
+  }
+
+  async function updateWithdrawPin() {
+    if (!canChangeWithdrawPin) return;
+    setPinSaving(true);
+    try {
+      const res = await fetch(apiUrl("/api/user/wallet/withdraw-pin/change"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPin: currentWithdrawPin.trim(),
+          newPin: changeWithdrawPin.trim(),
+          confirmNewPin: changeWithdrawPinConfirm.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      setCurrentWithdrawPin("");
+      setChangeWithdrawPin("");
+      setChangeWithdrawPinConfirm("");
+      toast({ title: "Withdraw PIN updated", description: "Use your new PIN for withdrawals." });
+    } catch (e: unknown) {
+      toast({
+        title: "Could not update PIN",
+        description: e instanceof Error ? e.message : "Network error",
+        variant: "destructive",
+      });
+    } finally {
+      setPinSaving(false);
     }
   }
 
@@ -651,6 +752,80 @@ export default function ProfilePage() {
                 </p>
               )}
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Withdraw security PIN</CardTitle>
+          <CardDescription>
+            This 6-digit PIN is required for every withdrawal. Keep it private and do not share it.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 pt-0">
+          {withdrawPinLoading ? (
+            <p className="text-sm text-muted-foreground">Loading security status...</p>
+          ) : hasWithdrawPin ? (
+            <div className="space-y-2">
+              <p className="text-xs text-emerald-600">PIN is active. You can change it anytime.</p>
+              <Input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="Current 6-digit PIN"
+                value={currentWithdrawPin}
+                onChange={(e) => setCurrentWithdrawPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              />
+              <Input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="New 6-digit PIN"
+                value={changeWithdrawPin}
+                onChange={(e) => setChangeWithdrawPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              />
+              <Input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="Confirm new PIN"
+                value={changeWithdrawPinConfirm}
+                onChange={(e) => setChangeWithdrawPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              />
+              {changeWithdrawPinConfirm && changeWithdrawPin !== changeWithdrawPinConfirm ? (
+                <p className="text-xs text-destructive">New PIN and confirmation do not match.</p>
+              ) : null}
+              <Button type="button" className="w-full" disabled={!canChangeWithdrawPin} onClick={() => void updateWithdrawPin()}>
+                {pinSaving ? "Updating..." : "Change Withdraw PIN"}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">Set your PIN once to unlock withdrawals.</p>
+              <Input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="Set 6-digit PIN"
+                value={newWithdrawPin}
+                onChange={(e) => setNewWithdrawPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              />
+              <Input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="Confirm 6-digit PIN"
+                value={newWithdrawPinConfirm}
+                onChange={(e) => setNewWithdrawPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              />
+              {newWithdrawPinConfirm && newWithdrawPin !== newWithdrawPinConfirm ? (
+                <p className="text-xs text-destructive">PIN and confirmation do not match.</p>
+              ) : null}
+              <Button type="button" className="w-full" disabled={!canSetWithdrawPin} onClick={() => void setWithdrawPin()}>
+                {pinSaving ? "Saving..." : "Set Withdraw PIN"}
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -1,4 +1,5 @@
 import { and, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
+import crypto from "node:crypto";
 import {
   db,
   squadsTable,
@@ -16,7 +17,7 @@ import { grantReferralPointsWithExpiry } from "./points-ledger-service";
 function randomCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let s = "";
-  for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 8; i++) s += chars[crypto.randomInt(0, chars.length)];
   return s;
 }
 

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import { getSecurityConfig, logSecurityEvent } from "../lib/security";
+import { getAuthedUserId } from "./auth";
 
 const MAX_DRIFT_MS = 5 * 60_000;
 
@@ -17,13 +18,14 @@ export async function verifyRequestSignature(req: Request, res: Response, next: 
   const timestamp = String(req.header("x-request-timestamp") ?? "");
   const signature = String(req.header("x-request-signature") ?? "");
   const secret = process.env.REQUEST_HMAC_SECRET ?? "";
+  const userId = getAuthedUserId(req);
   if (!secret) {
     return res.status(503).json({ error: "SIGNATURE_SECRET_MISSING" });
   }
 
   if (!timestamp || !signature) {
     await logSecurityEvent({
-      userId: Number((req as any).user?.id ?? req.session?.userId ?? 0) || null,
+      userId,
       eventType: "signature.missing",
       severity: "warn",
       ipAddress: req.ip,
@@ -47,7 +49,7 @@ export async function verifyRequestSignature(req: Request, res: Response, next: 
   const ok = crypto.timingSafeEqual(expectedBuf, providedBuf);
   if (!ok) {
     await logSecurityEvent({
-      userId: Number((req as any).user?.id ?? req.session?.userId ?? 0) || null,
+      userId,
       eventType: "signature.invalid",
       severity: "warn",
       ipAddress: req.ip,

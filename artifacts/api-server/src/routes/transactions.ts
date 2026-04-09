@@ -4,6 +4,7 @@ import { mirrorAvailableFromUser } from "../services/user-wallet-service";
 import { eq, desc, and } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
+import crypto from "node:crypto";
 import { z } from "zod";
 import { sanitizeText } from "../lib/sanitize";
 import { getAuthedUserId, requireAdmin, type AuthedRequest } from "../middleware/auth";
@@ -24,7 +25,7 @@ const uploadDir = getUploadsDir();
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadDir),
   filename: (_req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const unique = `${Date.now()}-${crypto.randomInt(100000000, 1000000000)}`;
     cb(null, `${unique}${path.extname(file.originalname)}`);
   },
 });

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import crypto from "node:crypto";
 import { db, referralsTable, usersTable } from "@workspace/db";
 import { desc, eq, sql } from "drizzle-orm";
 import { getAuthedUserId } from "../middleware/auth";
@@ -7,7 +8,7 @@ import { assertEmailVerified } from "../middleware/require-email-verified";
 const router = Router();
 
 function buildReferralCode(userId: number): string {
-  const rand = Math.floor(1000 + Math.random() * 9000);
+  const rand = crypto.randomInt(1000, 10000);
   return `REF${userId}${rand}`;
 }
 

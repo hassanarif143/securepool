@@ -7,6 +7,8 @@ import { and, desc, eq, ne } from "drizzle-orm";
 import { getAuthedUserId, requireAuth, type AuthedRequest } from "../middleware/auth";
 import { sanitizeText } from "../lib/sanitize";
 import { isValidTrc20Address } from "../lib/trc20";
+import bcrypt from "bcryptjs";
+import { strictFinancialLimiter } from "../middleware/security-rate-limit";
 
 const router: IRouter = Router();
 
@@ -53,6 +55,31 @@ const setInitialAddressBody = z
   .refine((b) => isValidTrc20Address(b.address), {
     message: "Invalid TRC20 wallet address format",
     path: ["address"],
+  });
+
+const setWithdrawPinBody = z
+  .object({
+    pin: z.string().trim().length(6).regex(/^\d{6}$/),
+    confirmPin: z.string().trim().length(6).regex(/^\d{6}$/),
+  })
+  .refine((b) => b.pin === b.confirmPin, {
+    message: "PIN and confirmation do not match",
+    path: ["confirmPin"],
+  });
+
+const changeWithdrawPinBody = z
+  .object({
+    currentPin: z.string().trim().length(6).regex(/^\d{6}$/),
+    newPin: z.string().trim().length(6).regex(/^\d{6}$/),
+    confirmNewPin: z.string().trim().length(6).regex(/^\d{6}$/),
+  })
+  .refine((b) => b.newPin === b.confirmNewPin, {
+    message: "New PIN and confirmation do not match",
+    path: ["confirmNewPin"],
+  })
+  .refine((b) => b.newPin !== b.currentPin, {
+    message: "New PIN must be different from current PIN",
+    path: ["newPin"],
   });
 
 router.get("/loyalty", async (req, res): Promise<void> => {
@@ -406,6 +433,84 @@ router.post("/wallet/set-initial-address", async (req, res): Promise<void> => {
 
   await db.update(usersTable).set({ cryptoAddress: newAddr }).where(eq(usersTable.id, userId));
   res.status(201).json({ message: "Wallet address saved successfully.", address: newAddr });
+});
+
+router.get("/wallet/withdraw-pin/status", async (req, res): Promise<void> => {
+  const userId = getAuthedUserId(req);
+  const [user] = await db
+    .select({ withdrawPinHash: usersTable.withdrawPinHash })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  res.json({ hasWithdrawPin: Boolean(user.withdrawPinHash && user.withdrawPinHash.trim().length > 0) });
+});
+
+router.post("/wallet/withdraw-pin/set", strictFinancialLimiter, async (req, res): Promise<void> => {
+  const userId = getAuthedUserId(req);
+  const parsed = setWithdrawPinBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    const msg = parsed.error.flatten().fieldErrors;
+    const first = Object.values(msg).flat()[0] ?? parsed.error.message;
+    res.status(400).json({ error: "Validation error", message: first });
+    return;
+  }
+
+  const [user] = await db
+    .select({ id: usersTable.id, withdrawPinHash: usersTable.withdrawPinHash })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  if (user.withdrawPinHash) {
+    res.status(409).json({ error: "WITHDRAW_PIN_ALREADY_SET", message: "Withdraw PIN is already set. Use change PIN instead." });
+    return;
+  }
+
+  const hash = await bcrypt.hash(parsed.data.pin, 12);
+  await db.update(usersTable).set({ withdrawPinHash: hash }).where(eq(usersTable.id, userId));
+  res.status(201).json({ ok: true, message: "Withdraw PIN has been set." });
+});
+
+router.post("/wallet/withdraw-pin/change", strictFinancialLimiter, async (req, res): Promise<void> => {
+  const userId = getAuthedUserId(req);
+  const parsed = changeWithdrawPinBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    const msg = parsed.error.flatten().fieldErrors;
+    const first = Object.values(msg).flat()[0] ?? parsed.error.message;
+    res.status(400).json({ error: "Validation error", message: first });
+    return;
+  }
+
+  const [user] = await db
+    .select({ id: usersTable.id, withdrawPinHash: usersTable.withdrawPinHash })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  if (!user.withdrawPinHash) {
+    res.status(400).json({ error: "WITHDRAW_PIN_NOT_SET", message: "Set your withdraw PIN first." });
+    return;
+  }
+
+  const currentOk = await bcrypt.compare(parsed.data.currentPin, user.withdrawPinHash);
+  if (!currentOk) {
+    res.status(403).json({ error: "INVALID_WITHDRAW_PIN", message: "Current PIN is incorrect." });
+    return;
+  }
+
+  const hash = await bcrypt.hash(parsed.data.newPin, 12);
+  await db.update(usersTable).set({ withdrawPinHash: hash }).where(eq(usersTable.id, userId));
+  res.json({ ok: true, message: "Withdraw PIN updated successfully." });
 });
 
 export default router;

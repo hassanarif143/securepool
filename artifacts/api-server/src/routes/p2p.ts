@@ -1,6 +1,7 @@
 import { Router, type IRouter, type NextFunction, type Request, type Response } from "express";
 import multer from "multer";
 import path from "path";
+import crypto from "node:crypto";
 import { z } from "zod";
 import { strictFinancialLimiter } from "../middleware/security-rate-limit";
 import { idempotencyGuard } from "../middleware/idempotency";
@@ -42,7 +43,7 @@ const uploadDir = getUploadsDir();
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadDir),
   filename: (_req, file, cb) => {
-    const unique = `p2p-${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const unique = `p2p-${Date.now()}-${crypto.randomInt(100000000, 1000000000)}`;
     cb(null, `${unique}${path.extname(file.originalname)}`);
   },
 });

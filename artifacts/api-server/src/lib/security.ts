@@ -100,6 +100,9 @@ export async function assertSecurityStartupRequirements(): Promise<void> {
   if (cfg.featureFlags.requireRequestSignature && !process.env.REQUEST_HMAC_SECRET) {
     throw new Error("Security startup check failed: REQUEST_HMAC_SECRET is required when request signature is enabled.");
   }
+  if (process.env.NODE_ENV === "production" && !process.env.FAIR_SEED_ENC_KEY) {
+    throw new Error("Security startup check failed: FAIR_SEED_ENC_KEY is required in production.");
+  }
 }
 
 export async function logSecurityEvent(input: {
