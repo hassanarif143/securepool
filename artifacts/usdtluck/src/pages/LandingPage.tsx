@@ -185,16 +185,13 @@ export default function LandingPage() {
       />
 
       <section className="relative max-w-6xl mx-auto px-4 pt-6 sm:pt-8">
-        <div className="flex items-center justify-between mb-8 rounded-2xl border border-border/70 bg-card/60 px-4 py-3 backdrop-blur-md shadow-[0_10px_30px_-20px_rgba(0,0,0,0.65)]">
+        <div className="flex items-center justify-between mb-8 px-1 py-1">
           <Link href="/" className="text-lg sm:text-xl font-display font-semibold tracking-tight">
             SecurePool
           </Link>
           <div className="flex items-center gap-2">
-            <span className="hidden sm:inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-primary">
-              Verified flow
-            </span>
             <Link href="/login">
-              <Button variant="outline" size="sm" className="rounded-full">
+              <Button variant="outline" size="sm" className="rounded-full border-border/70 bg-background/30 backdrop-blur-sm">
                 Log in
               </Button>
             </Link>
