@@ -523,16 +523,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
     ...(user.isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: "⚙️" }] : []),
   ] : [];
 
+  const isLandingGuest = !isLoading && !user && location === "/";
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <div className="sticky top-0 z-50">
       <header
         className="border-b"
         style={{
-          background: "linear-gradient(180deg, hsla(224,30%,8%,0.95) 0%, hsla(224,30%,7%,0.9) 100%)",
+          background: isLandingGuest
+            ? "linear-gradient(180deg, hsla(224,30%,7%,0.15) 0%, hsla(224,30%,7%,0.05) 100%)"
+            : "linear-gradient(180deg, hsla(224,30%,8%,0.95) 0%, hsla(224,30%,7%,0.9) 100%)",
           backdropFilter: "blur(16px)",
           WebkitBackdropFilter: "blur(16px)",
-          borderColor: "hsl(217,28%,14%)",
+          borderColor: isLandingGuest ? "hsla(217,28%,14%,0.25)" : "hsl(217,28%,14%)",
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -648,9 +652,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       <main
-        className={`flex-1 max-w-7xl w-full min-w-0 mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${
-          user ? "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""
-        }`}
+        className={
+          isLandingGuest
+            ? "flex-1 w-full min-w-0 mx-auto px-0 py-0"
+            : `flex-1 max-w-7xl w-full min-w-0 mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${
+                user ? "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""
+              }`
+        }
       >
         {user ? <LiveJoinNotification /> : null}
         {children}

@@ -2,7 +2,20 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, Wallet, Users, BadgeCheck, Sparkles } from "lucide-react";
+import {
+  ShieldCheck,
+  Wallet,
+  Users,
+  BadgeCheck,
+  Sparkles,
+  UserPlus,
+  CircleDollarSign,
+  Ticket,
+  Timer,
+  Trophy,
+  ArrowDownToLine,
+  HelpCircle,
+} from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -26,6 +39,8 @@ const steps = [
   { n: 5, icon: "🏆", title: "Win Rewards", desc: "Each pool shows how many paid places it has (often three: 100 / 50 / 30 USDT, or a single top prize — amounts vary by pool)." },
   { n: 6, icon: "💸", title: "Withdraw Anytime", desc: "Request a withdrawal and receive your USDT after admin verification." },
 ];
+
+const stepIcons = [UserPlus, CircleDollarSign, Ticket, Timer, Trophy, ArrowDownToLine] as const;
 
 const faqs = [
   {
@@ -53,20 +68,6 @@ export default function HowItWorksPage() {
   return (
     <div className="relative max-w-5xl mx-auto space-y-12 sm:space-y-16 pb-16 px-2 sm:px-0">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_0%,hsl(var(--primary)/0.14),transparent_35%),radial-gradient(circle_at_90%_0%,hsl(210_90%_60%/0.1),transparent_30%)]" />
-
-      <div className="mt-4 rounded-2xl border border-border/70 bg-card/60 px-4 py-3 backdrop-blur-md flex items-center justify-between">
-        <Link href="/" className="font-display text-lg font-semibold tracking-tight">
-          SecurePool
-        </Link>
-        <div className="flex items-center gap-2">
-          <span className="hidden sm:inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-primary">
-            Trust first
-          </span>
-          <Link href="/signup">
-            <Button size="sm" className="rounded-full">Create account</Button>
-          </Link>
-        </div>
-      </div>
 
       <motion.section {...fade} className="text-center pt-2 sm:pt-4 rounded-3xl border border-border/70 bg-card/60 backdrop-blur px-4 py-10 sm:px-8">
         <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary mb-3">
@@ -96,8 +97,27 @@ export default function HowItWorksPage() {
         </div>
       </motion.section>
 
-      <section className="pt-2">
-        <h2 className="text-2xl font-bold mb-8 text-center">Step-by-step</h2>
+      <section className="pt-2" id="steps">
+        <div className="mb-5 flex flex-wrap justify-center gap-2">
+          {[
+            { label: "Steps", href: "#steps" },
+            { label: "Fees", href: "#fees" },
+            { label: "FAQ", href: "#faq" },
+            { label: "Trust", href: "#trust" },
+          ].map((item) => (
+            <a
+              key={item.label}
+              href={item.href}
+              className="rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {item.label}
+            </a>
+          ))}
+        </div>
+        <h2 className="text-2xl font-bold mb-8 text-center inline-flex items-center justify-center gap-2 w-full">
+          <Sparkles className="h-4 w-4 text-primary" />
+          Step-by-step
+        </h2>
         <div className="grid sm:grid-cols-2 gap-x-4 gap-y-7 sm:gap-y-6">
           {steps.map((s, i) => (
             <motion.div key={s.n} {...fade} transition={{ delay: i * 0.05, duration: 0.4 }}>
@@ -105,7 +125,14 @@ export default function HowItWorksPage() {
                 <div className="h-1 rounded-t-2xl bg-gradient-to-r from-primary/50 to-emerald-600/40" />
                 <CardContent className="flex gap-4 p-5 pt-6">
                   <div className="flex flex-col items-center shrink-0">
-                    <span className="text-2xl mb-1">{s.icon}</span>
+                    {(() => {
+                      const StepIcon = stepIcons[i] ?? Sparkles;
+                      return (
+                        <span className="mb-1 inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/30 bg-primary/10">
+                          <StepIcon className="h-4 w-4 text-primary" />
+                        </span>
+                      );
+                    })()}
                     <span className="text-[10px] font-mono text-primary/80">0{s.n}</span>
                   </div>
                   <div>
@@ -120,18 +147,24 @@ export default function HowItWorksPage() {
       </section>
 
       <section id="fees" className="scroll-mt-24">
-        <h2 className="text-2xl font-bold mb-2 text-center">Platform fees &amp; refunds</h2>
+        <h2 className="text-2xl font-bold mb-2 text-center inline-flex items-center justify-center gap-2 w-full">
+          <CircleDollarSign className="h-4 w-4 text-primary" />
+          Platform fees &amp; refunds
+        </h2>
         <p className="text-sm text-muted-foreground text-center mb-6 max-w-xl mx-auto leading-relaxed">
           A small platform fee applies on each join (and the same rule applies to what you get back if you don&apos;t win). Here&apos;s the rule in plain language.
         </p>
         <PlatformFeeRuleExplainer variant="full" />
       </section>
 
-      <section>
-        <h2 className="text-2xl font-bold mb-6 text-center">FAQ</h2>
+      <section id="faq" className="scroll-mt-24">
+        <h2 className="text-2xl font-bold mb-6 text-center inline-flex items-center justify-center gap-2 w-full">
+          <HelpCircle className="h-4 w-4 text-primary" />
+          FAQ
+        </h2>
         <Accordion type="single" collapsible className="w-full space-y-2">
           {faqs.map((f, i) => (
-            <AccordionItem key={i} value={`q-${i}`} className="border border-[hsl(217,28%,16%)] rounded-lg px-4 bg-[hsl(222,30%,9%)]">
+            <AccordionItem key={i} value={`q-${i}`} className="border border-[hsl(217,28%,16%)] rounded-lg px-4 bg-[hsl(222,30%,9%)] hover:border-primary/25 transition-colors">
               <AccordionTrigger className="text-left text-sm font-medium hover:no-underline">{f.q}</AccordionTrigger>
               <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4">{f.a}</AccordionContent>
             </AccordionItem>
@@ -139,7 +172,7 @@ export default function HowItWorksPage() {
         </Accordion>
       </section>
 
-      <section className="rounded-2xl border border-emerald-500/20 p-6 md:p-8 text-center" style={{ background: "linear-gradient(135deg, hsla(152,72%,44%,0.08), hsla(222,30%,8%,1))" }}>
+      <section id="trust" className="rounded-2xl border border-emerald-500/20 p-6 md:p-8 text-center" style={{ background: "linear-gradient(135deg, hsla(152,72%,44%,0.08), hsla(222,30%,8%,1))" }}>
         <h2 className="text-xl font-bold mb-4">Trust &amp; security</h2>
         <div className="grid sm:grid-cols-2 gap-4 text-sm text-muted-foreground text-left max-w-2xl mx-auto">
           <div className="flex gap-2"><span>✓</span><span>All deposits and withdrawals verified by admin</span></div>

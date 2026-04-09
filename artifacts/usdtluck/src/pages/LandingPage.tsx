@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,23 @@ import { ActivityFeed } from "@/components/ActivityFeed";
 import { RecentPayouts } from "@/components/RecentPayouts";
 import { PageLoading } from "@/components/PageLoading";
 import { useAuth } from "@/context/AuthContext";
-import { ShieldCheck, ArrowRight, Sparkles, Quote } from "lucide-react";
+import {
+  ShieldCheck,
+  ArrowRight,
+  Sparkles,
+  Quote,
+  Users,
+  Coins,
+  Radar,
+  Workflow,
+  BadgeCheck,
+  WalletCards,
+  MessagesSquare,
+  Eye,
+  Lock,
+  Clock3,
+  Activity,
+} from "lucide-react";
 
 function useAnimatedInt(target: number, duration = 1200) {
   const [v, setV] = useState(0);
@@ -70,34 +86,6 @@ const heroVariants = [
     secondaryCta: "Preview live proof",
   },
 ];
-
-function useNearViewport<T extends HTMLElement>(rootMargin = "240px") {
-  const ref = useRef<T | null>(null);
-  const [isNear, setIsNear] = useState(false);
-
-  useEffect(() => {
-    if (isNear || typeof window === "undefined" || typeof IntersectionObserver === "undefined") {
-      if (!isNear) setIsNear(true);
-      return;
-    }
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (entry?.isIntersecting) {
-          setIsNear(true);
-          observer.disconnect();
-        }
-      },
-      { root: null, rootMargin, threshold: 0.01 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [isNear, rootMargin]);
-
-  return { ref, isNear };
-}
 
 export default function LandingPage() {
   const prefersReducedMotion = useReducedMotion();
@@ -170,8 +158,6 @@ export default function LandingPage() {
   const rewardsAnim = useAnimatedInt(Math.round(summary?.totalRewardsDistributed ?? 0));
   const poolsAnim = useAnimatedInt(summary?.activePools ?? 0);
   const heroVariant = heroVariants[heroVariantIndex] ?? heroVariants[0];
-  const activitySection = useNearViewport<HTMLDivElement>("260px");
-  const testimonialsSection = useNearViewport<HTMLDivElement>("320px");
   const parallaxY = prefersReducedMotion ? 0 : Math.min(120, scrollY * 0.14);
 
   if (isLoading || user) {
@@ -269,18 +255,45 @@ export default function LandingPage() {
         </div>
       </motion.section>
 
+      <motion.section className="max-w-6xl mx-auto px-4 mt-6" {...reveal}>
+        <div className="grid sm:grid-cols-3 gap-3">
+          {[
+            { title: "Transparent records", desc: "Winner names and payout visibility in clear UI.", Icon: Eye },
+            { title: "Secure wallet flow", desc: "Deposit to withdraw lifecycle stays tracked end-to-end.", Icon: Lock },
+            { title: "Fast live updates", desc: "Pool and reward activity updates in near real-time.", Icon: Clock3 },
+          ].map(({ title, desc, Icon }) => (
+            <div key={title} className="rounded-2xl border border-border/70 bg-card/65 p-4 backdrop-blur">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/30 bg-primary/10">
+                <Icon className="h-4 w-4 text-primary" />
+              </span>
+              <p className="mt-2 text-sm font-semibold">{title}</p>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{desc}</p>
+            </div>
+          ))}
+        </div>
+      </motion.section>
+
       <motion.section className="max-w-6xl mx-auto px-4 mt-10 sm:mt-14" {...reveal}>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <motion.div whileHover={prefersReducedMotion ? undefined : { y: -3 }} transition={{ duration: 0.2 }} className="rounded-2xl border border-border/70 bg-card p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Total users</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground inline-flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-primary" />
+              Total users
+            </p>
             <p className="mt-2 text-3xl font-display font-semibold">{summary ? `${usersAnim}+` : "—"}</p>
           </motion.div>
           <motion.div whileHover={prefersReducedMotion ? undefined : { y: -3 }} transition={{ duration: 0.2 }} className="rounded-2xl border border-border/70 bg-card p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Rewards paid</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground inline-flex items-center gap-1.5">
+              <Coins className="h-3.5 w-3.5 text-primary" />
+              Rewards paid
+            </p>
             <p className="mt-2 text-3xl font-display font-semibold">{summary ? `${rewardsAnim} USDT` : "—"}</p>
           </motion.div>
           <motion.div whileHover={prefersReducedMotion ? undefined : { y: -3 }} transition={{ duration: 0.2 }} className="rounded-2xl border border-border/70 bg-card p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Live pools</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground inline-flex items-center gap-1.5">
+              <Radar className="h-3.5 w-3.5 text-primary" />
+              Live pools
+            </p>
             <p className="mt-2 text-3xl font-display font-semibold">{summary ? poolsAnim : "—"}</p>
           </motion.div>
         </div>
@@ -288,7 +301,10 @@ export default function LandingPage() {
 
       <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal}>
         <div className="text-center mb-7">
-          <p className="text-xs uppercase tracking-[0.18em] text-primary font-medium">How it works</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-primary font-medium inline-flex items-center gap-1.5">
+            <Workflow className="h-3.5 w-3.5" />
+            How it works
+          </p>
           <h2 className="mt-2 font-display text-2xl sm:text-3xl">Easy flow for everyone</h2>
         </div>
         <div className="grid md:grid-cols-3 gap-4">
@@ -313,7 +329,10 @@ export default function LandingPage() {
 
       <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal}>
         <div className="rounded-3xl border border-border/70 bg-card p-6 sm:p-8">
-          <p className="text-xs uppercase tracking-[0.16em] text-primary font-medium text-center">Trusted and clear</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-primary font-medium text-center inline-flex items-center justify-center gap-1.5 w-full">
+            <BadgeCheck className="h-3.5 w-3.5" />
+            Trusted and clear
+          </p>
           <div className="grid sm:grid-cols-3 gap-3 mt-4">
             {[
               { title: "Human-readable activity", desc: "Simple event names for easy understanding." },
@@ -330,68 +349,61 @@ export default function LandingPage() {
       </motion.section>
 
       <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal}>
-        <div ref={activitySection.ref} className="grid lg:grid-cols-2 gap-4">
+        <div className="grid lg:grid-cols-2 gap-4">
           <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
             <div className="flex items-center justify-between gap-2 mb-3">
-              <h3 className="font-semibold text-lg">Live activity</h3>
+              <h3 className="font-semibold text-lg inline-flex items-center gap-1.5">
+                <Activity className="h-4 w-4 text-primary" />
+                Live activity
+              </h3>
               <span className="text-xs text-muted-foreground">Only public events</span>
             </div>
-            {activitySection.isNear ? (
-              <ActivityFeed limit={12} />
-            ) : (
-              <div className="h-56 rounded-xl border border-dashed border-border/60 bg-background/40" />
-            )}
+            <ActivityFeed limit={12} />
           </div>
           <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
             <div className="flex items-center justify-between gap-2 mb-3">
-              <h3 className="font-semibold text-lg">Recent payouts</h3>
+              <h3 className="font-semibold text-lg inline-flex items-center gap-1.5">
+                <Coins className="h-4 w-4 text-primary" />
+                Recent payouts
+              </h3>
               <Link href="/winners" className="text-xs text-primary hover:underline">
                 View all
               </Link>
             </div>
-            {activitySection.isNear ? (
-              <RecentPayouts limit={8} />
-            ) : (
-              <div className="h-56 rounded-xl border border-dashed border-border/60 bg-background/40" />
-            )}
+            <RecentPayouts limit={8} />
           </div>
         </div>
       </motion.section>
 
       <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal}>
-        <div ref={testimonialsSection.ref} className="text-center mb-7">
+        <div className="text-center mb-7">
           <p className="text-xs uppercase tracking-[0.16em] text-primary font-medium">User feedback</p>
           <h2 className="mt-2 font-display text-2xl sm:text-3xl">People like the simple experience</h2>
         </div>
-        {testimonialsSection.isNear ? (
-          <div className="grid md:grid-cols-3 gap-4">
-            {quoteCards.map((q) => (
-              <motion.div
-                key={q.name}
-                whileHover={prefersReducedMotion ? undefined : { y: -4 }}
-                transition={{ duration: 0.2 }}
-                className="rounded-2xl border border-border/70 bg-card p-5"
-              >
-                <Quote className="h-4 w-4 text-primary" />
-                <p className="mt-3 text-sm text-foreground/95 leading-relaxed">{q.quote}</p>
-                <p className="mt-4 text-sm font-semibold">{q.name}</p>
-                <p className="text-xs text-muted-foreground">{q.role}</p>
-              </motion.div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="h-40 rounded-2xl border border-dashed border-border/60 bg-background/40" />
-            <div className="h-40 rounded-2xl border border-dashed border-border/60 bg-background/40" />
-            <div className="h-40 rounded-2xl border border-dashed border-border/60 bg-background/40" />
-          </div>
-        )}
+        <div className="grid md:grid-cols-3 gap-4">
+          {quoteCards.map((q) => (
+            <motion.div
+              key={q.name}
+              whileHover={prefersReducedMotion ? undefined : { y: -4 }}
+              transition={{ duration: 0.2 }}
+              className="rounded-2xl border border-border/70 bg-card p-5"
+            >
+              <Quote className="h-4 w-4 text-primary" />
+              <p className="mt-3 text-sm text-foreground/95 leading-relaxed">{q.quote}</p>
+              <p className="mt-4 text-sm font-semibold">{q.name}</p>
+              <p className="text-xs text-muted-foreground">{q.role}</p>
+            </motion.div>
+          ))}
+        </div>
       </motion.section>
 
       <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal}>
         <div className="grid md:grid-cols-2 gap-4">
           <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
-            <p className="text-xs uppercase tracking-[0.16em] text-primary font-medium">Quick start path</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-primary font-medium inline-flex items-center gap-1.5">
+              <WalletCards className="h-3.5 w-3.5" />
+              Quick start path
+            </p>
             <h3 className="mt-2 text-xl font-display">Create account and join your first live pool fast</h3>
             <p className="mt-3 text-sm text-muted-foreground">Best for users ready to start now with minimum steps.</p>
             <Link href="/signup">
@@ -399,7 +411,10 @@ export default function LandingPage() {
             </Link>
           </div>
           <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
-            <p className="text-xs uppercase tracking-[0.16em] text-primary font-medium">Proof-first path</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-primary font-medium inline-flex items-center gap-1.5">
+              <MessagesSquare className="h-3.5 w-3.5" />
+              Proof-first path
+            </p>
             <h3 className="mt-2 text-xl font-display">Check winners and live pool proof before signup</h3>
             <p className="mt-3 text-sm text-muted-foreground">Best for users who compare trust signals first.</p>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -425,6 +440,13 @@ export default function LandingPage() {
                   ? `Live pools are open from ${minTicketUsdt.toFixed(0)} USDT ticket price.`
                   : "New pools are added regularly. Create your account and be ready."}
               </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {["No hidden rules", "Published payout trail", "Clear support path"].map((item) => (
+                  <span key={item} className="rounded-full border border-border/70 bg-background/40 px-2.5 py-1 text-[11px] text-muted-foreground">
+                    {item}
+                  </span>
+                ))}
+              </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
               <Link href="/signup">
