@@ -131,9 +131,10 @@ function fakeEmail(seed: number) {
 
 export async function generateSimulationUsers(count: number) {
   const safeCount = Math.max(1, Math.min(500, Math.floor(count)));
+  const batchTs = Date.now();
   const rows = Array.from({ length: safeCount }, (_, idx) => ({
     displayName: fakeName(),
-    email: fakeEmail(idx + randomInt(10, 99999)),
+    email: `sim.user.${batchTs}.${idx}.${randomInt(1000, 10000)}@securepool.test`,
     isTest: true,
     isActive: true,
     simulatedBalance: String(round2(randBetween(60, 260) + randomInt(0, 99) / 100)),
@@ -492,6 +493,19 @@ async function maybeStartDemoStakes(now: Date) {
   }
 }
 
+export async function spawnDemoStakes(count: number) {
+  const safe = Math.max(1, Math.min(50, Math.floor(count)));
+  const now = new Date();
+  const cfg = await ensureConfigRow();
+  if (!cfg.stakingEnabled) {
+    await db.update(simulationConfigTable).set({ stakingEnabled: true, updatedAt: new Date() }).where(eq(simulationConfigTable.id, 1));
+  }
+  for (let i = 0; i < safe; i++) {
+    await maybeStartDemoStakes(new Date(now.getTime() + i * 250));
+  }
+  return true;
+}
+
 async function advanceDemoStakes(now: Date) {
   const active = await db
     .select()
@@ -699,25 +713,29 @@ export async function listSimulationWinners(limit: number) {
 }
 
 export async function listSimulationStakes(limit: number) {
-  const rows = await db
-    .select({
-      id: simulationStakesTable.id,
-      simulationUserId: simulationStakesTable.simulationUserId,
-      principalAmount: simulationStakesTable.principalAmount,
-      rewardRateBps: simulationStakesTable.rewardRateBps,
-      rewardAccrued: simulationStakesTable.rewardAccrued,
-      progressPct: simulationStakesTable.progressPct,
-      status: simulationStakesTable.status,
-      startsAt: simulationStakesTable.startsAt,
-      endsAt: simulationStakesTable.endsAt,
-      completedAt: simulationStakesTable.completedAt,
-      displayName: simulationUsersTable.displayName,
-    })
-    .from(simulationStakesTable)
-    .innerJoin(simulationUsersTable, eq(simulationStakesTable.simulationUserId, simulationUsersTable.id))
-    .orderBy(desc(simulationStakesTable.id))
-    .limit(Math.min(300, Math.max(1, limit)));
-  return rows;
+  try {
+    const rows = await db
+      .select({
+        id: simulationStakesTable.id,
+        simulationUserId: simulationStakesTable.simulationUserId,
+        principalAmount: simulationStakesTable.principalAmount,
+        rewardRateBps: simulationStakesTable.rewardRateBps,
+        rewardAccrued: simulationStakesTable.rewardAccrued,
+        progressPct: simulationStakesTable.progressPct,
+        status: simulationStakesTable.status,
+        startsAt: simulationStakesTable.startsAt,
+        endsAt: simulationStakesTable.endsAt,
+        completedAt: simulationStakesTable.completedAt,
+        displayName: simulationUsersTable.displayName,
+      })
+      .from(simulationStakesTable)
+      .innerJoin(simulationUsersTable, eq(simulationStakesTable.simulationUserId, simulationUsersTable.id))
+      .orderBy(desc(simulationStakesTable.id))
+      .limit(Math.min(300, Math.max(1, limit)));
+    return rows;
+  } catch {
+    return [];
+  }
 }
 
 export async function listSimulationEvents(limit: number) {

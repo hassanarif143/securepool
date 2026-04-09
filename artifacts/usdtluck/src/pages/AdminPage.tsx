@@ -324,6 +324,13 @@ function SimulationTab() {
                 <Button disabled={busy} onClick={() => void post("/api/simulation/admin/create-pools", { count: newPoolCount })}>Create</Button>
               </div>
             </div>
+            <div className="space-y-2">
+              <Label>Spawn demo stakes now</Label>
+              <div className="flex gap-2">
+                <Input type="number" value={8} disabled />
+                <Button disabled={busy} onClick={() => void post("/api/simulation/admin/spawn-stakes", { count: 8 })}>Spawn</Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

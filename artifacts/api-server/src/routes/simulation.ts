@@ -16,6 +16,7 @@ import {
   listSimulationWinners,
   onSimulationEvent,
   setSimulationEnabled,
+  spawnDemoStakes,
   updateSimulationConfig,
 } from "../services/simulation-service";
 
@@ -193,6 +194,20 @@ router.post("/admin/create-pools", requireAdmin, async (req, res) => {
   }
   const ids = await createDailySimulationPools(parsed.data.count);
   res.json({ poolIds: ids });
+});
+
+router.post("/admin/spawn-stakes", requireAdmin, async (req, res) => {
+  if (!simModeEnabled()) {
+    res.status(400).json({ error: "SIMULATION_MODE_DISABLED", message: "Set SIMULATION_MODE=true in backend env first." });
+    return;
+  }
+  const parsed = z.object({ count: z.number().int().min(1).max(50).optional() }).safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "VALIDATION_ERROR", message: parsed.error.message });
+    return;
+  }
+  await spawnDemoStakes(parsed.data.count ?? 8);
+  res.json({ ok: true });
 });
 
 router.get("/admin/users", requireAdmin, async (req, res) => {
