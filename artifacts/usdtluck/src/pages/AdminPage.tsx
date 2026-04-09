@@ -149,6 +149,7 @@ function SimulationTab() {
   const [createFillDelaySec, setCreateFillDelaySec] = useState(5);
   const [stakeSequence, setStakeSequence] = useState("100@0,1000@2");
   const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
+  const [panelMode, setPanelMode] = useState<"basic" | "advanced" | "monitor">("basic");
 
   async function loadAll() {
     setLoading(true);
@@ -286,6 +287,22 @@ function SimulationTab() {
   return (
     <div className="space-y-4 mt-4">
       <Card>
+        <CardContent className="pt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant={panelMode === "basic" ? "default" : "outline"} onClick={() => setPanelMode("basic")}>
+              Simple mode
+            </Button>
+            <Button size="sm" variant={panelMode === "advanced" ? "default" : "outline"} onClick={() => setPanelMode("advanced")}>
+              Advanced actions
+            </Button>
+            <Button size="sm" variant={panelMode === "monitor" ? "default" : "outline"} onClick={() => setPanelMode("monitor")}>
+              Monitor data
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader>
           <CardTitle className="text-base">Simulation Control Center</CardTitle>
           <p className="text-xs text-muted-foreground">
@@ -369,13 +386,15 @@ function SimulationTab() {
               {cfg.stakingEnabled ? "Enabled" : "Disabled"}
             </Button>
           </div>
-          <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2">
-            <p className="text-xs text-muted-foreground">Need more controls?</p>
-            <Button variant="outline" size="sm" onClick={() => setShowAdvancedConfig((v) => !v)}>
-              {showAdvancedConfig ? "Hide advanced" : "Show advanced"}
-            </Button>
-          </div>
-          {showAdvancedConfig ? (
+          {panelMode !== "basic" ? (
+            <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+              <p className="text-xs text-muted-foreground">Need more controls?</p>
+              <Button variant="outline" size="sm" onClick={() => setShowAdvancedConfig((v) => !v)}>
+                {showAdvancedConfig ? "Hide advanced" : "Show advanced"}
+              </Button>
+            </div>
+          ) : null}
+          {panelMode !== "basic" && showAdvancedConfig ? (
             <div className="grid md:grid-cols-2 gap-3">
               <NumberField label="Minimum pool size" value={cfg.minPoolSize} onChange={(v) => setCfg({ ...cfg, minPoolSize: v })} />
               <NumberField label="Maximum pool size" value={cfg.maxPoolSize} onChange={(v) => setCfg({ ...cfg, maxPoolSize: v })} />
@@ -404,6 +423,7 @@ function SimulationTab() {
         </CardContent>
       </Card>
 
+      {panelMode !== "basic" ? (
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Quick actions</CardTitle>
@@ -491,7 +511,9 @@ function SimulationTab() {
           </div>
         </CardContent>
       </Card>
+      ) : null}
 
+      {panelMode === "monitor" ? (
       <Card>
         <CardHeader><CardTitle className="text-base">Latest simulation pools</CardTitle></CardHeader>
         <CardContent className="space-y-2">
@@ -516,7 +538,9 @@ function SimulationTab() {
           )}
         </CardContent>
       </Card>
+      ) : null}
 
+      {panelMode === "monitor" ? (
       <Card>
         <CardHeader><CardTitle className="text-base">Demo users & winner history</CardTitle></CardHeader>
         <CardContent className="grid lg:grid-cols-3 gap-3">
@@ -564,6 +588,7 @@ function SimulationTab() {
           </div>
         </CardContent>
       </Card>
+      ) : null}
     </div>
   );
 }
