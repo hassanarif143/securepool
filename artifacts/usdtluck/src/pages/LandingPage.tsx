@@ -112,11 +112,20 @@ export default function LandingPage() {
   } | null>(null);
   const [heroVariantIndex, setHeroVariantIndex] = useState(0);
   const [heroVariantForced, setHeroVariantForced] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
     window.localStorage.setItem("sp_theme", "dark");
   }, []);
+
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+    const onScroll = () => setScrollY(window.scrollY || 0);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [prefersReducedMotion]);
 
   useEffect(() => {
     if (!isLoading && user) {
@@ -163,6 +172,7 @@ export default function LandingPage() {
   const heroVariant = heroVariants[heroVariantIndex] ?? heroVariants[0];
   const activitySection = useNearViewport<HTMLDivElement>("260px");
   const testimonialsSection = useNearViewport<HTMLDivElement>("320px");
+  const parallaxY = prefersReducedMotion ? 0 : Math.min(120, scrollY * 0.14);
 
   if (isLoading || user) {
     return <PageLoading />;
@@ -170,7 +180,15 @@ export default function LandingPage() {
 
   return (
     <div className="relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,hsl(var(--primary)/0.12),transparent_42%),radial-gradient(circle_at_85%_12%,hsl(28_90%_58%/0.18),transparent_40%)]" />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -inset-x-16 -inset-y-24"
+        style={{
+          transform: `translate3d(0, ${parallaxY * -1}px, 0)`,
+          background:
+            "radial-gradient(circle at 16% 8%, hsl(var(--primary)/0.2), transparent 30%), radial-gradient(circle at 82% 12%, hsl(28 90% 58%/0.2), transparent 32%), radial-gradient(circle at 50% 62%, hsl(210 85% 60%/0.12), transparent 42%), linear-gradient(180deg, hsl(224 30% 8%), hsl(224 30% 7%) 44%, hsl(224 30% 6%) 100%)",
+        }}
+      />
       <motion.div
         aria-hidden
         className="pointer-events-none absolute -top-20 -left-24 h-72 w-72 rounded-full bg-primary/20 blur-3xl"
@@ -184,20 +202,7 @@ export default function LandingPage() {
         transition={prefersReducedMotion ? { duration: 0.2 } : { duration: 12, repeat: Infinity, ease: "easeInOut" }}
       />
 
-      <section className="relative max-w-6xl mx-auto px-4 pt-6 sm:pt-8">
-        <div className="flex items-center justify-between mb-8 px-1 py-1">
-          <Link href="/" className="text-lg sm:text-xl font-display font-semibold tracking-tight">
-            SecurePool
-          </Link>
-          <div className="flex items-center gap-2">
-            <Link href="/login">
-              <Button variant="outline" size="sm" className="rounded-full border-border/70 bg-background/30 backdrop-blur-sm">
-                Log in
-              </Button>
-            </Link>
-          </div>
-        </div>
-
+      <section className="relative max-w-6xl mx-auto px-4 pt-8 sm:pt-10">
         <motion.div
           className="rounded-3xl border border-border/70 bg-card/70 backdrop-blur p-6 sm:p-10 lg:p-14 shadow-2xl"
           initial={{ opacity: 0, y: 28 }}

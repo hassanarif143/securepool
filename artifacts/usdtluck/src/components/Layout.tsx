@@ -6,7 +6,7 @@ import { Logo } from "@/components/Logo";
 import { apiUrl } from "@/lib/api-base";
 import { useGameAvailability } from "@/lib/game-availability";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
-import { ChevronRight, LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
+import { LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
 
 function playNotifSound() {
   try {
@@ -523,45 +523,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
     ...(user.isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: "⚙️" }] : []),
   ] : [];
 
-  const showLandingPromo = !isLoading && !user && location === "/";
-
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <div className="sticky top-0 z-50">
-        {showLandingPromo && (
-          <div
-            className="layout-landing-premium-banner border-b"
-            role="region"
-            aria-label="Announcement"
-          >
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-1 sm:gap-3 py-2.5 text-center sm:text-left">
-              <p className="text-[11px] sm:text-xs text-muted-foreground/95 tracking-wide">
-                <span className="text-[hsl(43_62%_58%)] font-semibold uppercase tracking-[0.14em] mr-2">
-                  Featured
-                </span>
-                TRC-20 USDT pools with published rules, wallet-native checkout, and admin-reviewed payouts.
-              </p>
-              <Link
-                href="/pools"
-                className="inline-flex items-center justify-center gap-1 text-[11px] sm:text-xs font-semibold text-primary hover:text-primary/90 transition-colors shrink-0"
-              >
-                Explore live draws
-                <ChevronRight className="h-3.5 w-3.5 opacity-80" aria-hidden />
-              </Link>
-            </div>
-          </div>
-        )}
       <header
         className="border-b"
         style={{
-          background: "hsla(224,30%,7%,0.92)",
+          background: "linear-gradient(180deg, hsla(224,30%,8%,0.95) 0%, hsla(224,30%,7%,0.9) 100%)",
           backdropFilter: "blur(16px)",
           WebkitBackdropFilter: "blur(16px)",
           borderColor: "hsl(217,28%,14%)",
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center min-h-[3.25rem] py-2.5 gap-2 sm:gap-3">
+          <div className="flex items-center min-h-[3.25rem] py-2.5 gap-2 sm:gap-3 rounded-2xl">
 
             {/* ── Logo ── */}
             <Link href={user ? "/dashboard" : "/"} className="shrink-0 mr-2">
@@ -637,17 +612,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
               {!isLoading && !user && (
                 <div className="flex items-center gap-2">
                   <Link href="/how-it-works">
-                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm hidden sm:inline-flex">
+                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm hidden sm:inline-flex rounded-full">
                       How It Works
                     </Button>
                   </Link>
                   <Link href="/login">
-                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm">
+                    <Button variant="outline" size="sm" className="text-muted-foreground hover:text-foreground text-sm rounded-full border-border/70 bg-background/25 backdrop-blur-sm">
                       Login
                     </Button>
                   </Link>
                   <Link href="/signup">
-                    <Button size="sm" className="font-semibold text-sm"
+                    <Button size="sm" className="font-semibold text-sm rounded-full"
                       style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 2px 8px rgba(22,163,74,0.3)" }}>
                       Get Started
                     </Button>
@@ -721,25 +696,54 @@ export function Layout({ children }: { children: React.ReactNode }) {
       )}
 
       <footer className="border-t mt-auto py-10 pb-[max(2.5rem,env(safe-area-inset-bottom))]" style={{ borderColor: "hsl(217,28%,14%)" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-5 text-sm text-muted-foreground">
-          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
-            <Link href="/how-it-works" className="hover:text-foreground transition-colors">How It Works</Link>
-            <span className="opacity-30 hidden sm:inline">·</span>
-            <span className="opacity-50 cursor-default" title="Terms of service — contact support for details">
-              Terms
-            </span>
-            <span className="opacity-30 hidden sm:inline">·</span>
-            <a href="mailto:support@securepool.app" className="hover:text-foreground transition-colors">Support</a>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="opacity-40" aria-hidden>𝕏</span>
-            <span className="opacity-40" aria-hidden>in</span>
-            <span className="opacity-40" aria-hidden>▶</span>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="rounded-2xl border border-border/70 bg-card/55 backdrop-blur-md p-5 sm:p-7 shadow-[0_20px_50px_-36px_rgba(0,0,0,0.8)]">
+            <div className="grid gap-5 md:grid-cols-3">
+              <div>
+                <p className="font-display text-lg font-semibold tracking-tight">SecurePool</p>
+                <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                  A transparent USDT reward platform focused on clear rules, visible outcomes, and trusted wallet flow.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {["TRC-20 Support", "Published Winners", "Tracked Wallet Logs"].map((item) => (
+                    <span key={item} className="rounded-full border border-border/70 bg-background/50 px-2.5 py-1 text-[11px] text-muted-foreground">
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold">Trust &amp; compliance</p>
+                <div className="mt-2 space-y-1.5 text-sm text-muted-foreground">
+                  <p>Admin-verified deposit and withdrawal lifecycle</p>
+                  <p>Public winner records and payout visibility</p>
+                  <p>Audit trail for sensitive admin actions</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold">Quick access</p>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                  <Link href="/how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">How It Works</Link>
+                  <span className="text-muted-foreground/60 cursor-default" title="Terms of service — contact support for details">
+                    Terms
+                  </span>
+                  <a href="mailto:support@securepool.app" className="text-muted-foreground hover:text-foreground transition-colors">Support</a>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 border-t border-border/60 pt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <p className="text-xs sm:text-sm text-muted-foreground/90">
+                © {new Date().getFullYear()} SecurePool — Premium, transparent reward experience.
+              </p>
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-primary">
+                Trusted by active USDT users
+              </div>
+            </div>
           </div>
         </div>
-        <p className="text-center text-xs sm:text-sm text-muted-foreground/90 mt-4 px-4 leading-relaxed max-w-2xl mx-auto">
-          © {new Date().getFullYear()} SecurePool — Transparent USDT Reward Pools
-        </p>
       </footer>
     </div>
   );
