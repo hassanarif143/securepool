@@ -785,8 +785,13 @@ export default function DashboardPage() {
         {simEnabled && simPools.length > 0 && (
           <div className="rounded-xl border border-border/60 bg-card/40 overflow-hidden">
             <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold">Simulation live pools</p>
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Test-mode public feed</span>
+              <div>
+                <p className="text-sm font-semibold">Live demo pools</p>
+                <p className="text-[11px] text-muted-foreground">Public test rounds for product demonstration.</p>
+              </div>
+              <span className="rounded-full border border-violet-400/35 bg-violet-500/[0.12] px-2 py-0.5 text-[10px] font-medium text-violet-200">
+                Demo mode
+              </span>
             </div>
             <ul className="divide-y divide-border/40">
               {simPools.map((p) => {
@@ -796,7 +801,17 @@ export default function DashboardPage() {
                   <li key={p.id} className="px-4 py-3 space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm font-medium">{p.title}</p>
-                      <span className="text-xs text-muted-foreground">{countdownLabel(p.startsAt, p.endsAt, p.status)}</span>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full ${
+                          p.status === "active"
+                            ? "bg-emerald-500/15 text-emerald-300"
+                            : p.status === "pending"
+                              ? "bg-sky-500/15 text-sky-300"
+                              : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {countdownLabel(p.startsAt, p.endsAt, p.status)}
+                      </span>
                     </div>
                     <div className="h-2 rounded-full bg-muted overflow-hidden">
                       <div className="h-full bg-gradient-to-r from-emerald-400 to-primary" style={{ width: `${fillRatio}%` }} />

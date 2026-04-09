@@ -223,16 +223,36 @@ function SimulationTab() {
     <div className="space-y-4 mt-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Simulation Mode (safe test-only)</CardTitle>
+          <CardTitle className="text-base">Simulation Control Center</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Runs fully isolated fake pools/users/balances. Real users and real USDT are untouched.
+            Runs fully isolated demo pools/users/balances. Real users and real USDT are untouched.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex flex-wrap gap-2">
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div className="rounded-md border border-border/60 bg-muted/20 p-2.5">
+              <p className="text-[11px] text-muted-foreground">Status</p>
+              <p className={`text-sm font-semibold ${cfg.enabled ? "text-emerald-300" : "text-amber-300"}`}>
+                {cfg.enabled ? "Running" : "Stopped"}
+              </p>
+            </div>
+            <div className="rounded-md border border-border/60 bg-muted/20 p-2.5">
+              <p className="text-[11px] text-muted-foreground">Daily pools target</p>
+              <p className="text-sm font-semibold">{Number(cfg.dailyPoolCount) || 0}</p>
+            </div>
+            <div className="rounded-md border border-border/60 bg-muted/20 p-2.5">
+              <p className="text-[11px] text-muted-foreground">Ticket / fee</p>
+              <p className="text-sm font-semibold">
+                {Number(cfg.simulatedTicketPrice ?? 0).toFixed(2)} USDT / {((Number(cfg.simulatedPlatformFeeBps ?? 0) || 0) / 100).toFixed(2)}%
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-1">
             <Button disabled={busy} onClick={() => void post("/api/simulation/admin/start")}>Start simulation</Button>
             <Button variant="outline" disabled={busy} onClick={() => void post("/api/simulation/admin/stop")}>Stop simulation</Button>
-            <Badge variant={cfg.enabled ? "default" : "secondary"}>{cfg.enabled ? "Running" : "Stopped"}</Badge>
+            <Button variant="outline" disabled={busy} onClick={() => void loadAll()}>Refresh snapshot</Button>
+            <Badge variant={cfg.enabled ? "default" : "secondary"}>{cfg.enabled ? "Live" : "Paused"}</Badge>
           </div>
 
           <div className="grid md:grid-cols-2 gap-3">
@@ -261,7 +281,7 @@ function SimulationTab() {
         <CardContent className="space-y-3">
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Generate fake users</Label>
+              <Label>Generate demo users</Label>
               <div className="flex gap-2">
                 <Input type="number" value={seedCount} onChange={(e) => setSeedCount(Number(e.target.value || 0))} />
                 <Button disabled={busy} onClick={() => void post("/api/simulation/admin/generate-users", { count: seedCount })}>Generate</Button>
@@ -304,10 +324,10 @@ function SimulationTab() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Fake users & winner history</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">Demo users & winner history</CardTitle></CardHeader>
         <CardContent className="grid lg:grid-cols-2 gap-3">
           <div className="rounded-md border border-border/60 p-3">
-            <p className="text-sm font-medium mb-2">Fake users ({users.length})</p>
+            <p className="text-sm font-medium mb-2">Demo users ({users.length})</p>
             <ul className="space-y-1.5 text-xs max-h-56 overflow-auto">
               {users.map((u) => (
                 <li key={u.id} className="flex items-center justify-between gap-2">

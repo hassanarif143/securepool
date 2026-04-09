@@ -14,11 +14,22 @@ function timeAgo(iso: string) {
 }
 
 function dot(type: string) {
+  if (type.startsWith("simulation.")) return "bg-violet-400";
   if (type === "user_joined") return "bg-emerald-400";
   if (type === "pool_filled") return "bg-sky-400";
   if (type === "winner_drawn") return "bg-amber-400";
   if (type === "payout_sent") return "bg-emerald-500";
   return "bg-muted-foreground";
+}
+
+function humanType(type: string) {
+  if (type === "simulation.user_joined") return "Demo join";
+  if (type === "simulation.winner_announced") return "Demo winner";
+  if (type === "simulation.pool_completed") return "Demo pool result";
+  if (type === "simulation.pool_active") return "Demo pool live";
+  if (type === "simulation.started") return "Demo started";
+  if (type === "simulation.stopped") return "Demo stopped";
+  return type.replaceAll("_", " ");
 }
 
 export function ActivityFeed({ limit = 18, className = "" }: { limit?: number; className?: string }) {
@@ -93,7 +104,12 @@ export function ActivityFeed({ limit = 18, className = "" }: { limit?: number; c
     <div className={`rounded-xl border border-border/60 bg-card/40 overflow-hidden ${className}`}>
       <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
         <p className="text-sm font-semibold">Live activity</p>
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Live + 15s sync</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Live + 15s sync</span>
+          <span className="rounded-full border border-violet-400/35 bg-violet-500/[0.12] px-2 py-0.5 text-[10px] font-medium text-violet-200">
+            Demo activity stream
+          </span>
+        </div>
       </div>
       <ul className="max-h-[320px] overflow-y-auto divide-y divide-border/40">
         {items.map((it) => (
@@ -103,6 +119,7 @@ export function ActivityFeed({ limit = 18, className = "" }: { limit?: number; c
           >
             <span className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${dot(it.type)}`} aria-hidden />
             <div className="min-w-0 flex-1">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">{humanType(it.type)}</p>
               <p className="text-foreground/95 leading-snug">{it.message}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">{timeAgo(it.createdAt)}</p>
             </div>
