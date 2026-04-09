@@ -185,15 +185,20 @@ export default function LandingPage() {
       />
 
       <section className="relative max-w-6xl mx-auto px-4 pt-6 sm:pt-8">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 rounded-2xl border border-border/70 bg-card/60 px-4 py-3 backdrop-blur-md shadow-[0_10px_30px_-20px_rgba(0,0,0,0.65)]">
           <Link href="/" className="text-lg sm:text-xl font-display font-semibold tracking-tight">
             SecurePool
           </Link>
-          <Link href="/login">
-            <Button variant="outline" size="sm" className="rounded-full">
-              Log in
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <span className="hidden sm:inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-primary">
+              Verified flow
+            </span>
+            <Link href="/login">
+              <Button variant="outline" size="sm" className="rounded-full">
+                Log in
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <motion.div
@@ -248,7 +253,7 @@ export default function LandingPage() {
 
       <motion.section className="max-w-6xl mx-auto px-4 mt-6" {...reveal}>
         <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/70">
-          <div className="flex gap-2 p-3 sm:p-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="landing-trust-marquee gap-2 p-3 sm:p-4">
             {[...trustItems, ...trustItems].map((item, idx) => (
               <motion.span
                 key={`${item}-${idx}`}
@@ -433,6 +438,25 @@ export default function LandingPage() {
           </p>
         </div>
       </motion.section>
+
+      <motion.footer className="max-w-6xl mx-auto px-4 mt-10" {...reveal}>
+        <div className="rounded-2xl border border-border/70 bg-card/60 backdrop-blur p-5 sm:p-6">
+          <div className="grid sm:grid-cols-3 gap-4 text-sm">
+            <div>
+              <p className="font-display font-semibold text-base">SecurePool</p>
+              <p className="text-muted-foreground mt-1">Simple and transparent USDT reward platform.</p>
+            </div>
+            <div>
+              <p className="font-medium">Trust pillars</p>
+              <p className="text-muted-foreground mt-1">Published winners, clear payout logs, tracked wallet flow.</p>
+            </div>
+            <div>
+              <p className="font-medium">Network support</p>
+              <p className="text-muted-foreground mt-1">USDT TRC-20 with admin-verified transaction lifecycle.</p>
+            </div>
+          </div>
+        </div>
+      </motion.footer>
 
       <div className="h-14" />
     </div>
