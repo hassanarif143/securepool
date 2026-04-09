@@ -15,6 +15,8 @@ import {
   luckyHoursTable,
   poolDrawFinancialsTable,
   platformSettingsTable,
+  securityConfigTable,
+  securityEventsTable,
 } from "@workspace/db";
 import { eq, ne, count, sum, desc, and, sql } from "drizzle-orm";
 import { sendWithdrawalStatusEmail } from "../lib/email";
@@ -49,6 +51,7 @@ import {
   recordWithdrawalCompleted,
 } from "../services/user-wallet-service";
 import { getRewardConfig, normalizeRewardConfig } from "../lib/reward-config";
+import { getSecurityConfig } from "../lib/security";
 
 const router: IRouter = Router();
 
@@ -2815,6 +2818,109 @@ router.post("/p2p/orders/:orderId/resolve-seller", async (req, res) => {
     }
     res.status(500).json({ error: m });
   }
+});
+
+router.get("/security/config", async (_req, res) => {
+  const cfg = await getSecurityConfig();
+  res.json(cfg);
+});
+
+const PatchSecurityConfigBody = z.object({
+  withdrawLimits: z
+    .object({
+      firstWithdrawDelayHours: z.number().min(0).max(240).optional(),
+      dailyWithdrawLimitUsdt: z.number().min(1).max(1_000_000).optional(),
+      mediumRiskMaxWithdrawUsdt: z.number().min(1).max(1_000_000).optional(),
+    })
+    .optional(),
+  riskThresholds: z
+    .object({
+      medium: z.number().min(1).max(100).optional(),
+      high: z.number().min(1).max(100).optional(),
+      sameIpAccountPenalty: z.number().min(0).max(50).optional(),
+      rapidPoolJoinPenalty: z.number().min(0).max(50).optional(),
+      instantWithdrawPenalty: z.number().min(0).max(50).optional(),
+      p2pBurstPenalty: z.number().min(0).max(50).optional(),
+    })
+    .optional(),
+  featureFlags: z
+    .object({
+      withdrawEnabled: z.boolean().optional(),
+      p2pEnabled: z.boolean().optional(),
+      poolsEnabled: z.boolean().optional(),
+      requireRequestSignature: z.boolean().optional(),
+    })
+    .optional(),
+});
+
+router.patch("/security/config", async (req, res) => {
+  const parsed = PatchSecurityConfigBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", message: parsed.error.message });
+    return;
+  }
+  const [current] = await db.select().from(securityConfigTable).where(eq(securityConfigTable.id, 1)).limit(1);
+  const nextWithdraw = { ...(current?.withdrawLimits as any ?? {}), ...(parsed.data.withdrawLimits ?? {}) };
+  const nextRisk = { ...(current?.riskThresholds as any ?? {}), ...(parsed.data.riskThresholds ?? {}) };
+  const nextFlags = { ...(current?.featureFlags as any ?? {}), ...(parsed.data.featureFlags ?? {}) };
+  await db
+    .insert(securityConfigTable)
+    .values({
+      id: 1,
+      withdrawLimits: nextWithdraw,
+      riskThresholds: nextRisk,
+      featureFlags: nextFlags,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: securityConfigTable.id,
+      set: {
+        withdrawLimits: nextWithdraw,
+        riskThresholds: nextRisk,
+        featureFlags: nextFlags,
+        updatedAt: new Date(),
+      },
+    });
+  await logAction(getAdminId(req), "system", null, "update_security_config", "Security config updated");
+  res.json({ withdrawLimits: nextWithdraw, riskThresholds: nextRisk, featureFlags: nextFlags });
+});
+
+router.get("/security/monitor", async (_req, res) => {
+  const [highRiskUsers, failedLogins, withdrawAttempts, p2pSpikes, recentEvents] = await Promise.all([
+    db
+      .select({
+        id: usersTable.id,
+        name: usersTable.name,
+        email: usersTable.email,
+        riskScore: usersTable.riskScore,
+        riskLevel: usersTable.riskLevel,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.riskLevel, "high"))
+      .limit(100),
+    db
+      .select({ c: count() })
+      .from(securityEventsTable)
+      .where(eq(securityEventsTable.eventType, "auth.login_failed_bad_password")),
+    db
+      .select({ c: count() })
+      .from(transactionsTable)
+      .where(eq(transactionsTable.txType, "withdraw")),
+    db
+      .select({ c: count() })
+      .from(securityEventsTable)
+      .where(eq(securityEventsTable.eventType, "pool.join.burst")),
+    db.select().from(securityEventsTable).orderBy(desc(securityEventsTable.createdAt)).limit(100),
+  ]);
+  res.json({
+    highRiskUsers,
+    metrics: {
+      failedLogins: Number(failedLogins[0]?.c ?? 0),
+      withdrawAttempts: Number(withdrawAttempts[0]?.c ?? 0),
+      p2pSpikes: Number(p2pSpikes[0]?.c ?? 0),
+    },
+    recentEvents,
+  });
 });
 
 export default router;

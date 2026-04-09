@@ -12,6 +12,8 @@ import { logger } from "./lib/logger";
 import { getUploadsDir } from "./paths";
 import { attachAuth, rejectIfBlocked } from "./middleware/auth";
 import { csrfProtection, issueCsrfToken } from "./middleware/csrf";
+import { verifyRequestSignature } from "./middleware/request-signature";
+import { auditTrail } from "./middleware/audit";
 
 const app: Express = express();
 
@@ -144,6 +146,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(getUploadsDir()));
 app.use(csrfProtection);
+app.use(verifyRequestSignature);
+app.use(auditTrail);
 
 app.use("/api", rejectIfBlocked);
 app.use("/api", router);

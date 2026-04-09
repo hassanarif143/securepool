@@ -13,6 +13,7 @@ import { sanitizeText } from "../lib/sanitize";
 import { logger } from "../lib/logger";
 import { getOrCreateCsrfToken } from "../middleware/csrf";
 import { trc20AddressZod } from "../lib/trc20";
+import { applyRiskDelta, extractClientIp, logSecurityEvent, registerDeviceLogin } from "../lib/security";
 
 declare module "express-session" {
   interface SessionData {
@@ -221,6 +222,14 @@ router.post("/signup", signupLimiter, async (req, res) => {
       referredBy: referrer?.id ?? undefined,
     })
     .returning();
+  const ip = extractClientIp(req.ip);
+  await logSecurityEvent({
+    userId: user.id,
+    eventType: "auth.signup",
+    ipAddress: ip,
+    endpoint: `${req.baseUrl}${req.path}`,
+    details: { email: user.email },
+  });
 
   if (referrer) {
     try {
@@ -314,6 +323,14 @@ router.post("/login", loginLimiter, async (req, res) => {
   }
   if (!rows[0]) {
     logger.warn({ email, ip: req.ip }, "Failed login attempt — user not found");
+    await logSecurityEvent({
+      userId: null,
+      eventType: "auth.login_failed_no_user",
+      severity: "warn",
+      ipAddress: extractClientIp(req.ip),
+      endpoint: `${req.baseUrl}${req.path}`,
+      details: { email },
+    });
     res.status(401).json({ error: "Invalid credentials", message: "Email or password is incorrect." });
     return;
   }
@@ -336,6 +353,15 @@ router.post("/login", loginLimiter, async (req, res) => {
   const valid = await verifyAndUpgradePassword(user.id, user.password_hash, password);
   if (!valid) {
     logger.warn({ email, userId: user.id, ip: req.ip }, "Failed login attempt — bad password");
+    await applyRiskDelta(user.id, 2);
+    await logSecurityEvent({
+      userId: user.id,
+      eventType: "auth.login_failed_bad_password",
+      severity: "warn",
+      ipAddress: extractClientIp(req.ip),
+      endpoint: `${req.baseUrl}${req.path}`,
+      details: { email },
+    });
     res.status(401).json({ error: "Invalid credentials", message: "Email or password is incorrect." });
     return;
   }
@@ -376,6 +402,22 @@ router.post("/login", loginLimiter, async (req, res) => {
   req.session.userId = user.id;
   await persistSession(req);
   const accessToken = signAndSetJwtCookie(res, user.id, Boolean(user.is_admin));
+  const device = await registerDeviceLogin({
+    userId: user.id,
+    ip: extractClientIp(req.ip),
+    userAgent: req.get("user-agent") ?? "",
+  });
+  if (device.isNewDevice && !device.trusted) {
+    await applyRiskDelta(user.id, 6);
+    await logSecurityEvent({
+      userId: user.id,
+      eventType: "auth.new_device_login",
+      severity: "warn",
+      ipAddress: extractClientIp(req.ip),
+      endpoint: `${req.baseUrl}${req.path}`,
+      details: { trusted: false },
+    });
+  }
 
   res.json({
     ...(accessToken ? { token: accessToken } : {}),
@@ -391,6 +433,10 @@ router.post("/login", loginLimiter, async (req, res) => {
       isAdmin: user.is_admin,
       joinedAt: user.joined_at,
       emailVerified: user.email_verified !== false,
+      security: {
+        newDevice: device.isNewDevice,
+        trustedDevice: device.trusted,
+      },
     },
     message: "Login successful",
   });
@@ -530,7 +576,9 @@ router.get("/me", async (req, res) => {
               COALESCE(total_wins, 0)::int AS total_wins,
               first_win_at,
               COALESCE(email_verified, true) AS email_verified,
-              COALESCE(p2p_payment_details, '{}'::jsonb) AS p2p_payment_details
+              COALESCE(p2p_payment_details, '{}'::jsonb) AS p2p_payment_details,
+              COALESCE(risk_score, 0) AS risk_score,
+              COALESCE(risk_level::text, 'low') AS risk_level
        FROM users WHERE id = $1 LIMIT 1`,
       [userId],
     );
@@ -554,6 +602,8 @@ router.get("/me", async (req, res) => {
       first_win_at: null,
       email_verified: true,
       p2p_payment_details: {},
+      risk_score: 0,
+      risk_level: "low",
     }));
   }
 
@@ -606,6 +656,8 @@ router.get("/me", async (req, res) => {
         ? ((user as { first_win_at: Date }).first_win_at.toISOString?.() ?? null)
         : (user as { first_win_at?: string | null }).first_win_at ?? null,
     p2pPaymentDetails: ((user as { p2p_payment_details?: Record<string, string> }).p2p_payment_details ?? {}) as Record<string, string>,
+    riskScore: parseInt(String((user as { risk_score?: unknown }).risk_score ?? "0"), 10),
+    riskLevel: String((user as { risk_level?: unknown }).risk_level ?? "low"),
   });
 });
 

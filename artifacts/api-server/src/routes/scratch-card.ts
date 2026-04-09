@@ -5,6 +5,8 @@ import { eq } from "drizzle-orm";
 import { getAuthedUserId, requireAuth, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
 import { buyScratchCard, getScratchCardState, revealScratchBox } from "../services/scratch-card-service";
+import { strictFinancialLimiter } from "../middleware/security-rate-limit";
+import { idempotencyGuard } from "../middleware/idempotency";
 
 const router: IRouter = Router();
 router.use((req, res, next) => requireAuth(req as AuthedRequest, res, next));
@@ -51,7 +53,7 @@ const BuyBody = z.object({
   multiplierBoost: z.boolean().optional(),
 });
 
-router.post("/buy", async (req, res) => {
+router.post("/buy", strictFinancialLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;
@@ -68,11 +70,11 @@ router.post("/buy", async (req, res) => {
 
 const RevealBody = z.object({ boxIndex: z.coerce.number().int().min(0).max(20) });
 
-router.post("/cards/:cardId/reveal", async (req, res) => {
+router.post("/cards/:cardId/reveal", strictFinancialLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;
-  const cardId = parseInt(req.params.cardId, 10);
+  const cardId = parseInt(String(req.params.cardId), 10);
   if (Number.isNaN(cardId)) return res.status(400).json({ error: "Invalid card" });
   const parsed = RevealBody.safeParse(req.body ?? {});
   if (!parsed.success) return res.status(400).json({ error: "Invalid body", message: parsed.error.message });

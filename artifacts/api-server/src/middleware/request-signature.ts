@@ -1,0 +1,53 @@
+import crypto from "node:crypto";
+import type { NextFunction, Request, Response } from "express";
+import { getSecurityConfig, logSecurityEvent } from "../lib/security";
+
+const MAX_DRIFT_MS = 5 * 60_000;
+
+function buildCanonical(req: Request, timestamp: string): string {
+  const body = req.body && typeof req.body === "object" ? JSON.stringify(req.body) : "";
+  return `${req.method.toUpperCase()}\n${req.baseUrl}${req.path}\n${timestamp}\n${body}`;
+}
+
+export async function verifyRequestSignature(req: Request, res: Response, next: NextFunction) {
+  if (!["POST", "PATCH", "PUT", "DELETE"].includes(req.method.toUpperCase())) return next();
+  const cfg = await getSecurityConfig();
+  if (!cfg.featureFlags.requireRequestSignature) return next();
+
+  const timestamp = String(req.header("x-request-timestamp") ?? "");
+  const signature = String(req.header("x-request-signature") ?? "");
+  const secret = process.env.REQUEST_HMAC_SECRET ?? "";
+  if (!secret) return next();
+
+  if (!timestamp || !signature) {
+    await logSecurityEvent({
+      userId: Number((req as any).user?.id ?? req.session?.userId ?? 0) || null,
+      eventType: "signature.missing",
+      severity: "warn",
+      ipAddress: req.ip,
+      endpoint: `${req.baseUrl}${req.path}`,
+      details: { method: req.method },
+    });
+    return res.status(401).json({ error: "SIGNATURE_REQUIRED" });
+  }
+
+  const tsNum = Number(timestamp);
+  if (!Number.isFinite(tsNum) || Math.abs(Date.now() - tsNum) > MAX_DRIFT_MS) {
+    return res.status(401).json({ error: "SIGNATURE_EXPIRED" });
+  }
+
+  const expected = crypto.createHmac("sha256", secret).update(buildCanonical(req, timestamp)).digest("hex");
+  const ok = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  if (!ok) {
+    await logSecurityEvent({
+      userId: Number((req as any).user?.id ?? req.session?.userId ?? 0) || null,
+      eventType: "signature.invalid",
+      severity: "warn",
+      ipAddress: req.ip,
+      endpoint: `${req.baseUrl}${req.path}`,
+      details: { method: req.method },
+    });
+    return res.status(401).json({ error: "INVALID_SIGNATURE" });
+  }
+  next();
+}

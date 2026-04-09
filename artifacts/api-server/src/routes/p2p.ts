@@ -2,6 +2,9 @@ import { Router, type IRouter, type NextFunction, type Request, type Response } 
 import multer from "multer";
 import path from "path";
 import { z } from "zod";
+import { strictFinancialLimiter } from "../middleware/security-rate-limit";
+import { idempotencyGuard } from "../middleware/idempotency";
+import { getSecurityConfig } from "../lib/security";
 import { getAuthedUserId, requireAuth, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
 import { getUploadsDir } from "../paths";
@@ -25,6 +28,15 @@ import {
 
 const router: IRouter = Router();
 router.use((req, res, next) => requireAuth(req as AuthedRequest, res, next));
+router.use(async (_req, res, next) => {
+  try {
+    await assertP2pEnabled();
+    next();
+  } catch (e) {
+    const { status, error } = mapErr(e);
+    res.status(status).json({ error });
+  }
+});
 
 const uploadDir = getUploadsDir();
 const storage = multer.diskStorage({
@@ -81,8 +93,14 @@ function mapErr(e: unknown): { status: number; error: string } {
     P2P_PAYMENT_DETAILS_REQUIRED: 400,
     INSUFFICIENT_PLATFORM_FEE_BALANCE: 400,
     NO_FIELDS: 400,
+    P2P_DISABLED: 503,
   };
   return { status: table[m] ?? 500, error: m };
+}
+
+async function assertP2pEnabled() {
+  const cfg = await getSecurityConfig();
+  if (!cfg.featureFlags.p2pEnabled) throw new Error("P2P_DISABLED");
 }
 
 router.get("/summary", async (req, res) => {
@@ -255,7 +273,7 @@ const CreateOrderBody = z.object({
   fiatTotal: z.coerce.number().positive().optional(),
 });
 
-router.post("/orders", async (req, res) => {
+router.post("/orders", strictFinancialLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });

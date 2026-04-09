@@ -1,5 +1,5 @@
 import { Router, type IRouter, type NextFunction, type Request, type Response } from "express";
-import { db, transactionsTable, usersTable } from "@workspace/db";
+import { db, pool as dbPool, transactionsTable, usersTable } from "@workspace/db";
 import { mirrorAvailableFromUser } from "../services/user-wallet-service";
 import { eq, desc, and } from "drizzle-orm";
 import multer from "multer";
@@ -11,6 +11,10 @@ import { assertEmailVerified } from "../middleware/require-email-verified";
 import { logger } from "../lib/logger";
 import { getUploadsDir } from "../paths";
 import { notifyUser } from "../lib/notify";
+import bcrypt from "bcryptjs";
+import { strictFinancialLimiter } from "../middleware/security-rate-limit";
+import { idempotencyGuard } from "../middleware/idempotency";
+import { applyRiskDelta, getSecurityConfig, getTodayWithdrawTotal, isTrustedDevice, logSecurityEvent } from "../lib/security";
 
 const router: IRouter = Router();
 const MIN_WITHDRAW_USDT = 10;
@@ -149,6 +153,7 @@ router.post("/deposit", uploadScreenshot, async (req: Request, res: Response) =>
         screenshotUrl,
       })
       .returning();
+    await db.update(usersTable).set({ lastDepositAt: new Date() }).where(eq(usersTable.id, userId));
 
     if (!tx) {
       res.status(500).json({ error: "Failed to create deposit request" });
@@ -172,7 +177,7 @@ router.post("/deposit", uploadScreenshot, async (req: Request, res: Response) =>
   }
 });
 
-router.post("/withdraw", async (req, res) => {
+router.post("/withdraw", strictFinancialLimiter, idempotencyGuard, async (req, res) => {
   try {
     const userId = getAuthedUserId(req);
     if (!userId) {
@@ -180,10 +185,17 @@ router.post("/withdraw", async (req, res) => {
       return;
     }
     if (!(await assertEmailVerified(res, userId))) return;
+    const cfg = await getSecurityConfig();
+    if (!cfg.featureFlags.withdrawEnabled) {
+      res.status(503).json({ error: "WITHDRAW_DISABLED" });
+      return;
+    }
 
     const WithdrawSchema = z.object({
       amount: z.coerce.number().gte(MIN_WITHDRAW_USDT),
       walletAddress: z.string().min(10).max(120).regex(/^T[a-zA-Z0-9]{25,}$/),
+      withdrawPin: z.string().length(6).regex(/^\d{6}$/),
+      confirmEmail: z.string().trim().email(),
       note: z.string().max(200).optional(),
     });
     const parsed = WithdrawSchema.safeParse(req.body);
@@ -192,7 +204,7 @@ router.post("/withdraw", async (req, res) => {
       return;
     }
 
-    const { amount, walletAddress, note } = parsed.data;
+    const { amount, walletAddress, note, withdrawPin, confirmEmail } = parsed.data;
     const cleanNote = note ? sanitizeText(note, 200) : "";
     if (!amount || amount < MIN_WITHDRAW_USDT) {
       res.status(400).json({ error: `Minimum withdrawal is ${MIN_WITHDRAW_USDT} USDT.` });
@@ -203,10 +215,14 @@ router.post("/withdraw", async (req, res) => {
       .select({
         id: usersTable.id,
         name: usersTable.name,
+        email: usersTable.email,
         cryptoAddress: usersTable.cryptoAddress,
         walletBalance: usersTable.walletBalance,
         bonusBalance: usersTable.bonusBalance,
         withdrawableBalance: usersTable.withdrawableBalance,
+        joinedAt: usersTable.joinedAt,
+        riskLevel: usersTable.riskLevel,
+        withdrawPinHash: usersTable.withdrawPinHash,
       })
       .from(usersTable)
       .where(eq(usersTable.id, userId))
@@ -214,6 +230,63 @@ router.post("/withdraw", async (req, res) => {
 
     if (!user) {
       res.status(404).json({ error: "User not found" });
+      return;
+    }
+    if (confirmEmail.toLowerCase() !== user.email.toLowerCase()) {
+      res.status(400).json({ error: "EMAIL_CONFIRMATION_MISMATCH" });
+      return;
+    }
+    if (!user.withdrawPinHash) {
+      res.status(403).json({ error: "WITHDRAW_PIN_NOT_SET", message: "Set a 6-digit withdraw PIN in profile first." });
+      return;
+    }
+    const pinOk = await bcrypt.compare(withdrawPin, user.withdrawPinHash);
+    if (!pinOk) {
+      await applyRiskDelta(userId, 3);
+      await logSecurityEvent({
+        userId,
+        eventType: "withdraw.pin_failed",
+        severity: "warn",
+        ipAddress: req.ip,
+        endpoint: `${req.baseUrl}${req.path}`,
+      });
+      res.status(403).json({ error: "INVALID_WITHDRAW_PIN" });
+      return;
+    }
+    const trusted = await isTrustedDevice(userId, req.ip ?? "unknown", req.get("user-agent") ?? "");
+    if (!trusted) {
+      await applyRiskDelta(userId, 4);
+      res.status(403).json({ error: "UNTRUSTED_DEVICE", message: "New device detected. Verify device before withdrawing." });
+      return;
+    }
+    const ageMs = Date.now() - new Date(user.joinedAt).getTime();
+    const minAgeMs = Math.max(1, cfg.withdrawLimits.firstWithdrawDelayHours) * 60 * 60 * 1000;
+    if (ageMs < minAgeMs) {
+      res.status(403).json({ error: "WITHDRAW_DELAY_ACTIVE", message: `First withdrawal allowed after ${cfg.withdrawLimits.firstWithdrawDelayHours} hours.` });
+      return;
+    }
+    const todayTotal = await getTodayWithdrawTotal(userId);
+    if (todayTotal + amount > cfg.withdrawLimits.dailyWithdrawLimitUsdt) {
+      await applyRiskDelta(userId, 5);
+      res.status(400).json({ error: "DAILY_WITHDRAW_LIMIT", message: `Daily limit is ${cfg.withdrawLimits.dailyWithdrawLimitUsdt} USDT.` });
+      return;
+    }
+    if (user.riskLevel === "high") {
+      await logSecurityEvent({
+        userId,
+        eventType: "withdraw.blocked_high_risk",
+        severity: "critical",
+        ipAddress: req.ip,
+        endpoint: `${req.baseUrl}${req.path}`,
+      });
+      res.status(403).json({ error: "HIGH_RISK_WITHDRAW_BLOCKED" });
+      return;
+    }
+    if (user.riskLevel === "medium" && amount > cfg.withdrawLimits.mediumRiskMaxWithdrawUsdt) {
+      res.status(403).json({
+        error: "MEDIUM_RISK_WITHDRAW_LIMIT",
+        message: `Medium-risk accounts can withdraw up to ${cfg.withdrawLimits.mediumRiskMaxWithdrawUsdt} USDT per request.`,
+      });
       return;
     }
     if (!user.cryptoAddress) {
@@ -231,38 +304,45 @@ router.post("/withdraw", async (req, res) => {
       return;
     }
 
-    const withdrawableBal = parseFloat(String(user.withdrawableBalance ?? "0"));
+    await dbPool.query("BEGIN");
+    const lock = await dbPool.query(
+      `SELECT id, wallet_balance, bonus_balance, withdrawable_balance FROM users WHERE id = $1 FOR UPDATE`,
+      [userId],
+    );
+    const locked = lock.rows[0] as
+      | { wallet_balance: string | number; bonus_balance: string | number; withdrawable_balance: string | number }
+      | undefined;
+    if (!locked) {
+      await dbPool.query("ROLLBACK");
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    const withdrawableBal = parseFloat(String(locked.withdrawable_balance ?? "0"));
     if (withdrawableBal < amount) {
+      await dbPool.query("ROLLBACK");
       res.status(400).json({
         error: `You can only withdraw from your withdrawable balance. Available: ${withdrawableBal.toFixed(2)} USDT.`,
       });
       return;
     }
-
-    const bonusB = parseFloat(String(user.bonusBalance ?? "0"));
+    const bonusB = parseFloat(String(locked.bonus_balance ?? "0"));
     const newWd = withdrawableBal - amount;
     const newWallet = (bonusB + newWd).toFixed(2);
-
-    await db
-      .update(usersTable)
-      .set({
-        withdrawableBalance: newWd.toFixed(2),
-        walletBalance: newWallet,
-      })
-      .where(eq(usersTable.id, userId));
-
+    await dbPool.query(
+      `UPDATE users SET withdrawable_balance = $1, wallet_balance = $2 WHERE id = $3`,
+      [newWd.toFixed(2), newWallet, userId],
+    );
+    await dbPool.query(
+      `INSERT INTO transactions (user_id, tx_type, amount, status, note) VALUES ($1, $2, $3, $4, $5)`,
+      [userId, "withdraw", String(amount), "pending", `[wallet:${walletAddress}]${cleanNote ? ` ${cleanNote}` : ""}`],
+    );
+    const rtx = await dbPool.query(
+      `SELECT id, user_id as "userId", tx_type as "txType", amount, status, note, screenshot_url as "screenshotUrl", created_at as "createdAt" FROM transactions WHERE user_id = $1 ORDER BY id DESC LIMIT 1`,
+      [userId],
+    );
+    await dbPool.query("COMMIT");
     await mirrorAvailableFromUser(db, userId);
-
-    const [tx] = await db
-      .insert(transactionsTable)
-      .values({
-        userId,
-        txType: "withdraw",
-        amount: String(amount),
-        status: "pending",
-        note: `[wallet:${walletAddress}]${cleanNote ? ` ${cleanNote}` : ""}`,
-      })
-      .returning();
+    const tx = rtx.rows[0] as any;
 
     if (!tx) {
       res.status(500).json({ error: "Failed to create withdrawal request" });
@@ -278,6 +358,9 @@ router.post("/withdraw", async (req, res) => {
 
     res.status(201).json(formatTx({ ...tx, userName: user.name }));
   } catch (err) {
+    try {
+      await dbPool.query("ROLLBACK");
+    } catch {}
     logger.error({ err }, "POST /withdraw failed");
     res.status(500).json({
       error: "Withdrawal failed",

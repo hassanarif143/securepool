@@ -33,6 +33,8 @@ interface UserType {
   totalWins?: number;
   firstWinAt?: string | null;
   emailVerified?: boolean;
+  riskScore?: number;
+  riskLevel?: "low" | "medium" | "high";
   p2pPaymentDetails?: {
     bankName?: string;
     accountTitle?: string;

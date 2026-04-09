@@ -1,6 +1,8 @@
-import { pgTable, serial, text, boolean, numeric, timestamp, integer, date, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, numeric, timestamp, integer, date, jsonb, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+
+export const riskLevelEnum = pgEnum("risk_level", ["low", "medium", "high"]);
 
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -70,6 +72,10 @@ export const usersTable = pgTable("users", {
     }>()
     .notNull()
     .default({}),
+  riskScore: integer("risk_score").notNull().default(0),
+  riskLevel: riskLevelEnum("risk_level").notNull().default("low"),
+  withdrawPinHash: text("withdraw_pin_hash"),
+  lastDepositAt: timestamp("last_deposit_at", { withTimezone: true }),
 });
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({

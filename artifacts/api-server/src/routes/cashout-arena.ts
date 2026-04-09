@@ -5,6 +5,8 @@ import { eq } from "drizzle-orm";
 import { getAuthedUserId, requireAuth, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
 import { cashoutBet, getCashoutArenaState, placeBet } from "../services/cashout-arena-service";
+import { strictFinancialLimiter } from "../middleware/security-rate-limit";
+import { idempotencyGuard } from "../middleware/idempotency";
 
 const router: IRouter = Router();
 router.use((req, res, next) => requireAuth(req as AuthedRequest, res, next));
@@ -62,7 +64,7 @@ const PlaceBetBody = z.object({
   doubleBoost: z.boolean().optional(),
 });
 
-router.post("/bet", async (req, res) => {
+router.post("/bet", strictFinancialLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;
@@ -78,11 +80,11 @@ router.post("/bet", async (req, res) => {
   }
 });
 
-router.post("/bets/:betId/cashout", async (req, res) => {
+router.post("/bets/:betId/cashout", strictFinancialLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;
-  const betId = parseInt(req.params.betId, 10);
+  const betId = parseInt(String(req.params.betId), 10);
   if (Number.isNaN(betId)) return res.status(400).json({ error: "Invalid bet" });
   try {
     await assertArenaGloballyEnabled();

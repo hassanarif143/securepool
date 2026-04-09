@@ -49,6 +49,9 @@ import {
 import { notifySquadOnMemberWin } from "../services/squad-service";
 import { markCouponUsed } from "../services/coupon-service";
 import { computeMinParticipantsToRunDraw, prizeTotalForWinnerSlots } from "../services/draw-economics";
+import { strictFinancialLimiter } from "../middleware/security-rate-limit";
+import { idempotencyGuard } from "../middleware/idempotency";
+import { getSecurityConfig, applyRiskDelta, logSecurityEvent } from "../lib/security";
 import {
   appendPlatformFeeForDraw,
   appendPoolJoinPlatformFee,
@@ -73,6 +76,11 @@ const DistributeRewardsBody = z.object({
 });
 
 const router: IRouter = Router();
+
+async function assertPoolsEnabled() {
+  const cfg = await getSecurityConfig();
+  if (!cfg.featureFlags.poolsEnabled) throw new Error("POOLS_DISABLED");
+}
 
 function formatPool(
   pool: typeof poolsTable.$inferSelect,
@@ -953,8 +961,8 @@ router.patch("/:poolId", (req, res, next) => void requireAdmin(req as AuthedRequ
   res.json(formatPool(pool, tc, { desiredProfitUsdt }));
 });
 
-router.post("/:poolId/join", async (req, res) => {
-  const poolId = parseInt(req.params.poolId);
+router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (req, res) => {
+  const poolId = parseInt(String(req.params.poolId), 10);
   if (isNaN(poolId)) {
     res.status(400).json({ error: "Invalid pool ID" });
     return;
@@ -966,6 +974,12 @@ router.post("/:poolId/join", async (req, res) => {
     return;
   }
   if (!(await assertEmailVerified(res, sessionUserId))) return;
+  try {
+    await assertPoolsEnabled();
+  } catch {
+    res.status(503).json({ error: "POOLS_DISABLED" });
+    return;
+  }
 
   const bodyParse = JoinPoolBody.safeParse(req.body ?? {});
 
@@ -1018,6 +1032,18 @@ router.post("/:poolId/join", async (req, res) => {
   if (!user) {
     res.status(404).json({ error: "User not found" });
     return;
+  }
+  const recentJoinMs = user.lastPoolJoinedAt ? Date.now() - new Date(user.lastPoolJoinedAt).getTime() : null;
+  if (recentJoinMs != null && recentJoinMs < 60_000) {
+    await applyRiskDelta(sessionUserId, 2);
+    await logSecurityEvent({
+      userId: sessionUserId,
+      eventType: "pool.join.burst",
+      severity: "warn",
+      ipAddress: req.ip,
+      endpoint: `${req.baseUrl}${req.path}`,
+      details: { poolId, msSinceLastJoin: recentJoinMs },
+    });
   }
 
   const entryFee = parseFloat(pool.entryFee);
