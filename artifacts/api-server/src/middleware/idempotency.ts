@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import crypto from "node:crypto";
 import { pool } from "@workspace/db";
+import { getAuthedUserId } from "./auth";
 
 type CachedPayload = Record<string, unknown>;
 
@@ -8,8 +9,8 @@ export async function idempotencyGuard(req: Request, res: Response, next: NextFu
   if (req.method !== "POST" && req.method !== "PATCH" && req.method !== "PUT" && req.method !== "DELETE") {
     return next();
   }
-  const authUserId = Number((req as Request & { user?: { id?: number } }).user?.id ?? (req.session as any)?.userId);
-  if (!Number.isFinite(authUserId) || authUserId <= 0) return next();
+  const authUserId = getAuthedUserId(req);
+  if (!authUserId) return next();
   const key = String(req.header("x-idempotency-key") ?? "").trim();
   if (!key) return next();
   if (key.length < 10 || key.length > 120) {

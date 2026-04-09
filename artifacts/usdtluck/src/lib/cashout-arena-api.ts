@@ -69,3 +69,19 @@ export async function cashoutArenaBetApi(betId: string): Promise<{ payout: numbe
   });
   return readJson<{ payout: number; multiplier: number }>(res);
 }
+
+export async function verifyCashoutRoundApi(roundId: string): Promise<{
+  roundId: number;
+  revealed: boolean;
+  serverSeedHash?: string | null;
+  clientSeed?: string | null;
+  serverSeed?: string;
+  computedServerSeedHash?: string;
+  recordedCrashMultiplier?: number;
+  computedCrashMultiplier?: number;
+  matches?: boolean;
+  message?: string;
+}> {
+  const res = await fetch(apiUrl(`/api/cashout-arena/fair/${roundId}/verify`), { credentials: "include" });
+  return readJson(res);
+}

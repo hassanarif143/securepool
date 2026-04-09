@@ -116,15 +116,13 @@ function clearJwtCookie(res: Response) {
   });
 }
 
-/** Sets JWT cookie and returns the same string for JSON body (cross-site SPAs often need Bearer). */
-function signAndSetJwtCookie(res: Response, userId: number, isAdmin: boolean): string | null {
+/** Sets JWT cookie only (cookie-auth mode, no token in JSON response). */
+function signAndSetJwtCookie(res: Response, userId: number, isAdmin: boolean): void {
   try {
     const token = signUserJwt({ userId, isAdmin });
     res.cookie(getJwtCookieName(), token, authCookieOptions());
-    return token;
   } catch (err) {
-    logger.warn({ err, userId }, "JWT cookie not set; using session auth fallback");
-    return null;
+    logger.warn({ err, userId }, "JWT cookie not set");
   }
 }
 
@@ -250,7 +248,7 @@ router.post("/signup", signupLimiter, async (req, res) => {
   // Back-compat session + JWT cookie (JWT is critical for Vercel → Railway; session cookie is often blocked cross-site)
   req.session.userId = user.id;
   await persistSession(req);
-  const accessToken = signAndSetJwtCookie(res, user.id, user.isAdmin);
+  signAndSetJwtCookie(res, user.id, user.isAdmin);
 
   const welcomeMessage = referrer
     ? "Account created! Your referrer earns 2 USDT when you join your first pool."
@@ -270,7 +268,6 @@ router.post("/signup", signupLimiter, async (req, res) => {
       joinedAt: user.joinedAt,
       emailVerified: true,
     },
-    ...(accessToken ? { token: accessToken } : {}),
     message: welcomeMessage,
     referralBonus: 0,
   });
@@ -401,7 +398,7 @@ router.post("/login", loginLimiter, async (req, res) => {
   // Back-compat session + JWT cookie (cross-site SPA)
   req.session.userId = user.id;
   await persistSession(req);
-  const accessToken = signAndSetJwtCookie(res, user.id, Boolean(user.is_admin));
+  signAndSetJwtCookie(res, user.id, Boolean(user.is_admin));
   const device = await registerDeviceLogin({
     userId: user.id,
     ip: extractClientIp(req.ip),
@@ -420,7 +417,6 @@ router.post("/login", loginLimiter, async (req, res) => {
   }
 
   res.json({
-    ...(accessToken ? { token: accessToken } : {}),
     user: {
       id: user.id,
       name: user.name,

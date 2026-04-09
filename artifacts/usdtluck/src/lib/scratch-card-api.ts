@@ -79,3 +79,18 @@ export async function revealScratchBoxApi(cardId: string, boxIndex: number): Pro
   });
   return readJson(res);
 }
+
+export async function verifyScratchRoundApi(roundId: string): Promise<{
+  roundId: number;
+  revealed: boolean;
+  serverSeedHash?: string | null;
+  clientSeed?: string | null;
+  serverSeed?: string;
+  computedServerSeedHash?: string;
+  firstDeterministicFloat?: number;
+  commitmentValid?: boolean;
+  message?: string;
+}> {
+  const res = await fetch(apiUrl(`/api/scratch-card/fair/${roundId}/verify`), { credentials: "include" });
+  return readJson(res);
+}

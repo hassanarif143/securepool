@@ -4,7 +4,7 @@ import { db, platformSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getAuthedUserId, requireAuth, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
-import { cashoutBet, getCashoutArenaState, placeBet } from "../services/cashout-arena-service";
+import { cashoutBet, getCashoutArenaState, placeBet, verifyCashoutRound } from "../services/cashout-arena-service";
 import { strictFinancialLimiter } from "../middleware/security-rate-limit";
 import { idempotencyGuard } from "../middleware/idempotency";
 
@@ -89,6 +89,21 @@ router.post("/bets/:betId/cashout", strictFinancialLimiter, idempotencyGuard, as
   try {
     await assertArenaGloballyEnabled();
     const out = await cashoutBet(userId, betId);
+    return res.json(out);
+  } catch (e) {
+    const { status, error } = mapErr(e);
+    return res.status(status).json({ error });
+  }
+});
+
+router.get("/fair/:roundId/verify", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  const roundId = parseInt(String(req.params.roundId), 10);
+  if (Number.isNaN(roundId)) return res.status(400).json({ error: "Invalid round" });
+  try {
+    await assertArenaGloballyEnabled();
+    const out = await verifyCashoutRound(roundId);
     return res.json(out);
   } catch (e) {
     const { status, error } = mapErr(e);

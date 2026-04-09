@@ -125,6 +125,8 @@ export default function WalletPage() {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [withdrawWallet, setWithdrawWallet] = useState(user?.cryptoAddress ?? "");
+  const [withdrawPin, setWithdrawPin] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState(user?.email ?? "");
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [depositLoading, setDepositLoading] = useState(false);
@@ -153,6 +155,9 @@ export default function WalletPage() {
       setWithdrawWallet(user.cryptoAddress);
     }
   }, [user?.cryptoAddress, withdrawWallet]);
+  useEffect(() => {
+    if (user?.email && !confirmEmail) setConfirmEmail(user.email);
+  }, [user?.email, confirmEmail]);
 
   if (isLoading || !user) return null;
 
@@ -244,6 +249,14 @@ export default function WalletPage() {
       appToast.error({ title: "Wallet address required" });
       return;
     }
+    if (!/^\d{6}$/.test(withdrawPin.trim())) {
+      appToast.error({ title: "Withdraw PIN required", description: "Enter your 6-digit withdraw PIN." });
+      return;
+    }
+    if (!confirmEmail.trim()) {
+      appToast.error({ title: "Email confirmation required", description: "Enter your account email to confirm withdrawal." });
+      return;
+    }
     if (val < MIN_WITHDRAW_USDT) {
       appToast.error({
         title: "Minimum withdrawal is 10 USDT",
@@ -271,7 +284,13 @@ export default function WalletPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: val, walletAddress: withdrawWallet, note }),
+        body: JSON.stringify({
+          amount: val,
+          walletAddress: withdrawWallet,
+          withdrawPin: withdrawPin.trim(),
+          confirmEmail: confirmEmail.trim(),
+          note,
+        }),
       });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
 
@@ -283,12 +302,27 @@ export default function WalletPage() {
       });
       setAmount("");
       setNote("");
+      setWithdrawPin("");
       setWithdrawConfirmOpen(false);
       queryClient.invalidateQueries({ queryKey: getGetUserTransactionsQueryKey(currentUser.id) });
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       appToast.success({ title: "Withdrawal submitted", description: "Your request is pending admin review." });
     } catch (err: any) {
-      appToast.error({ title: "Withdrawal failed", description: err.message });
+      const msg = String(err?.message ?? "Withdrawal failed");
+      if (msg.includes("WITHDRAW_PIN_NOT_SET")) {
+        appToast.error({ title: "Set withdraw PIN first", description: "Open Profile and set your withdraw PIN before withdrawing." });
+      } else if (msg.includes("INVALID_WITHDRAW_PIN")) {
+        appToast.error({ title: "Invalid withdraw PIN", description: "Your PIN is incorrect. Try again carefully." });
+      } else if (msg.includes("UNTRUSTED_DEVICE")) {
+        appToast.error({
+          title: "Device not trusted",
+          description: "This device is not trusted for withdrawals yet. Please verify/trust this device first.",
+        });
+      } else if (msg.includes("EMAIL_CONFIRMATION_MISMATCH")) {
+        appToast.error({ title: "Email confirmation mismatch", description: "Enter the exact email of your account." });
+      } else {
+        appToast.error({ title: "Withdrawal failed", description: msg });
+      }
     } finally {
       setWithdrawLoading(false);
     }
@@ -644,6 +678,39 @@ export default function WalletPage() {
                   onChange={(e) => setWithdrawWallet(e.target.value)}
                   placeholder={user.cryptoAddress ?? "Enter your USDT wallet address (TRC-20)"}
                   className="border-border/90 bg-muted/25 font-mono text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="withdraw-pin" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Withdraw PIN (6 digits)
+                </Label>
+                <Input
+                  id="withdraw-pin"
+                  type="password"
+                  inputMode="numeric"
+                  pattern="\d{6}"
+                  maxLength={6}
+                  value={withdrawPin}
+                  onChange={(e) => setWithdrawPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="••••••"
+                  required
+                  className="border-border/90 bg-muted/25 font-mono tracking-[0.25em]"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="withdraw-confirm-email" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Confirm account email
+                </Label>
+                <Input
+                  id="withdraw-confirm-email"
+                  type="email"
+                  value={confirmEmail}
+                  onChange={(e) => setConfirmEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  className="border-border/90 bg-muted/25"
                 />
               </div>
 

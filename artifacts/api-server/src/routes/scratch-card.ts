@@ -4,7 +4,7 @@ import { db, platformSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getAuthedUserId, requireAuth, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
-import { buyScratchCard, getScratchCardState, revealScratchBox } from "../services/scratch-card-service";
+import { buyScratchCard, getScratchCardState, revealScratchBox, verifyScratchRound } from "../services/scratch-card-service";
 import { strictFinancialLimiter } from "../middleware/security-rate-limit";
 import { idempotencyGuard } from "../middleware/idempotency";
 
@@ -22,6 +22,7 @@ function mapErr(e: unknown): { status: number; error: string } {
     FORBIDDEN: 403,
     INVALID_BOX: 400,
     ALREADY_REVEALED: 400,
+    ROUND_NOT_FOUND: 404,
     SCRATCH_DISABLED_FOR_USER: 403,
     SCRATCH_CARD_DISABLED: 503,
   };
@@ -81,6 +82,20 @@ router.post("/cards/:cardId/reveal", strictFinancialLimiter, idempotencyGuard, a
   try {
     await assertScratchGloballyEnabled();
     return res.json(await revealScratchBox(userId, cardId, parsed.data.boxIndex));
+  } catch (e) {
+    const { status, error } = mapErr(e);
+    return res.status(status).json({ error });
+  }
+});
+
+router.get("/fair/:roundId/verify", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  const roundId = parseInt(String(req.params.roundId), 10);
+  if (Number.isNaN(roundId)) return res.status(400).json({ error: "Invalid round" });
+  try {
+    await assertScratchGloballyEnabled();
+    return res.json(await verifyScratchRound(roundId));
   } catch (e) {
     const { status, error } = mapErr(e);
     return res.status(status).json({ error });

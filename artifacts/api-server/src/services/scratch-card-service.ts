@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { db, scratchCardsTable, scratchRoundsTable, transactionsTable, usersTable } from "@workspace/db";
 import { appendDepositFromTicketPurchase, appendWithdrawalForPayout } from "./admin-wallet-service";
 import { mirrorAvailableFromUser } from "./user-wallet-service";
-import { fairFloatFromSeed, hashServerSeed, makeClientSeed, makeServerSeed } from "../lib/provably-fair";
+import { fairFloatFromSeed, hashServerSeed, makeClientSeed, makeServerSeed, protectServerSeed, revealServerSeed } from "../lib/provably-fair";
 
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -27,7 +27,7 @@ function round4(n: number): number {
   return Math.round(n * 10000) / 10000;
 }
 async function nextRoundRandom(tx: DbTx, round: typeof scratchRoundsTable.$inferSelect): Promise<number> {
-  const serverSeed = String(round.serverSeedReveal ?? "");
+  const serverSeed = revealServerSeed(String(round.serverSeedReveal ?? ""));
   const clientSeed = String(round.clientSeed ?? "");
   if (!serverSeed || !clientSeed) return 0.5;
   const nonce = Number(round.nonce ?? 0);
@@ -112,7 +112,7 @@ async function getOrCreateRound(tx: DbTx) {
     .values({
       status: "running",
       serverSeedHash: hashServerSeed(serverSeed),
-      serverSeedReveal: serverSeed,
+      serverSeedReveal: protectServerSeed(serverSeed),
       clientSeed,
       nonce: 0,
       targetMarginBps: TARGET_MARGIN_BPS,
@@ -177,6 +177,15 @@ async function settleExpiredCards(tx: DbTx): Promise<void> {
     } else {
       await tx.update(scratchCardsTable).set({ status: "lost", payoutAmount: "0", settledAt: now }).where(eq(scratchCardsTable.id, card.id));
     }
+  }
+  const nowRound = new Date();
+  const rounds = await tx.select().from(scratchRoundsTable).where(and(eq(scratchRoundsTable.status, "running"), lte(scratchRoundsTable.endsAt, nowRound)));
+  for (const round of rounds) {
+    const plainSeed = revealServerSeed(String(round.serverSeedReveal ?? ""));
+    await tx
+      .update(scratchRoundsTable)
+      .set({ status: "settled", settledAt: nowRound, serverSeedReveal: plainSeed })
+      .where(eq(scratchRoundsTable.id, round.id));
   }
 }
 
@@ -425,4 +434,30 @@ export async function revealScratchBox(userId: number, cardId: number, boxIndex:
       .where(eq(scratchCardsTable.id, card.id));
     return { status: "lost", symbol: (card.symbols ?? [])[boxIndex] ?? null, payoutAmount: 0, multiplier: 0, nearMiss: maxMatch === card.requiredMatches - 1 };
   });
+}
+
+export async function verifyScratchRound(roundId: number) {
+  const [round] = await db.select().from(scratchRoundsTable).where(eq(scratchRoundsTable.id, roundId)).limit(1);
+  if (!round) throw new Error("ROUND_NOT_FOUND");
+  const revealed = String(round.serverSeedReveal ?? "");
+  if (!revealed || revealed.startsWith("enc:")) {
+    return {
+      roundId,
+      revealed: false,
+      message: "Server seed is revealed only after settlement.",
+      serverSeedHash: round.serverSeedHash ?? null,
+      clientSeed: round.clientSeed ?? null,
+    };
+  }
+  const firstFloat = fairFloatFromSeed({ serverSeed: revealed, clientSeed: String(round.clientSeed ?? ""), nonce: 0 });
+  return {
+    roundId,
+    revealed: true,
+    serverSeed: revealed,
+    serverSeedHash: round.serverSeedHash ?? null,
+    computedServerSeedHash: hashServerSeed(revealed),
+    clientSeed: round.clientSeed ?? null,
+    firstDeterministicFloat: firstFloat,
+    commitmentValid: hashServerSeed(revealed) === String(round.serverSeedHash ?? ""),
+  };
 }

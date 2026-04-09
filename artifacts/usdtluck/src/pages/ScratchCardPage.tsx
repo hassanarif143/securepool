@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import confetti from "canvas-confetti";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import { buyScratchCardApi, fetchScratchCardState, revealScratchBoxApi } from "@/lib/scratch-card-api";
+import { buyScratchCardApi, fetchScratchCardState, revealScratchBoxApi, verifyScratchRoundApi } from "@/lib/scratch-card-api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
@@ -124,6 +124,7 @@ export default function ScratchCardPage() {
   const [nearMissPulse, setNearMissPulse] = useState(false);
   const [winPulse, setWinPulse] = useState<{ payout: number; multiplier: number; rare?: boolean } | null>(null);
   const [soundOn, setSoundOn] = useState(() => window.localStorage.getItem("scratch:sound-on") !== "0");
+  const [verifyLoading, setVerifyLoading] = useState(false);
 
   const { data, isFetching, refetch, error } = useQuery({
     queryKey: ["scratch-card-state"],
@@ -403,6 +404,35 @@ export default function ScratchCardPage() {
           <p>Client seed: <span className="font-mono text-foreground break-all">{data?.round.clientSeed ?? "pending"}</span></p>
           <p>Nonce: <span className="font-mono text-foreground">{String(data?.round.fairNonce ?? 0)}</span></p>
           <p>Revealed server seed: <span className="font-mono text-foreground break-all">{data?.round.revealedServerSeed ?? "revealed after round settles"}</span></p>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!data?.round.id || verifyLoading}
+            onClick={async () => {
+              if (!data?.round.id) return;
+              setVerifyLoading(true);
+              try {
+                const out = await verifyScratchRoundApi(data.round.id);
+                if (!out.revealed) {
+                  toast({ title: "Not revealed yet", description: out.message ?? "Seed is revealed after settlement." });
+                } else {
+                  toast({
+                    title: out.commitmentValid ? "Round verified" : "Verification mismatch",
+                    description: out.commitmentValid
+                      ? "Server seed hash matches commitment for this round."
+                      : "Seed/hash mismatch detected.",
+                    variant: out.commitmentValid ? "default" : "destructive",
+                  });
+                }
+              } catch (e: any) {
+                toast({ title: "Verify failed", description: e?.message ?? "Could not verify this round.", variant: "destructive" });
+              } finally {
+                setVerifyLoading(false);
+              }
+            }}
+          >
+            {verifyLoading ? "Verifying..." : "Verify this round"}
+          </Button>
         </CardContent>
       </Card>
     </div>

@@ -9,7 +9,7 @@ import {
 import { and, desc, eq, inArray, lt, lte, sql } from "drizzle-orm";
 import { appendDepositFromTicketPurchase, appendWithdrawalForPayout } from "./admin-wallet-service";
 import { mirrorAvailableFromUser } from "./user-wallet-service";
-import { fairFloatFromSeed, hashServerSeed, makeClientSeed, makeServerSeed } from "../lib/provably-fair";
+import { fairFloatFromSeed, hashServerSeed, makeClientSeed, makeServerSeed, protectServerSeed, revealServerSeed } from "../lib/provably-fair";
 
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -34,7 +34,7 @@ function round4(n: number): number {
 }
 
 async function nextRoundRandom(tx: DbTx, round: typeof cashoutRoundsTable.$inferSelect): Promise<number> {
-  const serverSeed = String(round.serverSeedReveal ?? "");
+  const serverSeed = revealServerSeed(String(round.serverSeedReveal ?? ""));
   const clientSeed = String(round.clientSeed ?? "");
   if (!serverSeed || !clientSeed) return 0.5;
   const nonce = Number(round.nonce ?? 0);
@@ -119,7 +119,7 @@ async function getOrCreateRunningRound(tx: DbTx): Promise<typeof cashoutRoundsTa
     .values({
       status: "running",
       serverSeedHash: hashServerSeed(serverSeed),
-      serverSeedReveal: serverSeed,
+      serverSeedReveal: protectServerSeed(serverSeed),
       clientSeed,
       nonce: 0,
       startedAt: now,
@@ -155,6 +155,7 @@ async function settleCrashedRounds(tx: DbTx): Promise<void> {
     .orderBy(cashoutRoundsTable.id);
 
   for (const round of rounds) {
+    const plainSeed = revealServerSeed(String(round.serverSeedReveal ?? ""));
     await tx.update(cashoutRoundsTable).set({ status: "crashed" }).where(eq(cashoutRoundsTable.id, round.id));
     const [agg] = await tx
       .select({
@@ -222,7 +223,10 @@ async function settleCrashedRounds(tx: DbTx): Promise<void> {
       await tx.update(cashoutBetsTable).set({ status: "lost", settledAt: new Date() }).where(eq(cashoutBetsTable.id, bet.id));
     }
 
-    await tx.update(cashoutRoundsTable).set({ status: "settled", settledAt: new Date() }).where(eq(cashoutRoundsTable.id, round.id));
+    await tx
+      .update(cashoutRoundsTable)
+      .set({ status: "settled", settledAt: new Date(), serverSeedReveal: plainSeed })
+      .where(eq(cashoutRoundsTable.id, round.id));
   }
 }
 
@@ -499,4 +503,40 @@ export async function cashoutBet(userId: number, betId: number): Promise<{ payou
     await settleCrashedRounds(tx);
     return cashoutBetInTx(tx, userId, betId);
   });
+}
+
+function computeCrashFromSeed(serverSeed: string, clientSeed: string): number {
+  const draw = (nonce: number) => fairFloatFromSeed({ serverSeed, clientSeed, nonce });
+  const r = draw(0);
+  if (r < 0.55) return round4(1.1 + draw(1) * 0.8);
+  if (r < 0.85) return round4(1.9 + draw(1) * 1.5);
+  if (r < 0.97) return round4(3.4 + draw(1) * 2.6);
+  return round4(6 + draw(1) * 4);
+}
+
+export async function verifyCashoutRound(roundId: number) {
+  const [round] = await db.select().from(cashoutRoundsTable).where(eq(cashoutRoundsTable.id, roundId)).limit(1);
+  if (!round) throw new Error("ROUND_NOT_FOUND");
+  const revealed = String(round.serverSeedReveal ?? "");
+  if (!revealed || revealed.startsWith("enc:")) {
+    return {
+      roundId,
+      revealed: false,
+      message: "Server seed is revealed only after settlement.",
+      serverSeedHash: round.serverSeedHash ?? null,
+      clientSeed: round.clientSeed ?? null,
+    };
+  }
+  const computedCrash = computeCrashFromSeed(revealed, String(round.clientSeed ?? ""));
+  return {
+    roundId,
+    revealed: true,
+    serverSeed: revealed,
+    serverSeedHash: round.serverSeedHash ?? null,
+    computedServerSeedHash: hashServerSeed(revealed),
+    clientSeed: round.clientSeed ?? null,
+    recordedCrashMultiplier: toNum(round.crashMultiplier),
+    computedCrashMultiplier: computedCrash,
+    matches: Math.abs(computedCrash - toNum(round.crashMultiplier)) < 0.0001,
+  };
 }

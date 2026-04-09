@@ -11,6 +11,7 @@ import {
   cashoutArenaBetApi,
   fetchCashoutArenaState,
   placeCashoutBetApi,
+  verifyCashoutRoundApi,
   type CashoutArenaState,
 } from "@/lib/cashout-arena-api";
 import { getCelebrationSoundEnabled, setCelebrationSoundEnabled } from "@/lib/celebration-preferences";
@@ -56,6 +57,7 @@ export default function CashoutArenaPage() {
   const prevMultiplierRef = useRef(1);
   const [bigWinFlash, setBigWinFlash] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(false);
 
   const streakGoal = 5;
   const missionGoal = 8;
@@ -572,6 +574,35 @@ export default function CashoutArenaPage() {
           <p>Client seed: <span className="font-mono text-foreground break-all">{data?.round.clientSeed ?? "pending"}</span></p>
           <p>Nonce: <span className="font-mono text-foreground">{String(data?.round.fairNonce ?? 0)}</span></p>
           <p>Revealed server seed: <span className="font-mono text-foreground break-all">{data?.round.revealedServerSeed ?? "revealed after round settles"}</span></p>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!data?.round.id || verifyLoading}
+            onClick={async () => {
+              if (!data?.round.id) return;
+              setVerifyLoading(true);
+              try {
+                const out = await verifyCashoutRoundApi(data.round.id);
+                if (!out.revealed) {
+                  toast({ title: "Not revealed yet", description: out.message ?? "Seed is revealed after settlement." });
+                } else {
+                  toast({
+                    title: out.matches ? "Round verified" : "Verification mismatch",
+                    description: out.matches
+                      ? `Crash ${out.recordedCrashMultiplier?.toFixed(4)}x matches computed ${out.computedCrashMultiplier?.toFixed(4)}x`
+                      : "Recorded and computed crash multipliers do not match.",
+                    variant: out.matches ? "default" : "destructive",
+                  });
+                }
+              } catch (e: any) {
+                toast({ title: "Verify failed", description: e?.message ?? "Could not verify this round.", variant: "destructive" });
+              } finally {
+                setVerifyLoading(false);
+              }
+            }}
+          >
+            {verifyLoading ? "Verifying..." : "Verify this round"}
+          </Button>
         </CardContent>
       </Card>
 
