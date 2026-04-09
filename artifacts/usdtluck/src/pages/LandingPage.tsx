@@ -6,7 +6,7 @@ import { useListWinners, useListPools } from "@workspace/api-client-react";
 import { apiUrl } from "@/lib/api-base";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { RecentPayouts } from "@/components/RecentPayouts";
-import { ShieldCheck, Moon, Sun, ArrowRight, Sparkles, Quote } from "lucide-react";
+import { ShieldCheck, ArrowRight, Sparkles, Quote } from "lucide-react";
 
 function useAnimatedInt(target: number, duration = 1200) {
   const [v, setV] = useState(0);
@@ -69,44 +69,6 @@ const heroVariants = [
   },
 ];
 
-function ThemeToggle() {
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
-
-  useEffect(() => {
-    const key = "sp_theme";
-    const saved = window.localStorage.getItem(key);
-    if (saved === "light") {
-      document.documentElement.classList.remove("dark");
-      setDark(false);
-      return;
-    }
-    if (saved === "dark") {
-      document.documentElement.classList.add("dark");
-      setDark(true);
-    }
-  }, []);
-
-  function toggleTheme() {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    window.localStorage.setItem("sp_theme", next ? "dark" : "light");
-  }
-
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      className="rounded-full border-border/70 bg-background/80 backdrop-blur"
-      onClick={toggleTheme}
-    >
-      {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-      <span>{dark ? "Light" : "Dark"}</span>
-    </Button>
-  );
-}
-
 function useNearViewport<T extends HTMLElement>(rootMargin = "240px") {
   const ref = useRef<T | null>(null);
   const [isNear, setIsNear] = useState(false);
@@ -146,6 +108,11 @@ export default function LandingPage() {
   } | null>(null);
   const [heroVariantIndex, setHeroVariantIndex] = useState(0);
   const [heroVariantForced, setHeroVariantForced] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+    window.localStorage.setItem("sp_theme", "dark");
+  }, []);
 
   useEffect(() => {
     fetch(apiUrl("/api/stats/summary"), { credentials: "include" })
@@ -208,14 +175,11 @@ export default function LandingPage() {
           <Link href="/" className="text-lg sm:text-xl font-display font-semibold tracking-tight">
             SecurePool
           </Link>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Link href="/login">
-              <Button variant="outline" size="sm" className="rounded-full">
-                Log in
-              </Button>
-            </Link>
-          </div>
+          <Link href="/login">
+            <Button variant="outline" size="sm" className="rounded-full">
+              Log in
+            </Button>
+          </Link>
         </div>
 
         <motion.div
