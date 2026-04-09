@@ -148,6 +148,7 @@ export default function DashboardPage() {
   const [comeback, setComeback] = useState<ActiveCouponJson | null>(null);
   const [simPools, setSimPools] = useState<SimulationPoolLite[]>([]);
   const [simEnabled, setSimEnabled] = useState(false);
+  const [simDisclosureRequired, setSimDisclosureRequired] = useState(true);
 
   const { data: pools, isLoading: poolsLoading } = useListPools();
   const { data: transactions } = useGetUserTransactions(user?.id ?? 0, {
@@ -198,10 +199,11 @@ export default function DashboardPage() {
       try {
         const res = await fetch(apiUrl("/api/simulation/state"), { credentials: "include" });
         if (!res.ok) return;
-        const j = (await res.json()) as { enabled?: boolean; pools?: SimulationPoolLite[] };
+        const j = (await res.json()) as { enabled?: boolean; pools?: SimulationPoolLite[]; disclosureRequired?: boolean };
         if (cancelled) return;
         setSimEnabled(Boolean(j.enabled));
         setSimPools(Array.isArray(j.pools) ? j.pools.slice(0, 5) : []);
+        setSimDisclosureRequired(j.disclosureRequired !== false);
       } catch {
         if (!cancelled) {
           setSimEnabled(false);
@@ -787,11 +789,13 @@ export default function DashboardPage() {
             <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold">Live demo pools</p>
-                <p className="text-[11px] text-muted-foreground">Public test rounds for product demonstration.</p>
+                {simDisclosureRequired ? <p className="text-[11px] text-muted-foreground">Public test rounds for product demonstration.</p> : null}
               </div>
-              <span className="rounded-full border border-violet-400/35 bg-violet-500/[0.12] px-2 py-0.5 text-[10px] font-medium text-violet-200">
-                Demo mode
-              </span>
+              {simDisclosureRequired ? (
+                <span className="rounded-full border border-violet-400/35 bg-violet-500/[0.12] px-2 py-0.5 text-[10px] font-medium text-violet-200">
+                  Demo mode
+                </span>
+              ) : null}
             </div>
             <ul className="divide-y divide-border/40">
               {simPools.map((p) => {

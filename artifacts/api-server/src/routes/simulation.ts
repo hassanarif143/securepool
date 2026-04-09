@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { requireAdmin } from "../middleware/auth";
+import { getAuthedUserId } from "../middleware/auth";
 import {
   createDailySimulationPools,
   forceCompleteSimulationPool,
@@ -24,18 +25,59 @@ function simModeEnabled() {
   return String(process.env.SIMULATION_MODE ?? "false").toLowerCase() === "true";
 }
 
-router.get("/state", async (_req, res) => {
+function simulationVisibility(): "public_demo" | "admin_only" | "beta_only" {
+  const raw = String(process.env.SIMULATION_VISIBILITY ?? "public_demo").toLowerCase().trim();
+  if (raw === "admin_only" || raw === "beta_only" || raw === "public_demo") return raw;
+  return "public_demo";
+}
+
+function parseBetaUserIds(): Set<number> {
+  const raw = String(process.env.SIMULATION_BETA_USER_IDS ?? "");
+  return new Set(
+    raw
+      .split(",")
+      .map((v) => parseInt(v.trim(), 10))
+      .filter((n) => Number.isFinite(n) && n > 0),
+  );
+}
+
+function canViewSimulation(req: any): boolean {
+  const mode = simulationVisibility();
+  if (mode === "public_demo") return true;
+  const uid = getAuthedUserId(req);
+  if (!uid) return false;
+  if (req?.isAdmin === true) return true;
+  if (mode === "admin_only") return false;
+  return parseBetaUserIds().has(uid);
+}
+
+function canHideDisclosure(req: any): boolean {
+  const practice = String(process.env.SIMULATION_PRACTICE_MODE ?? "false").toLowerCase() === "true";
+  if (!practice) return false;
+  if (String(process.env.NODE_ENV ?? "").toLowerCase() === "production") return false;
+  return canViewSimulation(req);
+}
+
+router.get("/state", async (req, res) => {
   if (!simModeEnabled()) {
-    res.json({ enabled: false, pools: [], events: [], stakes: [] });
+    res.json({ enabled: false, pools: [], events: [], stakes: [], canView: false, disclosureRequired: true });
+    return;
+  }
+  if (!canViewSimulation(req)) {
+    res.json({ enabled: false, pools: [], events: [], stakes: [], canView: false, disclosureRequired: true });
     return;
   }
   const cfg = await getSimulationConfig();
   const state = await getSimulationPublicState();
-  res.json({ enabled: cfg.enabled, ...state });
+  res.json({ enabled: cfg.enabled, ...state, canView: true, disclosureRequired: !canHideDisclosure(req) });
 });
 
 router.get("/stream", async (req, res) => {
   if (!simModeEnabled()) {
+    res.status(204).end();
+    return;
+  }
+  if (!canViewSimulation(req)) {
     res.status(204).end();
     return;
   }

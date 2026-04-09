@@ -35,6 +35,7 @@ function humanType(type: string) {
 export function ActivityFeed({ limit = 18, className = "" }: { limit?: number; className?: string }) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [disclosureRequired, setDisclosureRequired] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,6 +44,11 @@ export function ActivityFeed({ limit = 18, className = "" }: { limit?: number; c
         const r = await fetch(apiUrl(`/api/activity/feed?limit=${limit}`), { credentials: "include" });
         const j = r.ok ? ((await r.json()) as Item[]) : [];
         if (!cancelled) setItems(Array.isArray(j) ? j : []);
+        const simRes = await fetch(apiUrl("/api/simulation/state"), { credentials: "include" });
+        if (simRes.ok) {
+          const sim = (await simRes.json()) as { disclosureRequired?: boolean };
+          if (!cancelled) setDisclosureRequired(sim.disclosureRequired !== false);
+        }
       } catch {
         if (!cancelled) setItems([]);
       } finally {
@@ -106,9 +112,11 @@ export function ActivityFeed({ limit = 18, className = "" }: { limit?: number; c
         <p className="text-sm font-semibold">Live activity</p>
         <div className="flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Live + 15s sync</span>
-          <span className="rounded-full border border-violet-400/35 bg-violet-500/[0.12] px-2 py-0.5 text-[10px] font-medium text-violet-200">
-            Demo activity stream
-          </span>
+          {disclosureRequired ? (
+            <span className="rounded-full border border-violet-400/35 bg-violet-500/[0.12] px-2 py-0.5 text-[10px] font-medium text-violet-200">
+              Demo activity stream
+            </span>
+          ) : null}
         </div>
       </div>
       <ul className="max-h-[320px] overflow-y-auto divide-y divide-border/40">
@@ -119,7 +127,7 @@ export function ActivityFeed({ limit = 18, className = "" }: { limit?: number; c
           >
             <span className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${dot(it.type)}`} aria-hidden />
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">{humanType(it.type)}</p>
+              {disclosureRequired ? <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">{humanType(it.type)}</p> : null}
               <p className="text-foreground/95 leading-snug">{it.message}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">{timeAgo(it.createdAt)}</p>
             </div>

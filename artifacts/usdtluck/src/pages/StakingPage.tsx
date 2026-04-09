@@ -53,6 +53,7 @@ export default function StakingPage() {
     Array<{ id: number; displayName: string; principalAmount: number; rewardAccrued: number; progressPct: number; status: string; endsAt: string }>
   >([]);
   const [simEnabled, setSimEnabled] = useState(false);
+  const [simDisclosureRequired, setSimDisclosureRequired] = useState(true);
 
   async function refresh() {
     const [cfgRes, meRes] = await Promise.all([
@@ -82,10 +83,11 @@ export default function StakingPage() {
       try {
         const r = await fetch(apiUrl("/api/simulation/state"), { credentials: "include" });
         if (!r.ok) return;
-        const j = (await r.json()) as { enabled?: boolean; stakes?: any[] };
+        const j = (await r.json()) as { enabled?: boolean; stakes?: any[]; disclosureRequired?: boolean };
         if (cancelled) return;
         setSimEnabled(Boolean(j.enabled));
         setSimStakes(Array.isArray(j.stakes) ? j.stakes.slice(0, 8) : []);
+        setSimDisclosureRequired(j.disclosureRequired !== false);
       } catch {
         if (!cancelled) {
           setSimEnabled(false);
@@ -260,7 +262,7 @@ export default function StakingPage() {
       {simEnabled && simStakes.length > 0 && (
         <Card className="border-border/70">
           <CardHeader>
-            <CardTitle className="text-lg">Live demo staking activity</CardTitle>
+            <CardTitle className="text-lg">{simDisclosureRequired ? "Live demo staking activity" : "Live staking activity"}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {simStakes.map((s) => {
