@@ -1,6 +1,6 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,27 +9,28 @@ import { CelebrationProvider } from "@/context/CelebrationContext";
 import { useAuth } from "@/context/AuthContext";
 import { Layout } from "@/components/Layout";
 import { PageLoading } from "@/components/PageLoading";
-import NotFound from "@/pages/not-found";
-import LandingPage from "@/pages/LandingPage";
-import LoginPage from "@/pages/LoginPage";
-import SignupPage from "@/pages/SignupPage";
-import DashboardPage from "@/pages/DashboardPage";
-import PoolsPage from "@/pages/PoolsPage";
-import PoolDetailPage from "@/pages/PoolDetailPage";
-import WalletPage from "@/pages/WalletPage";
-import WinnersPage from "@/pages/WinnersPage";
-import ProfilePage from "@/pages/ProfilePage";
-import VerifyEmailPage from "@/pages/VerifyEmailPage";
-import AdminPage from "@/pages/AdminPage";
-import ReviewsPage from "@/pages/ReviewsPage";
-import HowItWorksPage from "@/pages/HowItWorksPage";
-import RewardsPage from "@/pages/RewardsPage";
-import StakingPage from "@/pages/StakingPage";
-import ReferralPage from "@/pages/ReferralPage";
-import MyTicketsPage from "@/pages/MyTicketsPage";
-import P2PTradingPage from "@/pages/P2PTradingPage";
-import CashoutArenaPage from "@/pages/CashoutArenaPage";
-import ScratchCardPage from "@/pages/ScratchCardPage";
+
+const NotFound = lazy(() => import("@/pages/not-found"));
+const LandingPage = lazy(() => import("@/pages/LandingPage"));
+const LoginPage = lazy(() => import("@/pages/LoginPage"));
+const SignupPage = lazy(() => import("@/pages/SignupPage"));
+const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+const PoolsPage = lazy(() => import("@/pages/PoolsPage"));
+const PoolDetailPage = lazy(() => import("@/pages/PoolDetailPage"));
+const WalletPage = lazy(() => import("@/pages/WalletPage"));
+const WinnersPage = lazy(() => import("@/pages/WinnersPage"));
+const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
+const VerifyEmailPage = lazy(() => import("@/pages/VerifyEmailPage"));
+const AdminPage = lazy(() => import("@/pages/AdminPage"));
+const ReviewsPage = lazy(() => import("@/pages/ReviewsPage"));
+const HowItWorksPage = lazy(() => import("@/pages/HowItWorksPage"));
+const RewardsPage = lazy(() => import("@/pages/RewardsPage"));
+const StakingPage = lazy(() => import("@/pages/StakingPage"));
+const ReferralPage = lazy(() => import("@/pages/ReferralPage"));
+const MyTicketsPage = lazy(() => import("@/pages/MyTicketsPage"));
+const P2PTradingPage = lazy(() => import("@/pages/P2PTradingPage"));
+const CashoutArenaPage = lazy(() => import("@/pages/CashoutArenaPage"));
+const ScratchCardPage = lazy(() => import("@/pages/ScratchCardPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -107,112 +108,114 @@ function Router() {
   return (
     <Layout>
       <PersistAndRestoreRoute />
-      <Switch>
-        <Route path="/" component={LandingPage} />
-        <Route path="/login">
-          <RequireGuest>
-            <LoginPage />
-          </RequireGuest>
-        </Route>
-        <Route path="/signup">
-          <RequireGuest>
-            <SignupPage />
-          </RequireGuest>
-        </Route>
+      <Suspense fallback={<PageLoading />}>
+        <Switch>
+          <Route path="/" component={LandingPage} />
+          <Route path="/login">
+            <RequireGuest>
+              <LoginPage />
+            </RequireGuest>
+          </Route>
+          <Route path="/signup">
+            <RequireGuest>
+              <SignupPage />
+            </RequireGuest>
+          </Route>
 
-        <Route path="/dashboard">
-          <RequireAuth>
-            <DashboardPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/pools">
-          <RequireAuth>
-            <PoolsPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/pools/:poolId">
-          <RequireAuth>
-            <PoolDetailPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/wallet">
-          <RequireAuth>
-            <WalletPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/upload">
-          <RequireAuth>
-            <RedirectToWalletTab tab="deposit" />
-          </RequireAuth>
-        </Route>
-        <Route path="/deposit">
-          <RequireAuth>
-            <RedirectToWalletTab tab="deposit" />
-          </RequireAuth>
-        </Route>
-        <Route path="/winners">
-          <RequireAuth>
-            <WinnersPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/profile">
-          <RequireAuth>
-            <ProfilePage />
-          </RequireAuth>
-        </Route>
-        <Route path="/verify-email">
-          <RequireAuth>
-            <VerifyEmailPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/admin">
-          <RequireAuth>
-            <AdminPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/reviews">
-          <RequireAuth>
-            <ReviewsPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/staking">
-          <RequireAuth>
-            <StakingPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/referral">
-          <RequireAuth>
-            <ReferralPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/rewards">
-          <RequireAuth>
-            <RewardsPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/my-tickets">
-          <RequireAuth>
-            <MyTicketsPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/p2p">
-          <RequireAuth>
-            <P2PTradingPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/cashout-arena">
-          <RequireAuth>
-            <CashoutArenaPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/scratch-card">
-          <RequireAuth>
-            <ScratchCardPage />
-          </RequireAuth>
-        </Route>
-        <Route path="/how-it-works" component={HowItWorksPage} />
-        <Route component={NotFound} />
-      </Switch>
+          <Route path="/dashboard">
+            <RequireAuth>
+              <DashboardPage />
+            </RequireAuth>
+          </Route>
+          <Route path="/pools">
+            <RequireAuth>
+              <PoolsPage />
+            </RequireAuth>
+          </Route>
+          <Route path="/pools/:poolId">
+            <RequireAuth>
+              <PoolDetailPage />
+            </RequireAuth>
+          </Route>
+          <Route path="/wallet">
+            <RequireAuth>
+              <WalletPage />
+            </RequireAuth>
+          </Route>
+          <Route path="/upload">
+            <RequireAuth>
+              <RedirectToWalletTab tab="deposit" />
+            </RequireAuth>
+          </Route>
+          <Route path="/deposit">
+            <RequireAuth>
+              <RedirectToWalletTab tab="deposit" />
+            </RequireAuth>
+          </Route>
+          <Route path="/winners">
+            <RequireAuth>
+              <WinnersPage />
+            </RequireAuth>
+          </Route>
+          <Route path="/profile">
+            <RequireAuth>
+              <ProfilePage />
+            </RequireAuth>
+          </Route>
+          <Route path="/verify-email">
+            <RequireAuth>
+              <VerifyEmailPage />
+            </RequireAuth>
+          </Route>
+          <Route path="/admin">
+            <RequireAuth>
+              <AdminPage />
+            </RequireAuth>
+          </Route>
+          <Route path="/reviews">
+            <RequireAuth>
+              <ReviewsPage />
+            </RequireAuth>
+          </Route>
+          <Route path="/staking">
+            <RequireAuth>
+              <StakingPage />
+            </RequireAuth>
+          </Route>
+          <Route path="/referral">
+            <RequireAuth>
+              <ReferralPage />
+            </RequireAuth>
+          </Route>
+          <Route path="/rewards">
+            <RequireAuth>
+              <RewardsPage />
+            </RequireAuth>
+          </Route>
+          <Route path="/my-tickets">
+            <RequireAuth>
+              <MyTicketsPage />
+            </RequireAuth>
+          </Route>
+          <Route path="/p2p">
+            <RequireAuth>
+              <P2PTradingPage />
+            </RequireAuth>
+          </Route>
+          <Route path="/cashout-arena">
+            <RequireAuth>
+              <CashoutArenaPage />
+            </RequireAuth>
+          </Route>
+          <Route path="/scratch-card">
+            <RequireAuth>
+              <ScratchCardPage />
+            </RequireAuth>
+          </Route>
+          <Route path="/how-it-works" component={HowItWorksPage} />
+          <Route component={NotFound} />
+        </Switch>
+      </Suspense>
     </Layout>
   );
 }
