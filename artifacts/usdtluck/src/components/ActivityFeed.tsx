@@ -14,7 +14,6 @@ function timeAgo(iso: string) {
 }
 
 function dot(type: string) {
-  if (type.startsWith("simulation.")) return "bg-violet-400";
   if (type === "user_joined") return "bg-emerald-400";
   if (type === "pool_filled") return "bg-sky-400";
   if (type === "winner_drawn") return "bg-amber-400";
@@ -23,19 +22,12 @@ function dot(type: string) {
 }
 
 function humanType(type: string) {
-  if (type === "simulation.user_joined") return "Demo join";
-  if (type === "simulation.winner_announced") return "Demo winner";
-  if (type === "simulation.pool_completed") return "Demo pool result";
-  if (type === "simulation.pool_active") return "Demo pool live";
-  if (type === "simulation.started") return "Demo started";
-  if (type === "simulation.stopped") return "Demo stopped";
   return type.replaceAll("_", " ");
 }
 
 export function ActivityFeed({ limit = 18, className = "" }: { limit?: number; className?: string }) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
-  const [disclosureRequired, setDisclosureRequired] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,12 +35,8 @@ export function ActivityFeed({ limit = 18, className = "" }: { limit?: number; c
       try {
         const r = await fetch(apiUrl(`/api/activity/feed?limit=${limit}`), { credentials: "include" });
         const j = r.ok ? ((await r.json()) as Item[]) : [];
-        if (!cancelled) setItems(Array.isArray(j) ? j : []);
-        const simRes = await fetch(apiUrl("/api/simulation/state"), { credentials: "include" });
-        if (simRes.ok) {
-          const sim = (await simRes.json()) as { disclosureRequired?: boolean };
-          if (!cancelled) setDisclosureRequired(sim.disclosureRequired !== false);
-        }
+        const cleaned = (Array.isArray(j) ? j : []).filter((it) => !String(it.type ?? "").startsWith("simulation."));
+        if (!cancelled) setItems(cleaned);
       } catch {
         if (!cancelled) setItems([]);
       } finally {
@@ -60,32 +48,6 @@ export function ActivityFeed({ limit = 18, className = "" }: { limit?: number; c
     return () => {
       cancelled = true;
       clearInterval(id);
-    };
-  }, [limit]);
-
-  useEffect(() => {
-    const es = new EventSource(apiUrl("/api/simulation/stream"), { withCredentials: true });
-    es.onmessage = (evt) => {
-      try {
-        const parsed = JSON.parse(evt.data) as { type?: string; message?: string; createdAt?: string };
-        if (!parsed?.message || !parsed?.type) return;
-        const synthetic: Item = {
-          id: Date.now() + Math.floor(Math.random() * 1000),
-          type: parsed.type,
-          message: parsed.message,
-          createdAt: parsed.createdAt ?? new Date().toISOString(),
-          metadata: null,
-        };
-        setItems((prev) => [synthetic, ...prev].slice(0, limit));
-      } catch {
-        // no-op
-      }
-    };
-    es.onerror = () => {
-      es.close();
-    };
-    return () => {
-      es.close();
     };
   }, [limit]);
 
@@ -112,11 +74,6 @@ export function ActivityFeed({ limit = 18, className = "" }: { limit?: number; c
         <p className="text-sm font-semibold">Live activity</p>
         <div className="flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Live + 15s sync</span>
-          {disclosureRequired ? (
-            <span className="rounded-full border border-violet-400/35 bg-violet-500/[0.12] px-2 py-0.5 text-[10px] font-medium text-violet-200">
-              Demo activity stream
-            </span>
-          ) : null}
         </div>
       </div>
       <ul className="max-h-[320px] overflow-y-auto divide-y divide-border/40">
@@ -127,7 +84,7 @@ export function ActivityFeed({ limit = 18, className = "" }: { limit?: number; c
           >
             <span className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${dot(it.type)}`} aria-hidden />
             <div className="min-w-0 flex-1">
-              {disclosureRequired ? <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">{humanType(it.type)}</p> : null}
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">{humanType(it.type)}</p>
               <p className="text-foreground/95 leading-snug">{it.message}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">{timeAgo(it.createdAt)}</p>
             </div>

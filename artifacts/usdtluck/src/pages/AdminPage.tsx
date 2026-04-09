@@ -144,6 +144,10 @@ function SimulationTab() {
   const [createMaxPoolSize, setCreateMaxPoolSize] = useState(10);
   const [createMinWinners, setCreateMinWinners] = useState(2);
   const [createMaxWinners, setCreateMaxWinners] = useState(3);
+  const [createOpenDelaySec, setCreateOpenDelaySec] = useState(30);
+  const [createCloseAfterSec, setCreateCloseAfterSec] = useState(180);
+  const [createFillDelaySec, setCreateFillDelaySec] = useState(5);
+  const [stakeSequence, setStakeSequence] = useState("100@0,1000@2");
 
   async function loadAll() {
     setLoading(true);
@@ -215,6 +219,7 @@ function SimulationTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           dailyPoolCount: Number(cfg.dailyPoolCount),
+          poolsEnabled: Boolean(cfg.poolsEnabled),
           minPoolSize: Number(cfg.minPoolSize),
           maxPoolSize: Number(cfg.maxPoolSize),
           minWinnersCount: Number(cfg.minWinnersCount),
@@ -292,6 +297,12 @@ function SimulationTab() {
 
           <div className="grid md:grid-cols-2 gap-3">
             <NumberField label="Daily pools count" value={cfg.dailyPoolCount} onChange={(v) => setCfg({ ...cfg, dailyPoolCount: v })} />
+            <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+              <p className="text-xs text-muted-foreground">Pool simulation engine</p>
+              <Button variant={cfg.poolsEnabled ? "default" : "outline"} size="sm" onClick={() => setCfg({ ...cfg, poolsEnabled: !cfg.poolsEnabled })}>
+                {cfg.poolsEnabled ? "Enabled" : "Disabled"}
+              </Button>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Quick daily presets</Label>
               <div className="flex gap-2">
@@ -299,7 +310,7 @@ function SimulationTab() {
                 <Button type="button" size="sm" variant="outline" onClick={() => setCfg({ ...cfg, dailyPoolCount: 10 })}>10 pools/day</Button>
               </div>
             </div>
-            <NumberField label="Simulated ticket price (USDT)" value={cfg.simulatedTicketPrice} onChange={(v) => setCfg({ ...cfg, simulatedTicketPrice: v })} />
+            <NumberField label="Default ticket price (USDT)" value={cfg.simulatedTicketPrice} onChange={(v) => setCfg({ ...cfg, simulatedTicketPrice: v })} />
             <div className="space-y-1.5">
               <Label className="text-xs">Ticket tiers (comma separated)</Label>
               <Input
@@ -329,7 +340,7 @@ function SimulationTab() {
             <NumberField label="Stake start delay max (sec)" value={cfg.stakingMaxStartDelaySec} onChange={(v) => setCfg({ ...cfg, stakingMaxStartDelaySec: v })} />
           </div>
           <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2">
-            <p className="text-xs text-muted-foreground">Enable demo staking stream</p>
+            <p className="text-xs text-muted-foreground">Staking simulation engine</p>
             <Button variant={cfg.stakingEnabled ? "default" : "outline"} size="sm" onClick={() => setCfg({ ...cfg, stakingEnabled: !cfg.stakingEnabled })}>
               {cfg.stakingEnabled ? "Enabled" : "Disabled"}
             </Button>
@@ -371,6 +382,9 @@ function SimulationTab() {
                       maxPoolSize: createMaxPoolSize,
                       minWinnersCount: createMinWinners,
                       maxWinnersCount: createMaxWinners,
+                      openDelaySec: createOpenDelaySec,
+                      closeAfterSec: createCloseAfterSec,
+                      fillDelaySec: createFillDelaySec,
                     });
                   }}
                 >
@@ -386,6 +400,9 @@ function SimulationTab() {
                 <Input type="number" value={createMaxPoolSize} onChange={(e) => setCreateMaxPoolSize(Number(e.target.value || 0))} placeholder="Max size" />
                 <Input type="number" value={createMinWinners} onChange={(e) => setCreateMinWinners(Number(e.target.value || 0))} placeholder="Min winners" />
                 <Input type="number" value={createMaxWinners} onChange={(e) => setCreateMaxWinners(Number(e.target.value || 0))} placeholder="Max winners" />
+                <Input type="number" value={createOpenDelaySec} onChange={(e) => setCreateOpenDelaySec(Number(e.target.value || 0))} placeholder="Open after sec" />
+                <Input type="number" value={createCloseAfterSec} onChange={(e) => setCreateCloseAfterSec(Number(e.target.value || 0))} placeholder="Close after sec" />
+                <Input type="number" value={createFillDelaySec} onChange={(e) => setCreateFillDelaySec(Number(e.target.value || 0))} placeholder="Fill tick sec" />
               </div>
             </div>
             <div className="space-y-2">
@@ -393,6 +410,29 @@ function SimulationTab() {
               <div className="flex gap-2">
                 <Input type="number" value={8} disabled />
                 <Button disabled={busy} onClick={() => void post("/api/simulation/admin/spawn-stakes", { count: 8 })}>Spawn</Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Scripted staking activity (amount@delaySec)</Label>
+              <div className="flex gap-2">
+                <Input value={stakeSequence} onChange={(e) => setStakeSequence(e.target.value)} placeholder="100@0,1000@2,50@4" />
+                <Button
+                  disabled={busy}
+                  onClick={() => {
+                    const items = stakeSequence
+                      .split(",")
+                      .map((part) => part.trim())
+                      .filter(Boolean)
+                      .map((part) => {
+                        const [amountRaw, delayRaw] = part.split("@");
+                        return { amount: Number(amountRaw), delaySec: Number(delayRaw ?? 0) };
+                      })
+                      .filter((x) => Number.isFinite(x.amount) && x.amount > 0 && Number.isFinite(x.delaySec) && x.delaySec >= 0);
+                    void post("/api/simulation/admin/spawn-stake-sequence", { items });
+                  }}
+                >
+                  Run
+                </Button>
               </div>
             </div>
           </div>

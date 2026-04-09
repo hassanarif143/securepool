@@ -22,6 +22,7 @@ export const simulationPoolStatusEnum = pgEnum("simulation_pool_status", [
 export const simulationConfigTable = pgTable("simulation_config", {
   id: serial("id").primaryKey(),
   enabled: boolean("enabled").notNull().default(false),
+  poolsEnabled: boolean("pools_enabled").notNull().default(true),
   dailyPoolCount: integer("daily_pool_count").notNull().default(5),
   minPoolSize: integer("min_pool_size").notNull().default(5),
   maxPoolSize: integer("max_pool_size").notNull().default(10),
@@ -80,6 +81,7 @@ export const simulationPoolsTable = pgTable("simulation_pools", {
   startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
   endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
   nextJoinAt: timestamp("next_join_at", { withTimezone: true }),
+  joinDelaySec: integer("join_delay_sec").notNull().default(5),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   stoppedAt: timestamp("stopped_at", { withTimezone: true }),
   isManual: boolean("is_manual").notNull().default(false),

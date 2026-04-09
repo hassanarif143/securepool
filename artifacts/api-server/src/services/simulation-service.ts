@@ -11,7 +11,6 @@ import {
   simulationWinnersTable,
 } from "@workspace/db";
 import { and, asc, desc, eq, gte, lte, ne, sql } from "drizzle-orm";
-import { logActivity } from "./activity-service";
 
 type SimPoolStatus = "pending" | "active" | "completed" | "stopped";
 type SimStakeStatus = "active" | "completed" | "stopped";
@@ -104,13 +103,6 @@ async function emitSimulationEvent(input: {
     payload: input.payload ?? {},
   };
   eventBus.emit("simulation:event", shaped);
-
-  await logActivity({
-    type: input.type,
-    message: input.message,
-    poolId: input.poolId ?? null,
-    metadata: { simulation: true, ...(input.payload ?? {}) },
-  });
 }
 
 export function onSimulationEvent(listener: (evt: SimulationEventPayload) => void) {
@@ -172,6 +164,7 @@ type ManualPoolInput = {
   platformFeeBps: number;
   startsAt: Date;
   endsAt: Date;
+  joinDelaySec?: number;
   isManual?: boolean;
   adminId?: number;
 };
@@ -189,6 +182,7 @@ async function createSimulationPool(input: ManualPoolInput) {
       startsAt: input.startsAt,
       endsAt: input.endsAt,
       nextJoinAt: input.startsAt,
+      joinDelaySec: Math.max(1, Math.min(120, Math.floor(input.joinDelaySec ?? 5))),
       isManual: input.isManual ?? false,
       createdByAdminId: input.adminId,
     })
@@ -212,6 +206,9 @@ export async function createDailySimulationPools(
     maxPoolSize?: number;
     minWinnersCount?: number;
     maxWinnersCount?: number;
+    openDelaySec?: number;
+    closeAfterSec?: number;
+    fillDelaySec?: number;
   },
 ) {
   const cfg = await ensureConfigRow();
@@ -224,13 +221,16 @@ export async function createDailySimulationPools(
     options?.entryAmounts && options.entryAmounts.length > 0
       ? Array.from(new Set(options.entryAmounts.map((n) => round2(Number(n))).filter((n) => Number.isFinite(n) && n >= 0.1)))
       : [];
+  const openDelaySec = Math.max(0, Math.min(3600, Math.floor(options?.openDelaySec ?? 0)));
+  const closeAfterSec = Math.max(0, Math.min(7200, Math.floor(options?.closeAfterSec ?? 0)));
+  const fillDelaySec = Math.max(0, Math.min(120, Math.floor(options?.fillDelaySec ?? 0)));
   const now = new Date();
   const made: number[] = [];
 
   for (let i = 0; i < safe; i++) {
-    const startOffsetSec = randomInt(20, 120) + i * randomInt(25, 70);
+    const startOffsetSec = openDelaySec > 0 ? openDelaySec + i * 2 : randomInt(20, 120) + i * randomInt(25, 70);
     const startsAt = new Date(now.getTime() + startOffsetSec * 1000);
-    const durationSec = randBetween(cfg.minPoolDurationSec, cfg.maxPoolDurationSec);
+    const durationSec = closeAfterSec > 0 ? closeAfterSec : randBetween(cfg.minPoolDurationSec, cfg.maxPoolDurationSec);
     const endsAt = new Date(startsAt.getTime() + durationSec * 1000);
     const p = await createSimulationPool({
       poolSize: randBetween(poolMin, poolMax),
@@ -239,6 +239,7 @@ export async function createDailySimulationPools(
       platformFeeBps: cfg.simulatedPlatformFeeBps,
       startsAt,
       endsAt,
+      joinDelaySec: fillDelaySec > 0 ? fillDelaySec : randBetween(cfg.minJoinDelaySec, cfg.maxJoinDelaySec),
       isManual: true,
       adminId,
     });
@@ -255,6 +256,7 @@ function dayBounds(d = new Date()) {
 
 async function ensureDailyPools() {
   const cfg = await ensureConfigRow();
+  if (!cfg.poolsEnabled) return;
   const { start, end } = dayBounds();
   const [row] = await db
     .select({ c: sql<number>`count(*)::int` })
@@ -267,6 +269,8 @@ async function ensureDailyPools() {
 }
 
 async function activatePendingPools(now: Date) {
+  const cfg = await ensureConfigRow();
+  if (!cfg.poolsEnabled) return;
   const pending = await db
     .select()
     .from(simulationPoolsTable)
@@ -326,7 +330,7 @@ async function joinOneFakeUser(poolId: number) {
       .update(simulationPoolsTable)
       .set({
         totalJoined: sql`${simulationPoolsTable.totalJoined} + 1`,
-        nextJoinAt: new Date(Date.now() + randBetween(2, 10) * 1000),
+        nextJoinAt: new Date(Date.now() + Math.max(1, Number(pool.joinDelaySec ?? 5)) * 1000),
       })
       .where(eq(simulationPoolsTable.id, poolId));
   });
@@ -541,6 +545,69 @@ export async function spawnDemoStakes(count: number) {
   return true;
 }
 
+export async function spawnDemoStakeSequence(items: Array<{ amount: number; delaySec: number }>) {
+  const cfg = await ensureConfigRow();
+  if (!cfg.stakingEnabled) {
+    await db.update(simulationConfigTable).set({ stakingEnabled: true, updatedAt: new Date() }).where(eq(simulationConfigTable.id, 1));
+  }
+  const safeItems = items
+    .map((x) => ({
+      amount: round2(Math.max(0.1, Number(x.amount))),
+      delaySec: Math.max(0, Math.min(600, Math.floor(Number(x.delaySec)))),
+    }))
+    .filter((x) => Number.isFinite(x.amount) && Number.isFinite(x.delaySec))
+    .slice(0, 50);
+  if (safeItems.length === 0) return { created: 0 };
+
+  const users = await db
+    .select()
+    .from(simulationUsersTable)
+    .where(and(eq(simulationUsersTable.isTest, true), eq(simulationUsersTable.isActive, true)))
+    .limit(800);
+  const activeStakeUsers = await db
+    .select({ userId: simulationStakesTable.simulationUserId })
+    .from(simulationStakesTable)
+    .where(eq(simulationStakesTable.status, "active"));
+  const used = new Set(activeStakeUsers.map((r) => r.userId));
+  const now = Date.now();
+  let created = 0;
+
+  for (const item of safeItems) {
+    const eligible = users.filter((u) => !used.has(u.id) && toNum(u.simulatedBalance) >= item.amount);
+    if (eligible.length === 0) continue;
+    const pick = eligible[randomInt(0, eligible.length)];
+    used.add(pick.id);
+    const durationSec = randBetween(cfg.stakingMinDurationSec, cfg.stakingMaxDurationSec);
+    const rewardRateBps = randBetween(cfg.stakingRewardRateMinBps, cfg.stakingRewardRateMaxBps);
+    const startsAt = new Date(now + item.delaySec * 1000);
+    const endsAt = new Date(startsAt.getTime() + durationSec * 1000);
+    const rewardTarget = round2((item.amount * rewardRateBps) / 10000);
+    const nextBal = round2(toNum(pick.simulatedBalance) - item.amount);
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(simulationUsersTable)
+        .set({ simulatedBalance: String(nextBal), updatedAt: new Date() })
+        .where(eq(simulationUsersTable.id, pick.id));
+      await tx.insert(simulationStakesTable).values({
+        simulationUserId: pick.id,
+        principalAmount: String(item.amount),
+        rewardRateBps,
+        platformFeeBps: cfg.stakingPlatformFeeBps,
+        durationSec,
+        rewardTarget: String(rewardTarget),
+        rewardAccrued: "0",
+        progressPct: "0",
+        startsAt,
+        endsAt,
+        nextProgressAt: new Date(startsAt.getTime() + randBetween(3, 9) * 1000),
+      });
+    });
+    created += 1;
+  }
+  return { created };
+}
+
 async function advanceDemoStakes(now: Date) {
   const active = await db
     .select()
@@ -631,22 +698,24 @@ async function runSimulationTick() {
   if (!cfg.enabled) return;
 
   const now = new Date();
-  if (Date.now() - lastDailyEnsureAt > 60_000) {
-    lastDailyEnsureAt = Date.now();
-    await ensureDailyPools();
-  }
-
-  await activatePendingPools(now);
-
-  const activePools = await db.select().from(simulationPoolsTable).where(eq(simulationPoolsTable.status, "active")).limit(50);
-  for (const p of activePools) {
-    const done = p.totalJoined >= p.poolSize || p.endsAt.getTime() <= now.getTime();
-    if (done) {
-      await completePool(p.id);
-      continue;
+  if (cfg.poolsEnabled) {
+    if (Date.now() - lastDailyEnsureAt > 60_000) {
+      lastDailyEnsureAt = Date.now();
+      await ensureDailyPools();
     }
-    if (!p.nextJoinAt || p.nextJoinAt.getTime() <= now.getTime()) {
-      await joinOneFakeUser(p.id);
+
+    await activatePendingPools(now);
+
+    const activePools = await db.select().from(simulationPoolsTable).where(eq(simulationPoolsTable.status, "active")).limit(50);
+    for (const p of activePools) {
+      const done = p.totalJoined >= p.poolSize || p.endsAt.getTime() <= now.getTime();
+      if (done) {
+        await completePool(p.id);
+        continue;
+      }
+      if (!p.nextJoinAt || p.nextJoinAt.getTime() <= now.getTime()) {
+        await joinOneFakeUser(p.id);
+      }
     }
   }
 
@@ -701,6 +770,7 @@ export async function resetSimulationData() {
 }
 
 export async function updateSimulationConfig(input: {
+  poolsEnabled?: boolean;
   dailyPoolCount?: number;
   minPoolSize?: number;
   maxPoolSize?: number;

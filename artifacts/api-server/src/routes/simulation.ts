@@ -17,6 +17,7 @@ import {
   onSimulationEvent,
   resetSimulationData,
   setSimulationEnabled,
+  spawnDemoStakeSequence,
   spawnDemoStakes,
   updateSimulationConfig,
 } from "../services/simulation-service";
@@ -56,7 +57,7 @@ function canViewSimulation(req: any): boolean {
 function canHideDisclosure(req: any): boolean {
   const practice = String(process.env.SIMULATION_PRACTICE_MODE ?? "false").toLowerCase() === "true";
   if (!practice) return false;
-  if (String(process.env.NODE_ENV ?? "").toLowerCase() === "production") return false;
+  if (simulationVisibility() === "public_demo") return false;
   return canViewSimulation(req);
 }
 
@@ -120,6 +121,7 @@ router.patch("/admin/config", requireAdmin, async (req, res) => {
   const parsed = z
     .object({
       dailyPoolCount: z.number().int().min(1).max(20).optional(),
+      poolsEnabled: z.boolean().optional(),
       minPoolSize: z.number().int().min(2).max(30).optional(),
       maxPoolSize: z.number().int().min(2).max(30).optional(),
       minWinnersCount: z.number().int().min(1).max(10).optional(),
@@ -197,6 +199,9 @@ router.post("/admin/create-pools", requireAdmin, async (req, res) => {
       maxPoolSize: z.number().int().min(2).max(50).optional(),
       minWinnersCount: z.number().int().min(1).max(10).optional(),
       maxWinnersCount: z.number().int().min(1).max(10).optional(),
+      openDelaySec: z.number().int().min(1).max(3600).optional(),
+      closeAfterSec: z.number().int().min(30).max(7200).optional(),
+      fillDelaySec: z.number().int().min(1).max(120).optional(),
     })
     .safeParse(req.body ?? {});
   if (!parsed.success) {
@@ -209,6 +214,9 @@ router.post("/admin/create-pools", requireAdmin, async (req, res) => {
     maxPoolSize: parsed.data.maxPoolSize,
     minWinnersCount: parsed.data.minWinnersCount,
     maxWinnersCount: parsed.data.maxWinnersCount,
+    openDelaySec: parsed.data.openDelaySec,
+    closeAfterSec: parsed.data.closeAfterSec,
+    fillDelaySec: parsed.data.fillDelaySec,
   });
   res.json({ poolIds: ids });
 });
@@ -225,6 +233,24 @@ router.post("/admin/spawn-stakes", requireAdmin, async (req, res) => {
   }
   await spawnDemoStakes(parsed.data.count ?? 8);
   res.json({ ok: true });
+});
+
+router.post("/admin/spawn-stake-sequence", requireAdmin, async (req, res) => {
+  if (!simModeEnabled()) {
+    res.status(400).json({ error: "SIMULATION_MODE_DISABLED", message: "Set SIMULATION_MODE=true in backend env first." });
+    return;
+  }
+  const parsed = z
+    .object({
+      items: z.array(z.object({ amount: z.number().min(0.1).max(100000), delaySec: z.number().int().min(0).max(600) })).min(1).max(50),
+    })
+    .safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "VALIDATION_ERROR", message: parsed.error.message });
+    return;
+  }
+  const out = await spawnDemoStakeSequence(parsed.data.items);
+  res.json(out);
 });
 
 router.post("/admin/reset", requireAdmin, async (_req, res) => {
