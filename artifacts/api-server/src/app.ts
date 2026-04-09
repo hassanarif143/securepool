@@ -50,6 +50,16 @@ app.use(
   helmet({
     // Railway / Vercel already terminate TLS; enable HSTS only in prod
     hsts: process.env.NODE_ENV === "production",
+    frameguard: { action: "deny" },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'none'"],
+        formAction: ["'self'"],
+      },
+    },
     crossOriginResourcePolicy: { policy: "cross-origin" }, // allow serving /uploads
   }),
 );

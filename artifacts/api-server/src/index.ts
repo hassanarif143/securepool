@@ -5,6 +5,7 @@ import { runPendingSqlMigrations } from "./runMigrations";
 import { logger } from "./lib/logger";
 import { scheduleExpiredPoolJob } from "./lib/pool-auto-close";
 import { scheduleEngagementJobs } from "./lib/engagement-scheduler";
+import { assertSecurityStartupRequirements } from "./lib/security";
 
 process.on("unhandledRejection", (reason: unknown) => {
   logger.warn({ reason }, "[process] unhandledRejection");
@@ -32,6 +33,7 @@ if (Number.isNaN(port) || port <= 0) {
 async function main() {
   logConfiguredEnv();
   await runPendingSqlMigrations();
+  await assertSecurityStartupRequirements();
   const { default: app } = await import("./app");
   app.listen(port, (err?: Error) => {
     if (err) {

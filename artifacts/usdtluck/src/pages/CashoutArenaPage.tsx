@@ -563,6 +563,18 @@ export default function CashoutArenaPage() {
         </Card>
       </div>
 
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Provably Fair</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1 text-xs text-muted-foreground">
+          <p>Server seed hash: <span className="font-mono text-foreground break-all">{data?.round.serverSeedHash ?? "pending"}</span></p>
+          <p>Client seed: <span className="font-mono text-foreground break-all">{data?.round.clientSeed ?? "pending"}</span></p>
+          <p>Nonce: <span className="font-mono text-foreground">{String(data?.round.fairNonce ?? 0)}</span></p>
+          <p>Revealed server seed: <span className="font-mono text-foreground break-all">{data?.round.revealedServerSeed ?? "revealed after round settles"}</span></p>
+        </CardContent>
+      </Card>
+
       <div className="rounded-xl border border-destructive/20 bg-destructive/[0.06] px-4 py-3 text-sm flex items-start gap-2">
         <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
         Cash out manually or set auto-cashout. Missing the crash loses stake. Play responsibly.

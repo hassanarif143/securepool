@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, numeric, timestamp, pgEnum, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, numeric, timestamp, pgEnum, boolean, text } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
 export const cashoutRoundStatusEnum = pgEnum("cashout_round_status", ["running", "crashed", "settled"]);
@@ -8,6 +8,10 @@ export const cashoutBoostTypeEnum = pgEnum("cashout_boost_type", ["shield", "slo
 export const cashoutRoundsTable = pgTable("cashout_rounds", {
   id: serial("id").primaryKey(),
   status: cashoutRoundStatusEnum("status").notNull().default("running"),
+  serverSeedHash: text("server_seed_hash"),
+  serverSeedReveal: text("server_seed_reveal"),
+  clientSeed: text("client_seed"),
+  nonce: integer("nonce").notNull().default(0),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
   crashAt: timestamp("crash_at", { withTimezone: true }).notNull(),
   crashMultiplier: numeric("crash_multiplier", { precision: 12, scale: 4 }).notNull(),

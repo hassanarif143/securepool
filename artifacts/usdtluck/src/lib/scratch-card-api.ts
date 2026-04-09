@@ -1,7 +1,16 @@
 import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
 
 export type ScratchCardState = {
-  round: { id: string; endsAt: number; targetMarginBps: number; maxPotentialMultiplier: number };
+  round: {
+    id: string;
+    serverSeedHash?: string | null;
+    clientSeed?: string | null;
+    fairNonce?: number;
+    revealedServerSeed?: string | null;
+    endsAt: number;
+    targetMarginBps: number;
+    maxPotentialMultiplier: number;
+  };
   wallet: { withdrawableBalance: number; nonWithdrawableBalance: number; lockedBalance: number };
   activeCard: {
     id: string;

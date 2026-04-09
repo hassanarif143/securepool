@@ -17,7 +17,9 @@ export async function verifyRequestSignature(req: Request, res: Response, next: 
   const timestamp = String(req.header("x-request-timestamp") ?? "");
   const signature = String(req.header("x-request-signature") ?? "");
   const secret = process.env.REQUEST_HMAC_SECRET ?? "";
-  if (!secret) return next();
+  if (!secret) {
+    return res.status(503).json({ error: "SIGNATURE_SECRET_MISSING" });
+  }
 
   if (!timestamp || !signature) {
     await logSecurityEvent({
@@ -37,7 +39,12 @@ export async function verifyRequestSignature(req: Request, res: Response, next: 
   }
 
   const expected = crypto.createHmac("sha256", secret).update(buildCanonical(req, timestamp)).digest("hex");
-  const ok = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  const expectedBuf = Buffer.from(expected);
+  const providedBuf = Buffer.from(signature);
+  if (expectedBuf.length !== providedBuf.length) {
+    return res.status(401).json({ error: "INVALID_SIGNATURE" });
+  }
+  const ok = crypto.timingSafeEqual(expectedBuf, providedBuf);
   if (!ok) {
     await logSecurityEvent({
       userId: Number((req as any).user?.id ?? req.session?.userId ?? 0) || null,

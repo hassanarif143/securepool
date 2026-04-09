@@ -2849,6 +2849,7 @@ const PatchSecurityConfigBody = z.object({
       p2pEnabled: z.boolean().optional(),
       poolsEnabled: z.boolean().optional(),
       requireRequestSignature: z.boolean().optional(),
+      emailSecurityEnabled: z.boolean().optional(),
     })
     .optional(),
 });

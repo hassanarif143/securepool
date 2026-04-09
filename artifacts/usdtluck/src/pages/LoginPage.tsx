@@ -7,7 +7,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { apiUrl } from "@/lib/api-base";
-import { setSessionAccessToken } from "@/lib/auth-token";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -60,25 +59,15 @@ export default function LoginPage() {
         return;
       }
 
-      const bearer = typeof (data as any).token === "string" ? (data as any).token : null;
-      if (bearer) {
-        setSessionAccessToken(bearer);
-        try {
-          await queryClient.fetchQuery({
-            queryKey: getGetMeQueryKey(),
-            queryFn: ({ signal }) => getMe({ signal }),
-          });
-        } catch {
-          toast({
-            title: "Could not sync session",
-            description: "Try refreshing the page. Redeploy API + frontend if needed.",
-            variant: "destructive",
-          });
-        }
-      } else {
+      try {
+        await queryClient.fetchQuery({
+          queryKey: getGetMeQueryKey(),
+          queryFn: ({ signal }) => getMe({ signal }),
+        });
+      } catch {
         toast({
-          title: "Auth token missing from server",
-          description: "Redeploy Railway API from latest GitHub main.",
+          title: "Could not sync session",
+          description: "Try refreshing the page. If this persists, check cookie/session settings.",
           variant: "destructive",
         });
       }

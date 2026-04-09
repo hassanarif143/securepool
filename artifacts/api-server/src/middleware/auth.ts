@@ -7,9 +7,7 @@ export type AuthedRequest = Request & { userId?: number; isAdmin?: boolean };
 
 export function getAuthedUserId(req: Request): number {
   const r = req as AuthedRequest;
-  const sid = (req as any).session?.userId;
-  const sessionId = typeof sid === "number" && sid > 0 ? sid : undefined;
-  const id = r.userId ?? sessionId;
+  const id = r.userId;
   return typeof id === "number" && id > 0 ? id : 0;
 }
 
@@ -22,30 +20,12 @@ function applyJwtPayload(req: AuthedRequest, payload: { sub: string; isAdmin?: b
 }
 
 export function attachAuth(req: AuthedRequest, _res: Response, next: NextFunction) {
-  const sessionUserId = (req as any).session?.userId;
-  if (typeof sessionUserId === "number") {
-    req.userId = sessionUserId;
-  }
-
   const cookieToken = (req as any).cookies?.[getJwtCookieName()];
   if (typeof cookieToken === "string" && cookieToken.length > 0) {
     try {
       applyJwtPayload(req, verifyUserJwt(cookieToken));
     } catch {
       // ignore invalid token
-    }
-  }
-
-  // Vercel→Railway: HttpOnly cookie often not stored cross-site; SPA sends same JWT in Authorization.
-  const authz = req.get("authorization");
-  if (typeof authz === "string" && authz.toLowerCase().startsWith("bearer ")) {
-    const raw = authz.slice(7).trim();
-    if (raw.length > 0) {
-      try {
-        applyJwtPayload(req, verifyUserJwt(raw));
-      } catch {
-        // ignore invalid bearer
-      }
     }
   }
 

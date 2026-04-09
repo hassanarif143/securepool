@@ -13,7 +13,7 @@ import { sanitizeText } from "../lib/sanitize";
 import { logger } from "../lib/logger";
 import { getOrCreateCsrfToken } from "../middleware/csrf";
 import { trc20AddressZod } from "../lib/trc20";
-import { applyRiskDelta, extractClientIp, logSecurityEvent, registerDeviceLogin } from "../lib/security";
+import { applyRiskDelta, extractClientIp, getSecurityConfig, logSecurityEvent, registerDeviceLogin } from "../lib/security";
 
 declare module "express-session" {
   interface SessionData {
@@ -449,6 +449,18 @@ router.get("/otp-status", async (req, res) => {
     return;
   }
   try {
+    const cfg = await getSecurityConfig();
+    if (!cfg.featureFlags.emailSecurityEnabled) {
+      res.json({
+        emailVerified: true,
+        hasPendingOtp: false,
+        expiresAt: null,
+        resendAvailableAt: null,
+        verifyBlockedUntil: null,
+        disabled: true,
+      });
+      return;
+    }
     const status = await getOtpStatus(userId);
     res.json(status);
   } catch (err) {
@@ -461,6 +473,11 @@ router.post("/send-otp", async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const cfg = await getSecurityConfig();
+  if (!cfg.featureFlags.emailSecurityEnabled) {
+    res.status(503).json({ error: "EMAIL_SECURITY_DISABLED", message: "Email OTP is disabled by admin." });
     return;
   }
   const parse = SendOtpSchema.safeParse(req.body ?? {});
@@ -498,6 +515,11 @@ router.post("/resend-otp", async (req, res) => {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
+  const cfg = await getSecurityConfig();
+  if (!cfg.featureFlags.emailSecurityEnabled) {
+    res.status(503).json({ error: "EMAIL_SECURITY_DISABLED", message: "Email OTP is disabled by admin." });
+    return;
+  }
   const result = await issueOtpEmail(userId, { skipMinInterval: false });
   if (!result.ok) {
     const status =
@@ -522,6 +544,11 @@ router.post("/verify-otp", async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const cfg = await getSecurityConfig();
+  if (!cfg.featureFlags.emailSecurityEnabled) {
+    res.status(503).json({ error: "EMAIL_SECURITY_DISABLED", message: "Email OTP is disabled by admin." });
     return;
   }
   const parse = VerifyOtpSchema.safeParse(req.body ?? {});

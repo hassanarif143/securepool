@@ -3,6 +3,10 @@ import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
 export type CashoutArenaState = {
   round: {
     id: string;
+    serverSeedHash?: string | null;
+    clientSeed?: string | null;
+    fairNonce?: number;
+    revealedServerSeed?: string | null;
     startedAt: number;
     crashAt: number;
     multiplier: number;

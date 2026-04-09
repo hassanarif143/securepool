@@ -9,6 +9,7 @@ import {
 import { and, desc, eq, inArray, lt, lte, sql } from "drizzle-orm";
 import { appendDepositFromTicketPurchase, appendWithdrawalForPayout } from "./admin-wallet-service";
 import { mirrorAvailableFromUser } from "./user-wallet-service";
+import { fairFloatFromSeed, hashServerSeed, makeClientSeed, makeServerSeed } from "../lib/provably-fair";
 
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -32,12 +33,23 @@ function round4(n: number): number {
   return Math.round(n * 10000) / 10000;
 }
 
-function randomCrashMultiplier(): number {
-  const r = Math.random();
-  if (r < 0.55) return round4(1.1 + Math.random() * 0.8);
-  if (r < 0.85) return round4(1.9 + Math.random() * 1.5);
-  if (r < 0.97) return round4(3.4 + Math.random() * 2.6);
-  return round4(6 + Math.random() * 4);
+async function nextRoundRandom(tx: DbTx, round: typeof cashoutRoundsTable.$inferSelect): Promise<number> {
+  const serverSeed = String(round.serverSeedReveal ?? "");
+  const clientSeed = String(round.clientSeed ?? "");
+  if (!serverSeed || !clientSeed) return 0.5;
+  const nonce = Number(round.nonce ?? 0);
+  const value = fairFloatFromSeed({ serverSeed, clientSeed, nonce });
+  await tx.update(cashoutRoundsTable).set({ nonce: nonce + 1 }).where(eq(cashoutRoundsTable.id, round.id));
+  (round as typeof round & { nonce: number }).nonce = nonce + 1;
+  return value;
+}
+
+async function randomCrashMultiplier(tx: DbTx, round: typeof cashoutRoundsTable.$inferSelect): Promise<number> {
+  const r = await nextRoundRandom(tx, round);
+  if (r < 0.55) return round4(1.1 + (await nextRoundRandom(tx, round)) * 0.8);
+  if (r < 0.85) return round4(1.9 + (await nextRoundRandom(tx, round)) * 1.5);
+  if (r < 0.97) return round4(3.4 + (await nextRoundRandom(tx, round)) * 2.6);
+  return round4(6 + (await nextRoundRandom(tx, round)) * 4);
 }
 
 function effectiveMultiplier(raw: number, bet: typeof cashoutBetsTable.$inferSelect): number {
@@ -100,20 +112,36 @@ async function getOrCreateRunningRound(tx: DbTx): Promise<typeof cashoutRoundsTa
     .limit(1);
   if (running) return running;
 
-  const crashMultiplier = randomCrashMultiplier();
+  const serverSeed = makeServerSeed();
+  const clientSeed = makeClientSeed();
+  const [seeded] = await tx
+    .insert(cashoutRoundsTable)
+    .values({
+      status: "running",
+      serverSeedHash: hashServerSeed(serverSeed),
+      serverSeedReveal: serverSeed,
+      clientSeed,
+      nonce: 0,
+      startedAt: now,
+      crashAt: new Date(now.getTime() + 8_000),
+      crashMultiplier: "1.1000",
+      maxCashoutMultiplier: "1.0700",
+      targetMarginBps: TARGET_MARGIN_BPS,
+    })
+    .returning();
+  const crashMultiplier = await randomCrashMultiplier(tx, seeded);
   const secsToCrash = Math.log(crashMultiplier) / ROUND_GROWTH_K;
   const crashAt = new Date(now.getTime() + Math.max(6000, Math.min(18000, Math.round(secsToCrash * 1000))));
   const maxCashoutMultiplier = Math.max(1.01, round4(crashMultiplier - 0.03));
   const [created] = await tx
-    .insert(cashoutRoundsTable)
-    .values({
-      status: "running",
-      startedAt: now,
+    .update(cashoutRoundsTable)
+    .set({
       crashAt,
       crashMultiplier: String(crashMultiplier),
       maxCashoutMultiplier: String(maxCashoutMultiplier),
-      targetMarginBps: TARGET_MARGIN_BPS,
+      nonce: Number((seeded as any).nonce ?? 0),
     })
+    .where(eq(cashoutRoundsTable.id, seeded.id))
     .returning();
   return created;
 }
@@ -359,6 +387,10 @@ export async function getCashoutArenaState(userId: number) {
     return {
       round: {
         id: String(round.id),
+        serverSeedHash: round.serverSeedHash ?? null,
+        clientSeed: round.clientSeed ?? null,
+        fairNonce: Number(round.nonce ?? 0),
+        revealedServerSeed: round.status === "settled" ? (round.serverSeedReveal ?? null) : null,
         startedAt: new Date(round.startedAt).getTime(),
         crashAt: new Date(round.crashAt).getTime(),
         multiplier: nowMult,

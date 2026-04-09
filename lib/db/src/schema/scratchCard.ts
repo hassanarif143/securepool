@@ -1,4 +1,4 @@
-import { pgEnum, pgTable, serial, integer, numeric, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgEnum, pgTable, serial, integer, numeric, timestamp, boolean, jsonb, text } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
 export const scratchRoundStatusEnum = pgEnum("scratch_round_status", ["running", "settled"]);
@@ -7,6 +7,10 @@ export const scratchCardStatusEnum = pgEnum("scratch_card_status", ["active", "w
 export const scratchRoundsTable = pgTable("scratch_rounds", {
   id: serial("id").primaryKey(),
   status: scratchRoundStatusEnum("status").notNull().default("running"),
+  serverSeedHash: text("server_seed_hash"),
+  serverSeedReveal: text("server_seed_reveal"),
+  clientSeed: text("client_seed"),
+  nonce: integer("nonce").notNull().default(0),
   targetMarginBps: integer("target_margin_bps").notNull().default(1200),
   maxPayoutMultiplier: numeric("max_payout_multiplier", { precision: 12, scale: 4 }).notNull().default("4.0000"),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),

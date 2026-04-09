@@ -21,6 +21,7 @@ type SecurityConfig = {
     p2pEnabled: boolean;
     poolsEnabled: boolean;
     requireRequestSignature: boolean;
+    emailSecurityEnabled: boolean;
   };
 };
 
@@ -43,6 +44,7 @@ const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
     p2pEnabled: true,
     poolsEnabled: true,
     requireRequestSignature: false,
+    emailSecurityEnabled: false,
   },
 };
 
@@ -83,10 +85,21 @@ export async function getSecurityConfig(): Promise<SecurityConfig> {
         f.requireRequestSignature == null
           ? DEFAULT_SECURITY_CONFIG.featureFlags.requireRequestSignature
           : Boolean(f.requireRequestSignature),
+      emailSecurityEnabled:
+        f.emailSecurityEnabled == null
+          ? DEFAULT_SECURITY_CONFIG.featureFlags.emailSecurityEnabled
+          : Boolean(f.emailSecurityEnabled),
     },
   };
   configCache = { value: cfg, at: now };
   return cfg;
+}
+
+export async function assertSecurityStartupRequirements(): Promise<void> {
+  const cfg = await getSecurityConfig();
+  if (cfg.featureFlags.requireRequestSignature && !process.env.REQUEST_HMAC_SECRET) {
+    throw new Error("Security startup check failed: REQUEST_HMAC_SECRET is required when request signature is enabled.");
+  }
 }
 
 export async function logSecurityEvent(input: {

@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, useLayoutEffect, ReactNode } from "react";
 import { useGetMe, useLogout } from "@workspace/api-client-react";
-import { setSessionAccessToken } from "@/lib/auth-token";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
@@ -101,13 +100,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function logout() {
     logoutMutation.mutate(undefined, {
       onSuccess: () => {
-        setSessionAccessToken(null);
         setUser(null);
         queryClient.clear();
         navigate("/login");
       },
       onError: () => {
-        setSessionAccessToken(null);
         setUser(null);
         queryClient.clear();
         navigate("/login");

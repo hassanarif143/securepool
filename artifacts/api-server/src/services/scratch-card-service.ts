@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { db, scratchCardsTable, scratchRoundsTable, transactionsTable, usersTable } from "@workspace/db";
 import { appendDepositFromTicketPurchase, appendWithdrawalForPayout } from "./admin-wallet-service";
 import { mirrorAvailableFromUser } from "./user-wallet-service";
+import { fairFloatFromSeed, hashServerSeed, makeClientSeed, makeServerSeed } from "../lib/provably-fair";
 
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -25,8 +26,19 @@ function round2(n: number): number {
 function round4(n: number): number {
   return Math.round(n * 10000) / 10000;
 }
-function pick<T>(arr: readonly T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)] as T;
+async function nextRoundRandom(tx: DbTx, round: typeof scratchRoundsTable.$inferSelect): Promise<number> {
+  const serverSeed = String(round.serverSeedReveal ?? "");
+  const clientSeed = String(round.clientSeed ?? "");
+  if (!serverSeed || !clientSeed) return 0.5;
+  const nonce = Number(round.nonce ?? 0);
+  const value = fairFloatFromSeed({ serverSeed, clientSeed, nonce });
+  await tx.update(scratchRoundsTable).set({ nonce: nonce + 1 }).where(eq(scratchRoundsTable.id, round.id));
+  (round as typeof round & { nonce: number }).nonce = nonce + 1;
+  return value;
+}
+
+async function pick<T>(tx: DbTx, round: typeof scratchRoundsTable.$inferSelect, arr: readonly T[]): Promise<T> {
+  return arr[Math.floor((await nextRoundRandom(tx, round)) * arr.length)] as T;
 }
 
 async function lockScratch(tx: DbTx): Promise<void> {
@@ -93,10 +105,16 @@ async function getOrCreateRound(tx: DbTx) {
     .orderBy(desc(scratchRoundsTable.id))
     .limit(1);
   if (running) return running;
+  const serverSeed = makeServerSeed();
+  const clientSeed = makeClientSeed();
   const [created] = await tx
     .insert(scratchRoundsTable)
     .values({
       status: "running",
+      serverSeedHash: hashServerSeed(serverSeed),
+      serverSeedReveal: serverSeed,
+      clientSeed,
+      nonce: 0,
       targetMarginBps: TARGET_MARGIN_BPS,
       maxPayoutMultiplier: "4.0000",
       startedAt: now,
@@ -125,17 +143,26 @@ async function roundPool(tx: DbTx, roundId: number): Promise<{ stake: number; pa
   return { stake: toNum(agg?.stake), paid: toNum(agg?.paid) };
 }
 
-function buildSymbols(boxCount: number, required: number, multiplier: number): { symbols: string[]; winSymbol: string | null; rare: boolean } {
-  const symbols: string[] = Array.from({ length: boxCount }, () => String(pick(SYMBOLS)));
+async function buildSymbols(
+  tx: DbTx,
+  round: typeof scratchRoundsTable.$inferSelect,
+  boxCount: number,
+  required: number,
+  multiplier: number,
+): Promise<{ symbols: string[]; winSymbol: string | null; rare: boolean }> {
+  const symbols: string[] = [];
+  for (let i = 0; i < boxCount; i++) symbols.push(String(await pick(tx, round, SYMBOLS)));
   if (multiplier <= 1.0001) {
-    const miss = pick(SYMBOLS);
+    const miss = await pick(tx, round, SYMBOLS);
     for (let i = 0; i < Math.min(required - 1, boxCount); i++) symbols[i] = miss;
     return { symbols, winSymbol: null, rare: false };
   }
-  const rare = multiplier >= 3.5 && Math.random() < RARE_HIT_CHANCE;
-  const winSymbol = rare ? RARE_SYMBOL : pick(SYMBOLS);
+  const rare = multiplier >= 3.5 && (await nextRoundRandom(tx, round)) < RARE_HIT_CHANCE;
+  const winSymbol = rare ? RARE_SYMBOL : await pick(tx, round, SYMBOLS);
   for (let i = 0; i < required; i++) symbols[i] = winSymbol;
-  return { symbols: symbols.sort(() => Math.random() - 0.5), winSymbol, rare };
+  const decorated = await Promise.all(symbols.map(async (s) => ({ s, w: await nextRoundRandom(tx, round) })));
+  decorated.sort((a, b) => a.w - b.w);
+  return { symbols: decorated.map((d) => d.s), winSymbol, rare };
 }
 
 async function settleExpiredCards(tx: DbTx): Promise<void> {
@@ -153,18 +180,18 @@ async function settleExpiredCards(tx: DbTx): Promise<void> {
   }
 }
 
-function chooseBaseMultiplier(onboarding: boolean): number {
-  const r = Math.random();
+async function chooseBaseMultiplier(tx: DbTx, round: typeof scratchRoundsTable.$inferSelect, onboarding: boolean): Promise<number> {
+  const r = await nextRoundRandom(tx, round);
   if (onboarding) {
     // Trust-building phase: keep first rounds mostly positive, mostly small wins.
-    if (r < 0.7) return round4(1.12 + Math.random() * 0.24);
-    if (r < 0.94) return round4(1.35 + Math.random() * 0.5);
-    return round4(1.9 + Math.random() * 0.8);
+    if (r < 0.7) return round4(1.12 + (await nextRoundRandom(tx, round)) * 0.24);
+    if (r < 0.94) return round4(1.35 + (await nextRoundRandom(tx, round)) * 0.5);
+    return round4(1.9 + (await nextRoundRandom(tx, round)) * 0.8);
   }
   if (r < 0.66) return 0;
-  if (r < 0.91) return round4(1.06 + Math.random() * 0.6);
-  if (r < 0.985) return round4(1.7 + Math.random() * 1.5);
-  return round4(3.4 + Math.random() * 1.5);
+  if (r < 0.91) return round4(1.06 + (await nextRoundRandom(tx, round)) * 0.6);
+  if (r < 0.985) return round4(1.7 + (await nextRoundRandom(tx, round)) * 1.5);
+  return round4(3.4 + (await nextRoundRandom(tx, round)) * 1.5);
 }
 
 export async function getScratchCardState(userId: number) {
@@ -216,6 +243,10 @@ export async function getScratchCardState(userId: number) {
     return {
       round: {
         id: String(round.id),
+        serverSeedHash: round.serverSeedHash ?? null,
+        clientSeed: round.clientSeed ?? null,
+        fairNonce: Number(round.nonce ?? 0),
+        revealedServerSeed: round.status === "settled" ? (round.serverSeedReveal ?? null) : null,
         endsAt: new Date(round.endsAt).getTime(),
         targetMarginBps: round.targetMarginBps,
         maxPotentialMultiplier: toNum(round.maxPayoutMultiplier),
@@ -293,14 +324,16 @@ export async function buyScratchCard(
     const maxPayoutPool = totalStakeAfter * (1 - round.targetMarginBps / 10000);
     const remainingPool = Math.max(0, maxPayoutPool - pool.paid);
     const hardCapMultiplier = Math.max(0, Math.min(toNum(round.maxPayoutMultiplier), remainingPool / Math.max(0.0001, stake)));
-    const raw = chooseBaseMultiplier(onboarding);
+    const raw = await chooseBaseMultiplier(tx, round, onboarding);
     const boosted = input.multiplierBoost ? raw + 0.2 : raw;
     const payoutMultiplier = round4(Math.min(Math.max(onboarding ? 1.04 : 0, boosted), hardCapMultiplier));
     const finalMultiplier = payoutMultiplier < 1.01 ? 0 : payoutMultiplier;
-    const { symbols, winSymbol, rare } = buildSymbols(boxCount, requiredMatches, finalMultiplier);
+    const { symbols, winSymbol, rare } = await buildSymbols(tx, round, boxCount, requiredMatches, finalMultiplier);
     const revealed = Array.from({ length: boxCount }, () => false);
 
-    if (input.extraReveal && boxCount > 0) revealed[Math.floor(Math.random() * boxCount)] = true;
+    if (input.extraReveal && boxCount > 0) {
+      revealed[Math.floor((await nextRoundRandom(tx, round)) * boxCount)] = true;
+    }
 
     await debitWithdrawable(tx, userId, totalDebit);
     await appendDepositFromTicketPurchase(tx, {

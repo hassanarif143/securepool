@@ -33,30 +33,42 @@ export function issueCsrfToken(req: Request, res: Response, next: NextFunction) 
   next();
 }
 
-/** Cookie-authenticated admin actions; SPA on another origin often fails header↔cookie CSRF match. */
-function isAdminTransactionAction(path: string) {
-  return /^\/api\/admin\/transactions\/\d+\/(approve|reject|complete)$/.test(path);
+function normalizeOrigin(value: string): string {
+  return value.trim().replace(/\/+$/, "");
 }
 
-/**
- * Vercel (or any) → Railway: `sp_csrf` often does not round-trip cross-site, so header ≠ regenerated cookie → 403.
- * CORS + credentials already scope who can call these; exempt auth POSTs from double-submit CSRF.
- */
-function isCrossOriginSafeAuthPost(path: string, method: string) {
-  if (method !== "POST") return false;
-  return /^\/api\/auth\/(signup|login|send-otp|resend-otp|verify-otp|logout)$/.test(path);
+function getAllowedOrigins(req: Request): Set<string> {
+  const values = [
+    process.env.FRONTEND_URL,
+    process.env.FRONTEND_ORIGIN,
+    process.env.CORS_ORIGIN,
+    `${req.protocol}://${req.get("host") ?? ""}`,
+  ].filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+  return new Set(values.map(normalizeOrigin));
+}
+
+function isSameAllowedOrigin(req: Request): boolean {
+  const origin = req.get("origin");
+  const referer = req.get("referer");
+  const allowed = getAllowedOrigins(req);
+  if (allowed.size === 0) return false;
+  if (origin && allowed.has(normalizeOrigin(origin))) return true;
+  if (referer) {
+    try {
+      const refererOrigin = new URL(referer).origin;
+      if (allowed.has(normalizeOrigin(refererOrigin))) return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 export function csrfProtection(req: Request, res: Response, next: NextFunction) {
   const method = req.method.toUpperCase();
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") return next();
-
-  const pathOnly = req.originalUrl.split("?")[0];
-  if (method === "POST" && isAdminTransactionAction(pathOnly)) {
-    return next();
-  }
-  if (isCrossOriginSafeAuthPost(pathOnly, method)) {
-    return next();
+  if (!isSameAllowedOrigin(req)) {
+    return res.status(403).json({ error: "Invalid origin or referer" });
   }
 
   const cookieToken = ensureCsrfCookie(req, res);

@@ -340,14 +340,14 @@ router.get("/stream", async (req, res) => {
   });
 });
 
-router.post("/orders/:orderId/mark-paid", async (req, res) => {
+router.post("/orders/:orderId/mark-paid", strictFinancialLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
   if (!(await assertEmailVerified(res, userId))) return;
-  const orderId = parseInt(req.params.orderId, 10);
+  const orderId = parseInt(String(req.params.orderId), 10);
   if (Number.isNaN(orderId)) {
     res.status(400).json({ error: "Invalid order" });
     return;
@@ -361,14 +361,14 @@ router.post("/orders/:orderId/mark-paid", async (req, res) => {
   }
 });
 
-router.post("/orders/:orderId/release", async (req, res) => {
+router.post("/orders/:orderId/release", strictFinancialLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
   if (!(await assertEmailVerified(res, userId))) return;
-  const orderId = parseInt(req.params.orderId, 10);
+  const orderId = parseInt(String(req.params.orderId), 10);
   if (Number.isNaN(orderId)) {
     res.status(400).json({ error: "Invalid order" });
     return;
@@ -382,14 +382,14 @@ router.post("/orders/:orderId/release", async (req, res) => {
   }
 });
 
-router.post("/orders/:orderId/cancel", async (req, res) => {
+router.post("/orders/:orderId/cancel", strictFinancialLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
   if (!(await assertEmailVerified(res, userId))) return;
-  const orderId = parseInt(req.params.orderId, 10);
+  const orderId = parseInt(String(req.params.orderId), 10);
   if (Number.isNaN(orderId)) {
     res.status(400).json({ error: "Invalid order" });
     return;
@@ -403,14 +403,14 @@ router.post("/orders/:orderId/cancel", async (req, res) => {
   }
 });
 
-router.post("/orders/:orderId/messages", async (req, res) => {
+router.post("/orders/:orderId/messages", strictFinancialLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
   if (!(await assertEmailVerified(res, userId))) return;
-  const orderId = parseInt(req.params.orderId, 10);
+  const orderId = parseInt(String(req.params.orderId), 10);
   if (Number.isNaN(orderId)) {
     res.status(400).json({ error: "Invalid order" });
     return;
@@ -449,14 +449,14 @@ const AppealBody = z.object({
   screenshots: z.array(z.string()).max(8).optional(),
 });
 
-router.post("/orders/:orderId/appeals", async (req, res) => {
+router.post("/orders/:orderId/appeals", strictFinancialLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
   if (!(await assertEmailVerified(res, userId))) return;
-  const orderId = parseInt(req.params.orderId, 10);
+  const orderId = parseInt(String(req.params.orderId), 10);
   if (Number.isNaN(orderId)) {
     res.status(400).json({ error: "Invalid order" });
     return;

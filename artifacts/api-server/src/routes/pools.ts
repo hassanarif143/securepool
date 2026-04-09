@@ -13,7 +13,7 @@ import {
   pool as pgPool,
 } from "@workspace/db";
 import { poolTicketsTable } from "@workspace/db/schema";
-import { eq, and, desc, asc, count } from "drizzle-orm";
+import { eq, and, desc, asc, count, sql } from "drizzle-orm";
 import {
   deductForPoolEntry,
   distributeWinnings,
@@ -1103,6 +1103,30 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
     let fromPointsUsdt = 0;
     let fromWithdrawable = 0;
     await db.transaction(async (trx) => {
+      // Serialize joins per pool to prevent ticket oversell under concurrency.
+      await trx.execute(sql`SELECT pg_advisory_xact_lock(${poolId})`);
+      const [poolLock] = await trx
+        .select({ id: poolsTable.id, status: poolsTable.status, isFrozen: poolsTable.isFrozen })
+        .from(poolsTable)
+        .where(eq(poolsTable.id, poolId))
+        .limit(1);
+      if (!poolLock || poolLock.status !== "open" || poolLock.isFrozen) {
+        const e = new Error("POOL_NOT_OPEN");
+        (e as { code?: string }).code = "POOL_NOT_OPEN";
+        throw e;
+      }
+      const [freshTickets] = await trx
+        .select({ c: count() })
+        .from(poolTicketsTable)
+        .where(eq(poolTicketsTable.poolId, poolId));
+      const freshSlotsLeft = totalTickets - Number(freshTickets?.c ?? 0);
+      if (freshSlotsLeft <= 0) {
+        const e = new Error("POOL_FULL");
+        (e as { code?: string }).code = "POOL_FULL";
+        throw e;
+      }
+      ticketQty = Math.min(ticketQty, freshSlotsLeft);
+
       if (useFreeEntry) {
         await trx
           .update(usersTable)
@@ -1198,6 +1222,10 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
     const code = (err as { code?: string })?.code ?? "";
     if (code === "LUCKY_NUMBER_EXHAUSTED") {
       res.status(503).json({ error: (err as Error).message });
+      return;
+    }
+    if (code === "POOL_FULL" || code === "POOL_NOT_OPEN") {
+      res.status(400).json({ error: code === "POOL_FULL" ? "Pool is full" : "Pool is not open for joining" });
       return;
     }
     if (code === "INSUFFICIENT_BALANCE" || code === "INSUFFICIENT_BUCKET_BALANCE") {

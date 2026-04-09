@@ -6,8 +6,13 @@ export const idempotencyKeysTable = pgTable("idempotency_keys", {
   key: text("key").notNull(),
   userId: integer("user_id").notNull().references(() => usersTable.id),
   endpoint: text("endpoint").notNull(),
+  state: text("state").notNull().default("in_progress"),
+  lockToken: text("lock_token"),
   statusCode: integer("status_code"),
   responseCache: jsonb("response_cache").$type<Record<string, unknown>>(),
+  errorCache: jsonb("error_cache").$type<Record<string, unknown>>(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -83,6 +88,7 @@ export const securityConfigTable = pgTable("security_config", {
       p2pEnabled: boolean;
       poolsEnabled: boolean;
       requireRequestSignature: boolean;
+      emailSecurityEnabled: boolean;
     }>()
     .notNull()
     .default({
@@ -90,6 +96,7 @@ export const securityConfigTable = pgTable("security_config", {
       p2pEnabled: true,
       poolsEnabled: true,
       requireRequestSignature: false,
+      emailSecurityEnabled: false,
     }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
