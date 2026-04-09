@@ -16,6 +16,7 @@ import {
   Trophy,
   ArrowDownToLine,
   HelpCircle,
+  CheckCircle2,
 } from "lucide-react";
 import {
   Accordion,
@@ -25,7 +26,7 @@ import {
 } from "@/components/ui/accordion";
 import { PlatformFeeRuleExplainer } from "@/components/PlatformFeeRuleExplainer";
 
-const fade = { initial: { opacity: 0, y: 12 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true }, transition: { duration: 0.45 } };
+const fade = {};
 
 const steps = [
   { n: 1, icon: "👤", title: "Create Your Account", desc: "Sign up with email and password. It's free and takes about 30 seconds." },
@@ -78,41 +79,71 @@ export default function HowItWorksPage() {
   const parallaxY = Math.min(120, scrollY * 0.14);
 
   return (
-    <div className="relative max-w-5xl mx-auto space-y-10 sm:space-y-14 pb-16 px-3 sm:px-0">
+    <div className="relative overflow-hidden max-w-6xl mx-auto space-y-10 sm:space-y-14 pb-16 px-4 sm:px-6">
       <div
         aria-hidden
-        className="pointer-events-none absolute -inset-x-16 -inset-y-24 -z-10"
+        className="pointer-events-none absolute -inset-x-16 -inset-y-24"
         style={{
           transform: `translate3d(0, ${parallaxY * -1}px, 0)`,
           background:
             "radial-gradient(circle at 16% 8%, hsl(var(--primary)/0.2), transparent 30%), radial-gradient(circle at 82% 12%, hsl(28 90% 58%/0.2), transparent 32%), radial-gradient(circle at 50% 62%, hsl(210 85% 60%/0.12), transparent 42%), linear-gradient(180deg, hsl(224 30% 8%), hsl(224 30% 7%) 44%, hsl(224 30% 6%) 100%)",
         }}
       />
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute -top-20 -left-24 h-72 w-72 rounded-full bg-primary/20 blur-3xl"
+        animate={{ x: [0, 22, 0], y: [0, 12, 0], opacity: [0.3, 0.45, 0.3] }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute top-40 -right-24 h-80 w-80 rounded-full bg-orange-400/15 blur-3xl"
+        animate={{ x: [0, -24, 0], y: [0, -14, 0], opacity: [0.28, 0.42, 0.28] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+      />
 
-      <motion.section {...fade} className="text-center pt-2 sm:pt-4 rounded-3xl border border-border/70 bg-card/60 backdrop-blur px-4 py-8 sm:px-8 sm:py-10 shadow-[0_20px_44px_-34px_rgba(0,0,0,0.85)]">
-        <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary mb-3">
-          <Sparkles className="h-3.5 w-3.5" />
-          SecurePool guide
-        </p>
-        <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4 leading-tight">How SecurePool Works</h1>
-        <p className="text-sm sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed px-1 sm:px-0">
-          Simple, transparent, and built for trust. Here&apos;s the full flow in easy language.
-        </p>
-        <div className="mt-5 flex flex-wrap justify-center gap-2">
-          {["Published winner records", "Clear wallet history", "TRC-20 support", "Admin-verified payouts"].map((item) => (
-            <span key={item} className="rounded-full border border-border/70 bg-background/60 px-3 py-1 text-xs text-muted-foreground">
+      <motion.section
+        {...fade}
+        className="relative pt-2 sm:pt-4 rounded-3xl border border-border/70 bg-card/60 backdrop-blur px-4 py-6 sm:px-8 sm:py-10 shadow-[0_20px_44px_-34px_rgba(0,0,0,0.85)]"
+      >
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="inline-flex items-center gap-2 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.16em] text-primary mb-3">
+            <Sparkles className="h-3.5 w-3.5" />
+            SecurePool guide
+          </p>
+          <h1 className="font-display text-[1.65rem] sm:text-4xl md:text-5xl font-bold tracking-tight mb-3 leading-[1.15]">
+            How SecurePool Works
+          </h1>
+          <p className="text-sm sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed px-1 sm:px-0">
+            Simple, transparent, and easy to follow. Learn the full flow in under one minute.
+          </p>
+        </div>
+
+        <div className="mt-5 sm:mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {["Winner records", "Wallet history", "TRC-20 support", "Verified payouts"].map((item) => (
+            <div
+              key={item}
+              className="rounded-xl border border-border/70 bg-background/55 px-2.5 py-2 text-[11px] sm:text-xs text-muted-foreground text-center"
+            >
               {item}
-            </span>
+            </div>
           ))}
         </div>
-        <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <Link href="/signup">
-            <Button size="lg" className="font-semibold" style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}>
+
+        <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row sm:justify-center gap-2.5 sm:gap-3">
+          <Link href="/signup" className="w-full sm:w-auto">
+            <Button
+              size="lg"
+              className="w-full sm:w-auto min-w-[11rem] font-semibold"
+              style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
+            >
               Get started
             </Button>
           </Link>
-          <Link href="/">
-            <Button size="lg" variant="outline">Back home</Button>
+          <Link href="/" className="w-full sm:w-auto">
+            <Button size="lg" variant="outline" className="w-full sm:w-auto min-w-[11rem]">
+              Back home
+            </Button>
           </Link>
         </div>
       </motion.section>
@@ -174,9 +205,7 @@ export default function HowItWorksPage() {
         <p className="text-sm text-muted-foreground text-center mb-6 max-w-xl mx-auto leading-relaxed">
           A small platform fee applies on each join (and the same rule applies to what you get back if you don&apos;t win). Here&apos;s the rule in plain language.
         </p>
-        <div className="rounded-2xl border border-border/70 bg-card/55 p-3 sm:p-4">
-          <PlatformFeeRuleExplainer variant="full" />
-        </div>
+        <PlatformFeeRuleExplainer variant="full" />
       </section>
 
       <section id="faq" className="scroll-mt-24">
@@ -230,20 +259,30 @@ export default function HowItWorksPage() {
         </div>
       </section>
 
-      <footer className="rounded-2xl border border-border/70 bg-card/60 backdrop-blur p-5 sm:p-6">
-        <div className="grid sm:grid-cols-3 gap-4 text-sm">
-          <div>
-            <p className="font-display font-semibold text-base">SecurePool</p>
-            <p className="text-muted-foreground mt-1">Transparent USDT reward platform.</p>
-          </div>
-          <div>
-            <p className="font-medium">Core values</p>
-            <p className="text-muted-foreground mt-1">Clarity, fairness, and secure transaction handling.</p>
-          </div>
-          <div>
-            <p className="font-medium">Need more details?</p>
-            <p className="text-muted-foreground mt-1">Check FAQs above or open your dashboard after signup.</p>
-          </div>
+      <footer className="rounded-2xl border border-border/70 bg-card/60 backdrop-blur px-4 py-4 sm:px-6 sm:py-5 shadow-[0_14px_36px_-30px_rgba(0,0,0,0.75)]">
+        <div className="grid sm:grid-cols-3 gap-2 sm:gap-3 text-sm">
+          {[
+            {
+              title: "SecurePool",
+              body: "Simple and transparent USDT reward platform.",
+            },
+            {
+              title: "Trust pillars",
+              body: "Published winners, clear payout logs, tracked wallet flow.",
+            },
+            {
+              title: "Network support",
+              body: "USDT TRC-20 with admin-verified transaction lifecycle.",
+            },
+          ].map((item) => (
+            <div key={item.title} className="rounded-xl border border-border/60 bg-background/30 px-3 py-3 sm:px-4">
+              <p className="font-semibold text-foreground inline-flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+                {item.title}
+              </p>
+              <p className="text-muted-foreground mt-1.5 leading-relaxed">{item.body}</p>
+            </div>
+          ))}
         </div>
       </footer>
     </div>

@@ -43,12 +43,7 @@ function useAnimatedInt(target: number, duration = 1200) {
   return v;
 }
 
-const reveal = (delay = 0) => ({
-  initial: { opacity: 0, y: 22 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, amount: 0.18, margin: "0px 0px -12% 0px" },
-  transition: { duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] as const },
-});
+const reveal = (_delay = 0) => ({});
 
 const quoteCards = [
   {
@@ -191,9 +186,6 @@ export default function LandingPage() {
       <section className="relative max-w-6xl mx-auto px-4 pt-8 sm:pt-10">
         <motion.div
           className="rounded-3xl border border-border/70 bg-card/70 backdrop-blur p-6 sm:p-10 lg:p-14 shadow-2xl"
-          initial={{ opacity: 0, y: 28 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
         >
           <div className="max-w-3xl">
             <p className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-4 py-1.5 text-xs font-medium uppercase tracking-[0.18em] text-primary">
@@ -270,6 +262,39 @@ export default function LandingPage() {
               <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{desc}</p>
             </div>
           ))}
+        </div>
+      </motion.section>
+
+      <motion.section className="max-w-6xl mx-auto px-4 mt-8 sm:mt-10" {...reveal(0.04)}>
+        <div className="rounded-3xl border border-border/70 bg-card/65 p-5 sm:p-7 backdrop-blur">
+          <div className="text-center mb-5 sm:mb-6">
+            <p className="text-xs uppercase tracking-[0.16em] text-primary font-medium inline-flex items-center gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Platform trust features
+            </p>
+            <h2 className="mt-2 font-display text-2xl sm:text-3xl">Why users trust SecurePool</h2>
+            <p className="mt-2 text-sm text-muted-foreground max-w-2xl mx-auto">
+              Every important step is visible and verified, so users know exactly what is happening.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[
+              { title: "Published winners", desc: "Winner names and payout records stay visible for trust.", Icon: Eye },
+              { title: "Verified transaction flow", desc: "Deposits and withdrawals follow admin-verified steps.", Icon: ShieldCheck },
+              { title: "Clear wallet history", desc: "Join, reward, and withdrawal entries are tracked in one place.", Icon: WalletCards },
+              { title: "Live activity feed", desc: "Public pool and reward events update in near real-time.", Icon: Activity },
+              { title: "USDT TRC-20 support", desc: "Built for stablecoin usage with clear network expectation.", Icon: Coins },
+              { title: "Simple and secure access", desc: "Clean user flow with protected account session handling.", Icon: Lock },
+            ].map(({ title, desc, Icon }) => (
+              <div key={title} className="rounded-2xl border border-border/60 bg-background/45 p-4">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/30 bg-primary/10">
+                  <Icon className="h-4 w-4 text-primary" />
+                </span>
+                <p className="mt-2 text-sm font-semibold">{title}</p>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </motion.section>
 

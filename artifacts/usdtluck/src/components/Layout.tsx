@@ -6,7 +6,7 @@ import { Logo } from "@/components/Logo";
 import { apiUrl } from "@/lib/api-base";
 import { useGameAvailability } from "@/lib/game-availability";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
-import { BadgeCheck, LayoutDashboard, Layers, Lock, Shield, Trophy, Wallet } from "lucide-react";
+import { LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
 
 function playNotifSound() {
   try {
@@ -535,23 +535,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      <div className="sticky top-0 z-50 px-2 sm:px-3 pt-2 sm:pt-3 transition-all duration-300">
+      <div className="sticky top-0 z-50 px-2 sm:px-3 pt-2 sm:pt-3">
       <header
-        className="mx-auto max-w-7xl rounded-2xl border transition-all duration-300"
+        className="mx-auto max-w-7xl rounded-2xl border overflow-hidden"
         style={{
           background: isLandingGuest
-            ? "linear-gradient(180deg, hsla(224,30%,7%,0.35) 0%, hsla(224,30%,7%,0.2) 100%)"
-            : "linear-gradient(180deg, hsla(224,30%,8%,0.92) 0%, hsla(224,30%,7%,0.88) 100%)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
-          borderColor: isScrolled ? "hsla(152,72%,44%,0.25)" : "hsla(217,28%,14%,0.55)",
+            ? "linear-gradient(180deg, hsla(224,30%,7%,0.52) 0%, hsla(224,30%,7%,0.42) 100%)"
+            : "linear-gradient(180deg, hsla(224,30%,8%,0.9) 0%, hsla(224,30%,7%,0.86) 100%)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          borderColor: "hsla(217,28%,14%,0.65)",
           boxShadow: isScrolled
-            ? "0 16px 40px -22px rgba(0,0,0,0.7), inset 0 1px 0 hsla(0,0%,100%,0.04)"
-            : "0 10px 26px -24px rgba(0,0,0,0.55)",
+            ? "0 14px 34px -24px rgba(0,0,0,0.7)"
+            : "0 10px 24px -24px rgba(0,0,0,0.58)",
         }}
       >
         <div className="px-3 sm:px-5 lg:px-6">
-          <div className="flex items-center min-h-[3.25rem] py-2 gap-2 sm:gap-3">
+          <div className="flex items-center min-h-[3.15rem] py-1.5 gap-2 sm:gap-3">
 
             {/* ── Logo ── */}
             <Link href={user ? "/dashboard" : "/"} className="shrink-0 mr-2">
@@ -566,10 +566,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   return (
                     <Link key={link.href} href={link.href}>
                       <span
-                        className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer whitespace-nowrap ${
+                        className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
                           active ? "text-primary" : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
                         }`}
-                        style={active ? { background: "hsla(152,72%,44%,0.1)", border: "1px solid hsla(152,72%,44%,0.2)" } : {}}
+                        style={active ? { background: "hsla(152,72%,44%,0.12)" } : {}}
                       >
                         <span>{link.icon}</span>
                         <span>{link.label}</span>
@@ -632,13 +632,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     </Button>
                   </Link>
                   <Link href="/login">
-                    <Button variant="outline" size="sm" className="text-muted-foreground hover:text-foreground text-sm rounded-full border-border/70 bg-background/25 backdrop-blur-sm">
+                    <Button variant="outline" size="sm" className="text-muted-foreground hover:text-foreground text-sm rounded-full border-border/70 bg-background/25">
                       Login
                     </Button>
                   </Link>
                   <Link href="/signup">
                     <Button size="sm" className="font-semibold text-sm rounded-full"
-                      style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 2px 8px rgba(22,163,74,0.3)" }}>
+                      style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}>
                       Get Started
                     </Button>
                   </Link>
@@ -714,41 +714,31 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
       )}
 
-      <footer className="border-t mt-auto py-6 pb-[max(1.25rem,env(safe-area-inset-bottom))]" style={{ borderColor: "hsl(217,28%,14%)" }}>
+      <footer className="border-t mt-auto py-4 pb-[max(1rem,env(safe-area-inset-bottom))]" style={{ borderColor: "hsl(217,28%,14%)" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="rounded-2xl border border-border/70 bg-card/55 backdrop-blur-md p-4 sm:p-5 shadow-[0_18px_44px_-34px_rgba(0,0,0,0.78)]">
-            <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-border/70 bg-card/55 backdrop-blur-md px-4 py-3 sm:px-5 sm:py-3.5 shadow-[0_14px_36px_-30px_rgba(0,0,0,0.75)]">
+            <div className="grid gap-2.5 md:grid-cols-3">
               <div>
                 <div className="flex items-center gap-2.5">
-                  <div className="rounded-xl border border-primary/30 bg-primary/10 px-2 py-1">
+                  <div className="rounded-xl border border-primary/30 bg-primary/10 px-2 py-0.5">
                     <Logo size="sm" />
                   </div>
-                  <p className="font-display text-lg font-semibold tracking-tight">SecurePool</p>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
-                  A transparent USDT reward platform focused on clear rules, visible outcomes, and trusted wallet flow.
+                <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">
+                  Transparent USDT reward platform with clear rules and trusted wallet flow.
                 </p>
-                <div className="mt-2.5 flex flex-wrap gap-2">
-                  {["TRC-20 Support", "Published Winners", "Tracked Wallet Logs"].map((item) => (
-                    <span key={item} className="rounded-full border border-border/70 bg-background/50 px-2.5 py-1 text-[11px] text-muted-foreground">
-                      {item}
-                    </span>
-                  ))}
-                </div>
               </div>
 
               <div>
-                <p className="text-sm font-semibold">Trust &amp; compliance</p>
-                <div className="mt-1.5 space-y-1 text-sm text-muted-foreground">
-                  <p className="inline-flex items-center gap-2"><BadgeCheck className="h-3.5 w-3.5 text-primary" />Admin-verified deposit and withdrawal lifecycle</p>
-                  <p className="inline-flex items-center gap-2"><BadgeCheck className="h-3.5 w-3.5 text-primary" />Public winner records and payout visibility</p>
-                  <p className="inline-flex items-center gap-2"><BadgeCheck className="h-3.5 w-3.5 text-primary" />Audit trail for sensitive admin actions</p>
-                </div>
+                <p className="text-sm font-semibold">Trust</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Verified transactions, visible winners, and secure session flow.
+                </p>
               </div>
 
               <div>
                 <p className="text-sm font-semibold">Quick access</p>
-                <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
                   <Link href="/how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">How It Works</Link>
                   <span className="text-muted-foreground/60 cursor-default" title="Terms of service — contact support for details">
                     Terms
@@ -758,39 +748,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
-            <div className="mt-3 grid sm:grid-cols-3 gap-2">
-              <div className="rounded-xl border border-border/60 bg-background/35 px-3 py-2 text-xs text-muted-foreground inline-flex items-center gap-2">
-                <Shield className="h-3.5 w-3.5 text-primary" />
-                Trusted payout processing
-              </div>
-              <div className="rounded-xl border border-border/60 bg-background/35 px-3 py-2 text-xs text-muted-foreground inline-flex items-center gap-2">
-                <Lock className="h-3.5 w-3.5 text-primary" />
-                Secure auth and session handling
-              </div>
-              <div className="rounded-xl border border-border/60 bg-background/35 px-3 py-2 text-xs text-muted-foreground inline-flex items-center gap-2">
-                <BadgeCheck className="h-3.5 w-3.5 text-primary" />
-                Transparent pool and reward records
-              </div>
-            </div>
-
-            <div className="mt-4 border-t border-border/60 pt-3 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+            <div className="mt-2.5 border-t border-border/60 pt-2 flex flex-col sm:flex-row items-center justify-between gap-1.5">
               <p className="text-xs sm:text-sm text-muted-foreground/90">
                 © {new Date().getFullYear()} SecurePool — Premium, transparent reward experience.
               </p>
-              <div className="inline-flex items-center gap-2">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/35 bg-primary/10">
-                  <Shield className="h-3.5 w-3.5 text-primary" />
-                </span>
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/35 bg-primary/10">
-                  <Lock className="h-3.5 w-3.5 text-primary" />
-                </span>
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/35 bg-primary/10">
-                  <BadgeCheck className="h-3.5 w-3.5 text-primary" />
-                </span>
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] uppercase tracking-[0.14em] text-primary">
-                Trusted by active users
-              </div>
+              <span className="text-[11px] uppercase tracking-[0.12em] text-primary/90">Verified platform</span>
             </div>
           </div>
         </div>
