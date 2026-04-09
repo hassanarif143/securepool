@@ -136,23 +136,26 @@ function SimulationTab() {
   const [users, setUsers] = useState<any[]>([]);
   const [pools, setPools] = useState<any[]>([]);
   const [winners, setWinners] = useState<any[]>([]);
+  const [stakes, setStakes] = useState<any[]>([]);
   const [seedCount, setSeedCount] = useState(150);
   const [newPoolCount, setNewPoolCount] = useState(5);
 
   async function loadAll() {
     setLoading(true);
     try {
-      const [cfgRes, usersRes, poolsRes, winnersRes] = await Promise.all([
+      const [cfgRes, usersRes, poolsRes, winnersRes, stakesRes] = await Promise.all([
         fetch(apiUrl("/api/simulation/admin/config"), { credentials: "include" }),
         fetch(apiUrl("/api/simulation/admin/users?limit=20"), { credentials: "include" }),
         fetch(apiUrl("/api/simulation/admin/pools?limit=20"), { credentials: "include" }),
         fetch(apiUrl("/api/simulation/admin/winners?limit=20"), { credentials: "include" }),
+        fetch(apiUrl("/api/simulation/admin/stakes?limit=30"), { credentials: "include" }),
       ]);
       if (!cfgRes.ok) throw new Error(await readApiErrorMessage(cfgRes));
       setCfg(await cfgRes.json());
       setUsers(usersRes.ok ? await usersRes.json() : []);
       setPools(poolsRes.ok ? await poolsRes.json() : []);
       setWinners(winnersRes.ok ? await winnersRes.json() : []);
+      setStakes(stakesRes.ok ? await stakesRes.json() : []);
     } catch (err: any) {
       appToast.error({ title: "Simulation panel failed", description: err?.message ?? "Could not load simulation data." });
     } finally {
@@ -203,6 +206,17 @@ function SimulationTab() {
           maxJoinDelaySec: Number(cfg.maxJoinDelaySec),
           minPoolDurationSec: Number(cfg.minPoolDurationSec),
           maxPoolDurationSec: Number(cfg.maxPoolDurationSec),
+          stakingEnabled: Boolean(cfg.stakingEnabled),
+          stakingConcurrentUsers: Number(cfg.stakingConcurrentUsers),
+          stakingMinAmount: Number(cfg.stakingMinAmount),
+          stakingMaxAmount: Number(cfg.stakingMaxAmount),
+          stakingMinDurationSec: Number(cfg.stakingMinDurationSec),
+          stakingMaxDurationSec: Number(cfg.stakingMaxDurationSec),
+          stakingRewardRateMinBps: Number(cfg.stakingRewardRateMinBps),
+          stakingRewardRateMaxBps: Number(cfg.stakingRewardRateMaxBps),
+          stakingPlatformFeeBps: Number(cfg.stakingPlatformFeeBps),
+          stakingMinStartDelaySec: Number(cfg.stakingMinStartDelaySec),
+          stakingMaxStartDelaySec: Number(cfg.stakingMaxStartDelaySec),
         }),
       });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
@@ -267,6 +281,22 @@ function SimulationTab() {
             <NumberField label="Join delay max (sec)" value={cfg.maxJoinDelaySec} onChange={(v) => setCfg({ ...cfg, maxJoinDelaySec: v })} />
             <NumberField label="Pool duration min (sec)" value={cfg.minPoolDurationSec} onChange={(v) => setCfg({ ...cfg, minPoolDurationSec: v })} />
             <NumberField label="Pool duration max (sec)" value={cfg.maxPoolDurationSec} onChange={(v) => setCfg({ ...cfg, maxPoolDurationSec: v })} />
+            <NumberField label="Staking concurrent users" value={cfg.stakingConcurrentUsers} onChange={(v) => setCfg({ ...cfg, stakingConcurrentUsers: v })} />
+            <NumberField label="Staking min amount" value={cfg.stakingMinAmount} onChange={(v) => setCfg({ ...cfg, stakingMinAmount: v })} />
+            <NumberField label="Staking max amount" value={cfg.stakingMaxAmount} onChange={(v) => setCfg({ ...cfg, stakingMaxAmount: v })} />
+            <NumberField label="Staking min duration (sec)" value={cfg.stakingMinDurationSec} onChange={(v) => setCfg({ ...cfg, stakingMinDurationSec: v })} />
+            <NumberField label="Staking max duration (sec)" value={cfg.stakingMaxDurationSec} onChange={(v) => setCfg({ ...cfg, stakingMaxDurationSec: v })} />
+            <NumberField label="Staking reward min (bps)" value={cfg.stakingRewardRateMinBps} onChange={(v) => setCfg({ ...cfg, stakingRewardRateMinBps: v })} />
+            <NumberField label="Staking reward max (bps)" value={cfg.stakingRewardRateMaxBps} onChange={(v) => setCfg({ ...cfg, stakingRewardRateMaxBps: v })} />
+            <NumberField label="Staking platform fee (bps)" value={cfg.stakingPlatformFeeBps} onChange={(v) => setCfg({ ...cfg, stakingPlatformFeeBps: v })} />
+            <NumberField label="Stake start delay min (sec)" value={cfg.stakingMinStartDelaySec} onChange={(v) => setCfg({ ...cfg, stakingMinStartDelaySec: v })} />
+            <NumberField label="Stake start delay max (sec)" value={cfg.stakingMaxStartDelaySec} onChange={(v) => setCfg({ ...cfg, stakingMaxStartDelaySec: v })} />
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+            <p className="text-xs text-muted-foreground">Enable demo staking stream</p>
+            <Button variant={cfg.stakingEnabled ? "default" : "outline"} size="sm" onClick={() => setCfg({ ...cfg, stakingEnabled: !cfg.stakingEnabled })}>
+              {cfg.stakingEnabled ? "Enabled" : "Disabled"}
+            </Button>
           </div>
           <div className="flex justify-end">
             <Button disabled={busy} onClick={() => void saveConfig()}>{busy ? "Saving..." : "Save simulation config"}</Button>
@@ -325,7 +355,7 @@ function SimulationTab() {
 
       <Card>
         <CardHeader><CardTitle className="text-base">Demo users & winner history</CardTitle></CardHeader>
-        <CardContent className="grid lg:grid-cols-2 gap-3">
+        <CardContent className="grid lg:grid-cols-3 gap-3">
           <div className="rounded-md border border-border/60 p-3">
             <p className="text-sm font-medium mb-2">Demo users ({users.length})</p>
             <ul className="space-y-1.5 text-xs max-h-56 overflow-auto">
@@ -344,6 +374,26 @@ function SimulationTab() {
                 <li key={w.id} className="flex items-center justify-between gap-2">
                   <span>Pool #{w.poolId} · #{w.place} {w.displayName}</span>
                   <span className="tabular-nums text-emerald-400">{Number(w.rewardAmount).toFixed(2)} USDT</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-md border border-border/60 p-3">
+            <p className="text-sm font-medium mb-2">Live demo stakes ({stakes.length})</p>
+            <ul className="space-y-1.5 text-xs max-h-56 overflow-auto">
+              {stakes.map((s) => (
+                <li key={s.id} className="space-y-1 rounded border border-border/40 px-2 py-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>{s.displayName}</span>
+                    <span className="text-muted-foreground">{Number(s.principalAmount).toFixed(2)} USDT</span>
+                  </div>
+                  <div className="h-1.5 rounded bg-muted overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-emerald-400 to-primary" style={{ width: `${Math.min(100, Math.max(0, Number(s.progressPct ?? 0)))}%` }} />
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span>{Number(s.progressPct ?? 0).toFixed(0)}%</span>
+                    <span>+{Number(s.rewardAccrued ?? 0).toFixed(2)} USDT</span>
+                  </div>
                 </li>
               ))}
             </ul>

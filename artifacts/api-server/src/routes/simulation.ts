@@ -10,6 +10,7 @@ import {
   getSimulationConfig,
   getSimulationPublicState,
   listSimulationPools,
+  listSimulationStakes,
   listSimulationUsers,
   listSimulationWinners,
   onSimulationEvent,
@@ -25,7 +26,7 @@ function simModeEnabled() {
 
 router.get("/state", async (_req, res) => {
   if (!simModeEnabled()) {
-    res.json({ enabled: false, pools: [], events: [] });
+    res.json({ enabled: false, pools: [], events: [], stakes: [] });
     return;
   }
   const cfg = await getSimulationConfig();
@@ -85,6 +86,17 @@ router.patch("/admin/config", requireAdmin, async (req, res) => {
       maxJoinDelaySec: z.number().int().min(1).max(120).optional(),
       minPoolDurationSec: z.number().int().min(30).max(3600).optional(),
       maxPoolDurationSec: z.number().int().min(30).max(7200).optional(),
+      stakingEnabled: z.boolean().optional(),
+      stakingConcurrentUsers: z.number().int().min(1).max(400).optional(),
+      stakingMinAmount: z.number().min(0.1).max(100000).optional(),
+      stakingMaxAmount: z.number().min(0.1).max(100000).optional(),
+      stakingMinDurationSec: z.number().int().min(30).max(86400).optional(),
+      stakingMaxDurationSec: z.number().int().min(30).max(86400).optional(),
+      stakingRewardRateMinBps: z.number().int().min(0).max(100000).optional(),
+      stakingRewardRateMaxBps: z.number().int().min(0).max(100000).optional(),
+      stakingPlatformFeeBps: z.number().int().min(0).max(9000).optional(),
+      stakingMinStartDelaySec: z.number().int().min(1).max(300).optional(),
+      stakingMaxStartDelaySec: z.number().int().min(1).max(300).optional(),
     })
     .safeParse(req.body ?? {});
   if (!parsed.success) {
@@ -154,6 +166,11 @@ router.get("/admin/pools", requireAdmin, async (req, res) => {
 router.get("/admin/winners", requireAdmin, async (req, res) => {
   const limit = Math.max(1, Math.min(200, parseInt(String(req.query.limit ?? "60"), 10) || 60));
   res.json(await listSimulationWinners(limit));
+});
+
+router.get("/admin/stakes", requireAdmin, async (req, res) => {
+  const limit = Math.max(1, Math.min(300, parseInt(String(req.query.limit ?? "80"), 10) || 80));
+  res.json(await listSimulationStakes(limit));
 });
 
 router.post("/admin/pools/:poolId/start", requireAdmin, async (req, res) => {

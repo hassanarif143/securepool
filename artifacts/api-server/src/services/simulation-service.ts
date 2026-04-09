@@ -6,6 +6,7 @@ import {
   simulationEventsTable,
   simulationPoolParticipantsTable,
   simulationPoolsTable,
+  simulationStakesTable,
   simulationUsersTable,
   simulationWinnersTable,
 } from "@workspace/db";
@@ -13,6 +14,7 @@ import { and, asc, desc, eq, gte, lte, ne, sql } from "drizzle-orm";
 import { logActivity } from "./activity-service";
 
 type SimPoolStatus = "pending" | "active" | "completed" | "stopped";
+type SimStakeStatus = "active" | "completed" | "stopped";
 
 export type SimulationEventPayload = {
   type: string;
@@ -416,6 +418,164 @@ function inIds(col: any, ids: number[]) {
   return sql`${col} in (${sql.join(ids.map((i) => sql`${i}`), sql`,`)})`;
 }
 
+async function maybeStartDemoStakes(now: Date) {
+  const cfg = await ensureConfigRow();
+  if (!cfg.stakingEnabled) return;
+  const [countRow] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(simulationStakesTable)
+    .where(eq(simulationStakesTable.status, "active"));
+  const activeCount = Number(countRow?.c ?? 0);
+  const allowed = Math.max(0, cfg.stakingConcurrentUsers - activeCount);
+  if (allowed <= 0) return;
+
+  const [nextStartRow] = await db
+    .select({ nextAt: sql<Date | null>`min(${simulationStakesTable.nextProgressAt})` })
+    .from(simulationStakesTable)
+    .where(eq(simulationStakesTable.status, "active"));
+  if (nextStartRow?.nextAt && new Date(nextStartRow.nextAt).getTime() > now.getTime()) return;
+
+  const users = await db
+    .select()
+    .from(simulationUsersTable)
+    .where(and(eq(simulationUsersTable.isTest, true), eq(simulationUsersTable.isActive, true)))
+    .limit(800);
+  if (users.length === 0) return;
+
+  const activeStakeUsers = await db
+    .select({ userId: simulationStakesTable.simulationUserId })
+    .from(simulationStakesTable)
+    .where(eq(simulationStakesTable.status, "active"));
+  const activeSet = new Set(activeStakeUsers.map((r) => r.userId));
+  const eligible = users.filter((u) => !activeSet.has(u.id) && toNum(u.simulatedBalance) >= toNum(cfg.stakingMinAmount));
+  if (eligible.length === 0) return;
+
+  const startCount = Math.min(allowed, randomInt(1, Math.min(3, allowed) + 1));
+  for (let i = 0; i < startCount; i++) {
+    const pick = eligible[randomInt(0, eligible.length)];
+    if (!pick) continue;
+    const amount = round2(randBetween(Math.floor(toNum(cfg.stakingMinAmount)), Math.floor(toNum(cfg.stakingMaxAmount))) + randomInt(0, 99) / 100);
+    if (toNum(pick.simulatedBalance) < amount) continue;
+    const durationSec = randBetween(cfg.stakingMinDurationSec, cfg.stakingMaxDurationSec);
+    const rewardRateBps = randBetween(cfg.stakingRewardRateMinBps, cfg.stakingRewardRateMaxBps);
+    const startsAt = new Date(now.getTime() + randBetween(cfg.stakingMinStartDelaySec, cfg.stakingMaxStartDelaySec) * 1000);
+    const endsAt = new Date(startsAt.getTime() + durationSec * 1000);
+    const rewardTarget = round2((amount * rewardRateBps) / 10000);
+    const nextBal = round2(toNum(pick.simulatedBalance) - amount);
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(simulationUsersTable)
+        .set({ simulatedBalance: String(nextBal), updatedAt: new Date() })
+        .where(eq(simulationUsersTable.id, pick.id));
+      await tx.insert(simulationStakesTable).values({
+        simulationUserId: pick.id,
+        principalAmount: String(amount),
+        rewardRateBps,
+        platformFeeBps: cfg.stakingPlatformFeeBps,
+        durationSec,
+        rewardTarget: String(rewardTarget),
+        rewardAccrued: "0",
+        progressPct: "0",
+        startsAt,
+        endsAt,
+        nextProgressAt: new Date(startsAt.getTime() + randBetween(3, 9) * 1000),
+      });
+    });
+
+    await emitSimulationEvent({
+      type: "simulation.stake_started",
+      message: `${pick.displayName} started demo staking ${amount.toFixed(2)} USDT`,
+      simulationUserId: pick.id,
+      payload: { displayName: pick.displayName, amount, durationSec, rewardRateBps },
+    });
+  }
+}
+
+async function advanceDemoStakes(now: Date) {
+  const active = await db
+    .select()
+    .from(simulationStakesTable)
+    .where(eq(simulationStakesTable.status, "active"))
+    .orderBy(asc(simulationStakesTable.id))
+    .limit(200);
+
+  for (const s of active) {
+    if (now.getTime() < new Date(s.startsAt).getTime()) continue;
+    const startMs = new Date(s.startsAt).getTime();
+    const endMs = new Date(s.endsAt).getTime();
+    const ratio = Math.max(0, Math.min(1, (now.getTime() - startMs) / Math.max(1, endMs - startMs)));
+    const progressPct = round2(ratio * 100);
+    const rewardAccrued = round2(toNum(s.rewardTarget) * ratio);
+
+    let milestone = s.lastMilestonePct ?? 0;
+    for (const m of [25, 50, 75, 100]) {
+      if (progressPct >= m && milestone < m) milestone = m;
+    }
+
+    const shouldEmitProgress = !s.nextProgressAt || new Date(s.nextProgressAt).getTime() <= now.getTime() || milestone > (s.lastMilestonePct ?? 0);
+    await db
+      .update(simulationStakesTable)
+      .set({
+        rewardAccrued: String(rewardAccrued),
+        progressPct: String(progressPct),
+        lastMilestonePct: milestone,
+        nextProgressAt: new Date(now.getTime() + randBetween(4, 12) * 1000),
+      })
+      .where(eq(simulationStakesTable.id, s.id));
+
+    if (shouldEmitProgress) {
+      await emitSimulationEvent({
+        type: "simulation.stake_progress",
+        message: `Demo stake #${s.id} is ${progressPct.toFixed(0)}% complete`,
+        simulationUserId: s.simulationUserId,
+        payload: { stakeId: s.id, progressPct, rewardAccrued },
+      });
+    }
+
+    if (milestone > (s.lastMilestonePct ?? 0) && milestone < 100) {
+      await emitSimulationEvent({
+        type: "simulation.stake_milestone",
+        message: `Demo stake #${s.id} reached ${milestone}% progress`,
+        simulationUserId: s.simulationUserId,
+        payload: { stakeId: s.id, milestone, progressPct, rewardAccrued },
+      });
+    }
+
+    if (ratio >= 1) {
+      const principal = toNum(s.principalAmount);
+      const reward = rewardAccrued;
+      const fee = round2((reward * s.platformFeeBps) / 10000);
+      const rewardAfterFee = round2(Math.max(0, reward - fee));
+      await db.transaction(async (tx) => {
+        await tx
+          .update(simulationStakesTable)
+          .set({
+            status: "completed",
+            completedAt: now,
+            rewardAccrued: String(rewardAfterFee),
+            progressPct: "100",
+            lastMilestonePct: 100,
+          })
+          .where(eq(simulationStakesTable.id, s.id));
+        await tx
+          .update(simulationUsersTable)
+          .set({
+            simulatedBalance: sql`${simulationUsersTable.simulatedBalance}::numeric + ${String(principal + rewardAfterFee)}::numeric`,
+            updatedAt: new Date(),
+          })
+          .where(eq(simulationUsersTable.id, s.simulationUserId));
+      });
+      await emitSimulationEvent({
+        type: "simulation.stake_completed",
+        message: `Demo stake #${s.id} completed with ${rewardAfterFee.toFixed(2)} USDT reward`,
+        simulationUserId: s.simulationUserId,
+        payload: { stakeId: s.id, rewardAccrued: rewardAfterFee, fee },
+      });
+    }
+  }
+}
+
 async function runSimulationTick() {
   if (!envEnabled()) return;
   const cfg = await ensureConfigRow();
@@ -440,6 +600,9 @@ async function runSimulationTick() {
       await joinOneFakeUser(p.id);
     }
   }
+
+  await maybeStartDemoStakes(now);
+  await advanceDemoStakes(now);
 }
 
 export function startSimulationEngine() {
@@ -480,6 +643,17 @@ export async function updateSimulationConfig(input: {
   maxJoinDelaySec?: number;
   minPoolDurationSec?: number;
   maxPoolDurationSec?: number;
+  stakingEnabled?: boolean;
+  stakingConcurrentUsers?: number;
+  stakingMinAmount?: number;
+  stakingMaxAmount?: number;
+  stakingMinDurationSec?: number;
+  stakingMaxDurationSec?: number;
+  stakingRewardRateMinBps?: number;
+  stakingRewardRateMaxBps?: number;
+  stakingPlatformFeeBps?: number;
+  stakingMinStartDelaySec?: number;
+  stakingMaxStartDelaySec?: number;
 }) {
   const cfg = await ensureConfigRow();
   await db
@@ -488,6 +662,10 @@ export async function updateSimulationConfig(input: {
       ...input,
       simulatedTicketPrice:
         input.simulatedTicketPrice != null ? String(round2(Math.max(0.1, input.simulatedTicketPrice))) : undefined,
+      stakingMinAmount:
+        input.stakingMinAmount != null ? String(round2(Math.max(0.1, input.stakingMinAmount))) : undefined,
+      stakingMaxAmount:
+        input.stakingMaxAmount != null ? String(round2(Math.max(0.1, input.stakingMaxAmount))) : undefined,
       updatedAt: new Date(),
     })
     .where(eq(simulationConfigTable.id, cfg.id));
@@ -517,6 +695,28 @@ export async function listSimulationWinners(limit: number) {
     .innerJoin(simulationUsersTable, eq(simulationWinnersTable.simulationUserId, simulationUsersTable.id))
     .orderBy(desc(simulationWinnersTable.createdAt))
     .limit(Math.min(200, Math.max(1, limit)));
+  return rows;
+}
+
+export async function listSimulationStakes(limit: number) {
+  const rows = await db
+    .select({
+      id: simulationStakesTable.id,
+      simulationUserId: simulationStakesTable.simulationUserId,
+      principalAmount: simulationStakesTable.principalAmount,
+      rewardRateBps: simulationStakesTable.rewardRateBps,
+      rewardAccrued: simulationStakesTable.rewardAccrued,
+      progressPct: simulationStakesTable.progressPct,
+      status: simulationStakesTable.status,
+      startsAt: simulationStakesTable.startsAt,
+      endsAt: simulationStakesTable.endsAt,
+      completedAt: simulationStakesTable.completedAt,
+      displayName: simulationUsersTable.displayName,
+    })
+    .from(simulationStakesTable)
+    .innerJoin(simulationUsersTable, eq(simulationStakesTable.simulationUserId, simulationUsersTable.id))
+    .orderBy(desc(simulationStakesTable.id))
+    .limit(Math.min(300, Math.max(1, limit)));
   return rows;
 }
 
@@ -554,6 +754,7 @@ export async function forceCompleteSimulationPool(poolId: number) {
 
 export async function getSimulationPublicState() {
   const pools = await db.select().from(simulationPoolsTable).orderBy(desc(simulationPoolsTable.id)).limit(12);
+  const stakes = await listSimulationStakes(20);
   const events = await listSimulationEvents(20);
   return {
     pools: pools.map((p) => ({
@@ -576,6 +777,19 @@ export async function getSimulationPublicState() {
       message: e.message,
       createdAt: e.createdAt,
       payload: e.payload ?? {},
+    })),
+    stakes: stakes.map((s) => ({
+      id: s.id,
+      simulationUserId: s.simulationUserId,
+      displayName: s.displayName,
+      principalAmount: toNum(s.principalAmount),
+      rewardRateBps: s.rewardRateBps,
+      rewardAccrued: toNum(s.rewardAccrued),
+      progressPct: toNum(s.progressPct),
+      status: s.status as SimStakeStatus,
+      startsAt: s.startsAt,
+      endsAt: s.endsAt,
+      completedAt: s.completedAt,
     })),
   };
 }

@@ -33,6 +33,17 @@ export const simulationConfigTable = pgTable("simulation_config", {
   maxJoinDelaySec: integer("max_join_delay_sec").notNull().default(10),
   minPoolDurationSec: integer("min_pool_duration_sec").notNull().default(120),
   maxPoolDurationSec: integer("max_pool_duration_sec").notNull().default(300),
+  stakingEnabled: boolean("staking_enabled").notNull().default(true),
+  stakingConcurrentUsers: integer("staking_concurrent_users").notNull().default(12),
+  stakingMinAmount: numeric("staking_min_amount", { precision: 18, scale: 2 }).notNull().default("10.00"),
+  stakingMaxAmount: numeric("staking_max_amount", { precision: 18, scale: 2 }).notNull().default("120.00"),
+  stakingMinDurationSec: integer("staking_min_duration_sec").notNull().default(120),
+  stakingMaxDurationSec: integer("staking_max_duration_sec").notNull().default(900),
+  stakingRewardRateMinBps: integer("staking_reward_rate_min_bps").notNull().default(400),
+  stakingRewardRateMaxBps: integer("staking_reward_rate_max_bps").notNull().default(2200),
+  stakingPlatformFeeBps: integer("staking_platform_fee_bps").notNull().default(0),
+  stakingMinStartDelaySec: integer("staking_min_start_delay_sec").notNull().default(4),
+  stakingMaxStartDelaySec: integer("staking_max_start_delay_sec").notNull().default(20),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -115,5 +126,28 @@ export const simulationEventsTable = pgTable("simulation_events", {
   poolId: integer("pool_id").references(() => simulationPoolsTable.id, { onDelete: "set null" }),
   simulationUserId: integer("simulation_user_id").references(() => simulationUsersTable.id, { onDelete: "set null" }),
   payload: jsonb("payload"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const simulationStakeStatusEnum = pgEnum("simulation_stake_status", ["active", "completed", "stopped"]);
+
+export const simulationStakesTable = pgTable("simulation_stakes", {
+  id: serial("id").primaryKey(),
+  simulationUserId: integer("simulation_user_id")
+    .notNull()
+    .references(() => simulationUsersTable.id, { onDelete: "cascade" }),
+  principalAmount: numeric("principal_amount", { precision: 18, scale: 2 }).notNull(),
+  rewardRateBps: integer("reward_rate_bps").notNull(),
+  platformFeeBps: integer("platform_fee_bps").notNull().default(0),
+  durationSec: integer("duration_sec").notNull(),
+  rewardTarget: numeric("reward_target", { precision: 18, scale: 2 }).notNull().default("0"),
+  rewardAccrued: numeric("reward_accrued", { precision: 18, scale: 2 }).notNull().default("0"),
+  progressPct: numeric("progress_pct", { precision: 6, scale: 2 }).notNull().default("0"),
+  lastMilestonePct: integer("last_milestone_pct").notNull().default(0),
+  status: simulationStakeStatusEnum("status").notNull().default("active"),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  nextProgressAt: timestamp("next_progress_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
