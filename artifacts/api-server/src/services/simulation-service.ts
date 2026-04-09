@@ -39,6 +39,23 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+function parseTicketTiers(raw: unknown): number[] {
+  const text = String(raw ?? "").trim();
+  if (!text) return [2, 5, 10];
+  const vals = text
+    .split(",")
+    .map((v) => Number(v.trim()))
+    .filter((n) => Number.isFinite(n) && n >= 0.1 && n <= 100000)
+    .map((n) => round2(n));
+  const unique = Array.from(new Set(vals));
+  return unique.length > 0 ? unique : [2, 5, 10];
+}
+
+function pickTicketTier(raw: unknown): number {
+  const tiers = parseTicketTiers(raw);
+  return tiers[randomInt(0, tiers.length)];
+}
+
 function envEnabled(): boolean {
   return String(process.env.SIMULATION_MODE ?? "false").toLowerCase() === "true";
 }
@@ -163,7 +180,7 @@ async function createSimulationPool(input: ManualPoolInput) {
   const [pool] = await db
     .insert(simulationPoolsTable)
     .values({
-      title: `Simulation Pool #${Date.now().toString().slice(-6)}`,
+      title: `${round2(input.entryAmount).toFixed(2)} USDT Pool #${Date.now().toString().slice(-6)}`,
       status: "pending",
       poolSize: input.poolSize,
       winnersCount: input.winnersCount,
@@ -186,9 +203,27 @@ async function createSimulationPool(input: ManualPoolInput) {
   return pool;
 }
 
-export async function createDailySimulationPools(count: number, adminId?: number) {
+export async function createDailySimulationPools(
+  count: number,
+  adminId?: number,
+  options?: {
+    entryAmounts?: number[];
+    minPoolSize?: number;
+    maxPoolSize?: number;
+    minWinnersCount?: number;
+    maxWinnersCount?: number;
+  },
+) {
   const cfg = await ensureConfigRow();
-  const safe = Math.max(1, Math.min(20, Math.floor(count)));
+  const safe = Math.max(1, Math.min(30, Math.floor(count)));
+  const poolMin = Math.max(2, Math.min(50, Math.floor(options?.minPoolSize ?? cfg.minPoolSize)));
+  const poolMax = Math.max(poolMin, Math.min(50, Math.floor(options?.maxPoolSize ?? cfg.maxPoolSize)));
+  const winMin = Math.max(1, Math.min(10, Math.floor(options?.minWinnersCount ?? cfg.minWinnersCount)));
+  const winMax = Math.max(winMin, Math.min(10, Math.floor(options?.maxWinnersCount ?? cfg.maxWinnersCount)));
+  const optionTiers =
+    options?.entryAmounts && options.entryAmounts.length > 0
+      ? Array.from(new Set(options.entryAmounts.map((n) => round2(Number(n))).filter((n) => Number.isFinite(n) && n >= 0.1)))
+      : [];
   const now = new Date();
   const made: number[] = [];
 
@@ -198,9 +233,9 @@ export async function createDailySimulationPools(count: number, adminId?: number
     const durationSec = randBetween(cfg.minPoolDurationSec, cfg.maxPoolDurationSec);
     const endsAt = new Date(startsAt.getTime() + durationSec * 1000);
     const p = await createSimulationPool({
-      poolSize: randBetween(cfg.minPoolSize, cfg.maxPoolSize),
-      winnersCount: randBetween(cfg.minWinnersCount, cfg.maxWinnersCount),
-      entryAmount: toNum(cfg.simulatedTicketPrice),
+      poolSize: randBetween(poolMin, poolMax),
+      winnersCount: randBetween(winMin, winMax),
+      entryAmount: optionTiers.length > 0 ? optionTiers[randomInt(0, optionTiers.length)] : pickTicketTier(cfg.simulatedTicketTiers),
       platformFeeBps: cfg.simulatedPlatformFeeBps,
       startsAt,
       endsAt,
@@ -645,6 +680,26 @@ export async function setSimulationEnabled(enabled: boolean) {
   });
 }
 
+export async function resetSimulationData() {
+  const cfg = await ensureConfigRow();
+  await db.transaction(async (tx) => {
+    await tx.update(simulationConfigTable).set({ enabled: false, updatedAt: new Date() }).where(eq(simulationConfigTable.id, cfg.id));
+    await tx.delete(simulationWinnersTable);
+    await tx.delete(simulationPoolParticipantsTable);
+    await tx.delete(simulationStakesTable);
+    await tx.delete(simulationPoolsTable);
+    await tx.delete(simulationEventsTable);
+    await tx.delete(simulationUsersTable);
+  });
+  lastDailyEnsureAt = 0;
+  await emitSimulationEvent({
+    type: "simulation.reset",
+    message: "Simulation data reset by admin.",
+    payload: { users: 0, pools: 0, stakes: 0 },
+  });
+  return { ok: true };
+}
+
 export async function updateSimulationConfig(input: {
   dailyPoolCount?: number;
   minPoolSize?: number;
@@ -652,6 +707,7 @@ export async function updateSimulationConfig(input: {
   minWinnersCount?: number;
   maxWinnersCount?: number;
   simulatedTicketPrice?: number;
+  simulatedTicketTiers?: string;
   simulatedPlatformFeeBps?: number;
   minJoinDelaySec?: number;
   maxJoinDelaySec?: number;
@@ -676,6 +732,8 @@ export async function updateSimulationConfig(input: {
       ...input,
       simulatedTicketPrice:
         input.simulatedTicketPrice != null ? String(round2(Math.max(0.1, input.simulatedTicketPrice))) : undefined,
+      simulatedTicketTiers:
+        input.simulatedTicketTiers != null ? parseTicketTiers(input.simulatedTicketTiers).join(",") : undefined,
       stakingMinAmount:
         input.stakingMinAmount != null ? String(round2(Math.max(0.1, input.stakingMinAmount))) : undefined,
       stakingMaxAmount:

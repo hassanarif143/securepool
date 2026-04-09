@@ -15,6 +15,7 @@ import {
   listSimulationUsers,
   listSimulationWinners,
   onSimulationEvent,
+  resetSimulationData,
   setSimulationEnabled,
   spawnDemoStakes,
   updateSimulationConfig,
@@ -124,6 +125,7 @@ router.patch("/admin/config", requireAdmin, async (req, res) => {
       minWinnersCount: z.number().int().min(1).max(10).optional(),
       maxWinnersCount: z.number().int().min(1).max(10).optional(),
       simulatedTicketPrice: z.number().min(0.1).max(100000).optional(),
+      simulatedTicketTiers: z.string().trim().min(1).max(120).optional(),
       simulatedPlatformFeeBps: z.number().int().min(0).max(9000).optional(),
       minJoinDelaySec: z.number().int().min(1).max(60).optional(),
       maxJoinDelaySec: z.number().int().min(1).max(120).optional(),
@@ -187,12 +189,27 @@ router.post("/admin/create-pools", requireAdmin, async (req, res) => {
     res.status(400).json({ error: "SIMULATION_MODE_DISABLED", message: "Set SIMULATION_MODE=true in backend env first." });
     return;
   }
-  const parsed = z.object({ count: z.number().int().min(1).max(20) }).safeParse(req.body ?? {});
+  const parsed = z
+    .object({
+      count: z.number().int().min(1).max(30),
+      entryAmounts: z.array(z.number().min(0.1).max(100000)).max(12).optional(),
+      minPoolSize: z.number().int().min(2).max(50).optional(),
+      maxPoolSize: z.number().int().min(2).max(50).optional(),
+      minWinnersCount: z.number().int().min(1).max(10).optional(),
+      maxWinnersCount: z.number().int().min(1).max(10).optional(),
+    })
+    .safeParse(req.body ?? {});
   if (!parsed.success) {
     res.status(400).json({ error: "VALIDATION_ERROR", message: parsed.error.message });
     return;
   }
-  const ids = await createDailySimulationPools(parsed.data.count);
+  const ids = await createDailySimulationPools(parsed.data.count, getAuthedUserId(req) ?? undefined, {
+    entryAmounts: parsed.data.entryAmounts,
+    minPoolSize: parsed.data.minPoolSize,
+    maxPoolSize: parsed.data.maxPoolSize,
+    minWinnersCount: parsed.data.minWinnersCount,
+    maxWinnersCount: parsed.data.maxWinnersCount,
+  });
   res.json({ poolIds: ids });
 });
 
@@ -208,6 +225,15 @@ router.post("/admin/spawn-stakes", requireAdmin, async (req, res) => {
   }
   await spawnDemoStakes(parsed.data.count ?? 8);
   res.json({ ok: true });
+});
+
+router.post("/admin/reset", requireAdmin, async (_req, res) => {
+  if (!simModeEnabled()) {
+    res.status(400).json({ error: "SIMULATION_MODE_DISABLED", message: "Set SIMULATION_MODE=true in backend env first." });
+    return;
+  }
+  const out = await resetSimulationData();
+  res.json(out);
 });
 
 router.get("/admin/users", requireAdmin, async (req, res) => {

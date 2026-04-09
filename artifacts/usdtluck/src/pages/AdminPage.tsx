@@ -139,6 +139,11 @@ function SimulationTab() {
   const [stakes, setStakes] = useState<any[]>([]);
   const [seedCount, setSeedCount] = useState(150);
   const [newPoolCount, setNewPoolCount] = useState(5);
+  const [createTiersCsv, setCreateTiersCsv] = useState("2,5,10");
+  const [createMinPoolSize, setCreateMinPoolSize] = useState(5);
+  const [createMaxPoolSize, setCreateMaxPoolSize] = useState(10);
+  const [createMinWinners, setCreateMinWinners] = useState(2);
+  const [createMaxWinners, setCreateMaxWinners] = useState(3);
 
   async function loadAll() {
     setLoading(true);
@@ -151,7 +156,13 @@ function SimulationTab() {
         fetch(apiUrl("/api/simulation/admin/stakes?limit=30"), { credentials: "include" }),
       ]);
       if (!cfgRes.ok) throw new Error(await readApiErrorMessage(cfgRes));
-      setCfg(await cfgRes.json());
+      const cfgJson = await cfgRes.json();
+      setCfg(cfgJson);
+      setCreateTiersCsv(String(cfgJson.simulatedTicketTiers ?? "2,5,10"));
+      setCreateMinPoolSize(Number(cfgJson.minPoolSize ?? 5));
+      setCreateMaxPoolSize(Number(cfgJson.maxPoolSize ?? 10));
+      setCreateMinWinners(Number(cfgJson.minWinnersCount ?? 2));
+      setCreateMaxWinners(Number(cfgJson.maxWinnersCount ?? 3));
       setUsers(usersRes.ok ? await usersRes.json() : []);
       setPools(poolsRes.ok ? await poolsRes.json() : []);
       setWinners(winnersRes.ok ? await winnersRes.json() : []);
@@ -186,6 +197,14 @@ function SimulationTab() {
     }
   }
 
+  async function resetAllSimulationData() {
+    const ok = window.confirm(
+      "Reset all simulation data? This will clear demo users, pools, winners, stakes, and activity logs in one click.",
+    );
+    if (!ok) return;
+    await post("/api/simulation/admin/reset");
+  }
+
   async function saveConfig() {
     if (!cfg) return;
     setBusy(true);
@@ -201,6 +220,7 @@ function SimulationTab() {
           minWinnersCount: Number(cfg.minWinnersCount),
           maxWinnersCount: Number(cfg.maxWinnersCount),
           simulatedTicketPrice: Number(cfg.simulatedTicketPrice),
+          simulatedTicketTiers: String(cfg.simulatedTicketTiers ?? "2,5,10"),
           simulatedPlatformFeeBps: Number(cfg.simulatedPlatformFeeBps),
           minJoinDelaySec: Number(cfg.minJoinDelaySec),
           maxJoinDelaySec: Number(cfg.maxJoinDelaySec),
@@ -266,12 +286,28 @@ function SimulationTab() {
             <Button disabled={busy} onClick={() => void post("/api/simulation/admin/start")}>Start simulation</Button>
             <Button variant="outline" disabled={busy} onClick={() => void post("/api/simulation/admin/stop")}>Stop simulation</Button>
             <Button variant="outline" disabled={busy} onClick={() => void loadAll()}>Refresh snapshot</Button>
+            <Button variant="destructive" disabled={busy} onClick={() => void resetAllSimulationData()}>Reset simulation data</Button>
             <Badge variant={cfg.enabled ? "default" : "secondary"}>{cfg.enabled ? "Live" : "Paused"}</Badge>
           </div>
 
           <div className="grid md:grid-cols-2 gap-3">
             <NumberField label="Daily pools count" value={cfg.dailyPoolCount} onChange={(v) => setCfg({ ...cfg, dailyPoolCount: v })} />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Quick daily presets</Label>
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => setCfg({ ...cfg, dailyPoolCount: 5 })}>5 pools/day</Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => setCfg({ ...cfg, dailyPoolCount: 10 })}>10 pools/day</Button>
+              </div>
+            </div>
             <NumberField label="Simulated ticket price (USDT)" value={cfg.simulatedTicketPrice} onChange={(v) => setCfg({ ...cfg, simulatedTicketPrice: v })} />
+            <div className="space-y-1.5">
+              <Label className="text-xs">Ticket tiers (comma separated)</Label>
+              <Input
+                value={String(cfg.simulatedTicketTiers ?? "2,5,10")}
+                onChange={(e) => setCfg({ ...cfg, simulatedTicketTiers: e.target.value })}
+                placeholder="2,5,10"
+              />
+            </div>
             <NumberField label="Minimum pool size" value={cfg.minPoolSize} onChange={(v) => setCfg({ ...cfg, minPoolSize: v })} />
             <NumberField label="Maximum pool size" value={cfg.maxPoolSize} onChange={(v) => setCfg({ ...cfg, maxPoolSize: v })} />
             <NumberField label="Minimum winners" value={cfg.minWinnersCount} onChange={(v) => setCfg({ ...cfg, minWinnersCount: v })} />
@@ -318,10 +354,38 @@ function SimulationTab() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Create pools now</Label>
+              <Label>Create pools now (custom)</Label>
               <div className="flex gap-2">
                 <Input type="number" value={newPoolCount} onChange={(e) => setNewPoolCount(Number(e.target.value || 0))} />
-                <Button disabled={busy} onClick={() => void post("/api/simulation/admin/create-pools", { count: newPoolCount })}>Create</Button>
+                <Button
+                  disabled={busy}
+                  onClick={() => {
+                    const entryAmounts = createTiersCsv
+                      .split(",")
+                      .map((v) => Number(v.trim()))
+                      .filter((n) => Number.isFinite(n) && n >= 0.1);
+                    void post("/api/simulation/admin/create-pools", {
+                      count: newPoolCount,
+                      entryAmounts,
+                      minPoolSize: createMinPoolSize,
+                      maxPoolSize: createMaxPoolSize,
+                      minWinnersCount: createMinWinners,
+                      maxWinnersCount: createMaxWinners,
+                    });
+                  }}
+                >
+                  Create
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Pool ticket tiers (USDT)</Label>
+              <Input value={createTiersCsv} onChange={(e) => setCreateTiersCsv(e.target.value)} placeholder="2,5,10" />
+              <div className="grid grid-cols-2 gap-2">
+                <Input type="number" value={createMinPoolSize} onChange={(e) => setCreateMinPoolSize(Number(e.target.value || 0))} placeholder="Min size" />
+                <Input type="number" value={createMaxPoolSize} onChange={(e) => setCreateMaxPoolSize(Number(e.target.value || 0))} placeholder="Max size" />
+                <Input type="number" value={createMinWinners} onChange={(e) => setCreateMinWinners(Number(e.target.value || 0))} placeholder="Min winners" />
+                <Input type="number" value={createMaxWinners} onChange={(e) => setCreateMaxWinners(Number(e.target.value || 0))} placeholder="Max winners" />
               </div>
             </div>
             <div className="space-y-2">

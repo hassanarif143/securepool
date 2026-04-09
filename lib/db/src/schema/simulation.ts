@@ -28,6 +28,7 @@ export const simulationConfigTable = pgTable("simulation_config", {
   minWinnersCount: integer("min_winners_count").notNull().default(2),
   maxWinnersCount: integer("max_winners_count").notNull().default(3),
   simulatedTicketPrice: numeric("simulated_ticket_price", { precision: 18, scale: 2 }).notNull().default("2.00"),
+  simulatedTicketTiers: text("simulated_ticket_tiers").notNull().default("2,5,10"),
   simulatedPlatformFeeBps: integer("simulated_platform_fee_bps").notNull().default(2000),
   minJoinDelaySec: integer("min_join_delay_sec").notNull().default(2),
   maxJoinDelaySec: integer("max_join_delay_sec").notNull().default(10),
