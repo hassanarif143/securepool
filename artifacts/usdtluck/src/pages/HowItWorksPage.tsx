@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -65,20 +66,39 @@ const faqs = [
 ];
 
 export default function HowItWorksPage() {
-  return (
-    <div className="relative max-w-5xl mx-auto space-y-12 sm:space-y-16 pb-16 px-2 sm:px-0">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_0%,hsl(var(--primary)/0.14),transparent_35%),radial-gradient(circle_at_90%_0%,hsl(210_90%_60%/0.1),transparent_30%)]" />
+  const [scrollY, setScrollY] = useState(0);
 
-      <motion.section {...fade} className="text-center pt-2 sm:pt-4 rounded-3xl border border-border/70 bg-card/60 backdrop-blur px-4 py-10 sm:px-8">
+  useEffect(() => {
+    const onScroll = () => setScrollY(window.scrollY || 0);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const parallaxY = Math.min(120, scrollY * 0.14);
+
+  return (
+    <div className="relative max-w-5xl mx-auto space-y-10 sm:space-y-14 pb-16 px-3 sm:px-0">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -inset-x-16 -inset-y-24 -z-10"
+        style={{
+          transform: `translate3d(0, ${parallaxY * -1}px, 0)`,
+          background:
+            "radial-gradient(circle at 16% 8%, hsl(var(--primary)/0.2), transparent 30%), radial-gradient(circle at 82% 12%, hsl(28 90% 58%/0.2), transparent 32%), radial-gradient(circle at 50% 62%, hsl(210 85% 60%/0.12), transparent 42%), linear-gradient(180deg, hsl(224 30% 8%), hsl(224 30% 7%) 44%, hsl(224 30% 6%) 100%)",
+        }}
+      />
+
+      <motion.section {...fade} className="text-center pt-2 sm:pt-4 rounded-3xl border border-border/70 bg-card/60 backdrop-blur px-4 py-8 sm:px-8 sm:py-10 shadow-[0_20px_44px_-34px_rgba(0,0,0,0.85)]">
         <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary mb-3">
           <Sparkles className="h-3.5 w-3.5" />
           SecurePool guide
         </p>
-        <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4 leading-tight">How SecurePool Works</h1>
-        <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed px-2 sm:px-0">
+        <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4 leading-tight">How SecurePool Works</h1>
+        <p className="text-sm sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed px-1 sm:px-0">
           Simple, transparent, and built for trust. Here&apos;s the full flow in easy language.
         </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
           {["Published winner records", "Clear wallet history", "TRC-20 support", "Admin-verified payouts"].map((item) => (
             <span key={item} className="rounded-full border border-border/70 bg-background/60 px-3 py-1 text-xs text-muted-foreground">
               {item}
@@ -98,7 +118,7 @@ export default function HowItWorksPage() {
       </motion.section>
 
       <section className="pt-2" id="steps">
-        <div className="mb-5 flex flex-wrap justify-center gap-2">
+        <div className="mb-5 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:justify-center">
           {[
             { label: "Steps", href: "#steps" },
             { label: "Fees", href: "#fees" },
@@ -108,7 +128,7 @@ export default function HowItWorksPage() {
             <a
               key={item.label}
               href={item.href}
-              className="rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="shrink-0 rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               {item.label}
             </a>
@@ -118,12 +138,12 @@ export default function HowItWorksPage() {
           <Sparkles className="h-4 w-4 text-primary" />
           Step-by-step
         </h2>
-        <div className="grid sm:grid-cols-2 gap-x-4 gap-y-7 sm:gap-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4 sm:gap-y-6">
           {steps.map((s, i) => (
             <motion.div key={s.n} {...fade} transition={{ delay: i * 0.05, duration: 0.4 }}>
               <Card className="h-full overflow-visible border-[hsl(217,28%,18%)] bg-[hsl(222,30%,9%)] transition-colors hover:border-primary/30 shadow-[0_16px_40px_-26px_rgba(0,0,0,0.8)]">
                 <div className="h-1 rounded-t-2xl bg-gradient-to-r from-primary/50 to-emerald-600/40" />
-                <CardContent className="flex gap-4 p-5 pt-6">
+                <CardContent className="flex gap-3 sm:gap-4 p-4 sm:p-5 pt-5 sm:pt-6">
                   <div className="flex flex-col items-center shrink-0">
                     {(() => {
                       const StepIcon = stepIcons[i] ?? Sparkles;
@@ -136,8 +156,8 @@ export default function HowItWorksPage() {
                     <span className="text-[10px] font-mono text-primary/80">0{s.n}</span>
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-1">{s.title}</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
+                    <h3 className="font-semibold mb-1 text-[15px] sm:text-base">{s.title}</h3>
+                    <p className="text-[13px] sm:text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -154,7 +174,9 @@ export default function HowItWorksPage() {
         <p className="text-sm text-muted-foreground text-center mb-6 max-w-xl mx-auto leading-relaxed">
           A small platform fee applies on each join (and the same rule applies to what you get back if you don&apos;t win). Here&apos;s the rule in plain language.
         </p>
-        <PlatformFeeRuleExplainer variant="full" />
+        <div className="rounded-2xl border border-border/70 bg-card/55 p-3 sm:p-4">
+          <PlatformFeeRuleExplainer variant="full" />
+        </div>
       </section>
 
       <section id="faq" className="scroll-mt-24">
@@ -164,9 +186,9 @@ export default function HowItWorksPage() {
         </h2>
         <Accordion type="single" collapsible className="w-full space-y-2">
           {faqs.map((f, i) => (
-            <AccordionItem key={i} value={`q-${i}`} className="border border-[hsl(217,28%,16%)] rounded-lg px-4 bg-[hsl(222,30%,9%)] hover:border-primary/25 transition-colors">
-              <AccordionTrigger className="text-left text-sm font-medium hover:no-underline">{f.q}</AccordionTrigger>
-              <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4">{f.a}</AccordionContent>
+            <AccordionItem key={i} value={`q-${i}`} className="border border-[hsl(217,28%,16%)] rounded-lg px-3 sm:px-4 bg-[hsl(222,30%,9%)] hover:border-primary/25 transition-colors">
+              <AccordionTrigger className="text-left text-[13px] sm:text-sm font-medium hover:no-underline">{f.q}</AccordionTrigger>
+              <AccordionContent className="text-[13px] sm:text-sm text-muted-foreground leading-relaxed pb-4">{f.a}</AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>
@@ -182,9 +204,9 @@ export default function HowItWorksPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-border/70 bg-card/60 backdrop-blur p-6 md:p-8">
+      <section className="rounded-2xl border border-border/70 bg-card/60 backdrop-blur p-5 md:p-8">
         <h2 className="text-xl font-bold mb-4 text-center">Why users trust SecurePool</h2>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
           <div className="rounded-xl border border-border/70 bg-background/50 p-4">
             <ShieldCheck className="h-4 w-4 text-primary mb-2" />
             <p className="font-medium">Verified flow</p>

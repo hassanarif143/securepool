@@ -43,12 +43,12 @@ function useAnimatedInt(target: number, duration = 1200) {
   return v;
 }
 
-const reveal = {
-  initial: { opacity: 0, y: 20 },
+const reveal = (delay = 0) => ({
+  initial: { opacity: 0, y: 22 },
   whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, margin: "-80px" },
-  transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const },
-};
+  viewport: { once: true, amount: 0.18, margin: "0px 0px -12% 0px" },
+  transition: { duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] as const },
+});
 
 const quoteCards = [
   {
@@ -239,7 +239,7 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-6" {...reveal}>
+      <motion.section className="max-w-6xl mx-auto px-4 mt-6" {...reveal(0)}>
         <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/70">
           <div className="landing-trust-marquee gap-2 p-3 sm:p-4">
             {[...trustItems, ...trustItems].map((item, idx) => (
@@ -255,7 +255,7 @@ export default function LandingPage() {
         </div>
       </motion.section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-6" {...reveal}>
+      <motion.section className="max-w-6xl mx-auto px-4 mt-6" {...reveal(0.03)}>
         <div className="grid sm:grid-cols-3 gap-3">
           {[
             { title: "Transparent records", desc: "Winner names and payout visibility in clear UI.", Icon: Eye },
@@ -273,7 +273,7 @@ export default function LandingPage() {
         </div>
       </motion.section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-10 sm:mt-14" {...reveal}>
+      <motion.section className="max-w-6xl mx-auto px-4 mt-10 sm:mt-14" {...reveal(0.05)}>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <motion.div whileHover={prefersReducedMotion ? undefined : { y: -3 }} transition={{ duration: 0.2 }} className="rounded-2xl border border-border/70 bg-card p-5">
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground inline-flex items-center gap-1.5">
@@ -299,7 +299,7 @@ export default function LandingPage() {
         </div>
       </motion.section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal}>
+      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal(0.07)}>
         <div className="text-center mb-7">
           <p className="text-xs uppercase tracking-[0.18em] text-primary font-medium inline-flex items-center gap-1.5">
             <Workflow className="h-3.5 w-3.5" />
@@ -327,7 +327,7 @@ export default function LandingPage() {
         </div>
       </motion.section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal}>
+      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal(0.09)}>
         <div className="rounded-3xl border border-border/70 bg-card p-6 sm:p-8">
           <p className="text-xs uppercase tracking-[0.16em] text-primary font-medium text-center inline-flex items-center justify-center gap-1.5 w-full">
             <BadgeCheck className="h-3.5 w-3.5" />
@@ -348,7 +348,7 @@ export default function LandingPage() {
         </div>
       </motion.section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal}>
+      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal(0.11)}>
         <div className="grid lg:grid-cols-2 gap-4">
           <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
             <div className="flex items-center justify-between gap-2 mb-3">
@@ -375,7 +375,7 @@ export default function LandingPage() {
         </div>
       </motion.section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal}>
+      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal(0.13)}>
         <div className="text-center mb-7">
           <p className="text-xs uppercase tracking-[0.16em] text-primary font-medium">User feedback</p>
           <h2 className="mt-2 font-display text-2xl sm:text-3xl">People like the simple experience</h2>
@@ -397,7 +397,7 @@ export default function LandingPage() {
         </div>
       </motion.section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal}>
+      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal(0.15)}>
         <div className="grid md:grid-cols-2 gap-4">
           <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
             <p className="text-xs uppercase tracking-[0.16em] text-primary font-medium inline-flex items-center gap-1.5">
@@ -429,7 +429,7 @@ export default function LandingPage() {
         </div>
       </motion.section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal}>
+      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal(0.17)}>
         <div className="rounded-3xl border border-border/70 bg-card p-6 sm:p-10">
           <div className="grid lg:grid-cols-2 gap-8 items-center">
             <div>
@@ -463,7 +463,7 @@ export default function LandingPage() {
         </div>
       </motion.section>
 
-      <motion.footer className="max-w-6xl mx-auto px-4 mt-10" {...reveal}>
+      <motion.footer className="max-w-6xl mx-auto px-4 mt-10" {...reveal(0.2)}>
         <div className="rounded-2xl border border-border/70 bg-card/60 backdrop-blur p-5 sm:p-6">
           <div className="grid sm:grid-cols-3 gap-4 text-sm">
             <div>
