@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useListWinners, useListPools } from "@workspace/api-client-react";
 import { apiUrl } from "@/lib/api-base";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { RecentPayouts } from "@/components/RecentPayouts";
+import { PageLoading } from "@/components/PageLoading";
+import { useAuth } from "@/context/AuthContext";
 import { ShieldCheck, ArrowRight, Sparkles, Quote } from "lucide-react";
 
 function useAnimatedInt(target: number, duration = 1200) {
@@ -99,6 +101,8 @@ function useNearViewport<T extends HTMLElement>(rootMargin = "240px") {
 
 export default function LandingPage() {
   const prefersReducedMotion = useReducedMotion();
+  const { user, isLoading } = useAuth();
+  const [, navigate] = useLocation();
   const { data: winners } = useListWinners();
   const { data: pools } = useListPools();
   const [summary, setSummary] = useState<{
@@ -113,6 +117,12 @@ export default function LandingPage() {
     document.documentElement.classList.add("dark");
     window.localStorage.setItem("sp_theme", "dark");
   }, []);
+
+  useEffect(() => {
+    if (!isLoading && user) {
+      navigate("/dashboard");
+    }
+  }, [isLoading, user, navigate]);
 
   useEffect(() => {
     fetch(apiUrl("/api/stats/summary"), { credentials: "include" })
@@ -153,6 +163,10 @@ export default function LandingPage() {
   const heroVariant = heroVariants[heroVariantIndex] ?? heroVariants[0];
   const activitySection = useNearViewport<HTMLDivElement>("260px");
   const testimonialsSection = useNearViewport<HTMLDivElement>("320px");
+
+  if (isLoading || user) {
+    return <PageLoading />;
+  }
 
   return (
     <div className="relative overflow-hidden">
