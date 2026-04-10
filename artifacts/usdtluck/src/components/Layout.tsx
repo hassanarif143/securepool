@@ -545,7 +545,7 @@ function MobileMenu({
         ref={panelRef}
         role="navigation"
         aria-label="Mobile Navigation"
-        className={`absolute right-0 top-0 h-full w-[80vw] max-w-[320px] rounded-l-2xl border-l shadow-[-4px_0_20px_rgba(0,0,0,0.3)] will-change-transform transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] touch-pan-y z-[55] ${
+        className={`absolute right-0 top-0 h-full w-[80vw] max-w-[320px] rounded-l-2xl border-l shadow-[-4px_0_20px_rgba(0,0,0,0.3)] will-change-transform transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] touch-pan-y z-[55] flex flex-col overflow-hidden ${
           open || dragX !== 0 || edgeDragX !== 0 ? "pointer-events-auto" : "pointer-events-none"
         }`}
         style={{
@@ -603,7 +603,7 @@ function MobileMenu({
           </button>
         </div>
 
-        <nav className="px-0 pt-2 pb-2 flex-1 overflow-y-auto" aria-label="Navigation items">
+        <nav className="px-0 pt-2 pb-6 flex-1 min-h-0 overflow-y-auto overscroll-contain" aria-label="Navigation items">
           {user ? (
             <>
               <div className="px-5 py-2 text-[12px] uppercase tracking-[1px] text-[#64748b]">Quick Access</div>
@@ -692,7 +692,7 @@ function MobileMenu({
                     isActive(link.href) ? "text-white bg-[rgba(16,185,129,0.1)]" : "text-gray-200 hover:text-white"
                   }`}
                 >
-                  {isActive(link.href) && <span className="absolute left-0 top-0 h-full w-[3px] bg-[#10b981]" />}
+                  {isActive(link.href) && <span className="absolute right-0 top-0 h-full w-[2px] bg-[#10b981]" />}
                   <span className="w-5 text-center">{link.icon}</span>
                   <span>{link.label}</span>
                   <span className="ml-auto opacity-60">›</span>
@@ -702,7 +702,7 @@ function MobileMenu({
           )}
         </nav>
         {user && (
-          <div className="mt-auto border-t border-white/10 px-0 pt-2 pb-2 shrink-0">
+          <div className="border-t border-white/10 px-0 pt-2 pb-2 shrink-0">
               <Link href="/profile">
                 <button onClick={() => window.setTimeout(onClose, 150)} className="flex h-12 w-full items-center gap-3 px-5 text-left text-[15px] text-gray-200 transition-colors hover:bg-white/[0.05] hover:text-white">
                   <span className="w-5 text-center">👤</span> Profile & Settings
