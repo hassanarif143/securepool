@@ -12,6 +12,43 @@ function truncateWallet(addr: string | null | undefined): string | null {
   return `${addr.slice(0, 8)}…${addr.slice(-6)}`;
 }
 
+function maskUsername(name: string): string {
+  if (name.length <= 2) return `${name}***`;
+  if (name.length <= 4) return `${name.slice(0, 2)}***`;
+  return `${name.slice(0, 2)}***${name.slice(-2)}`;
+}
+
+router.get("/recent", async (_req, res) => {
+  try {
+    const rows = await db
+      .select({
+        id: winnersTable.id,
+        userName: usersTable.name,
+        poolName: poolsTable.title,
+        amountWon: winnersTable.prize,
+        completedAt: winnersTable.awardedAt,
+      })
+      .from(winnersTable)
+      .innerJoin(usersTable, eq(winnersTable.userId, usersTable.id))
+      .innerJoin(poolsTable, eq(winnersTable.poolId, poolsTable.id))
+      .where(eq(winnersTable.paymentStatus, "paid"))
+      .orderBy(desc(winnersTable.awardedAt))
+      .limit(20);
+
+    res.json(
+      rows.map((row) => ({
+        id: row.id,
+        maskedUsername: maskUsername(row.userName),
+        poolName: row.poolName,
+        amountWon: parseFloat(String(row.amountWon)),
+        completedAt: row.completedAt,
+      })),
+    );
+  } catch {
+    res.status(500).json({ error: "Failed to fetch recent winners" });
+  }
+});
+
 router.get("/recent-payouts", async (req, res) => {
   const raw = parseInt(String(req.query.limit ?? "10"), 10);
   const lim = Number.isNaN(raw) ? 10 : Math.min(raw, 30);

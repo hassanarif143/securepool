@@ -1,31 +1,14 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useListWinners, useListPools } from "@workspace/api-client-react";
 import { PoolCard } from "@/components/PoolCard";
-import { apiUrl } from "@/lib/api-base";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { RecentPayouts } from "@/components/RecentPayouts";
 import { MoneySafeExplainerSection } from "@/components/MoneySafeExplainerSection";
+import { PlatformStats } from "@/components/PlatformStats";
 import { ShieldCheck } from "lucide-react";
-
-function useAnimatedInt(target: number, duration = 1400) {
-  const [v, setV] = useState(0);
-  useEffect(() => {
-    let start: number | null = null;
-    let raf = 0;
-    const tick = (t: number) => {
-      if (start === null) start = t;
-      const p = Math.min(1, (t - start) / duration);
-      setV(Math.round(target * (0.5 - Math.cos(p * Math.PI) / 2)));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, duration]);
-  return v;
-}
 
 const sectionReveal = {
   initial: { opacity: 0, y: 28 },
@@ -71,18 +54,6 @@ function WinnersTicker({ winners }: { winners: any[] }) {
 export default function LandingPage() {
   const { data: winners } = useListWinners();
   const { data: pools } = useListPools();
-  const [summary, setSummary] = useState<{
-    totalUsers: number;
-    activePools: number;
-    totalRewardsDistributed: number;
-  } | null>(null);
-
-  useEffect(() => {
-    fetch(apiUrl("/api/stats/summary"), { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setSummary)
-      .catch(() => {});
-  }, []);
 
   const activePools = pools?.filter((p) => p.status === "open") ?? [];
   const minTicketUsdt =
@@ -96,10 +67,6 @@ export default function LandingPage() {
     ...(activePools.length > 0 ? [{ href: "#active-pools" as const, label: "Pools" }] : []),
     { href: "#join-cta", label: "Get started" },
   ];
-
-  const uAnim = useAnimatedInt(summary?.totalUsers ?? 0);
-  const rAnim = useAnimatedInt(Math.round(summary?.totalRewardsDistributed ?? 0));
-  const pAnim = useAnimatedInt(summary?.activePools ?? 0);
 
   return (
     <div className="space-y-20 md:space-y-28">
@@ -230,39 +197,9 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <MoneySafeExplainerSection />
+      <PlatformStats />
 
-      {/* Live stats */}
-      <motion.section id="live-stats" className="max-w-4xl mx-auto scroll-mt-28 px-2 sm:px-0" {...sectionReveal}>
-        <p className="text-center text-xs font-semibold uppercase tracking-[0.22em] text-primary/90 mb-4">Platform pulse</p>
-        <div className="rounded-2xl border border-primary/10 bg-gradient-to-br from-[hsl(222,30%,10%)] via-[hsl(222,30%,9%)] to-[hsl(224,30%,8%)] p-1.5 shadow-xl shadow-black/30 ring-1 ring-white/[0.04] sm:p-2">
-          <div className="grid grid-cols-1 divide-y divide-border/50 overflow-hidden rounded-[0.85rem] bg-[hsl(222,30%,9%)]/80 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-            {[
-              { label: "Community", value: summary ? `${uAnim}+` : "—", sub: "Registered users", icon: "👥" },
-              { label: "Rewards paid", value: summary ? `${rAnim} USDT` : "—", sub: "Total distributed", icon: "💎" },
-              { label: "Live pools", value: summary ? String(pAnim) : "—", sub: "Open right now", icon: "🎱" },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                className="py-8 px-5 sm:py-7 text-center motion-safe:transition-transform motion-safe:hover:bg-white/[0.02]"
-              >
-                <span className="text-2xl mb-2 block" aria-hidden>
-                  {stat.icon}
-                </span>
-                <p
-                  className="text-3xl sm:text-[1.75rem] font-bold font-display text-transparent bg-clip-text mb-1 tabular-nums"
-                  style={{ backgroundImage: "linear-gradient(135deg, #4ade80, #22c55e)" }}
-                >
-                  {stat.value}
-                </p>
-                <p className="text-xs text-muted-foreground leading-normal">{stat.sub}</p>
-                <p className="text-sm font-semibold mt-2 text-foreground/95">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-        <p className="text-center text-xs text-muted-foreground mt-4 leading-relaxed px-2">Numbers reflect the live platform and update as activity grows.</p>
-      </motion.section>
+      <MoneySafeExplainerSection />
 
       <motion.section id="activity-feed" className="max-w-4xl mx-auto scroll-mt-28 space-y-4" {...sectionReveal}>
         <div className="text-center md:text-left px-1">
