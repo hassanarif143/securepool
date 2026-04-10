@@ -6,7 +6,7 @@ import { Logo } from "@/components/Logo";
 import { apiUrl } from "@/lib/api-base";
 import { useGameAvailability } from "@/lib/game-availability";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
-import { ChevronRight, Circle, House, Menu, Trophy, Wallet, X } from "lucide-react";
+import { ChevronRight, Circle, House, Linkedin, Menu, Trophy, Twitter, Wallet, X, Youtube } from "lucide-react";
 
 function playNotifSound() {
   try {
@@ -791,7 +791,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   ] as const;
 
   const showLandingPromo = !isLoading && !user && location === "/";
-  const isAuthPage = location.startsWith("/login");
+  const isAuthPage = location.startsWith("/login") || location.startsWith("/signup");
   const tapFeedback = () => {
     if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(10);
   };
@@ -935,49 +935,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       </header>
 
-      <header
-        className="md:hidden fixed top-0 left-0 right-0 z-[40] border-b"
-        style={{
-          background: "#0a1628",
-          borderColor: "hsl(217,28%,14%)",
-        }}
-      >
-        <div className="h-14 px-4 flex items-center justify-between">
-          <div className="shrink-0">
-            <Logo size="sm" />
-          </div>
-          <div className="flex items-center gap-1.5 min-w-0">
-            {user ? (
-              <>
-                <span className="inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-semibold text-primary shrink-0"
-                  style={{ borderColor: "hsla(152,72%,44%,0.35)", background: "hsla(152,72%,44%,0.1)" }}>
-                  {Number(user.walletBalance ?? 0).toFixed(2)} USDT
-                </span>
-                <span className="inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-medium text-foreground/90 max-w-[5.25rem] truncate"
-                  style={{ borderColor: "hsl(217,28%,20%)", background: "hsla(217,28%,16%,0.55)" }}>
-                  {String(user.name ?? "").split(" ")[0] || "User"}
-                </span>
-              </>
-            ) : (
-              <Link href="/login">
-                <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">Login</Button>
-              </Link>
-            )}
-            <button
-              onClick={() => {
-                tapFeedback();
-                setMobileOpen((v) => !v);
-              }}
-              aria-label={mobileOpen ? "Close menu" : "Open menu"}
-              aria-expanded={mobileOpen}
-              aria-controls="mobile-nav-drawer"
-              className="w-10 h-10 rounded-lg inline-flex items-center justify-center transition-all duration-300 ease-in-out active:scale-95 hover:bg-white/5"
-            >
-              {mobileOpen ? <X className="w-5 h-5 text-foreground" /> : <Menu className="w-5 h-5 text-muted-foreground" />}
-            </button>
-          </div>
-        </div>
-      </header>
       </div>
 
       <main
@@ -986,108 +943,148 @@ export function Layout({ children }: { children: React.ReactNode }) {
         }`}
         style={{ touchAction: "pan-y" }}
       >
-        <div className="md:hidden h-14" />
         {user ? <LiveJoinNotification /> : null}
         {children}
       </main>
 
       <MobileMenu
-        open={mobileOpen}
+        open={!!user && mobileOpen}
         secondaryLinks={secondaryLinks}
         guestLinks={guestLinks}
         location={location}
         user={user}
         logout={logout}
-        onOpen={() => setMobileOpen(true)}
+        onOpen={() => {
+          if (user) setMobileOpen(true);
+        }}
         onClose={() => setMobileOpen(false)}
       />
 
       {user && (
         <nav
-          className="md:hidden fixed bottom-0 inset-x-0 z-[45] border-t flex items-stretch justify-around h-16 pb-[env(safe-area-inset-bottom)]"
-          style={{ background: "#0a1628", borderColor: "rgba(255,255,255,0.08)" }}
+          className="md:hidden fixed bottom-0 inset-x-0 z-[45] px-3 pb-[max(env(safe-area-inset-bottom),0.45rem)]"
           aria-label="Bottom Navigation"
         >
-          {[
-            { href: "/dashboard", Icon: House, label: "Home" },
-            { href: "/pools", Icon: Circle, label: "Pools" },
-            { href: "/winners", Icon: Trophy, label: "Winners" },
-          ].map((item) => {
-            const active = location.startsWith(item.href);
-            const Icon = item.Icon;
-            return (
-              <Link key={item.href} href={item.href} className="flex-1">
-                <button
-                  onClick={tapFeedback}
-                  aria-label={item.label}
-                  className={`relative w-full h-16 flex items-center justify-center transition-colors ${
-                    active ? "text-primary" : "text-[#64748b]"
-                  }`}
-                >
-                  {active && <span className="absolute top-1 h-1 w-1 rounded-full bg-primary" />}
-                  <span className={`inline-flex items-center justify-center rounded-xl w-9 h-9 ${active ? "bg-primary/10" : ""}`}>
-                    <Icon className="w-5 h-5" strokeWidth={2.2} />
-                  </span>
-                </button>
-              </Link>
-            );
-          })}
+          <div
+            className="h-16 rounded-2xl border flex items-center justify-between px-1.5"
+            style={{
+              background: "linear-gradient(180deg, hsla(224,30%,9%,0.96), hsla(224,30%,7%,0.94))",
+              borderColor: "rgba(255,255,255,0.09)",
+              boxShadow: "0 14px 28px -20px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.03)",
+            }}
+          >
+            {[
+              { href: "/dashboard", Icon: House, label: "Home" },
+              { href: "/pools", Icon: Circle, label: "Pools" },
+              { href: "/winners", Icon: Trophy, label: "Winners" },
+              { href: "/wallet", Icon: Wallet, label: "Wallet" },
+            ].map((item) => {
+              const active = location.startsWith(item.href);
+              const Icon = item.Icon;
+              return (
+                <Link key={item.href} href={item.href} className="flex-1">
+                  <button
+                    onClick={tapFeedback}
+                    aria-label={item.label}
+                    className={`relative w-full h-14 flex items-center justify-center transition-colors ${
+                      active ? "text-primary" : "text-[#64748b]"
+                    }`}
+                  >
+                    <span className={`inline-flex items-center justify-center rounded-xl w-10 h-10 transition-all ${active ? "bg-primary/15 shadow-[0_0_0_1px_rgba(16,185,129,0.18)]" : ""}`}>
+                      <Icon className="w-[1.15rem] h-[1.15rem]" strokeWidth={2.3} />
+                    </span>
+                  </button>
+                </Link>
+              );
+            })}
 
-          <Link href="/wallet" className="flex-1">
             <button
-              onClick={tapFeedback}
-              aria-label="Wallet"
-              className={`relative w-full h-16 flex items-center justify-center transition-colors ${
-                location.startsWith("/wallet") ? "text-primary" : "text-[#64748b]"
+              onClick={() => {
+                tapFeedback();
+                setMobileOpen((v) => !v);
+              }}
+              className={`relative flex-1 h-14 flex items-center justify-center transition-colors ${
+                mobileOpen ? "text-primary" : "text-[#64748b]"
               }`}
+              aria-label="More menu"
+              aria-expanded={mobileOpen}
+              aria-controls="mobile-nav-drawer"
             >
-              {location.startsWith("/wallet") && <span className="absolute top-1 h-1 w-1 rounded-full bg-primary" />}
-              <span className={`inline-flex items-center justify-center rounded-xl w-9 h-9 ${location.startsWith("/wallet") ? "bg-primary/10" : ""}`}>
-                <Wallet className="w-5 h-5" strokeWidth={2.2} />
+              <span className={`inline-flex items-center justify-center rounded-xl w-10 h-10 transition-all ${mobileOpen ? "bg-primary/15 shadow-[0_0_0_1px_rgba(16,185,129,0.18)]" : ""}`}>
+                {mobileOpen ? <X className="w-[1.15rem] h-[1.15rem]" strokeWidth={2.3} /> : <Menu className="w-[1.15rem] h-[1.15rem]" strokeWidth={2.3} />}
               </span>
             </button>
-          </Link>
-
-          <button
-            onClick={() => {
-              tapFeedback();
-              setMobileOpen((v) => !v);
-            }}
-            className={`relative flex-1 h-16 flex items-center justify-center transition-colors ${
-              mobileOpen ? "text-primary" : "text-[#64748b]"
-            }`}
-            aria-label="More menu"
-            aria-expanded={mobileOpen}
-            aria-controls="mobile-nav-drawer"
-          >
-            {mobileOpen && <span className="absolute top-1 h-1 w-1 rounded-full bg-primary" />}
-            <span className={`inline-flex items-center justify-center rounded-xl w-9 h-9 ${mobileOpen ? "bg-primary/10" : ""}`}>
-              {mobileOpen ? <X className="w-5 h-5" strokeWidth={2.2} /> : <Menu className="w-5 h-5" strokeWidth={2.2} />}
-            </span>
-          </button>
+          </div>
         </nav>
       )}
 
-      <footer className="border-t mt-auto py-10 pb-[max(2.5rem,env(safe-area-inset-bottom))]" style={{ borderColor: "hsl(217,28%,14%)" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-5 text-sm text-muted-foreground">
-          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
-            <Link href="/how-it-works" className="hover:text-foreground transition-colors">How It Works</Link>
-            <span className="opacity-30 hidden sm:inline">·</span>
-            <span className="opacity-50 cursor-default" title="Terms of service — contact support for details">
-              Terms
-            </span>
-            <span className="opacity-30 hidden sm:inline">·</span>
-            <a href="mailto:support@securepool.app" className="hover:text-foreground transition-colors">Support</a>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="opacity-40" aria-hidden>𝕏</span>
-            <span className="opacity-40" aria-hidden>in</span>
-            <span className="opacity-40" aria-hidden>▶</span>
+      {!user && !isLoading && (
+        <div className="md:hidden fixed bottom-0 inset-x-0 z-[45] px-4 pb-[max(env(safe-area-inset-bottom),0.6rem)]">
+          <div
+            className="rounded-2xl border p-2.5 flex items-center gap-2"
+            style={{
+              background: "linear-gradient(180deg, hsla(224,30%,9%,0.96), hsla(224,30%,7%,0.94))",
+              borderColor: "rgba(255,255,255,0.09)",
+              boxShadow: "0 14px 28px -20px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.03)",
+            }}
+          >
+            <Link href="/how-it-works" className="flex-1">
+              <Button variant="ghost" className="w-full h-10 text-muted-foreground hover:text-foreground">
+                How It Works
+              </Button>
+            </Link>
+            <Link href="/login" className="flex-1">
+              <Button variant="outline" className="w-full h-10 border-border/70 bg-background/35 text-foreground">
+                Login
+              </Button>
+            </Link>
+            <Link href="/signup" className="flex-1">
+              <Button className="w-full h-10 font-semibold">Get Started</Button>
+            </Link>
           </div>
         </div>
-        <p className="text-center text-xs sm:text-sm text-muted-foreground/90 mt-4 px-4 leading-relaxed max-w-2xl mx-auto">
-          © {new Date().getFullYear()} SecurePool — Transparent USDT Reward Pools
-        </p>
+      )}
+
+      <footer className="border-t mt-auto py-4 pb-[max(1rem,env(safe-area-inset-bottom))]" style={{ borderColor: "hsl(217,28%,14%)" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm text-muted-foreground">
+          <p className="text-center sm:text-left">© {new Date().getFullYear()} SecurePool</p>
+          <div className="flex items-center gap-4">
+            <Link href="/how-it-works" className="hover:text-foreground transition-colors">How It Works</Link>
+            <span className="opacity-35">•</span>
+            <span className="opacity-60 cursor-default" title="Terms of service — contact support for details">Terms</span>
+            <span className="opacity-35">•</span>
+            <a href="mailto:support@securepool.app" className="hover:text-foreground transition-colors">Support</a>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href="https://x.com"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="SecurePool on X"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-background/30 text-muted-foreground hover:text-foreground hover:border-primary/35 hover:bg-primary/10 transition-colors"
+            >
+              <Twitter className="h-3.5 w-3.5" />
+            </a>
+            <a
+              href="https://linkedin.com"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="SecurePool on LinkedIn"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-background/30 text-muted-foreground hover:text-foreground hover:border-primary/35 hover:bg-primary/10 transition-colors"
+            >
+              <Linkedin className="h-3.5 w-3.5" />
+            </a>
+            <a
+              href="https://youtube.com"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="SecurePool on YouTube"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-background/30 text-muted-foreground hover:text-foreground hover:border-primary/35 hover:bg-primary/10 transition-colors"
+            >
+              <Youtube className="h-3.5 w-3.5" />
+            </a>
+          </div>
+        </div>
       </footer>
     </div>
   );
