@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
@@ -18,13 +18,24 @@ export default function LoginPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [errorText, setErrorText] = useState("");
+  const [showLogoutToast, setShowLogoutToast] = useState(false);
 
   const nextParam = new URLSearchParams(search).get("next");
   const nextPath = nextParam && nextParam.startsWith("/") ? nextParam : "/dashboard";
+  const showLoggedOut = useMemo(() => new URLSearchParams(search).get("logged_out") === "1", [search]);
+
+  useEffect(() => {
+    if (!showLoggedOut) return;
+    setShowLogoutToast(true);
+    const id = window.setTimeout(() => setShowLogoutToast(false), 3000);
+    return () => window.clearTimeout(id);
+  }, [showLoggedOut]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setErrorText("");
     try {
       const csrfRes = await fetch(apiUrl("/api/auth/csrf-token"), { method: "GET", credentials: "include" });
       const csrfRaw = await csrfRes.text();
@@ -51,9 +62,11 @@ export default function LoginPage() {
       })() : {};
 
       if (!res.ok) {
+        const message = (data as any).message ?? (data as any).error ?? "Invalid email or password";
+        setErrorText(message);
         toast({
           title: "Login failed",
-          description: (data as any).message ?? (data as any).error ?? "Invalid email or password",
+          description: message,
           variant: "destructive",
         });
         return;
@@ -75,6 +88,7 @@ export default function LoginPage() {
       toast({ title: "Welcome back!", description: `Logged in as ${(data as any).user?.name ?? "user"}` });
       navigate(nextPath);
     } catch (err: any) {
+      setErrorText(err?.message ?? "Network error");
       toast({
         title: "Login failed",
         description: err?.message ?? "Network error",
@@ -87,6 +101,14 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center -mx-4 sm:-mx-6 lg:-mx-8 -my-8 px-4">
+      {showLogoutToast && (
+        <div
+          className="fixed top-5 left-1/2 -translate-x-1/2 z-[80] px-5 py-3 rounded-xl text-sm font-medium"
+          style={{ background: "#0d1b2a", border: "1px solid rgba(16, 185, 129, 0.2)", color: "#10b981" }}
+        >
+          Logged out successfully ✓
+        </div>
+      )}
       {/* Background glow orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-[0.06] blur-3xl"
@@ -173,6 +195,11 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {errorText ? (
+                <div className="login-error">
+                  {errorText}
+                </div>
+              ) : null}
               {/* Email */}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground" htmlFor="email">
@@ -276,6 +303,8 @@ export default function LoginPage() {
             </form>
 
             {/* Signup link */}
+            <a href="#" className="forgot-link">Forgot your password?</a>
+            <div className="login-divider"><span>or</span></div>
             <p className="text-center text-sm text-muted-foreground mt-5">
               Don't have an account?{" "}
               <Link href="/signup" className="font-medium hover:underline" style={{ color: "hsl(152,72%,55%)" }}>

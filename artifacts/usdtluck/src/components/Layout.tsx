@@ -421,7 +421,6 @@ function MoreMenu({ links, location }: { links: { href: string; label: string; i
 ───────────────────────────────────────────── */
 function MobileMenu({
   open,
-  primaryLinks,
   secondaryLinks,
   guestLinks,
   location,
@@ -431,7 +430,6 @@ function MobileMenu({
   onClose,
 }: {
   open: boolean;
-  primaryLinks: { href: string; label: string; icon: string }[];
   secondaryLinks: { href: string; label: string; icon: string }[];
   guestLinks: { href: string; label: string; icon: string }[];
   location: string;
@@ -440,13 +438,10 @@ function MobileMenu({
   onOpen: () => void;
   onClose: () => void;
 }) {
-  const mainLinks = user
+  const quickAccessLinks = user
     ? [
-        { href: "/dashboard", label: "Dashboard", icon: "🏠" },
-        { href: "/pools", label: "Pools", icon: "🎱" },
-        { href: "/winners", label: "Winners", icon: "🏆" },
         { href: "/my-tickets", label: "My Tickets", icon: "🎫" },
-        { href: "/wallet", label: "My Wallet", icon: "💼" },
+        { href: "/profile", label: "My Stats", icon: "📊" },
       ]
     : [];
   const featureLinks = user
@@ -461,9 +456,17 @@ function MobileMenu({
     ? [
         { href: "/how-it-works", label: "How It Works", icon: "📘" },
         { href: "/reviews", label: "Reviews", icon: "💬" },
+        { href: "/how-it-works#terms", label: "Terms & Policy", icon: "📄" },
       ]
     : [];
-  const adminLinks = user?.isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: "⚙️" }] : [];
+  const adminLinks = user?.isAdmin
+    ? [
+        { href: "/admin", label: "Admin Panel", icon: "⚙️" },
+        { href: "/admin?tab=users", label: "Manage Users", icon: "📋" },
+        { href: "/admin?tab=wallets", label: "Verify Deposits", icon: "✅" },
+        { href: "/admin?tab=pending", label: "Process Withdrawals", icon: "💰" },
+      ]
+    : [];
   const extraFeatureLinks = user
     ? secondaryLinks.filter(
         (l) =>
@@ -494,7 +497,10 @@ function MobileMenu({
   const openSnapThresholdRatio = 0.28;
   const maxCloseDragRatio = 0.82;
 
-  const isActive = (href: string) => (href === "/dashboard" ? location === "/dashboard" : location.startsWith(href));
+  const isActive = (href: string) => {
+    const cleanHref = href.split("?")[0];
+    return cleanHref === "/dashboard" ? location === "/dashboard" : location.startsWith(cleanHref);
+  };
   const itemAnim = (index: number) => ({ animation: open ? `fadeInUp 220ms ease ${index * 50}ms both` : undefined });
 
   useEffect(() => {
@@ -521,7 +527,7 @@ function MobileMenu({
   }, [open, onClose]);
 
   return (
-    <div className="md:hidden fixed inset-0 z-[90]" aria-hidden={!open}>
+    <div className={`md:hidden fixed inset-0 z-[50] ${open || edgeDragX > 0 ? "" : "pointer-events-none"}`} aria-hidden={!open}>
       <div className="sr-only" role="status" aria-live="polite">
         {open ? "Navigation menu opened" : "Navigation menu closed"}
       </div>
@@ -535,10 +541,11 @@ function MobileMenu({
         style={{ opacity: open ? 1 : Math.min(0.8, edgeDragX / drawerW) }}
       />
       <aside
+        id="mobile-nav-drawer"
         ref={panelRef}
         role="navigation"
         aria-label="Mobile Navigation"
-        className={`absolute left-0 top-0 h-full w-[80vw] max-w-[320px] rounded-r-2xl border-r shadow-[4px_0_20px_rgba(0,0,0,0.3)] will-change-transform transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] touch-pan-y ${
+        className={`absolute left-0 top-0 h-full w-[80vw] max-w-[320px] rounded-r-2xl border-r shadow-[4px_0_20px_rgba(0,0,0,0.3)] will-change-transform transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] touch-pan-y z-[55] ${
           open || dragX !== 0 || edgeDragX !== 0 ? "pointer-events-auto" : "pointer-events-none"
         }`}
         style={{
@@ -605,8 +612,8 @@ function MobileMenu({
         <nav className="px-0 pt-2 pb-[calc(5.2rem+env(safe-area-inset-bottom,0px))]" aria-label="Navigation items">
           {user ? (
             <>
-              <div className="px-5 py-2 text-[12px] uppercase tracking-[1px] text-[#64748b]">Main</div>
-              {mainLinks.map((link, idx) => (
+              <div className="px-5 py-2 text-[12px] uppercase tracking-[1px] text-[#64748b]">Quick Access</div>
+              {quickAccessLinks.map((link, idx) => (
                 <Link key={link.href} href={link.href}>
                   <button
                     onClick={() => window.setTimeout(onClose, 150)}
@@ -623,12 +630,12 @@ function MobileMenu({
                 </Link>
               ))}
 
-              <div className="mt-2 border-t border-white/10 px-5 py-2 text-[12px] uppercase tracking-[1px] text-[#64748b]">Features</div>
+              <div className="mt-2 border-t border-white/10 px-5 py-2 text-[12px] uppercase tracking-[1px] text-[#64748b]">Earn More</div>
               {[...featureLinks, ...extraFeatureLinks].map((link, idx) => (
                 <Link key={link.href} href={link.href}>
                   <button
                     onClick={() => window.setTimeout(onClose, 150)}
-                    style={itemAnim(mainLinks.length + idx)}
+                    style={itemAnim(quickAccessLinks.length + idx)}
                     className={`relative flex h-12 w-full items-center gap-3 px-5 text-left text-[15px] transition-colors hover:bg-white/[0.05] active:scale-[0.99] ${
                       isActive(link.href) ? "text-white bg-[rgba(16,185,129,0.1)]" : "text-gray-200 hover:text-white"
                     }`}
@@ -646,7 +653,7 @@ function MobileMenu({
                 <Link key={link.href} href={link.href}>
                   <button
                     onClick={() => window.setTimeout(onClose, 150)}
-                    style={itemAnim(mainLinks.length + featureLinks.length + extraFeatureLinks.length + idx)}
+                    style={itemAnim(quickAccessLinks.length + featureLinks.length + extraFeatureLinks.length + idx)}
                     className={`relative flex h-12 w-full items-center gap-3 px-5 text-left text-[15px] transition-colors hover:bg-white/[0.05] active:scale-[0.99] ${
                       isActive(link.href) ? "text-white bg-[rgba(16,185,129,0.1)]" : "text-gray-200 hover:text-white"
                     }`}
@@ -666,7 +673,7 @@ function MobileMenu({
                     <Link key={link.href} href={link.href}>
                       <button
                         onClick={() => window.setTimeout(onClose, 150)}
-                        style={itemAnim(mainLinks.length + featureLinks.length + extraFeatureLinks.length + infoLinks.length + idx)}
+                        style={itemAnim(quickAccessLinks.length + featureLinks.length + extraFeatureLinks.length + infoLinks.length + idx)}
                         className={`relative flex h-12 w-full items-center gap-3 px-5 text-left text-[15px] transition-colors hover:bg-white/[0.05] active:scale-[0.99] ${
                           isActive(link.href) ? "text-white bg-[rgba(16,185,129,0.1)]" : "text-gray-200 hover:text-white"
                         }`}
@@ -790,6 +797,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
   ] as const;
 
   const showLandingPromo = !isLoading && !user && location === "/";
+  const isAuthPage = location.startsWith("/login");
+  const tapFeedback = () => {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(10);
+  };
+
+  if (isAuthPage) {
+    return <div className="min-h-screen bg-[#0a1628] text-foreground">{children}</div>;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -927,7 +942,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       <header
-        className="md:hidden fixed top-0 left-0 right-0 z-[80] border-b"
+        className="md:hidden fixed top-0 left-0 right-0 z-[40] border-b"
         style={{
           background: "#0a1628",
           borderColor: "hsl(217,28%,14%)",
@@ -935,7 +950,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       >
         <div className="h-14 px-3 flex items-center">
           <button
-            onClick={() => setMobileOpen((v) => !v)}
+            onClick={() => {
+              tapFeedback();
+              setMobileOpen((v) => !v);
+            }}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
             aria-controls="mobile-nav-drawer"
@@ -974,7 +992,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <main
         className={`flex-1 max-w-7xl w-full min-w-0 mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${
-          user ? "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""
+          user ? "pb-[calc(6.9rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""
         }`}
         style={{ touchAction: "pan-y" }}
       >
@@ -985,7 +1003,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <MobileMenu
         open={mobileOpen}
-        primaryLinks={primaryLinks}
         secondaryLinks={secondaryLinks}
         guestLinks={guestLinks}
         location={location}
@@ -994,6 +1011,69 @@ export function Layout({ children }: { children: React.ReactNode }) {
         onOpen={() => setMobileOpen(true)}
         onClose={() => setMobileOpen(false)}
       />
+
+      {user && (
+        <nav
+          className="md:hidden fixed bottom-0 inset-x-0 z-[45] border-t flex items-stretch justify-around h-16 pb-[env(safe-area-inset-bottom)]"
+          style={{ background: "#0a1628", borderColor: "rgba(255,255,255,0.08)" }}
+          aria-label="Bottom Navigation"
+        >
+          {[
+            { href: "/dashboard", label: "Home", icon: "🏠" },
+            { href: "/pools", label: "Pools", icon: "🎱" },
+            { href: "/winners", label: "Winners", icon: "🏆" },
+          ].map((item) => {
+            const active = location.startsWith(item.href);
+            return (
+              <Link key={item.href} href={item.href} className="flex-1">
+                <button
+                  onClick={tapFeedback}
+                  className={`relative w-full h-16 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${
+                    active ? "text-primary" : "text-[#64748b]"
+                  }`}
+                >
+                  {active && <span className="absolute top-1 h-1 w-1 rounded-full bg-primary" />}
+                  <span className="text-[20px] leading-none">{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              </Link>
+            );
+          })}
+
+          <Link href="/wallet" className="flex-1">
+            <button
+              onClick={tapFeedback}
+              className={`relative w-full h-16 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${
+                location.startsWith("/wallet") ? "text-primary" : "text-[#64748b]"
+              }`}
+            >
+              {location.startsWith("/wallet") && <span className="absolute top-1 h-1 w-1 rounded-full bg-primary" />}
+              <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] leading-none mb-0.5" style={{ background: "rgba(16,185,129,0.15)", color: "#10b981" }}>
+                {Number(user.walletBalance ?? 0).toFixed(2)}
+              </span>
+              <span className="text-[20px] leading-none">💼</span>
+              <span>Wallet</span>
+            </button>
+          </Link>
+
+          <button
+            onClick={() => {
+              tapFeedback();
+              setMobileOpen((v) => !v);
+            }}
+            className={`relative flex-1 h-16 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${
+              mobileOpen ? "text-primary" : "text-[#64748b]"
+            }`}
+            aria-label="More menu"
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-nav-drawer"
+          >
+            {mobileOpen && <span className="absolute top-1 h-1 w-1 rounded-full bg-primary" />}
+            <span className="text-[20px] leading-none">{mobileOpen ? "✕" : "⚙️"}</span>
+            <span>More</span>
+          </button>
+        </nav>
+      )}
 
       <footer className="border-t mt-auto py-10 pb-[max(2.5rem,env(safe-area-inset-bottom))]" style={{ borderColor: "hsl(217,28%,14%)" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-5 text-sm text-muted-foreground">

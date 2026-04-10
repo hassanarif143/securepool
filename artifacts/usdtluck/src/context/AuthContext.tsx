@@ -102,12 +102,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       onSuccess: () => {
         setUser(null);
         queryClient.clear();
-        navigate("/login");
+        navigate("/login?logged_out=1");
       },
       onError: () => {
         setUser(null);
         queryClient.clear();
-        navigate("/login");
+        navigate("/login?logged_out=1");
       },
     });
   }
