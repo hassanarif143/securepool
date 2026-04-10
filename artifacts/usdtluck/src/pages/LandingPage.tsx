@@ -298,31 +298,43 @@ export default function LandingPage() {
         </div>
       </motion.section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-10 sm:mt-14" {...reveal(0.05)}>
+      <section className="relative z-10 max-w-6xl mx-auto px-4 mt-10 sm:mt-14">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <motion.div whileHover={prefersReducedMotion ? undefined : { y: -3 }} transition={{ duration: 0.2 }} className="rounded-2xl border border-border/70 bg-card p-5">
+          <div
+            className={`rounded-2xl border border-border/70 bg-card p-5 transition-transform duration-200 ${
+              prefersReducedMotion ? "" : "hover:-translate-y-0.5"
+            }`}
+          >
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground inline-flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5 text-primary" />
               Total users
             </p>
             <p className="mt-2 text-3xl font-display font-semibold">{summary ? `${usersAnim}+` : "—"}</p>
-          </motion.div>
-          <motion.div whileHover={prefersReducedMotion ? undefined : { y: -3 }} transition={{ duration: 0.2 }} className="rounded-2xl border border-border/70 bg-card p-5">
+          </div>
+          <div
+            className={`rounded-2xl border border-border/70 bg-card p-5 transition-transform duration-200 ${
+              prefersReducedMotion ? "" : "hover:-translate-y-0.5"
+            }`}
+          >
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground inline-flex items-center gap-1.5">
               <Coins className="h-3.5 w-3.5 text-primary" />
               Rewards paid
             </p>
             <p className="mt-2 text-3xl font-display font-semibold">{summary ? `${rewardsAnim} USDT` : "—"}</p>
-          </motion.div>
-          <motion.div whileHover={prefersReducedMotion ? undefined : { y: -3 }} transition={{ duration: 0.2 }} className="rounded-2xl border border-border/70 bg-card p-5">
+          </div>
+          <div
+            className={`rounded-2xl border border-border/70 bg-card p-5 transition-transform duration-200 ${
+              prefersReducedMotion ? "" : "hover:-translate-y-0.5"
+            }`}
+          >
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground inline-flex items-center gap-1.5">
               <Radar className="h-3.5 w-3.5 text-primary" />
               Live pools
             </p>
             <p className="mt-2 text-3xl font-display font-semibold">{summary ? poolsAnim : "—"}</p>
-          </motion.div>
+          </div>
         </div>
-      </motion.section>
+      </section>
 
       <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal(0.07)}>
         <div className="text-center mb-7">

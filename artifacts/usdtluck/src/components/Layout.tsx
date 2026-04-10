@@ -6,7 +6,6 @@ import { Logo } from "@/components/Logo";
 import { apiUrl } from "@/lib/api-base";
 import { useGameAvailability } from "@/lib/game-availability";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
-import { LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
 
 function playNotifSound() {
   try {
@@ -422,6 +421,7 @@ function MoreMenu({ links, location }: { links: { href: string; label: string; i
 function MobileMenu({
   primaryLinks,
   secondaryLinks,
+  guestLinks,
   location,
   user,
   logout,
@@ -429,63 +429,100 @@ function MobileMenu({
 }: {
   primaryLinks: { href: string; label: string; icon: string }[];
   secondaryLinks: { href: string; label: string; icon: string }[];
+  guestLinks: { href: string; label: string }[];
   location: string;
-  user: any;
-  logout: () => void;
+  user: any | null;
+  logout?: () => void;
   onClose: () => void;
 }) {
-  const allLinks = [...primaryLinks, ...secondaryLinks];
+  const allLinks = user
+    ? [...primaryLinks, ...secondaryLinks]
+    : guestLinks.map((link) => ({ ...link, icon: "•" }));
 
   return (
-    <div className="md:hidden border-t" style={{ background: "hsl(224,30%,8%)", borderColor: "hsl(217,28%,16%)" }}>
-      {/* User identity strip */}
-      <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b" style={{ borderColor: "hsl(217,28%,14%)" }}>
-        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
-          style={{ background: "hsla(152,72%,44%,0.15)", border: "1px solid hsla(152,72%,44%,0.3)", color: "hsl(152,72%,60%)" }}>
-          {user.name.charAt(0).toUpperCase()}
-        </div>
-        <div>
-          <p className="font-semibold text-sm">{user.name}</p>
-        </div>
-        <div className="ml-auto text-right">
-          <p className="text-xs font-bold text-primary">{user.walletBalance?.toFixed(2)} USDT</p>
-          <p className="text-[10px] text-muted-foreground">balance</p>
-        </div>
-      </div>
-
-      <nav className="px-3 pt-3 pb-6 space-y-1 safe-area-pb">
-        {allLinks.map((link) => (
-          <Link key={link.href} href={link.href}>
-            <span onClick={onClose}
-              className={`flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium transition-colors cursor-pointer min-h-12 ${
-                location.startsWith(link.href)
-                  ? "bg-primary/12 text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-              }`}>
-              <span className="text-base w-5 text-center">{link.icon}</span>
-              {link.label}
-              {location.startsWith(link.href) && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
-            </span>
-          </Link>
-        ))}
-
-        <div className="pt-2 mt-2 border-t space-y-0.5" style={{ borderColor: "hsl(217,28%,14%)" }}>
-          <Link href="/profile">
-            <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12">
-              <span className="w-5 text-center">👤</span> Profile & Settings
-            </button>
-          </Link>
-          <Link href="/wallet">
-            <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12">
-              <span className="w-5 text-center">💼</span> My Wallet
-            </button>
-          </Link>
-          <button onClick={() => { logout(); onClose(); }}
-            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-red-400 hover:bg-red-500/10 transition-colors min-h-12">
-            <span className="w-5 text-center">🚪</span> Sign Out
+    <div className="md:hidden fixed inset-0 z-[70]">
+      <button type="button" aria-label="Close menu" onClick={onClose} className="absolute inset-0 bg-black/50 backdrop-blur-[1px]" />
+      <aside
+        className="absolute left-0 top-0 h-full w-[84vw] max-w-[20rem] border-r shadow-2xl"
+        style={{
+          background: "linear-gradient(180deg, hsla(224,30%,10%,0.98) 0%, hsla(224,30%,8%,0.98) 100%)",
+          borderColor: "hsl(217,28%,16%)",
+        }}
+      >
+        <div className="px-4 py-3.5 flex items-center justify-between border-b" style={{ borderColor: "hsl(217,28%,14%)" }}>
+          <Logo size="sm" />
+          <button onClick={onClose} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors" aria-label="Close sidebar">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
-      </nav>
+
+        {user && (
+          <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b" style={{ borderColor: "hsl(217,28%,14%)" }}>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+              style={{ background: "hsla(152,72%,44%,0.15)", border: "1px solid hsla(152,72%,44%,0.3)", color: "hsl(152,72%,60%)" }}>
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="font-semibold text-sm">{user.name}</p>
+            </div>
+            <div className="ml-auto text-right">
+              <p className="text-xs font-bold text-primary">{user.walletBalance?.toFixed(2)} USDT</p>
+              <p className="text-[10px] text-muted-foreground">balance</p>
+            </div>
+          </div>
+        )}
+
+        <nav className="px-3 pt-3 pb-6 space-y-1 safe-area-pb">
+          {allLinks.map((link) => (
+            <Link key={link.href} href={link.href}>
+              <span onClick={onClose}
+                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium transition-colors cursor-pointer min-h-12 ${
+                  location.startsWith(link.href)
+                    ? "bg-primary/12 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                }`}>
+                <span className="text-base w-5 text-center">{link.icon}</span>
+                {link.label}
+                {location.startsWith(link.href) && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
+              </span>
+            </Link>
+          ))}
+
+          {user ? (
+            <div className="pt-2 mt-2 border-t space-y-0.5" style={{ borderColor: "hsl(217,28%,14%)" }}>
+              <Link href="/profile">
+                <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12">
+                  <span className="w-5 text-center">👤</span> Profile & Settings
+                </button>
+              </Link>
+              <Link href="/wallet">
+                <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12">
+                  <span className="w-5 text-center">💼</span> My Wallet
+                </button>
+              </Link>
+              <button onClick={() => { logout?.(); onClose(); }}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-red-400 hover:bg-red-500/10 transition-colors min-h-12">
+                <span className="w-5 text-center">🚪</span> Sign Out
+              </button>
+            </div>
+          ) : (
+            <div className="pt-2 mt-2 border-t space-y-2" style={{ borderColor: "hsl(217,28%,14%)" }}>
+              <Link href="/login">
+                <button onClick={onClose} className="w-full rounded-xl border border-border/70 bg-background/40 px-3 py-2.5 text-sm font-medium text-foreground">
+                  Login
+                </button>
+              </Link>
+              <Link href="/signup">
+                <button onClick={onClose} className="w-full rounded-xl bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground">
+                  Get Started
+                </button>
+              </Link>
+            </div>
+          )}
+        </nav>
+      </aside>
     </div>
   );
 }
@@ -530,28 +567,34 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/reviews",    label: "Reviews",    icon: "💬" },
     ...(user.isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: "⚙️" }] : []),
   ] : [];
+  const guestHeaderLinks = [
+    { href: "/how-it-works", label: "Why SecurePool" },
+    { href: "/pools", label: "Live Pools" },
+    { href: "/winners", label: "Winners" },
+    { href: "/reviews", label: "Reviews" },
+  ] as const;
 
   const isLandingGuest = !isLoading && !user && location === "/";
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      <div className="sticky top-0 z-50 px-2 sm:px-3 pt-2 sm:pt-3">
+      <div className="sticky top-0 z-50 px-2 sm:px-3 pt-2.5 sm:pt-3.5">
       <header
-        className="mx-auto max-w-7xl rounded-2xl border overflow-hidden"
+        className="mx-auto max-w-7xl rounded-[1.35rem] sm:rounded-[1.7rem] border overflow-hidden"
         style={{
           background: isLandingGuest
-            ? "linear-gradient(180deg, hsla(224,30%,7%,0.52) 0%, hsla(224,30%,7%,0.42) 100%)"
+            ? "linear-gradient(180deg, hsla(220,18%,93%,0.96) 0%, hsla(220,20%,88%,0.92) 100%)"
             : "linear-gradient(180deg, hsla(224,30%,8%,0.9) 0%, hsla(224,30%,7%,0.86) 100%)",
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
-          borderColor: "hsla(217,28%,14%,0.65)",
+          borderColor: isLandingGuest ? "hsla(220,16%,80%,0.95)" : "hsla(217,28%,14%,0.65)",
           boxShadow: isScrolled
-            ? "0 14px 34px -24px rgba(0,0,0,0.7)"
-            : "0 10px 24px -24px rgba(0,0,0,0.58)",
+            ? "0 16px 36px -24px rgba(0,0,0,0.38)"
+            : "0 10px 24px -24px rgba(0,0,0,0.28)",
         }}
       >
         <div className="px-3 sm:px-5 lg:px-6">
-          <div className="flex items-center min-h-[3.15rem] py-1.5 gap-2 sm:gap-3">
+          <div className="flex items-center min-h-[3.2rem] py-1.5 gap-2 sm:gap-3">
 
             {/* ── Logo ── */}
             <Link href={user ? "/dashboard" : "/"} className="shrink-0 mr-2">
@@ -560,7 +603,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
             {/* ── Desktop primary nav ── */}
             {user && (
-              <nav className="hidden md:flex items-center gap-0.5 flex-1">
+              <nav className="hidden md:flex items-center gap-1 flex-1">
                 {primaryLinks.map((link) => {
                   const active = location.startsWith(link.href);
                   return (
@@ -585,9 +628,52 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 )}
               </nav>
             )}
+            {!user && !isLoading && (
+              <nav className="hidden lg:flex items-center gap-1 flex-1 justify-center">
+                {guestHeaderLinks.map((link) => {
+                  const active = location.startsWith(link.href);
+                  return (
+                    <Link key={link.href} href={link.href}>
+                      <span
+                        className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                          isLandingGuest
+                            ? active
+                              ? "text-black bg-black/8"
+                              : "text-black/70 hover:text-black hover:bg-black/6"
+                            : active
+                              ? "text-primary bg-primary/10"
+                              : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+                        }`}
+                      >
+                        {link.label}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </nav>
+            )}
 
             {/* ── Right side ── */}
             <div className="flex items-center gap-2 ml-auto shrink-0">
+              {!isLoading && (
+                <button
+                  onClick={() => setMobileOpen((v) => !v)}
+                  className="lg:hidden p-2 rounded-lg transition-colors"
+                  style={{ color: mobileOpen ? "hsl(152,72%,55%)" : undefined }}
+                  aria-label="Menu"
+                >
+                  {mobileOpen ? (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  )}
+                </button>
+              )}
+
               {!isLoading && user && (
                 <>
                   {/* Notification bell */}
@@ -604,41 +690,43 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <UserMenu user={user} logout={logout} />
                   </div>
 
-                  {/* Hamburger — mobile only */}
-                  <button
-                    onClick={() => setMobileOpen((v) => !v)}
-                    className="md:hidden p-2 rounded-lg transition-colors"
-                    style={{ color: mobileOpen ? "hsl(152,72%,55%)" : undefined }}
-                    aria-label="Menu"
-                  >
-                    {mobileOpen ? (
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                      </svg>
-                    )}
-                  </button>
                 </>
               )}
 
               {!isLoading && !user && (
                 <div className="flex items-center gap-2">
                   <Link href="/how-it-works">
-                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm hidden sm:inline-flex rounded-full">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`text-sm hidden sm:inline-flex rounded-full ${
+                        isLandingGuest ? "text-black/75 hover:text-black hover:bg-black/6" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
                       How It Works
                     </Button>
                   </Link>
                   <Link href="/login">
-                    <Button variant="outline" size="sm" className="text-muted-foreground hover:text-foreground text-sm rounded-full border-border/70 bg-background/25">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={`text-sm rounded-full ${
+                        isLandingGuest
+                          ? "border-black/15 bg-white/75 text-black hover:bg-white"
+                          : "text-muted-foreground hover:text-foreground border-border/70 bg-background/25"
+                      }`}
+                    >
                       Login
                     </Button>
                   </Link>
                   <Link href="/signup">
-                    <Button size="sm" className="font-semibold text-sm rounded-full"
-                      style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}>
+                    <Button
+                      size="sm"
+                      className={`font-semibold text-sm rounded-full px-4 ${
+                        isLandingGuest ? "bg-black text-white hover:bg-black/90" : ""
+                      }`}
+                      style={isLandingGuest ? undefined : { background: "linear-gradient(135deg, #16a34a, #15803d)" }}
+                    >
                       Get Started
                     </Button>
                   </Link>
@@ -648,11 +736,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* Mobile menu slide-down */}
-        {mobileOpen && user && (
+        {mobileOpen && (
           <MobileMenu
             primaryLinks={primaryLinks}
             secondaryLinks={secondaryLinks}
+            guestLinks={guestHeaderLinks}
             location={location}
             user={user}
             logout={logout}
@@ -666,94 +754,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
         className={
           isLandingGuest
             ? "flex-1 w-full min-w-0 mx-auto px-0 py-0"
-            : `flex-1 max-w-7xl w-full min-w-0 mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${
-                user ? "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""
-              }`
+            : "flex-1 max-w-7xl w-full min-w-0 mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10"
         }
       >
         {user ? <LiveJoinNotification /> : null}
         {children}
       </main>
 
-      {user && (
-        <nav
-          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t flex justify-evenly items-stretch min-h-[4.35rem] py-1.5 px-0.5 safe-area-pb touch-manipulation shadow-[0_-8px_32px_rgba(0,0,0,0.35)] transition-shadow"
-          style={{ background: "hsla(224,30%,7%,0.96)", backdropFilter: "blur(12px)", borderColor: "hsl(217,28%,14%)" }}
-          aria-label="Primary"
-        >
-          {(
-            [
-              { href: "/dashboard", label: "Home", Icon: LayoutDashboard },
-              { href: "/wallet", label: "Wallet", Icon: Wallet },
-              { href: "/p2p", label: "P2P", Icon: Layers },
-              ...(!gamesLoading && cashoutArenaEnabled ? [{ href: "/cashout-arena", label: "Arena", Icon: Trophy }] as const : []),
-              ...(!gamesLoading && scratchCardEnabled ? [{ href: "/scratch-card", label: "Scratch", Icon: Trophy }] as const : []),
-              ...(user.isAdmin ? [{ href: "/admin", label: "Admin", Icon: Shield }] as const : []),
-              { href: "/winners", label: "Wins", Icon: Trophy },
-            ] as const
-          ).map((item) => {
-            const active =
-              item.href === "/dashboard"
-                ? location === "/dashboard"
-                : location.startsWith(item.href);
-            const Icon = item.Icon;
-            return (
-              <Link key={item.href} href={item.href} className="flex-1 min-w-0 basis-0">
-                <span
-                  className={`flex min-h-[3.35rem] min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[9px] sm:text-[10px] font-semibold tracking-tight transition-colors duration-200 active:scale-[0.97] touch-manipulation ${
-                    active ? "text-primary" : "text-muted-foreground hover:text-foreground/90"
-                  }`}
-                  style={active ? { background: "hsla(152,72%,44%,0.12)" } : {}}
-                >
-                  <Icon className="h-[1.15rem] w-[1.15rem] sm:h-5 sm:w-5 shrink-0" strokeWidth={active ? 2.25 : 2} aria-hidden />
-                  <span className="leading-tight text-center truncate w-full px-0.5">{item.label}</span>
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
-      )}
-
-      <footer className="border-t mt-auto py-4 pb-[max(1rem,env(safe-area-inset-bottom))]" style={{ borderColor: "hsl(217,28%,14%)" }}>
+      <footer className="border-t mt-auto py-3.5 pb-[max(0.9rem,env(safe-area-inset-bottom))]" style={{ borderColor: "hsl(217,28%,14%)" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="rounded-2xl border border-border/70 bg-card/55 backdrop-blur-md px-4 py-3 sm:px-5 sm:py-3.5 shadow-[0_14px_36px_-30px_rgba(0,0,0,0.75)]">
-            <div className="grid gap-2.5 md:grid-cols-3">
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <div className="rounded-xl border border-primary/30 bg-primary/10 px-2 py-0.5">
-                    <Logo size="sm" />
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">
-                  Transparent USDT reward platform with clear rules and trusted wallet flow.
-                </p>
-              </div>
-
-              <div>
-                <p className="text-sm font-semibold">Trust</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Verified transactions, visible winners, and secure session flow.
-                </p>
-              </div>
-
-              <div>
-                <p className="text-sm font-semibold">Quick access</p>
-                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                  <Link href="/how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">How It Works</Link>
-                  <span className="text-muted-foreground/60 cursor-default" title="Terms of service — contact support for details">
-                    Terms
-                  </span>
-                  <a href="mailto:support@securepool.app" className="text-muted-foreground hover:text-foreground transition-colors">Support</a>
-                </div>
-              </div>
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-muted-foreground">
+            <p>© {new Date().getFullYear()} SecurePool. All rights reserved.</p>
+            <div className="flex items-center gap-4 sm:gap-5">
+              <span className="hover:text-foreground transition-colors cursor-default" title="Terms of service — contact support for details">Terms of Service</span>
+              <span className="hover:text-foreground transition-colors cursor-default" title="Privacy policy — contact support for details">Privacy Policy</span>
             </div>
-
-            <div className="mt-2.5 border-t border-border/60 pt-2 flex flex-col sm:flex-row items-center justify-between gap-1.5">
-              <p className="text-xs sm:text-sm text-muted-foreground/90">
-                © {new Date().getFullYear()} SecurePool — Premium, transparent reward experience.
-              </p>
-              <span className="text-[11px] uppercase tracking-[0.12em] text-primary/90">Verified platform</span>
-            </div>
+            <span className="inline-flex items-center rounded-md border border-border/70 bg-background/35 px-2 py-1 text-[10px] sm:text-[11px] font-medium tracking-wide text-foreground/75">
+              SOC2 Compliant
+            </span>
           </div>
         </div>
       </footer>
