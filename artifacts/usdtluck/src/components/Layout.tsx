@@ -210,9 +210,21 @@ function NotificationBell() {
 /* ─────────────────────────────────────────────
    Wallet quick-action dropdown
 ───────────────────────────────────────────── */
-function WalletDropdown({ balance }: { balance: number }) {
+function WalletDropdown({
+  withdrawableBalance,
+  bonusBalance,
+  isLoading,
+}: {
+  withdrawableBalance?: number;
+  bonusBalance?: number;
+  isLoading: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const wd = Number(withdrawableBalance ?? 0);
+  const bonus = Number(bonusBalance ?? 0);
+  const total = wd + bonus;
+  const displayValue = isLoading ? "..." : total.toFixed(2);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -241,10 +253,18 @@ function WalletDropdown({ balance }: { balance: number }) {
           borderColor: open ? "hsla(152,72%,44%,0.4)" : "hsla(152,72%,44%,0.2)",
         }}
       >
-        <span className="text-sm leading-none">💳</span>
-        <div className="text-left">
-          <p className="text-xs font-bold text-primary leading-none">
-            {balance.toFixed(2)} <span className="font-normal text-[10px] opacity-70">USDT</span>
+        <div className="hidden md:flex items-center gap-2 text-xs leading-none">
+          <span className="inline-flex items-center gap-1 text-primary font-semibold tabular-nums">
+            <span aria-hidden>💼</span> {isLoading ? "..." : wd.toFixed(2)} USDT
+          </span>
+          <span className="text-muted-foreground/60">|</span>
+          <span className="inline-flex items-center gap-1 text-cyan-300 font-semibold tabular-nums">
+            <span aria-hidden>🎁</span> {isLoading ? "..." : bonus.toFixed(2)} USDT
+          </span>
+        </div>
+        <div className="md:hidden text-left">
+          <p className="text-xs font-bold text-primary leading-none tabular-nums">
+            {displayValue} <span className="font-normal text-[10px] opacity-70">USDT</span>
           </p>
         </div>
         <svg className={`w-3 h-3 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
@@ -257,9 +277,19 @@ function WalletDropdown({ balance }: { balance: number }) {
         <div className="absolute right-0 mt-2 w-64 rounded-2xl border shadow-2xl overflow-hidden z-50"
           style={{ background: "hsl(222,30%,10%)", borderColor: "hsla(152,72%,44%,0.2)", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}>
           <div className="px-4 py-3.5" style={{ background: "linear-gradient(135deg, hsla(152,72%,44%,0.12), hsla(200,80%,55%,0.06))" }}>
-            <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wide">Available Balance</p>
-            <p className="text-2xl font-bold text-primary leading-none">{balance.toFixed(2)}</p>
+            <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wide">Total Balance</p>
+            <p className="text-2xl font-bold text-primary leading-none tabular-nums">{displayValue}</p>
             <p className="text-xs text-muted-foreground mt-0.5">USDT</p>
+            <div className="mt-2.5 text-xs space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground inline-flex items-center gap-1"><span aria-hidden>💼</span>Withdrawable</span>
+                <span className="font-semibold text-foreground tabular-nums">{isLoading ? "..." : wd.toFixed(2)} USDT</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground inline-flex items-center gap-1"><span aria-hidden>🎁</span>Bonus</span>
+                <span className="font-semibold text-cyan-300 tabular-nums">{isLoading ? "..." : bonus.toFixed(2)} USDT</span>
+              </div>
+            </div>
           </div>
           <div className="p-2 space-y-0.5">
             {actions.map((a) => (
@@ -448,7 +478,9 @@ function MobileMenu({
           <p className="font-semibold text-sm">{user.name}</p>
         </div>
         <div className="ml-auto text-right">
-          <p className="text-xs font-bold text-primary">{user.walletBalance?.toFixed(2)} USDT</p>
+          <p className="text-xs font-bold text-primary">
+            {((Number(user.withdrawableBalance ?? 0) + Number(user.bonusBalance ?? 0))).toFixed(2)} USDT
+          </p>
           <p className="text-[10px] text-muted-foreground">balance</p>
         </div>
       </div>
@@ -580,7 +612,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <NotificationBell />
 
                   {/* Wallet balance */}
-                  <WalletDropdown balance={user.walletBalance} />
+                  <WalletDropdown
+                    withdrawableBalance={user.withdrawableBalance}
+                    bonusBalance={user.bonusBalance}
+                    isLoading={isLoading}
+                  />
+                  <Link href="/wallet?tab=deposit">
+                    <button
+                      type="button"
+                      className="h-8 w-8 rounded-lg border text-primary font-bold text-base leading-none transition-colors hover:bg-primary/10"
+                      style={{ borderColor: "hsla(152,72%,44%,0.35)" }}
+                      aria-label="Deposit"
+                      title="Deposit"
+                    >
+                      +
+                    </button>
+                  </Link>
 
                   {/* Divider */}
                   <div className="hidden md:block w-px h-5 opacity-30" style={{ background: "hsl(217,28%,40%)" }} />
