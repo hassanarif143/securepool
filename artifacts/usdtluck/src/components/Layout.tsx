@@ -6,7 +6,7 @@ import { Logo } from "@/components/Logo";
 import { apiUrl } from "@/lib/api-base";
 import { useGameAvailability } from "@/lib/game-availability";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Circle, House, Menu, Trophy, Wallet, X } from "lucide-react";
 
 function playNotifSound() {
   try {
@@ -531,25 +531,25 @@ function MobileMenu({
       <div className="sr-only" role="status" aria-live="polite">
         {open ? "Navigation menu opened" : "Navigation menu closed"}
       </div>
-      <button
-        type="button"
-        aria-label="Close navigation menu"
-        onClick={onClose}
-        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-          open || edgeDragX > 0 ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        }`}
-        style={{ opacity: open ? 1 : Math.min(0.8, edgeDragX / drawerW) }}
-      />
+      {(open || edgeDragX > 0) && (
+        <button
+          type="button"
+          aria-label="Close navigation menu"
+          onClick={onClose}
+          className="absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-auto"
+          style={{ opacity: open ? 1 : Math.min(0.8, edgeDragX / drawerW) }}
+        />
+      )}
       <aside
         id="mobile-nav-drawer"
         ref={panelRef}
         role="navigation"
         aria-label="Mobile Navigation"
-        className={`absolute left-0 top-0 h-full w-[80vw] max-w-[320px] rounded-r-2xl border-r shadow-[4px_0_20px_rgba(0,0,0,0.3)] will-change-transform transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] touch-pan-y z-[55] ${
+        className={`absolute right-0 top-0 h-full w-[80vw] max-w-[320px] rounded-l-2xl border-l shadow-[-4px_0_20px_rgba(0,0,0,0.3)] will-change-transform transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] touch-pan-y z-[55] ${
           open || dragX !== 0 || edgeDragX !== 0 ? "pointer-events-auto" : "pointer-events-none"
         }`}
         style={{
-          transform: `translate3d(${open ? dragX : -drawerW + edgeDragX}px,0,0)`,
+          transform: `translate3d(${open ? dragX : drawerW - edgeDragX}px,0,0)`,
           background: "#0d1b2a",
           borderColor: "rgba(255,255,255,0.08)",
         }}
@@ -566,22 +566,31 @@ function MobileMenu({
           const dx = t.clientX - startXRef.current;
           const dy = t.clientY - startYRef.current;
           if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) return;
-          if (dx < 0) {
-            setDragX(Math.max(-drawerW * maxCloseDragRatio, dx));
+          if (dx > 0) {
+            setDragX(Math.min(drawerW * maxCloseDragRatio, dx));
             e.preventDefault();
           }
         }}
         onTouchEnd={() => {
           const dt = Math.max(1, performance.now() - startTsRef.current);
           const velocityX = dragX / dt; // px/ms
-          const shouldCloseByVelocity = velocityX < -0.55;
+          const shouldCloseByVelocity = velocityX > 0.55;
           if (Math.abs(dragX) > drawerW * closeSnapThresholdRatio || shouldCloseByVelocity) onClose();
           setDragX(0);
           touchModeRef.current = "idle";
         }}
       >
-        <div className="px-4 py-3.5 flex items-center justify-between border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-          <Logo size="sm" />
+        <div className="px-4 py-4 flex items-center justify-between border-b shrink-0" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(16,185,129,0.04)" }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+              style={{ background: "hsla(152,72%,44%,0.2)", border: "1px solid hsla(152,72%,44%,0.35)", color: "hsl(152,72%,60%)" }}>
+              {user?.name?.charAt(0).toUpperCase() ?? "U"}
+            </div>
+            <div>
+              <p className="font-semibold text-sm text-white">{user?.name ?? "Guest"}</p>
+              {user ? <p className="text-[11px] text-primary rounded-full px-2 py-0.5 inline-block mt-0.5" style={{ background: "rgba(16,185,129,0.12)" }}>{Number(user.walletBalance ?? 0).toFixed(2)} USDT</p> : null}
+            </div>
+          </div>
           <button
             ref={closeBtnRef}
             onClick={onClose}
@@ -594,22 +603,7 @@ function MobileMenu({
           </button>
         </div>
 
-        {user && (
-          <div className="px-4 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
-                style={{ background: "hsla(152,72%,44%,0.2)", border: "1px solid hsla(152,72%,44%,0.35)", color: "hsl(152,72%,60%)" }}>
-                {user.name.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <p className="font-semibold text-sm text-white">{user.name}</p>
-                <p className="text-sm text-primary mobile-balance-pulse">💰 {Number(user.walletBalance ?? 0).toFixed(2)} USDT</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <nav className="px-0 pt-2 pb-[calc(5.2rem+env(safe-area-inset-bottom,0px))]" aria-label="Navigation items">
+        <nav className="px-0 pt-2 pb-2 flex-1 overflow-y-auto" aria-label="Navigation items">
           {user ? (
             <>
               <div className="px-5 py-2 text-[12px] uppercase tracking-[1px] text-[#64748b]">Quick Access</div>
@@ -622,7 +616,7 @@ function MobileMenu({
                       isActive(link.href) ? "text-white bg-[rgba(16,185,129,0.1)]" : "text-gray-200 hover:text-white"
                     }`}
                   >
-                    {isActive(link.href) && <span className="absolute left-0 top-0 h-full w-[3px] bg-[#10b981]" />}
+                    {isActive(link.href) && <span className="absolute right-0 top-0 h-full w-[2px] bg-[#10b981]" />}
                     <span className="w-5 text-center">{link.icon}</span>
                     <span>{link.label}</span>
                     <span className="ml-auto opacity-60">›</span>
@@ -640,7 +634,7 @@ function MobileMenu({
                       isActive(link.href) ? "text-white bg-[rgba(16,185,129,0.1)]" : "text-gray-200 hover:text-white"
                     }`}
                   >
-                    {isActive(link.href) && <span className="absolute left-0 top-0 h-full w-[3px] bg-[#10b981]" />}
+                    {isActive(link.href) && <span className="absolute right-0 top-0 h-full w-[2px] bg-[#10b981]" />}
                     <span className="w-5 text-center">{link.icon}</span>
                     <span>{link.label}</span>
                     <span className="ml-auto opacity-60">›</span>
@@ -658,7 +652,7 @@ function MobileMenu({
                       isActive(link.href) ? "text-white bg-[rgba(16,185,129,0.1)]" : "text-gray-200 hover:text-white"
                     }`}
                   >
-                    {isActive(link.href) && <span className="absolute left-0 top-0 h-full w-[3px] bg-[#10b981]" />}
+                    {isActive(link.href) && <span className="absolute right-0 top-0 h-full w-[2px] bg-[#10b981]" />}
                     <span className="w-5 text-center">{link.icon}</span>
                     <span>{link.label}</span>
                     <span className="ml-auto opacity-60">›</span>
@@ -677,8 +671,8 @@ function MobileMenu({
                         className={`relative flex h-12 w-full items-center gap-3 px-5 text-left text-[15px] transition-colors hover:bg-white/[0.05] active:scale-[0.99] ${
                           isActive(link.href) ? "text-white bg-[rgba(16,185,129,0.1)]" : "text-gray-200 hover:text-white"
                         }`}
-                      >
-                        {isActive(link.href) && <span className="absolute left-0 top-0 h-full w-[3px] bg-[#10b981]" />}
+                        >
+                          {isActive(link.href) && <span className="absolute right-0 top-0 h-full w-[2px] bg-[#10b981]" />}
                         <span className="w-5 text-center">{link.icon}</span>
                         <span>{link.label}</span>
                         <span className="ml-auto opacity-60">›</span>
@@ -706,8 +700,9 @@ function MobileMenu({
               </Link>
             ))
           )}
-          {user && (
-            <div className="mt-2 border-t border-white/10 px-0 pt-2">
+        </nav>
+        {user && (
+          <div className="mt-auto border-t border-white/10 px-0 pt-2 pb-2 shrink-0">
               <Link href="/profile">
                 <button onClick={() => window.setTimeout(onClose, 150)} className="flex h-12 w-full items-center gap-3 px-5 text-left text-[15px] text-gray-200 transition-colors hover:bg-white/[0.05] hover:text-white">
                   <span className="w-5 text-center">👤</span> Profile & Settings
@@ -717,14 +712,13 @@ function MobileMenu({
               <button onClick={() => { logout?.(); window.setTimeout(onClose, 150); }} className="flex h-12 w-full items-center gap-3 px-5 text-left text-[15px] text-red-400 transition-colors hover:bg-red-500/10">
                 <span className="w-5 text-center">🚪</span> Sign Out
               </button>
-              <p className="px-5 pt-2 text-[11px] text-[#64748b]">SecurePool v1.0</p>
-            </div>
-          )}
-        </nav>
+            <p className="px-5 pt-2 text-[10px] text-[#334155]">SecurePool v1.0</p>
+          </div>
+        )}
       </aside>
       {!open && (
         <div
-          className="absolute left-0 top-0 h-full w-5"
+          className="absolute right-0 top-0 h-full w-5"
           onTouchStart={(e) => {
             const t = e.touches[0];
             edgeStartXRef.current = t.clientX;
@@ -734,7 +728,7 @@ function MobileMenu({
           }}
           onTouchMove={(e) => {
             const t = e.touches[0];
-            const dx = t.clientX - edgeStartXRef.current;
+            const dx = edgeStartXRef.current - t.clientX;
             const dy = t.clientY - startYRef.current;
             if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) return;
             if (dx > 0) {
@@ -948,43 +942,39 @@ export function Layout({ children }: { children: React.ReactNode }) {
           borderColor: "hsl(217,28%,14%)",
         }}
       >
-        <div className="h-14 px-3 flex items-center">
-          <button
-            onClick={() => {
-              tapFeedback();
-              setMobileOpen((v) => !v);
-            }}
-            aria-label={mobileOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileOpen}
-            aria-controls="mobile-nav-drawer"
-            className="w-10 h-10 rounded-lg inline-flex items-center justify-center transition-all duration-300 ease-in-out active:scale-95 hover:bg-white/5"
-          >
-            <span className="relative w-5 h-4">
-              <span className={`absolute left-0 top-0 h-0.5 w-5 rounded bg-foreground transition-all duration-300 ${mobileOpen ? "top-1.5 rotate-45" : ""}`} />
-              <span className={`absolute left-0 top-1.5 h-0.5 w-5 rounded bg-foreground transition-all duration-300 ${mobileOpen ? "opacity-0" : ""}`} />
-              <span className={`absolute left-0 top-3 h-0.5 w-5 rounded bg-foreground transition-all duration-300 ${mobileOpen ? "top-1.5 -rotate-45" : ""}`} />
-            </span>
-          </button>
-
-          <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none">
+        <div className="h-14 px-4 flex items-center justify-between">
+          <div className="shrink-0">
             <Logo size="sm" />
           </div>
-
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
             {user ? (
               <>
-                <NotificationBell />
-                <Link href="/wallet">
-                  <span className="inline-flex items-center rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary shadow-[0_0_16px_rgba(16,185,129,0.15)] mobile-balance-pulse">
-                    {Number(user.walletBalance ?? 0).toFixed(2)}
-                  </span>
-                </Link>
+                <span className="inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-semibold text-primary shrink-0"
+                  style={{ borderColor: "hsla(152,72%,44%,0.35)", background: "hsla(152,72%,44%,0.1)" }}>
+                  {Number(user.walletBalance ?? 0).toFixed(2)} USDT
+                </span>
+                <span className="inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-medium text-foreground/90 max-w-[5.25rem] truncate"
+                  style={{ borderColor: "hsl(217,28%,20%)", background: "hsla(217,28%,16%,0.55)" }}>
+                  {String(user.name ?? "").split(" ")[0] || "User"}
+                </span>
               </>
             ) : (
               <Link href="/login">
                 <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">Login</Button>
               </Link>
             )}
+            <button
+              onClick={() => {
+                tapFeedback();
+                setMobileOpen((v) => !v);
+              }}
+              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileOpen}
+              aria-controls="mobile-nav-drawer"
+              className="w-10 h-10 rounded-lg inline-flex items-center justify-center transition-all duration-300 ease-in-out active:scale-95 hover:bg-white/5"
+            >
+              {mobileOpen ? <X className="w-5 h-5 text-foreground" /> : <Menu className="w-5 h-5 text-muted-foreground" />}
+            </button>
           </div>
         </div>
       </header>
@@ -1019,22 +1009,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
           aria-label="Bottom Navigation"
         >
           {[
-            { href: "/dashboard", label: "Home", icon: "🏠" },
-            { href: "/pools", label: "Pools", icon: "🎱" },
-            { href: "/winners", label: "Winners", icon: "🏆" },
+            { href: "/dashboard", Icon: House, label: "Home" },
+            { href: "/pools", Icon: Circle, label: "Pools" },
+            { href: "/winners", Icon: Trophy, label: "Winners" },
           ].map((item) => {
             const active = location.startsWith(item.href);
+            const Icon = item.Icon;
             return (
               <Link key={item.href} href={item.href} className="flex-1">
                 <button
                   onClick={tapFeedback}
-                  className={`relative w-full h-16 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${
+                  aria-label={item.label}
+                  className={`relative w-full h-16 flex items-center justify-center transition-colors ${
                     active ? "text-primary" : "text-[#64748b]"
                   }`}
                 >
                   {active && <span className="absolute top-1 h-1 w-1 rounded-full bg-primary" />}
-                  <span className="text-[20px] leading-none">{item.icon}</span>
-                  <span>{item.label}</span>
+                  <span className={`inline-flex items-center justify-center rounded-xl w-9 h-9 ${active ? "bg-primary/10" : ""}`}>
+                    <Icon className="w-5 h-5" strokeWidth={2.2} />
+                  </span>
                 </button>
               </Link>
             );
@@ -1043,16 +1036,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/wallet" className="flex-1">
             <button
               onClick={tapFeedback}
-              className={`relative w-full h-16 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${
+              aria-label="Wallet"
+              className={`relative w-full h-16 flex items-center justify-center transition-colors ${
                 location.startsWith("/wallet") ? "text-primary" : "text-[#64748b]"
               }`}
             >
               {location.startsWith("/wallet") && <span className="absolute top-1 h-1 w-1 rounded-full bg-primary" />}
-              <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] leading-none mb-0.5" style={{ background: "rgba(16,185,129,0.15)", color: "#10b981" }}>
-                {Number(user.walletBalance ?? 0).toFixed(2)}
+              <span className={`inline-flex items-center justify-center rounded-xl w-9 h-9 ${location.startsWith("/wallet") ? "bg-primary/10" : ""}`}>
+                <Wallet className="w-5 h-5" strokeWidth={2.2} />
               </span>
-              <span className="text-[20px] leading-none">💼</span>
-              <span>Wallet</span>
             </button>
           </Link>
 
@@ -1061,7 +1053,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               tapFeedback();
               setMobileOpen((v) => !v);
             }}
-            className={`relative flex-1 h-16 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${
+            className={`relative flex-1 h-16 flex items-center justify-center transition-colors ${
               mobileOpen ? "text-primary" : "text-[#64748b]"
             }`}
             aria-label="More menu"
@@ -1069,8 +1061,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             aria-controls="mobile-nav-drawer"
           >
             {mobileOpen && <span className="absolute top-1 h-1 w-1 rounded-full bg-primary" />}
-            <span className="text-[20px] leading-none">{mobileOpen ? "✕" : "⚙️"}</span>
-            <span>More</span>
+            <span className={`inline-flex items-center justify-center rounded-xl w-9 h-9 ${mobileOpen ? "bg-primary/10" : ""}`}>
+              {mobileOpen ? <X className="w-5 h-5" strokeWidth={2.2} /> : <Menu className="w-5 h-5" strokeWidth={2.2} />}
+            </span>
           </button>
         </nav>
       )}

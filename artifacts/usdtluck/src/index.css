@@ -329,6 +329,29 @@
   75% { transform: translateX(6px); }
 }
 
+.login-card-fade {
+  animation: fadeUp 0.4s ease-out;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 480px) {
+  .login-card-fade {
+    background: transparent !important;
+    border: none !important;
+    padding: 32px 4px !important;
+  }
+}
+
 /* Landing — top promo strip (guests on home) */
 .layout-landing-premium-banner {
   background: linear-gradient(
