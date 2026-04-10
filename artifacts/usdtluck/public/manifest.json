@@ -1,0 +1,17 @@
+{
+  "name": "SecurePool \u2014 USDT Reward Pools",
+  "short_name": "SecurePool",
+  "theme_color": "#0A1628",
+  "background_color": "#0A1628",
+  "display": "standalone",
+  "start_url": "/",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

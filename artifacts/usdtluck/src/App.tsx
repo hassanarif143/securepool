@@ -8,6 +8,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { CelebrationProvider } from "@/context/CelebrationContext";
 import { useAuth } from "@/context/AuthContext";
 import { Layout } from "@/components/Layout";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import { PageLoading } from "@/components/PageLoading";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/LandingPage";
@@ -107,6 +108,7 @@ function Router() {
   return (
     <Layout>
       <PersistAndRestoreRoute />
+      <InstallPrompt />
       <Switch>
         <Route path="/" component={LandingPage} />
         <Route path="/login">
