@@ -576,21 +576,35 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const isLandingGuest = !isLoading && !user && location === "/";
 
+  /** Shared header + footer “floating bar” surface so chrome stays consistent */
+  const chromeBase = isLandingGuest
+    ? {
+        background: "linear-gradient(180deg, hsla(220,18%,93%,0.96) 0%, hsla(220,20%,88%,0.92) 100%)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        borderColor: "hsla(220,16%,80%,0.95)",
+      }
+    : {
+        background: "linear-gradient(180deg, hsla(224,30%,8%,0.92) 0%, hsla(224,30%,7%,0.88) 100%)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        borderColor: "hsla(217,28%,14%,0.65)",
+      };
+
+  const headerShadow = isScrolled
+    ? "0 16px 36px -24px rgba(0,0,0,0.38)"
+    : "0 10px 24px -24px rgba(0,0,0,0.28)";
+
+  const footerShadow = "0 10px 24px -24px rgba(0,0,0,0.28)";
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <div className="sticky top-0 z-50 px-2 sm:px-3 pt-2.5 sm:pt-3.5">
       <header
         className="mx-auto max-w-7xl rounded-[1.35rem] sm:rounded-[1.7rem] border overflow-hidden"
         style={{
-          background: isLandingGuest
-            ? "linear-gradient(180deg, hsla(220,18%,93%,0.96) 0%, hsla(220,20%,88%,0.92) 100%)"
-            : "linear-gradient(180deg, hsla(224,30%,8%,0.9) 0%, hsla(224,30%,7%,0.86) 100%)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          borderColor: isLandingGuest ? "hsla(220,16%,80%,0.95)" : "hsla(217,28%,14%,0.65)",
-          boxShadow: isScrolled
-            ? "0 16px 36px -24px rgba(0,0,0,0.38)"
-            : "0 10px 24px -24px rgba(0,0,0,0.28)",
+          ...chromeBase,
+          boxShadow: headerShadow,
         }}
       >
         <div className="px-3 sm:px-5 lg:px-6">
@@ -761,15 +775,51 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <footer className="border-t mt-auto py-3.5 pb-[max(0.9rem,env(safe-area-inset-bottom))]" style={{ borderColor: "hsl(217,28%,14%)" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-muted-foreground">
-            <p>© {new Date().getFullYear()} SecurePool. All rights reserved.</p>
-            <div className="flex items-center gap-4 sm:gap-5">
-              <span className="hover:text-foreground transition-colors cursor-default" title="Terms of service — contact support for details">Terms of Service</span>
-              <span className="hover:text-foreground transition-colors cursor-default" title="Privacy policy — contact support for details">Privacy Policy</span>
+      <footer className="mt-auto px-2 sm:px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3">
+        <div
+          className="mx-auto max-w-7xl rounded-[1.35rem] sm:rounded-[1.7rem] border px-4 py-3 sm:px-6 sm:py-3.5"
+          style={{
+            ...chromeBase,
+            boxShadow: footerShadow,
+          }}
+        >
+          <div
+            className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm ${
+              isLandingGuest ? "text-black/55" : "text-muted-foreground"
+            }`}
+          >
+            <p className={isLandingGuest ? "text-black/65" : ""}>
+              © {new Date().getFullYear()} SecurePool. All rights reserved.
+            </p>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 sm:justify-center">
+              <span
+                className={`transition-colors cursor-default ${
+                  isLandingGuest ? "text-black/70 hover:text-black" : "hover:text-foreground"
+                }`}
+                title="Terms of service — contact support for details"
+              >
+                Terms of Service
+              </span>
+              <span
+                className={`transition-colors cursor-default ${
+                  isLandingGuest ? "text-black/70 hover:text-black" : "hover:text-foreground"
+                }`}
+                title="Privacy policy — contact support for details"
+              >
+                Privacy Policy
+              </span>
             </div>
-            <span className="inline-flex items-center rounded-md border border-border/70 bg-background/35 px-2 py-1 text-[10px] sm:text-[11px] font-medium tracking-wide text-foreground/75">
+            <span
+              className={`inline-flex items-center gap-1.5 self-start rounded-full border px-2.5 py-1 text-[10px] sm:text-[11px] font-medium tracking-wide sm:self-center ${
+                isLandingGuest
+                  ? "border-black/12 bg-white/60 text-black/70"
+                  : "border-border/70 bg-background/40 text-foreground/80"
+              }`}
+            >
+              <svg className="h-3 w-3 shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <rect x="5" y="11" width="14" height="10" rx="2" />
+                <path d="M7 11V7a5 5 0 0110 0v4" />
+              </svg>
               SOC2 Compliant
             </span>
           </div>

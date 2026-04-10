@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,8 +24,6 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { PlatformFeeRuleExplainer } from "@/components/PlatformFeeRuleExplainer";
-
-const fade = {};
 
 const steps = [
   { n: 1, icon: "👤", title: "Create Your Account", desc: "Sign up with email and password. It's free and takes about 30 seconds." },
@@ -79,31 +76,27 @@ export default function HowItWorksPage() {
   const parallaxY = Math.min(120, scrollY * 0.14);
 
   return (
-    <div className="relative overflow-hidden max-w-6xl mx-auto space-y-10 sm:space-y-14 pb-16 px-4 sm:px-6">
+    <div className="relative overflow-x-hidden max-w-6xl mx-auto pb-16 px-4 sm:px-6">
       <div
         aria-hidden
-        className="pointer-events-none absolute -inset-x-16 -inset-y-24"
+        className="pointer-events-none absolute z-0 -inset-x-16 -inset-y-24 min-h-[120vh]"
         style={{
           transform: `translate3d(0, ${parallaxY * -1}px, 0)`,
           background:
             "radial-gradient(circle at 16% 8%, hsl(var(--primary)/0.2), transparent 30%), radial-gradient(circle at 82% 12%, hsl(28 90% 58%/0.2), transparent 32%), radial-gradient(circle at 50% 62%, hsl(210 85% 60%/0.12), transparent 42%), linear-gradient(180deg, hsl(224 30% 8%), hsl(224 30% 7%) 44%, hsl(224 30% 6%) 100%)",
         }}
       />
-      <motion.div
+      <div
         aria-hidden
-        className="pointer-events-none absolute -top-20 -left-24 h-72 w-72 rounded-full bg-primary/20 blur-3xl"
-        animate={{ x: [0, 22, 0], y: [0, 12, 0], opacity: [0.3, 0.45, 0.3] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+        className="pointer-events-none absolute -top-20 -left-24 z-0 h-72 w-72 rounded-full bg-primary/20 blur-3xl opacity-40"
       />
-      <motion.div
+      <div
         aria-hidden
-        className="pointer-events-none absolute top-40 -right-24 h-80 w-80 rounded-full bg-orange-400/15 blur-3xl"
-        animate={{ x: [0, -24, 0], y: [0, -14, 0], opacity: [0.28, 0.42, 0.28] }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+        className="pointer-events-none absolute top-40 -right-24 z-0 h-80 w-80 rounded-full bg-orange-400/15 blur-3xl opacity-35"
       />
 
-      <motion.section
-        {...fade}
+      <div className="relative z-10 space-y-10 sm:space-y-14">
+      <section
         className="relative pt-2 sm:pt-4 rounded-3xl border border-border/70 bg-card/60 backdrop-blur px-4 py-6 sm:px-8 sm:py-10 shadow-[0_20px_44px_-34px_rgba(0,0,0,0.85)]"
       >
         <div className="max-w-3xl mx-auto text-center">
@@ -146,7 +139,7 @@ export default function HowItWorksPage() {
             </Button>
           </Link>
         </div>
-      </motion.section>
+      </section>
 
       <section className="pt-2" id="steps">
         <div className="mb-5 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:justify-center">
@@ -170,8 +163,8 @@ export default function HowItWorksPage() {
           Step-by-step
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4 sm:gap-y-6">
-          {steps.map((s, i) => (
-            <motion.div key={s.n} {...fade} transition={{ delay: i * 0.05, duration: 0.4 }}>
+          {steps.map((s) => (
+            <div key={s.n}>
               <Card className="h-full overflow-visible border-[hsl(217,28%,18%)] bg-[hsl(222,30%,9%)] transition-colors hover:border-primary/30 shadow-[0_16px_40px_-26px_rgba(0,0,0,0.8)]">
                 <div className="h-1 rounded-t-2xl bg-gradient-to-r from-primary/50 to-emerald-600/40" />
                 <CardContent className="flex gap-3 sm:gap-4 p-4 sm:p-5 pt-5 sm:pt-6">
@@ -192,7 +185,7 @@ export default function HowItWorksPage() {
                   </div>
                 </CardContent>
               </Card>
-            </motion.div>
+            </div>
           ))}
         </div>
       </section>
@@ -285,6 +278,7 @@ export default function HowItWorksPage() {
           ))}
         </div>
       </footer>
+      </div>
     </div>
   );
 }

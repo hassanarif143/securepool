@@ -43,8 +43,6 @@ function useAnimatedInt(target: number, duration = 1200) {
   return v;
 }
 
-const reveal = (_delay = 0) => ({});
-
 const quoteCards = [
   {
     quote: "I understood the full flow in minutes. Very clear and easy to use.",
@@ -160,10 +158,10 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-x-hidden">
       <div
         aria-hidden
-        className="pointer-events-none absolute -inset-x-16 -inset-y-24"
+        className="pointer-events-none absolute z-0 -inset-x-16 -inset-y-24 min-h-[120vh] w-auto"
         style={{
           transform: `translate3d(0, ${parallaxY * -1}px, 0)`,
           background:
@@ -172,19 +170,20 @@ export default function LandingPage() {
       />
       <motion.div
         aria-hidden
-        className="pointer-events-none absolute -top-20 -left-24 h-72 w-72 rounded-full bg-primary/20 blur-3xl"
+        className="pointer-events-none absolute -top-20 -left-24 z-0 h-72 w-72 rounded-full bg-primary/20 blur-3xl"
         animate={prefersReducedMotion ? { opacity: 0.35 } : { x: [0, 22, 0], y: [0, 12, 0], opacity: [0.3, 0.45, 0.3] }}
         transition={prefersReducedMotion ? { duration: 0.2 } : { duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
         aria-hidden
-        className="pointer-events-none absolute top-40 -right-24 h-80 w-80 rounded-full bg-orange-400/15 blur-3xl"
+        className="pointer-events-none absolute top-40 -right-24 z-0 h-80 w-80 rounded-full bg-orange-400/15 blur-3xl"
         animate={prefersReducedMotion ? { opacity: 0.35 } : { x: [0, -24, 0], y: [0, -14, 0], opacity: [0.28, 0.42, 0.28] }}
         transition={prefersReducedMotion ? { duration: 0.2 } : { duration: 12, repeat: Infinity, ease: "easeInOut" }}
       />
 
+      <div className="relative z-10">
       <section className="relative max-w-6xl mx-auto px-4 pt-8 sm:pt-10">
-        <motion.div
+        <div
           className="rounded-3xl border border-border/70 bg-card/70 backdrop-blur p-6 sm:p-10 lg:p-14 shadow-2xl"
         >
           <div className="max-w-3xl">
@@ -228,26 +227,25 @@ export default function LandingPage() {
               ))}
             </div>
           </div>
-        </motion.div>
+        </div>
       </section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-6" {...reveal(0)}>
+      <section className="max-w-6xl mx-auto px-4 mt-6">
         <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/70">
           <div className="landing-trust-marquee gap-2 p-3 sm:p-4">
             {[...trustItems, ...trustItems].map((item, idx) => (
-              <motion.span
+              <span
                 key={`${item}-${idx}`}
-                whileHover={prefersReducedMotion ? undefined : { scale: 1.03 }}
-                className="shrink-0 rounded-full border border-border/60 bg-background/70 px-3 py-1.5 text-xs text-muted-foreground"
+                className="shrink-0 rounded-full border border-border/60 bg-background/70 px-3 py-1.5 text-xs text-muted-foreground transition-transform duration-200 hover:scale-[1.03]"
               >
                 {item}
-              </motion.span>
+              </span>
             ))}
           </div>
         </div>
-      </motion.section>
+      </section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-6" {...reveal(0.03)}>
+      <section className="max-w-6xl mx-auto px-4 mt-6">
         <div className="grid sm:grid-cols-3 gap-3">
           {[
             { title: "Transparent records", desc: "Winner names and payout visibility in clear UI.", Icon: Eye },
@@ -263,9 +261,9 @@ export default function LandingPage() {
             </div>
           ))}
         </div>
-      </motion.section>
+      </section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-8 sm:mt-10" {...reveal(0.04)}>
+      <section className="max-w-6xl mx-auto px-4 mt-8 sm:mt-10">
         <div className="rounded-3xl border border-border/70 bg-card/65 p-5 sm:p-7 backdrop-blur">
           <div className="text-center mb-5 sm:mb-6">
             <p className="text-xs uppercase tracking-[0.16em] text-primary font-medium inline-flex items-center gap-1.5">
@@ -296,9 +294,9 @@ export default function LandingPage() {
             ))}
           </div>
         </div>
-      </motion.section>
+      </section>
 
-      <section className="relative z-10 max-w-6xl mx-auto px-4 mt-10 sm:mt-14">
+      <section className="relative max-w-6xl mx-auto px-4 mt-10 sm:mt-14">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div
             className={`rounded-2xl border border-border/70 bg-card p-5 transition-transform duration-200 ${
@@ -336,7 +334,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal(0.07)}>
+      <section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16">
         <div className="text-center mb-7">
           <p className="text-xs uppercase tracking-[0.18em] text-primary font-medium inline-flex items-center gap-1.5">
             <Workflow className="h-3.5 w-3.5" />
@@ -350,21 +348,21 @@ export default function LandingPage() {
             { title: "Join a live pool", desc: "Pick an open pool, check ticket price and winners count, then join." },
             { title: "Win and withdraw", desc: "If you win, reward appears in wallet. Withdraw anytime." },
           ].map((item, idx) => (
-            <motion.div
+            <div
               key={item.title}
-              whileHover={prefersReducedMotion ? undefined : { y: -4 }}
-              transition={{ duration: 0.2 }}
-              className="rounded-2xl border border-border/70 bg-card p-5"
+              className={`rounded-2xl border border-border/70 bg-card p-5 transition-transform duration-200 ${
+                prefersReducedMotion ? "" : "hover:-translate-y-1"
+              }`}
             >
               <p className="text-xs text-primary font-semibold">Step {idx + 1}</p>
               <h3 className="mt-2 font-semibold text-lg">{item.title}</h3>
               <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
-            </motion.div>
+            </div>
           ))}
         </div>
-      </motion.section>
+      </section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal(0.09)}>
+      <section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16">
         <div className="rounded-3xl border border-border/70 bg-card p-6 sm:p-8">
           <p className="text-xs uppercase tracking-[0.16em] text-primary font-medium text-center inline-flex items-center justify-center gap-1.5 w-full">
             <BadgeCheck className="h-3.5 w-3.5" />
@@ -383,9 +381,9 @@ export default function LandingPage() {
             ))}
           </div>
         </div>
-      </motion.section>
+      </section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal(0.11)}>
+      <section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16">
         <div className="grid lg:grid-cols-2 gap-4">
           <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
             <div className="flex items-center justify-between gap-2 mb-3">
@@ -410,31 +408,31 @@ export default function LandingPage() {
             <RecentPayouts limit={8} />
           </div>
         </div>
-      </motion.section>
+      </section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal(0.13)}>
+      <section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16">
         <div className="text-center mb-7">
           <p className="text-xs uppercase tracking-[0.16em] text-primary font-medium">User feedback</p>
           <h2 className="mt-2 font-display text-2xl sm:text-3xl">People like the simple experience</h2>
         </div>
         <div className="grid md:grid-cols-3 gap-4">
           {quoteCards.map((q) => (
-            <motion.div
+            <div
               key={q.name}
-              whileHover={prefersReducedMotion ? undefined : { y: -4 }}
-              transition={{ duration: 0.2 }}
-              className="rounded-2xl border border-border/70 bg-card p-5"
+              className={`rounded-2xl border border-border/70 bg-card p-5 transition-transform duration-200 ${
+                prefersReducedMotion ? "" : "hover:-translate-y-1"
+              }`}
             >
               <Quote className="h-4 w-4 text-primary" />
               <p className="mt-3 text-sm text-foreground/95 leading-relaxed">{q.quote}</p>
               <p className="mt-4 text-sm font-semibold">{q.name}</p>
               <p className="text-xs text-muted-foreground">{q.role}</p>
-            </motion.div>
+            </div>
           ))}
         </div>
-      </motion.section>
+      </section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal(0.15)}>
+      <section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16">
         <div className="grid md:grid-cols-2 gap-4">
           <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
             <p className="text-xs uppercase tracking-[0.16em] text-primary font-medium inline-flex items-center gap-1.5">
@@ -464,9 +462,9 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
-      </motion.section>
+      </section>
 
-      <motion.section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16" {...reveal(0.17)}>
+      <section className="max-w-6xl mx-auto px-4 mt-12 sm:mt-16">
         <div className="rounded-3xl border border-border/70 bg-card p-6 sm:p-10">
           <div className="grid lg:grid-cols-2 gap-8 items-center">
             <div>
@@ -498,9 +496,9 @@ export default function LandingPage() {
             Trusted by active users · {winnersCount} recent winners listed with transparent records.
           </p>
         </div>
-      </motion.section>
+      </section>
 
-      <motion.footer className="max-w-6xl mx-auto px-4 mt-10" {...reveal(0.2)}>
+      <footer className="max-w-6xl mx-auto px-4 mt-10">
         <div className="rounded-2xl border border-border/70 bg-card/60 backdrop-blur p-5 sm:p-6">
           <div className="grid sm:grid-cols-3 gap-4 text-sm">
             <div>
@@ -517,9 +515,10 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
-      </motion.footer>
+      </footer>
 
       <div className="h-14" />
+      </div>
     </div>
   );
 }
