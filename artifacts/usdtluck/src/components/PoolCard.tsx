@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import type { Pool } from "@workspace/api-client-react";
 import { CountdownTimer } from "./CountdownTimer";
@@ -11,13 +12,28 @@ interface PoolCardProps {
 }
 
 export function PoolCard({ pool, userJoined }: PoolCardProps) {
+  const [barReady, setBarReady] = useState(false);
   const status = String((pool as any).status);
   const fillPercent = pool.maxUsers > 0 ? Math.round((pool.participantCount / pool.maxUsers) * 100) : 0;
   const almostFull = fillPercent > 80;
   const isFull = pool.participantCount >= pool.maxUsers;
+  const spotsLeft = Math.max(0, pool.maxUsers - pool.participantCount);
+  const urgencyState = fillPercent >= 100 ? "full" : fillPercent >= 80 ? "urgent" : fillPercent >= 51 ? "fast" : "normal";
+  const progressFillStyle =
+    urgencyState === "full"
+      ? { background: "linear-gradient(90deg, #22c55e, #16a34a)" }
+      : urgencyState === "urgent"
+        ? { background: "linear-gradient(90deg, #D4A843, #f59e0b)" }
+        : { background: "linear-gradient(90deg, #00D4FF, #14b8a6)" };
   const noTimeLimit = new Date(pool.endTime).getUTCFullYear() >= 2099;
   const showRevealState = (status === "open" || status === "closed") && isFull;
   const wc = poolWinnerCount(pool);
+
+  useEffect(() => {
+    setBarReady(false);
+    const t = window.setTimeout(() => setBarReady(true), 20);
+    return () => window.clearTimeout(t);
+  }, [pool.id, fillPercent]);
 
   return (
     <div
@@ -86,17 +102,38 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
           ))}
 
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>Tickets sold</span>
-            <span className="font-medium text-foreground tabular-nums">
-              {pool.participantCount}/{pool.maxUsers}
-              {!showRevealState ? <span className="text-muted-foreground/80"> · {fillPercent}%</span> : null}
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-muted-foreground">
+              <span className="font-medium text-foreground tabular-nums">{pool.participantCount}/{pool.maxUsers}</span> tickets sold
+            </span>
+            <span
+              className={
+                urgencyState === "full"
+                  ? "font-semibold text-emerald-400"
+                  : urgencyState === "urgent"
+                    ? "font-bold text-[#D4A843]"
+                    : urgencyState === "fast"
+                      ? "font-semibold text-amber-400"
+                      : "text-muted-foreground"
+              }
+            >
+              {urgencyState === "full"
+                ? "Pool Full - Draw Soon!"
+                : urgencyState === "urgent"
+                  ? `${spotsLeft} spots left!`
+                  : urgencyState === "fast"
+                    ? "Filling fast!"
+                    : `${spotsLeft} spots left!`}
             </span>
           </div>
           <div className="h-2 rounded-full bg-white/10 overflow-hidden">
             <div
-              className={`h-full ${almostFull ? "bg-amber-400" : "bg-emerald-400"} transition-all duration-500`}
-              style={{ width: `${Math.min(100, Math.max(0, fillPercent))}%` }}
+              className={`h-full transition-all ease-out ${urgencyState === "urgent" ? "animate-pulse" : ""}`}
+              style={{
+                ...progressFillStyle,
+                width: `${barReady ? Math.min(100, Math.max(0, fillPercent)) : 0}%`,
+                transitionDuration: "800ms",
+              }}
             />
           </div>
         </div>
