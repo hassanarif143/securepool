@@ -163,7 +163,7 @@ export default function HowItWorksPage() {
           Step-by-step
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4 sm:gap-y-6">
-          {steps.map((s) => (
+          {steps.map((s, i) => (
             <div key={s.n}>
               <Card className="h-full overflow-visible border-[hsl(217,28%,18%)] bg-[hsl(222,30%,9%)] transition-colors hover:border-primary/30 shadow-[0_16px_40px_-26px_rgba(0,0,0,0.8)]">
                 <div className="h-1 rounded-t-2xl bg-gradient-to-r from-primary/50 to-emerald-600/40" />
