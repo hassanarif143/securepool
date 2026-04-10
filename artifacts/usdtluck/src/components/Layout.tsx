@@ -6,7 +6,6 @@ import { Logo } from "@/components/Logo";
 import { apiUrl } from "@/lib/api-base";
 import { useGameAvailability } from "@/lib/game-availability";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
-import { FileText, Lock, ShieldCheck } from "lucide-react";
 
 function playNotifSound() {
   try {
@@ -598,18 +597,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, isLoading } = useAuth();
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
   const { loading: gamesLoading, cashoutArenaEnabled, scratchCardEnabled } = useGameAvailability(!!user);
 
   /* Close mobile menu on navigation */
   useEffect(() => { setMobileOpen(false); }, [location]);
-
-  useEffect(() => {
-    const onScroll = () => setIsScrolled((window.scrollY || 0) > 12);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   /* Primary links — always visible in the top bar */
   const primaryLinks = user ? [
@@ -640,35 +631,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const isLandingGuest = !isLoading && !user && location === "/";
 
-  /** Keep landing header transparent so gradient flows behind it */
-  const chromeBase = isLandingGuest
-    ? {
-        background: "transparent",
-        borderColor: "transparent",
-      }
-    : {
-        background: "linear-gradient(180deg, hsla(224,30%,8%,0.92) 0%, hsla(224,30%,7%,0.88) 100%)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        borderColor: "hsla(217,28%,14%,0.65)",
-      };
-
-  const headerShadow = isLandingGuest
-    ? "none"
-    : isScrolled
-      ? "0 16px 36px -24px rgba(0,0,0,0.38)"
-      : "0 10px 24px -24px rgba(0,0,0,0.28)";
-
-  const footerShadow = "0 10px 24px -24px rgba(0,0,0,0.28)";
+  const chromeBase = {
+    background: "linear-gradient(180deg, hsla(224,30%,8%,0.92) 0%, hsla(224,30%,7%,0.88) 100%)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    borderColor: "hsla(217,28%,14%,0.65)",
+  };
 
   return (
-    <div className={`min-h-screen flex flex-col text-foreground ${isLandingGuest ? "bg-transparent" : "bg-background"}`}>
-      <div className={`${isLandingGuest ? "fixed inset-x-0 top-0" : "sticky top-0"} z-50 px-2 sm:px-3 pt-2.5 sm:pt-3.5`}>
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
+      <div className="px-2 sm:px-3 pt-2.5 sm:pt-3.5">
       <header
-        className={`mx-auto max-w-7xl ${isLandingGuest ? "rounded-2xl" : "rounded-[1.35rem] sm:rounded-[1.7rem] border"}`}
+        className="mx-auto max-w-7xl rounded-[1.35rem] sm:rounded-[1.7rem] border"
         style={{
           ...chromeBase,
-          boxShadow: headerShadow,
+          boxShadow: "0 10px 24px -24px rgba(0,0,0,0.28)",
         }}
       >
         <div className="px-3 sm:px-5 lg:px-6">
@@ -833,51 +810,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <footer className="mt-auto px-2 sm:px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3">
-        <div
-          className="mx-auto max-w-7xl rounded-[1.35rem] sm:rounded-[1.7rem] border px-4 py-3 sm:px-6 sm:py-3.5"
-          style={{
-            ...chromeBase,
-            boxShadow: footerShadow,
-          }}
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-muted-foreground">
-            <p>
-              © {new Date().getFullYear()} SecurePool. All rights reserved.
-            </p>
-            <div className="flex items-center gap-2 sm:hidden">
-              <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/35 px-2 py-1 text-[10px] text-foreground/80">
-                <ShieldCheck className="h-3 w-3 text-primary" />
-                Trusted
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/35 px-2 py-1 text-[10px] text-foreground/80">
-                <Lock className="h-3 w-3 text-primary" />
-                Secure
-              </span>
+      <footer className="border-t mt-auto py-3.5 pb-[max(0.9rem,env(safe-area-inset-bottom))]" style={{ borderColor: "hsl(217,28%,14%)" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-muted-foreground">
+            <p>© {new Date().getFullYear()} SecurePool. All rights reserved.</p>
+            <div className="flex items-center gap-4 sm:gap-5">
+              <span className="hover:text-foreground transition-colors cursor-default" title="Terms of service — contact support for details">Terms of Service</span>
+              <span className="hover:text-foreground transition-colors cursor-default" title="Privacy policy — contact support for details">Privacy Policy</span>
             </div>
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 sm:justify-center">
-              <span
-                className="inline-flex items-center gap-1 transition-colors cursor-default hover:text-foreground"
-                title="Terms of service — contact support for details"
-              >
-                <FileText className="hidden sm:inline-block h-3.5 w-3.5 opacity-75" />
-                Terms of Service
-              </span>
-              <span
-                className="inline-flex items-center gap-1 transition-colors cursor-default hover:text-foreground"
-                title="Privacy policy — contact support for details"
-              >
-                <Lock className="hidden sm:inline-block h-3.5 w-3.5 opacity-75" />
-                Privacy Policy
-              </span>
-            </div>
-            <span
-              className="inline-flex items-center gap-1.5 self-start rounded-full border border-border/70 bg-background/40 px-2.5 py-1 text-[10px] sm:text-[11px] font-medium tracking-wide text-foreground/80 sm:self-center"
-            >
-              <svg className="h-3 w-3 shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <rect x="5" y="11" width="14" height="10" rx="2" />
-                <path d="M7 11V7a5 5 0 0110 0v4" />
-              </svg>
+            <span className="inline-flex items-center rounded-md border border-border/70 bg-background/35 px-2 py-1 text-[10px] sm:text-[11px] font-medium tracking-wide text-foreground/75">
               SOC2 Compliant
             </span>
           </div>
