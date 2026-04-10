@@ -6,7 +6,7 @@ import { Logo } from "@/components/Logo";
 import { apiUrl } from "@/lib/api-base";
 import { useGameAvailability } from "@/lib/game-availability";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
-import { ChevronRight, Circle, House, Linkedin, Menu, Trophy, Twitter, Wallet, X, Youtube } from "lucide-react";
+import { ChevronRight, LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
 
 function playNotifSound() {
   try {
@@ -420,334 +420,72 @@ function MoreMenu({ links, location }: { links: { href: string; label: string; i
    Mobile full-screen slide menu
 ───────────────────────────────────────────── */
 function MobileMenu({
-  open,
+  primaryLinks,
   secondaryLinks,
-  guestLinks,
   location,
   user,
   logout,
-  onOpen,
   onClose,
 }: {
-  open: boolean;
+  primaryLinks: { href: string; label: string; icon: string }[];
   secondaryLinks: { href: string; label: string; icon: string }[];
-  guestLinks: { href: string; label: string; icon: string }[];
   location: string;
-  user: any | null;
-  logout?: () => void;
-  onOpen: () => void;
+  user: any;
+  logout: () => void;
   onClose: () => void;
 }) {
-  const quickAccessLinks = user
-    ? [
-        { href: "/my-tickets", label: "My Tickets", icon: "🎫" },
-        { href: "/profile", label: "My Stats", icon: "📊" },
-      ]
-    : [];
-  const featureLinks = user
-    ? [
-        { href: "/rewards", label: "Rewards", icon: "🎁" },
-        { href: "/referral", label: "Referral", icon: "🔗" },
-        { href: "/staking", label: "Staking", icon: "🔒" },
-        { href: "/p2p", label: "P2P Trading", icon: "💱" },
-      ]
-    : [];
-  const infoLinks = user
-    ? [
-        { href: "/how-it-works", label: "How It Works", icon: "📘" },
-        { href: "/reviews", label: "Reviews", icon: "💬" },
-        { href: "/how-it-works#terms", label: "Terms & Policy", icon: "📄" },
-      ]
-    : [];
-  const adminLinks = user?.isAdmin
-    ? [
-        { href: "/admin", label: "Admin Panel", icon: "⚙️" },
-        { href: "/admin?tab=users", label: "Manage Users", icon: "📋" },
-        { href: "/admin?tab=wallets", label: "Verify Deposits", icon: "✅" },
-        { href: "/admin?tab=pending", label: "Process Withdrawals", icon: "💰" },
-      ]
-    : [];
-  const extraFeatureLinks = user
-    ? secondaryLinks.filter(
-        (l) =>
-          ![
-            "/my-tickets",
-            "/rewards",
-            "/referral",
-            "/staking",
-            "/p2p",
-            "/how-it-works",
-            "/reviews",
-            "/admin",
-          ].includes(l.href)
-      )
-    : [];
-  const panelRef = useRef<HTMLDivElement>(null);
-  const closeBtnRef = useRef<HTMLButtonElement>(null);
-  const startXRef = useRef(0);
-  const startYRef = useRef(0);
-  const startTsRef = useRef(0);
-  const touchModeRef = useRef<"idle" | "open" | "close">("idle");
-  const edgeStartXRef = useRef(0);
-  const [dragX, setDragX] = useState(0);
-  const [edgeDragX, setEdgeDragX] = useState(0);
-  const drawerW = 320;
-  const edgeSwipeOpenPx = 38;
-  const closeSnapThresholdRatio = 0.32;
-  const openSnapThresholdRatio = 0.28;
-  const maxCloseDragRatio = 0.82;
-
-  const isActive = (href: string) => {
-    const cleanHref = href.split("?")[0];
-    return cleanHref === "/dashboard" ? location === "/dashboard" : location.startsWith(cleanHref);
-  };
-  const itemAnim = (index: number) => ({ animation: open ? `fadeInUp 220ms ease ${index * 50}ms both` : undefined });
-
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    closeBtnRef.current?.focus();
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key !== "Tab" || !panelRef.current) return;
-      const focusable = panelRef.current.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"])');
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const active = document.activeElement as HTMLElement | null;
-      if (e.shiftKey && active === first) { e.preventDefault(); last.focus(); }
-      if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = prev;
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open, onClose]);
+  const allLinks = [...primaryLinks, ...secondaryLinks];
 
   return (
-    <div className={`md:hidden fixed inset-0 z-[50] ${open || edgeDragX > 0 ? "" : "pointer-events-none"}`} aria-hidden={!open}>
-      <div className="sr-only" role="status" aria-live="polite">
-        {open ? "Navigation menu opened" : "Navigation menu closed"}
+    <div className="md:hidden border-t" style={{ background: "hsl(224,30%,8%)", borderColor: "hsl(217,28%,16%)" }}>
+      {/* User identity strip */}
+      <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b" style={{ borderColor: "hsl(217,28%,14%)" }}>
+        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+          style={{ background: "hsla(152,72%,44%,0.15)", border: "1px solid hsla(152,72%,44%,0.3)", color: "hsl(152,72%,60%)" }}>
+          {user.name.charAt(0).toUpperCase()}
+        </div>
+        <div>
+          <p className="font-semibold text-sm">{user.name}</p>
+        </div>
+        <div className="ml-auto text-right">
+          <p className="text-xs font-bold text-primary">{user.walletBalance?.toFixed(2)} USDT</p>
+          <p className="text-[10px] text-muted-foreground">balance</p>
+        </div>
       </div>
-      {(open || edgeDragX > 0) && (
-        <button
-          type="button"
-          aria-label="Close navigation menu"
-          onClick={onClose}
-          className="absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] pointer-events-auto"
-          style={{ opacity: open ? 1 : Math.min(0.8, edgeDragX / drawerW) }}
-        />
-      )}
-      <aside
-        id="mobile-nav-drawer"
-        ref={panelRef}
-        role="navigation"
-        aria-label="Mobile Navigation"
-        className={`absolute right-0 top-0 h-full w-[80vw] max-w-[320px] rounded-l-2xl border-l shadow-[-4px_0_20px_rgba(0,0,0,0.3)] will-change-transform transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] touch-pan-y z-[55] flex flex-col overflow-hidden ${
-          open || dragX !== 0 || edgeDragX !== 0 ? "pointer-events-auto" : "pointer-events-none"
-        }`}
-        style={{
-          transform: `translate3d(${open ? dragX : drawerW - edgeDragX}px,0,0)`,
-          background: "#0d1b2a",
-          borderColor: "rgba(255,255,255,0.08)",
-        }}
-        onTouchStart={(e) => {
-          const t = e.touches[0];
-          startXRef.current = t.clientX;
-          startYRef.current = t.clientY;
-          startTsRef.current = performance.now();
-          touchModeRef.current = open ? "close" : "idle";
-        }}
-        onTouchMove={(e) => {
-          if (!open) return;
-          const t = e.touches[0];
-          const dx = t.clientX - startXRef.current;
-          const dy = t.clientY - startYRef.current;
-          if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) return;
-          if (dx > 0) {
-            setDragX(Math.min(drawerW * maxCloseDragRatio, dx));
-            e.preventDefault();
-          }
-        }}
-        onTouchEnd={() => {
-          const dt = Math.max(1, performance.now() - startTsRef.current);
-          const velocityX = dragX / dt; // px/ms
-          const shouldCloseByVelocity = velocityX > 0.55;
-          if (Math.abs(dragX) > drawerW * closeSnapThresholdRatio || shouldCloseByVelocity) onClose();
-          setDragX(0);
-          touchModeRef.current = "idle";
-        }}
-      >
-        <div className="px-4 py-4 flex items-center justify-between border-b shrink-0" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(16,185,129,0.04)" }}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
-              style={{ background: "hsla(152,72%,44%,0.2)", border: "1px solid hsla(152,72%,44%,0.35)", color: "hsl(152,72%,60%)" }}>
-              {user?.name?.charAt(0).toUpperCase() ?? "U"}
-            </div>
-            <div>
-              <p className="font-semibold text-sm text-white">{user?.name ?? "Guest"}</p>
-              {user ? <p className="text-[11px] text-primary rounded-full px-2 py-0.5 inline-block mt-0.5" style={{ background: "rgba(16,185,129,0.12)" }}>{Number(user.walletBalance ?? 0).toFixed(2)} USDT</p> : null}
-            </div>
-          </div>
-          <button
-            ref={closeBtnRef}
-            onClick={onClose}
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
-            aria-label="Close drawer"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+
+      <nav className="px-3 pt-3 pb-6 space-y-1 safe-area-pb">
+        {allLinks.map((link) => (
+          <Link key={link.href} href={link.href}>
+            <span onClick={onClose}
+              className={`flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium transition-colors cursor-pointer min-h-12 ${
+                location.startsWith(link.href)
+                  ? "bg-primary/12 text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+              }`}>
+              <span className="text-base w-5 text-center">{link.icon}</span>
+              {link.label}
+              {location.startsWith(link.href) && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
+            </span>
+          </Link>
+        ))}
+
+        <div className="pt-2 mt-2 border-t space-y-0.5" style={{ borderColor: "hsl(217,28%,14%)" }}>
+          <Link href="/profile">
+            <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12">
+              <span className="w-5 text-center">👤</span> Profile & Settings
+            </button>
+          </Link>
+          <Link href="/wallet">
+            <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12">
+              <span className="w-5 text-center">💼</span> My Wallet
+            </button>
+          </Link>
+          <button onClick={() => { logout(); onClose(); }}
+            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-red-400 hover:bg-red-500/10 transition-colors min-h-12">
+            <span className="w-5 text-center">🚪</span> Sign Out
           </button>
         </div>
-
-        <nav className="px-0 pt-2 pb-6 flex-1 min-h-0 overflow-y-auto overscroll-contain" aria-label="Navigation items">
-          {user ? (
-            <>
-              <div className="px-5 py-2 text-[12px] uppercase tracking-[1px] text-[#64748b]">Quick Access</div>
-              {quickAccessLinks.map((link, idx) => (
-                <Link key={link.href} href={link.href}>
-                  <button
-                    onClick={() => window.setTimeout(onClose, 150)}
-                    style={itemAnim(idx)}
-                    className={`relative flex h-12 w-full items-center gap-3 px-5 text-left text-[15px] transition-colors hover:bg-white/[0.05] active:scale-[0.99] ${
-                      isActive(link.href) ? "text-white bg-[rgba(16,185,129,0.1)]" : "text-gray-200 hover:text-white"
-                    }`}
-                  >
-                    {isActive(link.href) && <span className="absolute right-0 top-0 h-full w-[2px] bg-[#10b981]" />}
-                    <span className="w-5 text-center">{link.icon}</span>
-                    <span>{link.label}</span>
-                    <span className="ml-auto opacity-60">›</span>
-                  </button>
-                </Link>
-              ))}
-
-              <div className="mt-2 border-t border-white/10 px-5 py-2 text-[12px] uppercase tracking-[1px] text-[#64748b]">Earn More</div>
-              {[...featureLinks, ...extraFeatureLinks].map((link, idx) => (
-                <Link key={link.href} href={link.href}>
-                  <button
-                    onClick={() => window.setTimeout(onClose, 150)}
-                    style={itemAnim(quickAccessLinks.length + idx)}
-                    className={`relative flex h-12 w-full items-center gap-3 px-5 text-left text-[15px] transition-colors hover:bg-white/[0.05] active:scale-[0.99] ${
-                      isActive(link.href) ? "text-white bg-[rgba(16,185,129,0.1)]" : "text-gray-200 hover:text-white"
-                    }`}
-                  >
-                    {isActive(link.href) && <span className="absolute right-0 top-0 h-full w-[2px] bg-[#10b981]" />}
-                    <span className="w-5 text-center">{link.icon}</span>
-                    <span>{link.label}</span>
-                    <span className="ml-auto opacity-60">›</span>
-                  </button>
-                </Link>
-              ))}
-
-              <div className="mt-2 border-t border-white/10 px-5 py-2 text-[12px] uppercase tracking-[1px] text-[#64748b]">Info</div>
-              {infoLinks.map((link, idx) => (
-                <Link key={link.href} href={link.href}>
-                  <button
-                    onClick={() => window.setTimeout(onClose, 150)}
-                    style={itemAnim(quickAccessLinks.length + featureLinks.length + extraFeatureLinks.length + idx)}
-                    className={`relative flex h-12 w-full items-center gap-3 px-5 text-left text-[15px] transition-colors hover:bg-white/[0.05] active:scale-[0.99] ${
-                      isActive(link.href) ? "text-white bg-[rgba(16,185,129,0.1)]" : "text-gray-200 hover:text-white"
-                    }`}
-                  >
-                    {isActive(link.href) && <span className="absolute right-0 top-0 h-full w-[2px] bg-[#10b981]" />}
-                    <span className="w-5 text-center">{link.icon}</span>
-                    <span>{link.label}</span>
-                    <span className="ml-auto opacity-60">›</span>
-                  </button>
-                </Link>
-              ))}
-
-              {adminLinks.length > 0 && (
-                <>
-                  <div className="mt-2 border-t border-white/10 px-5 py-2 text-[12px] uppercase tracking-[1px] text-[#64748b]">Admin</div>
-                  {adminLinks.map((link, idx) => (
-                    <Link key={link.href} href={link.href}>
-                      <button
-                        onClick={() => window.setTimeout(onClose, 150)}
-                        style={itemAnim(quickAccessLinks.length + featureLinks.length + extraFeatureLinks.length + infoLinks.length + idx)}
-                        className={`relative flex h-12 w-full items-center gap-3 px-5 text-left text-[15px] transition-colors hover:bg-white/[0.05] active:scale-[0.99] ${
-                          isActive(link.href) ? "text-white bg-[rgba(16,185,129,0.1)]" : "text-gray-200 hover:text-white"
-                        }`}
-                        >
-                          {isActive(link.href) && <span className="absolute right-0 top-0 h-full w-[2px] bg-[#10b981]" />}
-                        <span className="w-5 text-center">{link.icon}</span>
-                        <span>{link.label}</span>
-                        <span className="ml-auto opacity-60">›</span>
-                      </button>
-                    </Link>
-                  ))}
-                </>
-              )}
-            </>
-          ) : (
-            guestLinks.map((link, idx) => (
-              <Link key={link.href} href={link.href}>
-                <button
-                  onClick={() => window.setTimeout(onClose, 150)}
-                  style={itemAnim(idx)}
-                  className={`relative flex h-12 w-full items-center gap-3 px-5 text-left text-[15px] transition-colors hover:bg-white/[0.05] active:scale-[0.99] ${
-                    isActive(link.href) ? "text-white bg-[rgba(16,185,129,0.1)]" : "text-gray-200 hover:text-white"
-                  }`}
-                >
-                  {isActive(link.href) && <span className="absolute right-0 top-0 h-full w-[2px] bg-[#10b981]" />}
-                  <span className="w-5 text-center">{link.icon}</span>
-                  <span>{link.label}</span>
-                  <span className="ml-auto opacity-60">›</span>
-                </button>
-              </Link>
-            ))
-          )}
-        </nav>
-        {user && (
-          <div className="border-t border-white/10 px-0 pt-2 pb-2 shrink-0">
-              <Link href="/profile">
-                <button onClick={() => window.setTimeout(onClose, 150)} className="flex h-12 w-full items-center gap-3 px-5 text-left text-[15px] text-gray-200 transition-colors hover:bg-white/[0.05] hover:text-white">
-                  <span className="w-5 text-center">👤</span> Profile & Settings
-                  <span className="ml-auto opacity-60">›</span>
-                </button>
-              </Link>
-              <button onClick={() => { logout?.(); window.setTimeout(onClose, 150); }} className="flex h-12 w-full items-center gap-3 px-5 text-left text-[15px] text-red-400 transition-colors hover:bg-red-500/10">
-                <span className="w-5 text-center">🚪</span> Sign Out
-              </button>
-            <p className="px-5 pt-2 text-[10px] text-[#334155]">SecurePool v1.0</p>
-          </div>
-        )}
-      </aside>
-      {!open && (
-        <div
-          className="absolute right-0 top-0 h-full w-5"
-          onTouchStart={(e) => {
-            const t = e.touches[0];
-            edgeStartXRef.current = t.clientX;
-            startYRef.current = t.clientY;
-            startTsRef.current = performance.now();
-            touchModeRef.current = "open";
-          }}
-          onTouchMove={(e) => {
-            const t = e.touches[0];
-            const dx = edgeStartXRef.current - t.clientX;
-            const dy = t.clientY - startYRef.current;
-            if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) return;
-            if (dx > 0) {
-              setEdgeDragX(Math.min(drawerW, dx));
-              e.preventDefault();
-            }
-          }}
-          onTouchEnd={() => {
-            const dt = Math.max(1, performance.now() - startTsRef.current);
-            const velocityX = edgeDragX / dt; // px/ms
-            const shouldOpenByVelocity = velocityX > 0.55;
-            if (edgeDragX > drawerW * openSnapThresholdRatio || edgeDragX > edgeSwipeOpenPx || shouldOpenByVelocity) {
-              onOpen();
-            }
-            setEdgeDragX(0);
-            touchModeRef.current = "idle";
-          }}
-        />
-      )}
+      </nav>
     </div>
   );
 }
@@ -784,25 +522,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/reviews",    label: "Reviews",    icon: "💬" },
     ...(user.isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: "⚙️" }] : []),
   ] : [];
-  const guestLinks = [
-    { href: "/how-it-works", label: "How It Works", icon: "📘" },
-    { href: "/login", label: "Login", icon: "🔐" },
-    { href: "/signup", label: "Get Started", icon: "🚀" },
-  ] as const;
 
   const showLandingPromo = !isLoading && !user && location === "/";
-  const isAuthPage = location.startsWith("/login") || location.startsWith("/signup");
-  const tapFeedback = () => {
-    if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(10);
-  };
-
-  if (isAuthPage) {
-    return <div className="min-h-screen bg-[#0a1628] text-foreground">{children}</div>;
-  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      <div className="z-50">
+      <div className="sticky top-0 z-50">
         {showLandingPromo && (
           <div
             className="layout-landing-premium-banner border-b"
@@ -827,7 +552,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         )}
       <header
-        className="hidden md:block border-b"
+        className="border-b"
         style={{
           background: "hsla(224,30%,7%,0.92)",
           backdropFilter: "blur(16px)",
@@ -933,158 +658,88 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
+        {/* Mobile menu slide-down */}
+        {mobileOpen && user && (
+          <MobileMenu
+            primaryLinks={primaryLinks}
+            secondaryLinks={secondaryLinks}
+            location={location}
+            user={user}
+            logout={logout}
+            onClose={() => setMobileOpen(false)}
+          />
+        )}
       </header>
-
       </div>
 
       <main
         className={`flex-1 max-w-7xl w-full min-w-0 mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${
-          user ? "pb-[calc(6.9rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""
+          user ? "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""
         }`}
-        style={{ touchAction: "pan-y" }}
       >
         {user ? <LiveJoinNotification /> : null}
         {children}
       </main>
 
-      <MobileMenu
-        open={!!user && mobileOpen}
-        secondaryLinks={secondaryLinks}
-        guestLinks={guestLinks}
-        location={location}
-        user={user}
-        logout={logout}
-        onOpen={() => {
-          if (user) setMobileOpen(true);
-        }}
-        onClose={() => setMobileOpen(false)}
-      />
-
       {user && (
         <nav
-          className="md:hidden fixed bottom-0 inset-x-0 z-[45] px-3 pb-[max(env(safe-area-inset-bottom),0.45rem)]"
-          aria-label="Bottom Navigation"
+          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t flex justify-evenly items-stretch min-h-[4.35rem] py-1.5 px-0.5 safe-area-pb touch-manipulation shadow-[0_-8px_32px_rgba(0,0,0,0.35)] transition-shadow"
+          style={{ background: "hsla(224,30%,7%,0.96)", backdropFilter: "blur(12px)", borderColor: "hsl(217,28%,14%)" }}
+          aria-label="Primary"
         >
-          <div
-            className="h-16 rounded-2xl border flex items-center justify-between px-1.5"
-            style={{
-              background: "linear-gradient(180deg, hsla(224,30%,9%,0.96), hsla(224,30%,7%,0.94))",
-              borderColor: "rgba(255,255,255,0.09)",
-              boxShadow: "0 14px 28px -20px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.03)",
-            }}
-          >
-            {[
-              { href: "/dashboard", Icon: House, label: "Home" },
-              { href: "/pools", Icon: Circle, label: "Pools" },
-              { href: "/winners", Icon: Trophy, label: "Winners" },
-              { href: "/wallet", Icon: Wallet, label: "Wallet" },
-            ].map((item) => {
-              const active = location.startsWith(item.href);
-              const Icon = item.Icon;
-              return (
-                <Link key={item.href} href={item.href} className="flex-1">
-                  <button
-                    onClick={tapFeedback}
-                    aria-label={item.label}
-                    className={`relative w-full h-14 flex items-center justify-center transition-colors ${
-                      active ? "text-primary" : "text-[#64748b]"
-                    }`}
-                  >
-                    <span className={`inline-flex items-center justify-center rounded-xl w-10 h-10 transition-all ${active ? "bg-primary/15 shadow-[0_0_0_1px_rgba(16,185,129,0.18)]" : ""}`}>
-                      <Icon className="w-[1.15rem] h-[1.15rem]" strokeWidth={2.3} />
-                    </span>
-                  </button>
-                </Link>
-              );
-            })}
-
-            <button
-              onClick={() => {
-                tapFeedback();
-                setMobileOpen((v) => !v);
-              }}
-              className={`relative flex-1 h-14 flex items-center justify-center transition-colors ${
-                mobileOpen ? "text-primary" : "text-[#64748b]"
-              }`}
-              aria-label="More menu"
-              aria-expanded={mobileOpen}
-              aria-controls="mobile-nav-drawer"
-            >
-              <span className={`inline-flex items-center justify-center rounded-xl w-10 h-10 transition-all ${mobileOpen ? "bg-primary/15 shadow-[0_0_0_1px_rgba(16,185,129,0.18)]" : ""}`}>
-                {mobileOpen ? <X className="w-[1.15rem] h-[1.15rem]" strokeWidth={2.3} /> : <Menu className="w-[1.15rem] h-[1.15rem]" strokeWidth={2.3} />}
-              </span>
-            </button>
-          </div>
+          {(
+            [
+              { href: "/dashboard", label: "Home", Icon: LayoutDashboard },
+              { href: "/wallet", label: "Wallet", Icon: Wallet },
+              { href: "/p2p", label: "P2P", Icon: Layers },
+              ...(!gamesLoading && cashoutArenaEnabled ? [{ href: "/cashout-arena", label: "Arena", Icon: Trophy }] as const : []),
+              ...(!gamesLoading && scratchCardEnabled ? [{ href: "/scratch-card", label: "Scratch", Icon: Trophy }] as const : []),
+              ...(user.isAdmin ? [{ href: "/admin", label: "Admin", Icon: Shield }] as const : []),
+              { href: "/winners", label: "Wins", Icon: Trophy },
+            ] as const
+          ).map((item) => {
+            const active =
+              item.href === "/dashboard"
+                ? location === "/dashboard"
+                : location.startsWith(item.href);
+            const Icon = item.Icon;
+            return (
+              <Link key={item.href} href={item.href} className="flex-1 min-w-0 basis-0">
+                <span
+                  className={`flex min-h-[3.35rem] min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[9px] sm:text-[10px] font-semibold tracking-tight transition-colors duration-200 active:scale-[0.97] touch-manipulation ${
+                    active ? "text-primary" : "text-muted-foreground hover:text-foreground/90"
+                  }`}
+                  style={active ? { background: "hsla(152,72%,44%,0.12)" } : {}}
+                >
+                  <Icon className="h-[1.15rem] w-[1.15rem] sm:h-5 sm:w-5 shrink-0" strokeWidth={active ? 2.25 : 2} aria-hidden />
+                  <span className="leading-tight text-center truncate w-full px-0.5">{item.label}</span>
+                </span>
+              </Link>
+            );
+          })}
         </nav>
       )}
 
-      {!user && !isLoading && (
-        <div className="md:hidden fixed bottom-0 inset-x-0 z-[45] px-4 pb-[max(env(safe-area-inset-bottom),0.6rem)]">
-          <div
-            className="rounded-2xl border p-2.5 flex items-center gap-2"
-            style={{
-              background: "linear-gradient(180deg, hsla(224,30%,9%,0.96), hsla(224,30%,7%,0.94))",
-              borderColor: "rgba(255,255,255,0.09)",
-              boxShadow: "0 14px 28px -20px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.03)",
-            }}
-          >
-            <Link href="/how-it-works" className="flex-1">
-              <Button variant="ghost" className="w-full h-10 text-muted-foreground hover:text-foreground">
-                How It Works
-              </Button>
-            </Link>
-            <Link href="/login" className="flex-1">
-              <Button variant="outline" className="w-full h-10 border-border/70 bg-background/35 text-foreground">
-                Login
-              </Button>
-            </Link>
-            <Link href="/signup" className="flex-1">
-              <Button className="w-full h-10 font-semibold">Get Started</Button>
-            </Link>
-          </div>
-        </div>
-      )}
-
-      <footer className="border-t mt-auto py-4 pb-[max(1rem,env(safe-area-inset-bottom))]" style={{ borderColor: "hsl(217,28%,14%)" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm text-muted-foreground">
-          <p className="text-center sm:text-left">© {new Date().getFullYear()} SecurePool</p>
-          <div className="flex items-center gap-4">
+      <footer className="border-t mt-auto py-10 pb-[max(2.5rem,env(safe-area-inset-bottom))]" style={{ borderColor: "hsl(217,28%,14%)" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-5 text-sm text-muted-foreground">
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
             <Link href="/how-it-works" className="hover:text-foreground transition-colors">How It Works</Link>
-            <span className="opacity-35">•</span>
-            <span className="opacity-60 cursor-default" title="Terms of service — contact support for details">Terms</span>
-            <span className="opacity-35">•</span>
+            <span className="opacity-30 hidden sm:inline">·</span>
+            <span className="opacity-50 cursor-default" title="Terms of service — contact support for details">
+              Terms
+            </span>
+            <span className="opacity-30 hidden sm:inline">·</span>
             <a href="mailto:support@securepool.app" className="hover:text-foreground transition-colors">Support</a>
           </div>
-          <div className="flex items-center gap-2">
-            <a
-              href="https://x.com"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="SecurePool on X"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-background/30 text-muted-foreground hover:text-foreground hover:border-primary/35 hover:bg-primary/10 transition-colors"
-            >
-              <Twitter className="h-3.5 w-3.5" />
-            </a>
-            <a
-              href="https://linkedin.com"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="SecurePool on LinkedIn"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-background/30 text-muted-foreground hover:text-foreground hover:border-primary/35 hover:bg-primary/10 transition-colors"
-            >
-              <Linkedin className="h-3.5 w-3.5" />
-            </a>
-            <a
-              href="https://youtube.com"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="SecurePool on YouTube"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-background/30 text-muted-foreground hover:text-foreground hover:border-primary/35 hover:bg-primary/10 transition-colors"
-            >
-              <Youtube className="h-3.5 w-3.5" />
-            </a>
+          <div className="flex items-center gap-3">
+            <span className="opacity-40" aria-hidden>𝕏</span>
+            <span className="opacity-40" aria-hidden>in</span>
+            <span className="opacity-40" aria-hidden>▶</span>
           </div>
         </div>
+        <p className="text-center text-xs sm:text-sm text-muted-foreground/90 mt-4 px-4 leading-relaxed max-w-2xl mx-auto">
+          © {new Date().getFullYear()} SecurePool — Transparent USDT Reward Pools
+        </p>
       </footer>
     </div>
   );
