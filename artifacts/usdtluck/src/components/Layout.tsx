@@ -6,6 +6,7 @@ import { Logo } from "@/components/Logo";
 import { apiUrl } from "@/lib/api-base";
 import { useGameAvailability } from "@/lib/game-availability";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
+import { ChevronRight, LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
 
 function playNotifSound() {
   try {
@@ -419,173 +420,72 @@ function MoreMenu({ links, location }: { links: { href: string; label: string; i
    Mobile full-screen slide menu
 ───────────────────────────────────────────── */
 function MobileMenu({
-  open,
   primaryLinks,
   secondaryLinks,
-  guestLinks,
   location,
   user,
   logout,
   onClose,
 }: {
-  open: boolean;
   primaryLinks: { href: string; label: string; icon: string }[];
   secondaryLinks: { href: string; label: string; icon: string }[];
-  guestLinks: { href: string; label: string }[];
   location: string;
-  user: any | null;
-  logout?: () => void;
+  user: any;
+  logout: () => void;
   onClose: () => void;
 }) {
-  const allLinks = user
-    ? [...primaryLinks, ...secondaryLinks]
-    : guestLinks.map((link) => ({ ...link, icon: "•" }));
-  const panelRef = useRef<HTMLDivElement>(null);
-  const closeBtnRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    closeBtnRef.current?.focus();
-
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-        return;
-      }
-      if (e.key !== "Tab" || !panelRef.current) return;
-      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const active = document.activeElement as HTMLElement | null;
-      if (e.shiftKey) {
-        if (!active || active === first) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else if (!active || active === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open, onClose]);
+  const allLinks = [...primaryLinks, ...secondaryLinks];
 
   return (
-    <div className={`md:hidden fixed inset-0 z-[90] ${open ? "" : "pointer-events-none"}`} aria-hidden={!open}>
-      <button
-        type="button"
-        aria-label="Close menu"
-        onClick={onClose}
-        className={`absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity duration-300 ease-in-out ${
-          open ? "opacity-100" : "opacity-0"
-        }`}
-      />
-      <aside
-        id="mobile-nav-drawer"
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Mobile Navigation"
-        className={`absolute right-0 top-0 h-full w-[86vw] max-w-[22rem] rounded-l-2xl border-l shadow-2xl transition-transform duration-300 ease-in-out will-change-transform ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
-        style={{
-          background: "linear-gradient(180deg, hsla(224,30%,9%,0.99) 0%, hsla(224,30%,7%,0.98) 100%)",
-          borderColor: "hsl(217,28%,16%)",
-        }}
-      >
-        <div className="px-4 py-3.5 flex items-center justify-between border-b" style={{ borderColor: "hsl(217,28%,14%)" }}>
-          <Logo size="sm" />
-          <button
-            ref={closeBtnRef}
-            onClick={onClose}
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
-            aria-label="Close sidebar"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+    <div className="md:hidden border-t" style={{ background: "hsl(224,30%,8%)", borderColor: "hsl(217,28%,16%)" }}>
+      {/* User identity strip */}
+      <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b" style={{ borderColor: "hsl(217,28%,14%)" }}>
+        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+          style={{ background: "hsla(152,72%,44%,0.15)", border: "1px solid hsla(152,72%,44%,0.3)", color: "hsl(152,72%,60%)" }}>
+          {user.name.charAt(0).toUpperCase()}
+        </div>
+        <div>
+          <p className="font-semibold text-sm">{user.name}</p>
+        </div>
+        <div className="ml-auto text-right">
+          <p className="text-xs font-bold text-primary">{user.walletBalance?.toFixed(2)} USDT</p>
+          <p className="text-[10px] text-muted-foreground">balance</p>
+        </div>
+      </div>
+
+      <nav className="px-3 pt-3 pb-6 space-y-1 safe-area-pb">
+        {allLinks.map((link) => (
+          <Link key={link.href} href={link.href}>
+            <span onClick={onClose}
+              className={`flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium transition-colors cursor-pointer min-h-12 ${
+                location.startsWith(link.href)
+                  ? "bg-primary/12 text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+              }`}>
+              <span className="text-base w-5 text-center">{link.icon}</span>
+              {link.label}
+              {location.startsWith(link.href) && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
+            </span>
+          </Link>
+        ))}
+
+        <div className="pt-2 mt-2 border-t space-y-0.5" style={{ borderColor: "hsl(217,28%,14%)" }}>
+          <Link href="/profile">
+            <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12">
+              <span className="w-5 text-center">👤</span> Profile & Settings
+            </button>
+          </Link>
+          <Link href="/wallet">
+            <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12">
+              <span className="w-5 text-center">💼</span> My Wallet
+            </button>
+          </Link>
+          <button onClick={() => { logout(); onClose(); }}
+            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-red-400 hover:bg-red-500/10 transition-colors min-h-12">
+            <span className="w-5 text-center">🚪</span> Sign Out
           </button>
         </div>
-
-        {user && (
-          <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b" style={{ borderColor: "hsl(217,28%,14%)" }}>
-            <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
-              style={{ background: "hsla(152,72%,44%,0.15)", border: "1px solid hsla(152,72%,44%,0.3)", color: "hsl(152,72%,60%)" }}>
-              {user.name.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <p className="font-semibold text-sm">{user.name}</p>
-            </div>
-            <div className="ml-auto text-right">
-              <p className="text-xs font-bold text-primary">{user.walletBalance?.toFixed(2)} USDT</p>
-              <p className="text-[10px] text-muted-foreground">balance</p>
-            </div>
-          </div>
-        )}
-
-        <nav className="px-3 pt-3 pb-6 space-y-1 safe-area-pb">
-          {allLinks.map((link) => (
-            <Link key={link.href} href={link.href}>
-              <button
-                onClick={onClose}
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium transition-colors cursor-pointer min-h-12 ${
-                  location.startsWith(link.href)
-                    ? "bg-primary/12 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                } w-full text-left`}
-              >
-                <span className="text-base w-5 text-center">{link.icon}</span>
-                {link.label}
-                {location.startsWith(link.href) && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
-              </button>
-            </Link>
-          ))}
-
-          {user ? (
-            <div className="pt-2 mt-2 border-t space-y-0.5" style={{ borderColor: "hsl(217,28%,14%)" }}>
-              <Link href="/profile">
-                <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12">
-                  <span className="w-5 text-center">👤</span> Profile & Settings
-                </button>
-              </Link>
-              <Link href="/wallet">
-                <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12">
-                  <span className="w-5 text-center">💼</span> My Wallet
-                </button>
-              </Link>
-              <button onClick={() => { logout?.(); onClose(); }}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-red-400 hover:bg-red-500/10 transition-colors min-h-12">
-                <span className="w-5 text-center">🚪</span> Sign Out
-              </button>
-            </div>
-          ) : (
-            <div className="pt-2 mt-2 border-t space-y-2" style={{ borderColor: "hsl(217,28%,14%)" }}>
-              <Link href="/login">
-                <button onClick={onClose} className="w-full rounded-xl border border-border/70 bg-background/40 px-3 py-2.5 text-sm font-medium text-foreground">
-                  Login
-                </button>
-              </Link>
-              <Link href="/signup">
-                <button onClick={onClose} className="w-full rounded-xl bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground">
-                  Get Started
-                </button>
-              </Link>
-            </div>
-          )}
-        </nav>
-      </aside>
+      </nav>
     </div>
   );
 }
@@ -622,34 +522,46 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/reviews",    label: "Reviews",    icon: "💬" },
     ...(user.isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: "⚙️" }] : []),
   ] : [];
-  const guestHeaderLinks = [
-    { href: "/how-it-works", label: "Why SecurePool" },
-    { href: "/pools", label: "Live Pools" },
-    { href: "/winners", label: "Winners" },
-    { href: "/reviews", label: "Reviews" },
-  ] as const;
 
-  const isLandingGuest = !isLoading && !user && location === "/";
-
-  const chromeBase = {
-    background: "linear-gradient(180deg, hsla(224,30%,8%,0.92) 0%, hsla(224,30%,7%,0.88) 100%)",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
-    borderColor: "hsla(217,28%,14%,0.65)",
-  };
+  const showLandingPromo = !isLoading && !user && location === "/";
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      <div className="px-2 sm:px-3 pt-2.5 sm:pt-3.5">
+      <div className="sticky top-0 z-50">
+        {showLandingPromo && (
+          <div
+            className="layout-landing-premium-banner border-b"
+            role="region"
+            aria-label="Announcement"
+          >
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-1 sm:gap-3 py-2.5 text-center sm:text-left">
+              <p className="text-[11px] sm:text-xs text-muted-foreground/95 tracking-wide">
+                <span className="text-[hsl(43_62%_58%)] font-semibold uppercase tracking-[0.14em] mr-2">
+                  Featured
+                </span>
+                TRC-20 USDT pools with published rules, wallet-native checkout, and admin-reviewed payouts.
+              </p>
+              <Link
+                href="/pools"
+                className="inline-flex items-center justify-center gap-1 text-[11px] sm:text-xs font-semibold text-primary hover:text-primary/90 transition-colors shrink-0"
+              >
+                Explore live draws
+                <ChevronRight className="h-3.5 w-3.5 opacity-80" aria-hidden />
+              </Link>
+            </div>
+          </div>
+        )}
       <header
-        className="mx-auto max-w-7xl rounded-[1.35rem] sm:rounded-[1.7rem] border"
+        className="border-b"
         style={{
-          ...chromeBase,
-          boxShadow: "0 10px 24px -24px rgba(0,0,0,0.28)",
+          background: "hsla(224,30%,7%,0.92)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          borderColor: "hsl(217,28%,14%)",
         }}
       >
-        <div className="px-3 sm:px-5 lg:px-6">
-          <div className="flex items-center min-h-[3.2rem] py-1.5 gap-2 sm:gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center min-h-[3.25rem] py-2.5 gap-2 sm:gap-3">
 
             {/* ── Logo ── */}
             <Link href={user ? "/dashboard" : "/"} className="shrink-0 mr-2">
@@ -658,16 +570,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
             {/* ── Desktop primary nav ── */}
             {user && (
-              <nav className="hidden md:flex items-center gap-1 flex-1">
+              <nav className="hidden md:flex items-center gap-0.5 flex-1">
                 {primaryLinks.map((link) => {
                   const active = location.startsWith(link.href);
                   return (
                     <Link key={link.href} href={link.href}>
                       <span
-                        className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                        className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer whitespace-nowrap ${
                           active ? "text-primary" : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
                         }`}
-                        style={active ? { background: "hsla(152,72%,44%,0.12)" } : {}}
+                        style={active ? { background: "hsla(152,72%,44%,0.1)", border: "1px solid hsla(152,72%,44%,0.2)" } : {}}
                       >
                         <span>{link.icon}</span>
                         <span>{link.label}</span>
@@ -683,40 +595,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 )}
               </nav>
             )}
-            {!user && !isLoading && (
-              <nav className="hidden lg:flex items-center gap-1 flex-1 justify-center">
-                {guestHeaderLinks.map((link) => {
-                  const active = location.startsWith(link.href);
-                  return (
-                    <Link key={link.href} href={link.href}>
-                      <span
-                        className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                          active
-                            ? "text-primary bg-primary/10"
-                            : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
-                        }`}
-                      >
-                        {link.label}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </nav>
-            )}
 
             {/* ── Right side ── */}
             <div className="flex items-center gap-2 ml-auto shrink-0">
               {!isLoading && user && (
                 <>
                   {/* Notification bell */}
-                  <div className="hidden md:block">
-                    <NotificationBell />
-                  </div>
+                  <NotificationBell />
 
                   {/* Wallet balance */}
-                  <div className="hidden md:block">
-                    <WalletDropdown balance={user.walletBalance} />
-                  </div>
+                  <WalletDropdown balance={user.walletBalance} />
 
                   {/* Divider */}
                   <div className="hidden md:block w-px h-5 opacity-30" style={{ background: "hsl(217,28%,40%)" }} />
@@ -726,103 +614,132 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <UserMenu user={user} logout={logout} />
                   </div>
 
+                  {/* Hamburger — mobile only */}
+                  <button
+                    onClick={() => setMobileOpen((v) => !v)}
+                    className="md:hidden p-2 rounded-lg transition-colors"
+                    style={{ color: mobileOpen ? "hsl(152,72%,55%)" : undefined }}
+                    aria-label="Menu"
+                  >
+                    {mobileOpen ? (
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                      </svg>
+                    )}
+                  </button>
                 </>
               )}
 
               {!isLoading && !user && (
-                <div className="hidden sm:flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <Link href="/how-it-works">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-sm hidden sm:inline-flex rounded-full text-muted-foreground hover:text-foreground"
-                    >
+                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm hidden sm:inline-flex">
                       How It Works
                     </Button>
                   </Link>
                   <Link href="/login">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-sm rounded-full text-muted-foreground hover:text-foreground border-border/70 bg-background/25"
-                    >
+                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm">
                       Login
                     </Button>
                   </Link>
                   <Link href="/signup">
-                    <Button
-                      size="sm"
-                      className="font-semibold text-sm rounded-full px-4"
-                      style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
-                    >
+                    <Button size="sm" className="font-semibold text-sm"
+                      style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 2px 8px rgba(22,163,74,0.3)" }}>
                       Get Started
                     </Button>
                   </Link>
                 </div>
               )}
-
-              {!isLoading && (
-                <button
-                  onClick={() => setMobileOpen((v) => !v)}
-                  className="lg:hidden p-2 rounded-lg transition-all duration-200 ease-in-out active:scale-95 hover:bg-white/[0.04]"
-                  style={{ color: mobileOpen ? "hsl(152,72%,55%)" : undefined }}
-                  aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
-                  aria-expanded={mobileOpen}
-                  aria-controls="mobile-nav-drawer"
-                >
-                  {mobileOpen ? (
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                  )}
-                </button>
-              )}
             </div>
           </div>
         </div>
 
+        {/* Mobile menu slide-down */}
+        {mobileOpen && user && (
+          <MobileMenu
+            primaryLinks={primaryLinks}
+            secondaryLinks={secondaryLinks}
+            location={location}
+            user={user}
+            logout={logout}
+            onClose={() => setMobileOpen(false)}
+          />
+        )}
       </header>
       </div>
 
-      <MobileMenu
-        open={mobileOpen}
-        primaryLinks={primaryLinks}
-        secondaryLinks={secondaryLinks}
-        guestLinks={guestHeaderLinks}
-        location={location}
-        user={user}
-        logout={logout}
-        onClose={() => setMobileOpen(false)}
-      />
-
       <main
-        className={
-          isLandingGuest
-            ? "flex-1 w-full min-w-0 mx-auto px-0 py-0"
-            : "flex-1 max-w-7xl w-full min-w-0 mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10"
-        }
+        className={`flex-1 max-w-7xl w-full min-w-0 mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${
+          user ? "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""
+        }`}
       >
         {user ? <LiveJoinNotification /> : null}
         {children}
       </main>
 
-      <footer className="border-t mt-auto py-3.5 pb-[max(0.9rem,env(safe-area-inset-bottom))]" style={{ borderColor: "hsl(217,28%,14%)" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-muted-foreground">
-            <p>© {new Date().getFullYear()} SecurePool. All rights reserved.</p>
-            <div className="flex items-center gap-4 sm:gap-5">
-              <span className="hover:text-foreground transition-colors cursor-default" title="Terms of service — contact support for details">Terms of Service</span>
-              <span className="hover:text-foreground transition-colors cursor-default" title="Privacy policy — contact support for details">Privacy Policy</span>
-            </div>
-            <span className="inline-flex items-center rounded-md border border-border/70 bg-background/35 px-2 py-1 text-[10px] sm:text-[11px] font-medium tracking-wide text-foreground/75">
-              SOC2 Compliant
+      {user && (
+        <nav
+          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t flex justify-evenly items-stretch min-h-[4.35rem] py-1.5 px-0.5 safe-area-pb touch-manipulation shadow-[0_-8px_32px_rgba(0,0,0,0.35)] transition-shadow"
+          style={{ background: "hsla(224,30%,7%,0.96)", backdropFilter: "blur(12px)", borderColor: "hsl(217,28%,14%)" }}
+          aria-label="Primary"
+        >
+          {(
+            [
+              { href: "/dashboard", label: "Home", Icon: LayoutDashboard },
+              { href: "/wallet", label: "Wallet", Icon: Wallet },
+              { href: "/p2p", label: "P2P", Icon: Layers },
+              ...(!gamesLoading && cashoutArenaEnabled ? [{ href: "/cashout-arena", label: "Arena", Icon: Trophy }] as const : []),
+              ...(!gamesLoading && scratchCardEnabled ? [{ href: "/scratch-card", label: "Scratch", Icon: Trophy }] as const : []),
+              ...(user.isAdmin ? [{ href: "/admin", label: "Admin", Icon: Shield }] as const : []),
+              { href: "/winners", label: "Wins", Icon: Trophy },
+            ] as const
+          ).map((item) => {
+            const active =
+              item.href === "/dashboard"
+                ? location === "/dashboard"
+                : location.startsWith(item.href);
+            const Icon = item.Icon;
+            return (
+              <Link key={item.href} href={item.href} className="flex-1 min-w-0 basis-0">
+                <span
+                  className={`flex min-h-[3.35rem] min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[9px] sm:text-[10px] font-semibold tracking-tight transition-colors duration-200 active:scale-[0.97] touch-manipulation ${
+                    active ? "text-primary" : "text-muted-foreground hover:text-foreground/90"
+                  }`}
+                  style={active ? { background: "hsla(152,72%,44%,0.12)" } : {}}
+                >
+                  <Icon className="h-[1.15rem] w-[1.15rem] sm:h-5 sm:w-5 shrink-0" strokeWidth={active ? 2.25 : 2} aria-hidden />
+                  <span className="leading-tight text-center truncate w-full px-0.5">{item.label}</span>
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
+      )}
+
+      <footer className="border-t mt-auto py-10 pb-[max(2.5rem,env(safe-area-inset-bottom))]" style={{ borderColor: "hsl(217,28%,14%)" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-5 text-sm text-muted-foreground">
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+            <Link href="/how-it-works" className="hover:text-foreground transition-colors">How It Works</Link>
+            <span className="opacity-30 hidden sm:inline">·</span>
+            <span className="opacity-50 cursor-default" title="Terms of service — contact support for details">
+              Terms
             </span>
+            <span className="opacity-30 hidden sm:inline">·</span>
+            <a href="mailto:support@securepool.app" className="hover:text-foreground transition-colors">Support</a>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="opacity-40" aria-hidden>𝕏</span>
+            <span className="opacity-40" aria-hidden>in</span>
+            <span className="opacity-40" aria-hidden>▶</span>
           </div>
         </div>
+        <p className="text-center text-xs sm:text-sm text-muted-foreground/90 mt-4 px-4 leading-relaxed max-w-2xl mx-auto">
+          © {new Date().getFullYear()} SecurePool — Transparent USDT Reward Pools
+        </p>
       </footer>
     </div>
   );

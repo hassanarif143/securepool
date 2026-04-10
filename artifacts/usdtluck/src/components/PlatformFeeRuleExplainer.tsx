@@ -26,15 +26,13 @@ export function PlatformFeeRuleExplainer({ variant = "full", className = "" }: P
   }
 
   return (
-    <div
-      className={`rounded-2xl border border-border/70 bg-card/55 backdrop-blur-sm px-4 py-4 sm:px-5 sm:py-5 shadow-[0_14px_36px_-30px_rgba(0,0,0,0.75)] ${className}`}
-    >
+    <div className={`rounded-xl border border-emerald-500/20 bg-emerald-950/15 px-4 py-4 sm:px-5 sm:py-5 ${className}`}>
       <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400/90 mb-2">Platform fee rule</p>
       <p className="text-sm text-muted-foreground leading-relaxed mb-4">{PLATFORM_FEE_RULE_ONE_LINER}</p>
       <p className="text-xs text-muted-foreground mb-2">
         Quick guide (list price = this pool&apos;s entry before discounts):
       </p>
-      <div className="overflow-x-auto rounded-lg border border-border/50 bg-background/30">
+      <div className="overflow-x-auto rounded-lg border border-border/40 bg-background/40">
         <table className="w-full text-xs sm:text-sm">
           <thead>
             <tr className="border-b border-border/50 text-left text-muted-foreground">
