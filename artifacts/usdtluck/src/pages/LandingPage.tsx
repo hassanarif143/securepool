@@ -8,6 +8,7 @@ import { ActivityFeed } from "@/components/ActivityFeed";
 import { RecentPayouts } from "@/components/RecentPayouts";
 import { MoneySafeExplainerSection } from "@/components/MoneySafeExplainerSection";
 import { PlatformStats } from "@/components/PlatformStats";
+import { LiveWinnerFeed } from "@/components/LiveWinnerFeed";
 import { ShieldCheck } from "lucide-react";
 
 const sectionReveal = {
@@ -198,6 +199,7 @@ export default function LandingPage() {
       </section>
 
       <PlatformStats />
+      <LiveWinnerFeed />
 
       <MoneySafeExplainerSection />
 

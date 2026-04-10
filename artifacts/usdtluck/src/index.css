@@ -242,6 +242,57 @@
   will-change: transform;
 }
 
+@keyframes live-winner-feed-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.live-winner-feed-marquee {
+  overflow: hidden;
+}
+
+.live-winner-feed-track {
+  display: flex;
+  width: max-content;
+  gap: 0.75rem;
+  animation: live-winner-feed-marquee 45s linear infinite;
+  will-change: transform;
+}
+
+.live-winner-feed-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 280px;
+  border: 1px solid hsl(var(--border) / 0.75);
+  background: hsl(var(--card) / 0.52);
+  border-radius: 9999px;
+  padding: 0.55rem 0.9rem;
+  box-shadow: 0 8px 20px -14px rgba(0, 0, 0, 0.55);
+}
+
+.live-winner-feed-accent {
+  width: 4px;
+  height: 1.6rem;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #00d4ff 0%, #22c55e 100%);
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .live-winner-feed-track {
+    gap: 0.55rem;
+  }
+  .live-winner-feed-item {
+    min-width: 236px;
+    padding: 0.48rem 0.72rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-winners-marquee {
     animation: none;
@@ -251,6 +302,15 @@
     max-width: 42rem;
     margin-inline: auto;
     row-gap: 0.5rem;
+  }
+  .live-winner-feed-track {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+  .live-winner-feed-item {
+    min-width: min(100%, 360px);
   }
 }
 
