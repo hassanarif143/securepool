@@ -6,6 +6,7 @@ import { Logo } from "@/components/Logo";
 import { apiUrl } from "@/lib/api-base";
 import { useGameAvailability } from "@/lib/game-availability";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
+import { FileText, Lock, ShieldCheck } from "lucide-react";
 
 function playNotifSound() {
   try {
@@ -576,20 +577,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const isLandingGuest = !isLoading && !user && location === "/";
 
-  /** Shared header + footer “floating bar” surface so chrome stays consistent */
-  const chromeBase = isLandingGuest
-    ? {
-        background: "linear-gradient(180deg, hsla(220,18%,93%,0.96) 0%, hsla(220,20%,88%,0.92) 100%)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        borderColor: "hsla(220,16%,80%,0.95)",
-      }
-    : {
-        background: "linear-gradient(180deg, hsla(224,30%,8%,0.92) 0%, hsla(224,30%,7%,0.88) 100%)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        borderColor: "hsla(217,28%,14%,0.65)",
-      };
+  /** Shared header + footer dark chrome for consistent theme */
+  const chromeBase = {
+    background: "linear-gradient(180deg, hsla(224,30%,8%,0.92) 0%, hsla(224,30%,7%,0.88) 100%)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    borderColor: "hsla(217,28%,14%,0.65)",
+  };
 
   const headerShadow = isScrolled
     ? "0 16px 36px -24px rgba(0,0,0,0.38)"
@@ -601,7 +595,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <div className="sticky top-0 z-50 px-2 sm:px-3 pt-2.5 sm:pt-3.5">
       <header
-        className="mx-auto max-w-7xl rounded-[1.35rem] sm:rounded-[1.7rem] border overflow-hidden"
+        className="mx-auto max-w-7xl rounded-[1.35rem] sm:rounded-[1.7rem] border"
         style={{
           ...chromeBase,
           boxShadow: headerShadow,
@@ -650,13 +644,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <Link key={link.href} href={link.href}>
                       <span
                         className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                          isLandingGuest
-                            ? active
-                              ? "text-black bg-black/8"
-                              : "text-black/70 hover:text-black hover:bg-black/6"
-                            : active
-                              ? "text-primary bg-primary/10"
-                              : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+                          active
+                            ? "text-primary bg-primary/10"
+                            : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
                         }`}
                       >
                         {link.label}
@@ -713,9 +703,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className={`text-sm hidden sm:inline-flex rounded-full ${
-                        isLandingGuest ? "text-black/75 hover:text-black hover:bg-black/6" : "text-muted-foreground hover:text-foreground"
-                      }`}
+                      className="text-sm hidden sm:inline-flex rounded-full text-muted-foreground hover:text-foreground"
                     >
                       How It Works
                     </Button>
@@ -724,11 +712,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <Button
                       variant="outline"
                       size="sm"
-                      className={`text-sm rounded-full ${
-                        isLandingGuest
-                          ? "border-black/15 bg-white/75 text-black hover:bg-white"
-                          : "text-muted-foreground hover:text-foreground border-border/70 bg-background/25"
-                      }`}
+                      className="text-sm rounded-full text-muted-foreground hover:text-foreground border-border/70 bg-background/25"
                     >
                       Login
                     </Button>
@@ -736,10 +720,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <Link href="/signup">
                     <Button
                       size="sm"
-                      className={`font-semibold text-sm rounded-full px-4 ${
-                        isLandingGuest ? "bg-black text-white hover:bg-black/90" : ""
-                      }`}
-                      style={isLandingGuest ? undefined : { background: "linear-gradient(135deg, #16a34a, #15803d)" }}
+                      className="font-semibold text-sm rounded-full px-4"
+                      style={{ background: "linear-gradient(135deg, #16a34a, #15803d)" }}
                     >
                       Get Started
                     </Button>
@@ -783,38 +765,38 @@ export function Layout({ children }: { children: React.ReactNode }) {
             boxShadow: footerShadow,
           }}
         >
-          <div
-            className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm ${
-              isLandingGuest ? "text-black/55" : "text-muted-foreground"
-            }`}
-          >
-            <p className={isLandingGuest ? "text-black/65" : ""}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-muted-foreground">
+            <p>
               © {new Date().getFullYear()} SecurePool. All rights reserved.
             </p>
+            <div className="flex items-center gap-2 sm:hidden">
+              <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/35 px-2 py-1 text-[10px] text-foreground/80">
+                <ShieldCheck className="h-3 w-3 text-primary" />
+                Trusted
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/35 px-2 py-1 text-[10px] text-foreground/80">
+                <Lock className="h-3 w-3 text-primary" />
+                Secure
+              </span>
+            </div>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1 sm:justify-center">
               <span
-                className={`transition-colors cursor-default ${
-                  isLandingGuest ? "text-black/70 hover:text-black" : "hover:text-foreground"
-                }`}
+                className="inline-flex items-center gap-1 transition-colors cursor-default hover:text-foreground"
                 title="Terms of service — contact support for details"
               >
+                <FileText className="hidden sm:inline-block h-3.5 w-3.5 opacity-75" />
                 Terms of Service
               </span>
               <span
-                className={`transition-colors cursor-default ${
-                  isLandingGuest ? "text-black/70 hover:text-black" : "hover:text-foreground"
-                }`}
+                className="inline-flex items-center gap-1 transition-colors cursor-default hover:text-foreground"
                 title="Privacy policy — contact support for details"
               >
+                <Lock className="hidden sm:inline-block h-3.5 w-3.5 opacity-75" />
                 Privacy Policy
               </span>
             </div>
             <span
-              className={`inline-flex items-center gap-1.5 self-start rounded-full border px-2.5 py-1 text-[10px] sm:text-[11px] font-medium tracking-wide sm:self-center ${
-                isLandingGuest
-                  ? "border-black/12 bg-white/60 text-black/70"
-                  : "border-border/70 bg-background/40 text-foreground/80"
-              }`}
+              className="inline-flex items-center gap-1.5 self-start rounded-full border border-border/70 bg-background/40 px-2.5 py-1 text-[10px] sm:text-[11px] font-medium tracking-wide text-foreground/80 sm:self-center"
             >
               <svg className="h-3 w-3 shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                 <rect x="5" y="11" width="14" height="10" rx="2" />
