@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { apiUrl } from "@/lib/api-base";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 type Entry = {
   id: number;
@@ -66,7 +67,8 @@ export default function MyTicketsPage() {
                 <div>
                   <p className="font-medium text-sm">{e.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    Status: {e.status} · {e.participantCount}/{e.maxUsers} tickets · Top prize {e.prizeFirst} USDT
+                    Status: {e.status} · {e.participantCount}/{e.maxUsers} tickets · Top prize{" "}
+                    <UsdtAmount amount={e.prizeFirst} amountClassName="text-xs text-muted-foreground" currencyClassName="text-[10px] text-[#64748b]" />
                   </p>
                 </div>
                 <Button size="sm" variant="outline" asChild>

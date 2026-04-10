@@ -1,8 +1,10 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
 import type { CelebrationKind } from "@/lib/celebration-types";
 import { getCelebrationSoundEnabled } from "@/lib/celebration-preferences";
+import { apiUrl } from "@/lib/api-base";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 export type CelebrationPopupProps = {
   kind: CelebrationKind;
@@ -11,6 +13,8 @@ export type CelebrationPopupProps = {
   subtitle?: string;
   amount?: number;
   place?: 1 | 2 | 3;
+  poolId?: number;
+  liveDraw?: boolean;
   /** 0–1 progress for tier */
   progress?: number;
   effectsEnabled: boolean;
@@ -50,6 +54,13 @@ function particleScale(): number {
   if (typeof window === "undefined") return 1;
   return window.innerWidth < 640 ? 0.55 : 1;
 }
+
+type VerifyLite = {
+  winnerMasked: string | null;
+  participants: string[];
+};
+
+type RevealPhase = "build" | "select" | "reveal";
 
 function runConfettiWin(canvas: HTMLCanvasElement | null, stopAt: number) {
   if (!canvas) return () => {};
@@ -218,6 +229,8 @@ export function CelebrationPopup({
   subtitle,
   amount,
   place,
+  poolId,
+  liveDraw,
   progress,
   effectsEnabled,
   onClose,
@@ -225,10 +238,21 @@ export function CelebrationPopup({
 }: CelebrationPopupProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const autoClose = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [verifyData, setVerifyData] = useState<VerifyLite | null>(null);
+  const [phase, setPhase] = useState<RevealPhase>("build");
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [winnerIdx, setWinnerIdx] = useState<number>(0);
 
   const cleanupConfetti = useRef<() => void>(() => {});
+  const awayDraw = Boolean(subtitle?.toLowerCase().includes("while you were away"));
+  const usePhasedWinReveal =
+    kind === "win" && effectsEnabled && !awayDraw && liveDraw !== false && typeof poolId === "number";
+  const revealNames = useMemo(() => {
+    const list = verifyData?.participants?.slice(0, 12) ?? [];
+    return list.length > 0 ? list : ["User A", "User B", "User C", "User D", "User E", "User F"];
+  }, [verifyData]);
 
-  const startEffects = useCallback(() => {
+  function triggerEffects() {
     if (!effectsEnabled) return;
     playCelebrationChime();
     const duration =
@@ -272,16 +296,76 @@ export function CelebrationPopup({
       default:
         cleanupConfetti.current = () => {};
     }
+  }
+
+  useEffect(() => {
+    if (!usePhasedWinReveal || !poolId) return;
+    let cancelled = false;
+    fetch(apiUrl(`/api/pools/${poolId}/verify`), { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: VerifyLite | null) => {
+        if (cancelled || !d) return;
+        setVerifyData({
+          winnerMasked: d.winnerMasked ?? null,
+          participants: Array.isArray(d.participants) ? d.participants : [],
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [poolId, usePhasedWinReveal]);
+
+  useEffect(() => {
+    if (!usePhasedWinReveal) return;
+    const winnerName = verifyData?.winnerMasked;
+    const i =
+      winnerName && revealNames.length
+        ? Math.max(0, revealNames.findIndex((n) => n === winnerName))
+        : Math.max(0, Math.floor(revealNames.length / 2));
+    setWinnerIdx(i);
+  }, [revealNames, verifyData, usePhasedWinReveal]);
+
+  useEffect(() => {
+    if (!usePhasedWinReveal) return;
+    setPhase("build");
+    setActiveIdx(0);
+
+    const buildTimer = window.setTimeout(() => {
+      setPhase("select");
+      const totalDuration = 3000;
+      const started = Date.now();
+      const step = () => {
+        const elapsed = Date.now() - started;
+        const p = Math.min(1, elapsed / totalDuration);
+        const idx = p >= 1 ? winnerIdx : Math.floor(Math.random() * revealNames.length);
+        setActiveIdx(idx);
+        if (p >= 1) {
+          setPhase("reveal");
+          triggerEffects();
+          return;
+        }
+        const delay = 100 + Math.round(400 * p);
+        window.setTimeout(step, delay);
+      };
+      step();
+    }, 3000);
+
+    return () => window.clearTimeout(buildTimer);
+  }, [revealNames.length, usePhasedWinReveal, winnerIdx]);
+
+  const startEffects = useCallback(() => {
+    triggerEffects();
   }, [kind, effectsEnabled]);
 
   useEffect(() => {
-    startEffects();
-    autoClose.current = setTimeout(onClose, kind === "referral" ? 6000 : 6500);
+    if (!usePhasedWinReveal) startEffects();
+    autoClose.current = setTimeout(onClose, usePhasedWinReveal ? 12000 : kind === "referral" ? 6000 : 6500);
     return () => {
       if (autoClose.current) clearTimeout(autoClose.current);
       cleanupConfetti.current();
     };
-  }, [kind, onClose, startEffects]);
+  }, [kind, onClose, startEffects, usePhasedWinReveal]);
 
   const fireEmojiLayer = kind === "streak" && effectsEnabled;
   const coinLayer = kind === "referral" && effectsEnabled;
@@ -342,22 +426,90 @@ export function CelebrationPopup({
             : { boxShadow: "0 25px 50px rgba(0,0,0,0.5)" }
         }
       >
-        {subtitle && (
-          <p className="text-[11px] font-medium uppercase tracking-widest text-amber-200/90 mb-2 celebration-shimmer">{subtitle}</p>
-        )}
-        <h2 id="celebration-title" className="text-xl sm:text-2xl font-black tracking-tight text-white mb-2 celebration-shimmer">
-          {title}
-        </h2>
-        <p className="text-sm sm:text-base text-white/85 leading-relaxed mb-1">{message}</p>
-        {amount != null && amount > 0 && (
-          <p className="text-3xl sm:text-4xl font-black tabular-nums mt-3 mb-1" style={{ color: GOLD }}>
-            {amount.toFixed(2)} <span className="text-lg font-bold text-white/80">USDT</span>
-          </p>
-        )}
-        {place != null && (
-          <p className="text-sm text-cyan-300/90 font-semibold mb-2">
-            {place === 1 ? "🥇 1st place" : place === 2 ? "🥈 2nd place" : "🥉 3rd place"}
-          </p>
+        {usePhasedWinReveal && kind === "win" ? (
+          <>
+            <p className="text-[11px] font-medium uppercase tracking-widest text-cyan-200/90 mb-2">Live draw reveal</p>
+            <h2 id="celebration-title" className="text-xl sm:text-2xl font-black tracking-tight text-white mb-3 celebration-shimmer">
+              {phase === "build" ? "Building the draw..." : phase === "select" ? "Selecting winner..." : "Winner revealed"}
+            </h2>
+            <div className="relative mb-3">
+              <div className="grid grid-cols-3 gap-2">
+                {revealNames.map((name, idx) => {
+                  const isActive = phase === "select" && idx === activeIdx;
+                  const isWinner = phase === "reveal" && idx === winnerIdx;
+                  return (
+                    <div
+                      key={`${name}-${idx}`}
+                      className={`rounded-lg border px-2 py-2 text-[11px] truncate transition-all duration-300 ${
+                        isWinner
+                          ? "border-[#D4A843] bg-[#D4A843]/15 scale-[1.05]"
+                          : isActive
+                            ? "border-cyan-300 bg-cyan-300/10 scale-[1.03]"
+                            : "border-white/10 bg-white/5"
+                      } ${phase === "build" ? "celebration-shimmer" : ""}`}
+                    >
+                      {name}
+                    </div>
+                  );
+                })}
+              </div>
+              {phase !== "reveal" && (
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                  <div className="h-12 w-12 rounded-full border-2 border-cyan-300/30 border-t-cyan-300 animate-spin" />
+                </div>
+              )}
+            </div>
+            {phase === "reveal" ? (
+              <div className="rounded-xl border border-[#D4A843]/40 bg-[#D4A843]/10 p-3 mb-2">
+                <p className="text-sm text-white/90">Winner: <span className="font-bold">{revealNames[winnerIdx] ?? "Winner"}</span></p>
+                {amount != null && amount > 0 ? (
+                  <UsdtAmount amount={amount} amountClassName="text-2xl font-black tabular-nums mt-1" />
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground mb-2">
+                {phase === "build" ? "Preparing participant set and draw commitment." : "Highlight speed slows before landing on the winner."}
+              </p>
+            )}
+            {(phase === "build" || phase === "select") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPhase("reveal");
+                  setActiveIdx(winnerIdx);
+                  triggerEffects();
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 mb-2"
+              >
+                Skip animation
+              </button>
+            )}
+            {phase === "reveal" && poolId ? (
+              <div className="mb-2">
+                <a href={`/provably-fair?pool=${poolId}`} className="text-xs text-cyan-300 hover:underline">
+                  View Draw Verification
+                </a>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <>
+            {subtitle && (
+              <p className="text-[11px] font-medium uppercase tracking-widest text-amber-200/90 mb-2 celebration-shimmer">{subtitle}</p>
+            )}
+            <h2 id="celebration-title" className="text-xl sm:text-2xl font-black tracking-tight text-white mb-2 celebration-shimmer">
+              {title}
+            </h2>
+            <p className="text-sm sm:text-base text-white/85 leading-relaxed mb-1">{message}</p>
+            {amount != null && amount > 0 && (
+              <UsdtAmount amount={amount} amountClassName="text-3xl sm:text-4xl font-black tabular-nums mt-3 mb-1" />
+            )}
+            {place != null && (
+              <p className="text-sm text-cyan-300/90 font-semibold mb-2">
+                {place === 1 ? "🥇 1st place" : place === 2 ? "🥈 2nd place" : "🥉 3rd place"}
+              </p>
+            )}
+          </>
         )}
         {kind === "tier" && progress != null && (
           <div className="mt-4 h-2 rounded-full bg-white/10 overflow-hidden">
@@ -377,7 +529,9 @@ export function CelebrationPopup({
         )}
         <div className="flex flex-col sm:flex-row gap-2 mt-6">
           <Button
-            className="w-full font-bold bg-gradient-to-r from-amber-500 to-cyan-600 hover:opacity-95 text-white border-0"
+            className={`w-full font-bold bg-gradient-to-r hover:opacity-95 text-white border-0 ${
+              kind === "win" && phase === "reveal" ? "from-[#D4A843] to-amber-500 shadow-[0_0_24px_rgba(212,168,67,0.35)]" : "from-amber-500 to-cyan-600"
+            }`}
             onClick={onClose}
           >
             {primaryLabel ?? (kind === "win" ? "Claim prize" : "Awesome")}

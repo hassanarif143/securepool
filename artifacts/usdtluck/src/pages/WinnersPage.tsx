@@ -1,8 +1,10 @@
+import { type ReactNode } from "react";
 import { useListWinners } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LiveWinnerTicker } from "@/components/winners/LiveWinnerTicker";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 /* ── Place metadata — dark-mode aware ── */
 const PLACE: Record<number, {
@@ -101,9 +103,8 @@ function PodiumCard({ winner }: { winner: any }) {
         className="text-2xl font-extrabold leading-none mb-1"
         style={{ filter: "drop-shadow(0 0 8px currentColor)" }}
       >
-        <span className={meta.prizeColor}>+{winner.prize}</span>
+        <UsdtAmount amount={Number(winner.prize)} prefix="+" amountClassName={meta.prizeColor} currencyClassName="text-[10px] text-[#64748b]" />
       </div>
-      <span className="text-xs text-muted-foreground font-medium">USDT</span>
 
       <Badge className={`mt-3 text-xs ${meta.badge}`}>{meta.label}</Badge>
 
@@ -157,7 +158,7 @@ function WinnerRow({ winner, index }: { winner: any; index: number }) {
 
       {/* Prize + time */}
       <div className="text-right shrink-0">
-        <p className={`font-bold text-base ${meta.prizeColor}`}>+{winner.prize} USDT</p>
+        <UsdtAmount amount={Number(winner.prize)} prefix="+" amountClassName={`font-bold text-base ${meta.prizeColor}`} currencyClassName="text-[10px] text-[#64748b]" />
         <p className="text-[11px] text-muted-foreground">{timeAgo(winner.awardedAt)}</p>
       </div>
     </div>
@@ -205,10 +206,10 @@ export default function WinnersPage() {
       {!isLoading && winnersList.length > 0 && (
         <div className="grid grid-cols-3 gap-3 pt-2">
           {[
-            { label: "Total Distributed", value: `${totalDistributed.toFixed(0)} USDT`, icon: "💰" },
+            { label: "Total Distributed", value: <UsdtAmount amount={totalDistributed} amountClassName="text-lg font-bold text-primary" currencyClassName="text-[10px] text-[#64748b]" />, icon: "💰" },
             { label: "Pools Completed", value: uniquePools, icon: "🎱" },
             { label: "Grand Prize Winners", value: firstPlaceWinners.length, icon: "🥇" },
-          ].map((stat) => (
+          ].map((stat: { label: string; value: ReactNode; icon: string }) => (
             <div
               key={stat.label}
               className="rounded-2xl px-3 py-5 text-center sm:py-4"

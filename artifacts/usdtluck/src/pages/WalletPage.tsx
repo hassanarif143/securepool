@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, Inbox, Shield } from "lucide-react";
 import { ConfirmActionModal } from "@/components/feedback/ConfirmActionModal";
 import { appToast } from "@/components/feedback/AppToast";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 /** USDT (TRC20) address users send deposits to — Deposit tab + copy button. */
 const PLATFORM_ADDRESS = "TBjGU8jfZvsfDVPpjJXVb47khVyKjQqjqp";
@@ -394,10 +395,10 @@ export default function WalletPage() {
               <div className="min-w-0">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-200/90">Withdrawable balance</p>
                 <div className="mt-1 flex flex-wrap items-baseline gap-2">
-                  <span className="font-display text-4xl font-black tabular-nums tracking-tight text-emerald-300 sm:text-[2.85rem]">
-                    {withdrawableBal.toFixed(2)}
-                  </span>
-                  <span className="text-lg font-bold text-emerald-200/85">USDT</span>
+                  <UsdtAmount
+                    amount={withdrawableBal}
+                    amountClassName="font-display text-4xl font-black tabular-nums tracking-tight text-emerald-300 sm:text-[2.85rem]"
+                  />
                 </div>
                 <p className="mt-2 text-xs text-emerald-100/75 leading-relaxed max-w-md">
                   This is the only balance used for withdrawals. Keep this funded to cash out anytime.
@@ -424,17 +425,17 @@ export default function WalletPage() {
           <div className="grid gap-2 sm:grid-cols-3">
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.08] p-3">
               <p className="text-[11px] text-emerald-300">Withdrawable</p>
-              <p className="text-sm font-semibold tabular-nums text-emerald-100">{withdrawableBal.toFixed(2)} USDT</p>
+              <UsdtAmount amount={withdrawableBal} amountClassName="text-sm font-semibold tabular-nums text-emerald-100" />
               <p className="text-[10px] text-emerald-100/80 mt-1">Cash-out eligible</p>
             </div>
             <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/[0.08] p-3">
               <p className="text-[11px] text-cyan-300">Rewards</p>
-              <p className="text-sm font-semibold tabular-nums text-cyan-100">{rewardsUsdt.toFixed(2)} USDT</p>
+              <UsdtAmount amount={rewardsUsdt} amountClassName="text-sm font-semibold tabular-nums text-cyan-100" />
               <p className="text-[10px] text-cyan-100/80 mt-1">Used in platform features</p>
             </div>
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.08] p-3">
               <p className="text-[11px] text-amber-300">Locked / In-use</p>
-              <p className="text-sm font-semibold tabular-nums text-amber-100">{lockedEstimated.toFixed(2)} USDT</p>
+              <UsdtAmount amount={lockedEstimated} amountClassName="text-sm font-semibold tabular-nums text-amber-100" />
               <p className="text-[10px] text-amber-100/80 mt-1">Temporarily unavailable</p>
             </div>
           </div>
@@ -519,7 +520,11 @@ export default function WalletPage() {
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-sm text-yellow-300">Deposit Under Review</p>
                   <p className="text-xs text-yellow-400/80 mt-0.5">
-                    Your deposit of <span className="font-bold">{parseFloat(pendingDeposit.amount).toFixed(2)} USDT</span> is being verified by our admin team.
+                    Your deposit of{" "}
+                    <span className="font-bold">
+                      <UsdtAmount amount={parseFloat(pendingDeposit.amount)} amountClassName="font-bold text-yellow-200" currencyClassName="text-[10px] text-[#64748b]" />
+                    </span>{" "}
+                    is being verified by our admin team.
                     You'll receive a notification once it's approved.
                   </p>
                   <p className="text-[10px] text-yellow-500/60 mt-1">Submitted {timeAgo(pendingDeposit.createdAt)}</p>
@@ -820,7 +825,7 @@ export default function WalletPage() {
                   <div key={t.id} className="flex items-center justify-between gap-2 text-xs rounded-lg border border-yellow-500/30 bg-yellow-500/8 px-3 py-2">
                     <span className="capitalize text-muted-foreground">{String(t.txType).replace("_", " ")}</span>
                     <TransactionStatusBadge status={t.status} compact />
-                    <span className="font-mono font-bold tabular-nums">{parseFloat(t.amount).toFixed(2)} USDT</span>
+                    <UsdtAmount amount={parseFloat(t.amount)} amountClassName="font-mono font-bold tabular-nums text-yellow-100" currencyClassName="text-[10px] text-[#64748b]" />
                   </div>
                 ))}
               </div>
@@ -925,10 +930,13 @@ export default function WalletPage() {
                         </div>
                         {/* Amount + receipt */}
                         <div className="text-right shrink-0">
-                          <p className="text-sm font-extrabold tabular-nums" style={{ color: meta.color }}>
-                            {meta.sign}{parseFloat(tx.amount).toFixed(2)}
-                            <span className="text-[9px] font-normal text-muted-foreground ml-0.5">USDT</span>
-                          </p>
+                          <UsdtAmount
+                            amount={parseFloat(tx.amount)}
+                            prefix={meta.sign}
+                            amountClassName="text-sm font-extrabold tabular-nums"
+                            currencyClassName="text-[10px] text-[#64748b]"
+                            className="items-end"
+                          />
                           {tx.screenshotUrl && (
                             <a href={apiAssetUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer"
                               className="text-[10px] text-primary hover:underline block mt-0.5">

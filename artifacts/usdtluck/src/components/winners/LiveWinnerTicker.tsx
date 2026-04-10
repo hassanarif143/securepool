@@ -1,4 +1,5 @@
 import { useLiveWinnersFeed } from "@/hooks/useLiveWinnersFeed";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 export function LiveWinnerTicker() {
   const { rows, loading } = useLiveWinnersFeed();
@@ -20,7 +21,8 @@ export function LiveWinnerTicker() {
                 i === 0 ? "animate-pulse" : ""
               }`}
             >
-              {(w.winnerName ?? "Winner")} - {w.amount ?? "--"} USDT
+              {(w.winnerName ?? "Winner")} -{" "}
+              <UsdtAmount amount={Number(w.amount ?? 0)} amountClassName="text-xs" currencyClassName="text-[10px] text-[#64748b]" />
             </span>
           ))}
         </div>

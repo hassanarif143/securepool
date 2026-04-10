@@ -56,6 +56,8 @@ function mapNotification(n: NotifRow): MapResult {
         subtitle: away ? "While you were away…" : undefined,
         amount,
         place,
+        poolId,
+        liveDraw: !away,
         dedupeKey: poolId != null ? `win-pool-${poolId}` : `notif-win-${n.id}`,
         primaryLabel: "Claim prize",
       },

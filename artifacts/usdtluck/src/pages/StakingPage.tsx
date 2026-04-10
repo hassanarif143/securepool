@@ -7,6 +7,7 @@ import { appToast } from "@/components/feedback/AppToast";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
 import { ConfirmActionModal } from "@/components/feedback/ConfirmActionModal";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 type StakeRow = {
   id: number;
@@ -153,9 +154,9 @@ export default function StakingPage() {
           Pick a tier, choose pool risk, and track live accrual. Unstake anytime with transparent penalty logic. Tooltip: Stake longer to unlock higher multiplier rewards.
         </p>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5"><p className="text-[11px] uppercase tracking-wide text-muted-foreground">Withdrawable</p><p className="text-lg font-semibold mt-0.5">{withdrawable.toFixed(2)} USDT</p></div>
-          <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5"><p className="text-[11px] uppercase tracking-wide text-muted-foreground">Locked</p><p className="text-lg font-semibold mt-0.5">{activePrincipal.toFixed(2)} USDT</p></div>
-          <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5"><p className="text-[11px] uppercase tracking-wide text-muted-foreground">Accrued live</p><p className="text-lg font-semibold mt-0.5 text-emerald-400">+{liveAccrued.toFixed(2)} USDT</p></div>
+          <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5"><p className="text-[11px] uppercase tracking-wide text-muted-foreground">Withdrawable</p><UsdtAmount amount={withdrawable} amountClassName="text-lg font-semibold mt-0.5" /></div>
+          <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5"><p className="text-[11px] uppercase tracking-wide text-muted-foreground">Locked</p><UsdtAmount amount={activePrincipal} amountClassName="text-lg font-semibold mt-0.5" /></div>
+          <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5"><p className="text-[11px] uppercase tracking-wide text-muted-foreground">Accrued live</p><UsdtAmount amount={liveAccrued} prefix="+" amountClassName="text-lg font-semibold mt-0.5 text-emerald-400" /></div>
           <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5"><p className="text-[11px] uppercase tracking-wide text-muted-foreground">Streak</p><p className="text-lg font-semibold mt-0.5">{summary.stakingStreakDays} days</p></div>
         </div>
       </div>
@@ -168,7 +169,7 @@ export default function StakingPage() {
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[10, 25, 50, 100].map((v) => (
-                <Button key={v} variant={amount === v ? "default" : "outline"} onClick={() => setAmount(v)}>{v} USDT</Button>
+                <Button key={v} variant={amount === v ? "default" : "outline"} onClick={() => setAmount(v)}><UsdtAmount amount={v} amountClassName="text-sm" currencyClassName="text-[10px] text-[#64748b]" /></Button>
               ))}
             </div>
             <div className="space-y-2">
@@ -191,7 +192,7 @@ export default function StakingPage() {
                     <p className="text-sm font-semibold">{p.name}</p>
                     <p className="text-xs text-muted-foreground capitalize">Risk: {p.risk}</p>
                     <p className="text-xs text-emerald-400">APR hint: {p.aprHint}%</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">{p.activeParticipants} users · {p.totalPoolSize.toFixed(2)} USDT</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">{p.activeParticipants} users · <UsdtAmount amount={p.totalPoolSize} amountClassName="text-[10px] text-muted-foreground" currencyClassName="text-[10px] text-[#64748b]" /></p>
                   </button>
                 ))}
               </div>
@@ -200,10 +201,10 @@ export default function StakingPage() {
               Auto-compound: {autoCompound ? "ON" : "OFF"}
             </button>
             <div className="rounded-xl border border-border/70 bg-muted/20 p-3 text-sm space-y-1.5">
-              <div className="flex items-center justify-between"><span className="text-muted-foreground">You lock</span><span className="font-medium">{amount.toFixed(2)} USDT</span></div>
-              <div className="flex items-center justify-between"><span className="text-muted-foreground">Estimated reward</span><span className="font-medium text-emerald-400">+{projectedReward.toFixed(2)} USDT</span></div>
-              <div className="flex items-center justify-between"><span className="text-muted-foreground">Onboarding bonus</span><span className="font-medium text-primary">up to +{cfg.onboardingBonusUsdt.toFixed(2)} USDT</span></div>
-              <div className="flex items-center justify-between border-t border-border/70 pt-1.5"><span className="text-muted-foreground">Maturity total</span><span className="font-semibold">{(amount + projectedReward).toFixed(2)} USDT</span></div>
+              <div className="flex items-center justify-between"><span className="text-muted-foreground">You lock</span><UsdtAmount amount={amount} amountClassName="font-medium" currencyClassName="text-[10px] text-[#64748b]" /></div>
+              <div className="flex items-center justify-between"><span className="text-muted-foreground">Estimated reward</span><UsdtAmount amount={projectedReward} prefix="+" amountClassName="font-medium text-emerald-400" currencyClassName="text-[10px] text-[#64748b]" /></div>
+              <div className="flex items-center justify-between"><span className="text-muted-foreground">Onboarding bonus</span><span className="font-medium text-primary">up to <UsdtAmount amount={cfg.onboardingBonusUsdt} prefix="+" amountClassName="font-medium text-primary" currencyClassName="text-[10px] text-[#64748b]" /></span></div>
+              <div className="flex items-center justify-between border-t border-border/70 pt-1.5"><span className="text-muted-foreground">Maturity total</span><UsdtAmount amount={amount + projectedReward} amountClassName="font-semibold" currencyClassName="text-[10px] text-[#64748b]" /></div>
               <p className="text-[10px] text-muted-foreground">{cfg.rewardFormula}</p>
               <p className="text-[10px] text-amber-300">{cfg.earlyPenaltyRule}</p>
               <div className="h-2 rounded-full bg-muted overflow-hidden mt-2">
@@ -222,9 +223,9 @@ export default function StakingPage() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="rounded-lg border border-border/70 p-3"><p className="text-xs text-muted-foreground">Active stakes</p><p className="text-xl font-semibold">{active.length}</p></div>
-            <div className="rounded-lg border border-border/70 p-3"><p className="text-xs text-muted-foreground">Currently locked</p><p className="text-xl font-semibold">{activePrincipal.toFixed(2)} USDT</p></div>
-            <div className="rounded-lg border border-border/70 p-3"><p className="text-xs text-muted-foreground">Projected active rewards</p><p className="text-xl font-semibold text-emerald-400">+{activeProjectedReward.toFixed(2)} USDT</p></div>
-            <div className="rounded-lg border border-border/70 p-3"><p className="text-xs text-muted-foreground">Total staked (summary)</p><p className="text-lg font-semibold">{summary.totalStaked.toFixed(2)} USDT</p></div>
+            <div className="rounded-lg border border-border/70 p-3"><p className="text-xs text-muted-foreground">Currently locked</p><UsdtAmount amount={activePrincipal} amountClassName="text-xl font-semibold" /></div>
+            <div className="rounded-lg border border-border/70 p-3"><p className="text-xs text-muted-foreground">Projected active rewards</p><UsdtAmount amount={activeProjectedReward} prefix="+" amountClassName="text-xl font-semibold text-emerald-400" /></div>
+            <div className="rounded-lg border border-border/70 p-3"><p className="text-xs text-muted-foreground">Total staked (summary)</p><UsdtAmount amount={summary.totalStaked} amountClassName="text-lg font-semibold" /></div>
           </CardContent>
         </Card>
       </div>
@@ -243,7 +244,7 @@ export default function StakingPage() {
               <div key={r.id} className="rounded-xl border border-border/70 p-3.5 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="space-y-1">
                   <p className="font-medium">
-                    Stake #{r.id} · {r.principalUsdt.toFixed(2)} USDT
+                    Stake #{r.id} · <UsdtAmount amount={r.principalUsdt} amountClassName="font-medium" currencyClassName="text-[10px] text-[#64748b]" />
                   </p>
                   <p className="text-xs text-muted-foreground">Tier: {r.tierDays}d · Pool #{r.poolId} · {(r.rewardRateBps / 100).toFixed(2)}%</p>
                   <p className="text-xs text-muted-foreground">
@@ -256,7 +257,7 @@ export default function StakingPage() {
                 <div className="text-left sm:text-right space-y-2">
                   <div>
                     <p className="text-xs text-muted-foreground">{beforeUnlock ? "Reward if you wait until unlock" : "Reward included when you claim"}</p>
-                    <p className="font-semibold text-emerald-400">+{(r.rewardUsdt + r.bonusRewardUsdt).toFixed(2)} USDT</p>
+                    <UsdtAmount amount={r.rewardUsdt + r.bonusRewardUsdt} prefix="+" amountClassName="font-semibold text-emerald-400" currencyClassName="text-[10px] text-[#64748b]" />
                     <span
                       className={`inline-block mt-1 text-xs px-2 py-1 rounded ${
                         r.canRedeemNow ? "bg-emerald-500/15 text-emerald-300" : "bg-muted text-muted-foreground"
@@ -314,7 +315,7 @@ export default function StakingPage() {
                   {r.rewardUsdt <= 0 && (
                     <p className="text-[11px] text-amber-500/90 mt-1">Early unstake — principal only</p>
                   )}
-                  {r.penaltyUsdt > 0 && <p className="text-[11px] text-amber-300 mt-1">Penalty paid: {r.penaltyUsdt.toFixed(2)} USDT</p>}
+                  {r.penaltyUsdt > 0 && <p className="text-[11px] text-amber-300 mt-1">Penalty paid: <UsdtAmount amount={r.penaltyUsdt} amountClassName="text-[11px] text-amber-300" currencyClassName="text-[10px] text-[#64748b]" /></p>}
                 </div>
                 <p className="font-semibold">
                   {r.rewardUsdt + r.bonusRewardUsdt > 0
@@ -374,7 +375,7 @@ export default function StakingPage() {
             leaderboard.map((u, i) => (
               <div key={u.userId} className="rounded-xl border border-border/70 p-3 text-sm flex items-center justify-between">
                 <span>{i + 1}. {u.name}</span>
-                <span className="font-semibold text-emerald-400">+{u.netReward.toFixed(2)} USDT</span>
+                <UsdtAmount amount={u.netReward} prefix="+" amountClassName="font-semibold text-emerald-400" currencyClassName="text-[10px] text-[#64748b]" />
               </div>
             ))
           )}

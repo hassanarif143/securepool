@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { appToast } from "@/components/feedback/AppToast";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 type ReferralRow = {
   id: number;
@@ -97,7 +98,7 @@ export default function ReferralPage() {
             <Stat label="Total" value={String(data.totalReferrals)} />
             <Stat label="Pending" value={String(data.pendingReferrals)} />
             <Stat label="Completed" value={String(data.completedReferrals)} />
-            <Stat label="Earned" value={`${data.earnedUsdt.toFixed(2)} USDT`} />
+            <Stat label="Earned" value={<UsdtAmount amount={data.earnedUsdt} amountClassName="text-sm font-semibold" />} />
           </div>
         </CardContent>
       </Card>
@@ -148,7 +149,9 @@ export default function ReferralPage() {
                   <p className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-full border ${r.status === "completed" ? "text-emerald-300 border-emerald-500/30 bg-emerald-500/10" : "text-amber-300 border-amber-500/30 bg-amber-500/10"}`}>
                     {r.status === "completed" ? "Completed" : "Pending"}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">Reward: {r.bonusUsdt.toFixed(2)} USDT</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Reward: <UsdtAmount amount={r.bonusUsdt} amountClassName="text-xs text-muted-foreground" currencyClassName="text-[10px] text-[#64748b]" />
+                  </p>
                 </div>
               </div>
             ))
@@ -168,7 +171,7 @@ function Step({ title, desc }: { title: string; desc: string }) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-lg border border-border/70 p-2.5">
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>

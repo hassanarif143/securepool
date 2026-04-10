@@ -7,6 +7,7 @@ import { apiUrl } from "@/lib/api-base";
 import { useGameAvailability } from "@/lib/game-availability";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
 import { ChevronRight, LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 function playNotifSound() {
   try {
@@ -255,11 +256,13 @@ function WalletDropdown({
       >
         <div className="hidden md:flex items-center gap-2 text-xs leading-none">
           <span className="inline-flex items-center gap-1 text-primary font-semibold tabular-nums">
-            <span aria-hidden>💼</span> {isLoading ? "..." : wd.toFixed(2)} USDT
+            <span aria-hidden>💼</span>{" "}
+            {isLoading ? "..." : <UsdtAmount amount={wd} amountClassName="text-primary font-semibold" currencyClassName="text-[10px] text-[#64748b]" />}
           </span>
           <span className="text-muted-foreground/60">|</span>
           <span className="inline-flex items-center gap-1 text-cyan-300 font-semibold tabular-nums">
-            <span aria-hidden>🎁</span> {isLoading ? "..." : bonus.toFixed(2)} USDT
+            <span aria-hidden>🎁</span>{" "}
+            {isLoading ? "..." : <UsdtAmount amount={bonus} amountClassName="text-cyan-300 font-semibold" currencyClassName="text-[10px] text-[#64748b]" />}
           </span>
         </div>
         <div className="md:hidden text-left">
@@ -278,16 +281,23 @@ function WalletDropdown({
           style={{ background: "hsl(222,30%,10%)", borderColor: "hsla(152,72%,44%,0.2)", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}>
           <div className="px-4 py-3.5" style={{ background: "linear-gradient(135deg, hsla(152,72%,44%,0.12), hsla(200,80%,55%,0.06))" }}>
             <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wide">Total Balance</p>
-            <p className="text-2xl font-bold text-primary leading-none tabular-nums">{displayValue}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">USDT</p>
+            {isLoading ? (
+              <p className="text-2xl font-bold text-primary leading-none tabular-nums">{displayValue}</p>
+            ) : (
+              <UsdtAmount amount={total} amountClassName="text-2xl font-bold text-primary leading-none tabular-nums" />
+            )}
             <div className="mt-2.5 text-xs space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground inline-flex items-center gap-1"><span aria-hidden>💼</span>Withdrawable</span>
-                <span className="font-semibold text-foreground tabular-nums">{isLoading ? "..." : wd.toFixed(2)} USDT</span>
+                <span className="font-semibold text-foreground tabular-nums">
+                  {isLoading ? "..." : <UsdtAmount amount={wd} amountClassName="font-semibold text-foreground" currencyClassName="text-[10px] text-[#64748b]" />}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground inline-flex items-center gap-1"><span aria-hidden>🎁</span>Bonus</span>
-                <span className="font-semibold text-cyan-300 tabular-nums">{isLoading ? "..." : bonus.toFixed(2)} USDT</span>
+                <span className="font-semibold text-cyan-300 tabular-nums">
+                  {isLoading ? "..." : <UsdtAmount amount={bonus} amountClassName="font-semibold text-cyan-300" currencyClassName="text-[10px] text-[#64748b]" />}
+                </span>
               </div>
             </div>
           </div>
@@ -479,7 +489,11 @@ function MobileMenu({
         </div>
         <div className="ml-auto text-right">
           <p className="text-xs font-bold text-primary">
-            {((Number(user.withdrawableBalance ?? 0) + Number(user.bonusBalance ?? 0))).toFixed(2)} USDT
+            <UsdtAmount
+              amount={Number(user.withdrawableBalance ?? 0) + Number(user.bonusBalance ?? 0)}
+              amountClassName="text-xs font-bold text-primary"
+              currencyClassName="text-[10px] text-[#64748b]"
+            />
           </p>
           <p className="text-[10px] text-muted-foreground">balance</p>
         </div>
@@ -551,6 +565,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     ...(!gamesLoading && cashoutArenaEnabled ? [{ href: "/cashout-arena", label: "Cashout Arena", icon: "🚀" }] : []),
     ...(!gamesLoading && scratchCardEnabled ? [{ href: "/scratch-card", label: "Scratch Card", icon: "🪙" }] : []),
     { href: "/how-it-works", label: "How It Works", icon: "📘" },
+    { href: "/provably-fair", label: "Provably Fair", icon: "🧪" },
     { href: "/reviews",    label: "Reviews",    icon: "💬" },
     ...(user.isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: "⚙️" }] : []),
   ] : [];
@@ -662,6 +677,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <Link href="/how-it-works">
                     <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm hidden sm:inline-flex">
                       How It Works
+                    </Button>
+                  </Link>
+                  <Link href="/provably-fair">
+                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm hidden sm:inline-flex">
+                      Provably Fair
                     </Button>
                   </Link>
                   <Link href="/login">

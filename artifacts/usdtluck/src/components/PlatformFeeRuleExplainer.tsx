@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { PLATFORM_FEE_RULE_ONE_LINER, PLATFORM_FEE_TABLE_UP_TO } from "@/lib/platform-fee";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 type Props = {
   /** Shorter block for pool join card */
@@ -43,8 +44,8 @@ export function PlatformFeeRuleExplainer({ variant = "full", className = "" }: P
           <tbody>
             {PLATFORM_FEE_TABLE_UP_TO.map((row) => (
               <tr key={row.upToUsdt} className="border-b border-border/30 last:border-0">
-                <td className="px-3 py-1.5 tabular-nums">{row.upToUsdt} USDT</td>
-                <td className="px-3 py-1.5 font-mono font-semibold text-primary tabular-nums">{row.feeUsdt} USDT</td>
+                <td className="px-3 py-1.5 tabular-nums"><UsdtAmount amount={row.upToUsdt} amountClassName="tabular-nums" currencyClassName="text-[10px] text-[#64748b]" /></td>
+                <td className="px-3 py-1.5 font-mono font-semibold text-primary tabular-nums"><UsdtAmount amount={row.feeUsdt} amountClassName="font-mono font-semibold text-primary tabular-nums" currencyClassName="text-[10px] text-[#64748b]" /></td>
               </tr>
             ))}
           </tbody>

@@ -8,6 +8,8 @@ export type CelebrationQueueItem = {
   amount?: number;
   place?: 1 | 2 | 3;
   progress?: number;
+  poolId?: number;
+  liveDraw?: boolean;
   dedupeKey?: string;
   primaryLabel?: string;
 };

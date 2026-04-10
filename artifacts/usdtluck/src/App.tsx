@@ -24,6 +24,7 @@ import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import AdminPage from "@/pages/AdminPage";
 import ReviewsPage from "@/pages/ReviewsPage";
 import HowItWorksPage from "@/pages/HowItWorksPage";
+import ProvablyFairPage from "@/pages/ProvablyFairPage";
 import RewardsPage from "@/pages/RewardsPage";
 import StakingPage from "@/pages/StakingPage";
 import ReferralPage from "@/pages/ReferralPage";
@@ -213,6 +214,7 @@ function Router() {
           </RequireAuth>
         </Route>
         <Route path="/how-it-works" component={HowItWorksPage} />
+        <Route path="/provably-fair" component={ProvablyFairPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

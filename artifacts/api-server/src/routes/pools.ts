@@ -64,6 +64,7 @@ import {
   insertPoolTicketsWithLuckyNumbers,
   formatLuckyNumberDisplay,
 } from "../services/lucky-pool-ticket-service";
+import { makeServerSeed, hashServerSeed } from "../lib/provably-fair";
 
 const JoinPoolBody = z.object({
   useFreeEntry: z.boolean().optional(),
@@ -828,6 +829,87 @@ router.get("/:poolId/my-draw-result", async (req, res) => {
   });
 });
 
+router.get("/:poolId/verify", async (req, res) => {
+  const poolId = parseInt(req.params.poolId, 10);
+  if (isNaN(poolId)) {
+    res.status(400).json({ error: "Invalid pool ID" });
+    return;
+  }
+
+  try {
+    const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+    if (!pool) {
+      res.status(404).json({ error: "Pool not found" });
+      return;
+    }
+
+    const totalTickets = await countPoolTickets(poolId);
+    const [winner] = await db
+      .select({
+        userId: winnersTable.userId,
+        amountWon: winnersTable.prize,
+        drawDate: winnersTable.awardedAt,
+        winnerName: usersTable.name,
+      })
+      .from(winnersTable)
+      .innerJoin(usersTable, eq(winnersTable.userId, usersTable.id))
+      .where(and(eq(winnersTable.poolId, poolId), eq(winnersTable.place, 1)))
+      .limit(1);
+
+    const [winnerPosition] = winner
+      ? await db
+          .select({ drawPosition: poolParticipantsTable.drawPosition })
+          .from(poolParticipantsTable)
+          .where(and(eq(poolParticipantsTable.poolId, poolId), eq(poolParticipantsTable.userId, winner.userId)))
+          .limit(1)
+      : [];
+
+    const participants = await db
+      .select({ name: usersTable.name })
+      .from(poolParticipantsTable)
+      .innerJoin(usersTable, eq(poolParticipantsTable.userId, usersTable.id))
+      .where(eq(poolParticipantsTable.poolId, poolId))
+      .orderBy(asc(poolParticipantsTable.joinedAt));
+
+    const payload: {
+      poolId: number;
+      poolName: string;
+      totalTickets: number;
+      drawDate: Date | null;
+      serverSeed: string | null;
+      seedHash: string | null;
+      winnerIndex: number | null;
+      winnerMasked: string | null;
+      amountWon: number | null;
+      participants: string[];
+      algorithm: string;
+      note?: string;
+    } = {
+      poolId: pool.id,
+      poolName: pool.title,
+      totalTickets,
+      drawDate: winner?.drawDate ?? null,
+      serverSeed: pool.serverSeed ?? null,
+      seedHash: pool.seedHash ?? null,
+      winnerIndex: winnerPosition?.drawPosition ?? null,
+      winnerMasked: winner?.winnerName ? privacyDisplayName(winner.winnerName) : null,
+      amountWon: winner?.amountWon != null ? parseFloat(String(winner.amountWon)) : null,
+      participants: participants.map((p) => privacyDisplayName(p.name)),
+      algorithm:
+        "Secure draw with cryptographic seed commitment (SHA-256) and CSPRNG-based winner/lucky-number selection.",
+    };
+
+    if (!pool.serverSeed || !pool.seedHash) {
+      payload.note =
+        "Seed/hash data was not available for this older draw. Verification includes all available winner and participant data.";
+    }
+
+    res.json(payload);
+  } catch {
+    res.status(500).json({ error: "Failed to verify draw" });
+  }
+});
+
 router.get("/:poolId", async (req, res) => {
   const poolId = parseInt(req.params.poolId);
   if (isNaN(poolId)) {
@@ -1461,6 +1543,8 @@ async function executePoolDistribution(
     }
 
     const winnerCount = pool.winnerCount ?? 3;
+    const drawServerSeed = makeServerSeed();
+    const drawSeedHash = hashServerSeed(drawServerSeed);
     if (manualWinnerUserIds.length !== winnerCount) {
       const e = new Error(`This pool is configured for ${winnerCount} winner(s); send exactly ${winnerCount} user id(s).`);
       (e as { code?: string }).code = "INVALID_WINNER_COUNT";
@@ -1767,6 +1851,8 @@ async function executePoolDistribution(
         status: "completed",
         drawLuckyNumber,
         luckyMatchUserId,
+        serverSeed: drawServerSeed,
+        seedHash: drawSeedHash,
       })
       .where(eq(poolsTable.id, poolId));
 

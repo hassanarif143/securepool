@@ -7,6 +7,7 @@ import { buyScratchCardApi, fetchScratchCardState, revealScratchBoxApi, verifySc
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 const SYMBOL_UI: Record<string, { emoji: string; label: string }> = {
   gem: { emoji: "💎", label: "Gem" },
@@ -232,7 +233,7 @@ export default function ScratchCardPage() {
       {winPulse && (
         <div className="fixed inset-x-0 top-24 z-50 flex justify-center pointer-events-none">
           <div className={`rounded-2xl border px-5 py-3 shadow-xl ${winPulse.rare ? "border-amber-400/60 bg-amber-500/15" : "border-emerald-400/50 bg-emerald-500/15"}`}>
-            <p className="text-sm font-semibold text-white">You won {winPulse.payout.toFixed(2)} USDT!</p>
+            <p className="text-sm font-semibold text-white">You won <UsdtAmount amount={winPulse.payout} amountClassName="text-sm font-semibold text-white" currencyClassName="text-[10px] text-[#64748b]" />!</p>
             <p className="text-xs text-white/80">{winPulse.multiplier.toFixed(2)}x multiplier locked</p>
           </div>
         </div>
@@ -278,7 +279,7 @@ export default function ScratchCardPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[1, 2, 3, 5].map((v) => (
                     <Button key={v} variant={stake === v ? "default" : "outline"} onClick={() => setStake(v)}>
-                      {v} USDT
+                      <UsdtAmount amount={v} amountClassName="text-sm" currencyClassName="text-[10px] text-[#64748b]" />
                     </Button>
                   ))}
                 </div>
@@ -343,13 +344,13 @@ export default function ScratchCardPage() {
             <CardTitle className="text-base">Wallet & Streak</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <p>Withdrawable: {(data?.wallet.withdrawableBalance ?? 0).toFixed(2)} USDT</p>
-            <p>Non-withdrawable: {(data?.wallet.nonWithdrawableBalance ?? 0).toFixed(2)} USDT</p>
-            <p>Locked: {(data?.wallet.lockedBalance ?? 0).toFixed(2)} USDT</p>
+            <p>Withdrawable: <UsdtAmount amount={data?.wallet.withdrawableBalance ?? 0} amountClassName="font-medium" currencyClassName="text-[10px] text-[#64748b]" /></p>
+            <p>Non-withdrawable: <UsdtAmount amount={data?.wallet.nonWithdrawableBalance ?? 0} amountClassName="font-medium" currencyClassName="text-[10px] text-[#64748b]" /></p>
+            <p>Locked: <UsdtAmount amount={data?.wallet.lockedBalance ?? 0} amountClassName="font-medium" currencyClassName="text-[10px] text-[#64748b]" /></p>
             <div className="pt-2 border-t border-border/50">
               <p>Daily streak: {data?.streak ?? 0} day(s)</p>
               <p>Cards won: {stats.winCount}</p>
-              <p>Total won: {stats.totalWin.toFixed(2)} USDT</p>
+              <p>Total won: <UsdtAmount amount={stats.totalWin} amountClassName="font-medium" currencyClassName="text-[10px] text-[#64748b]" /></p>
               <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-primary to-emerald-400 transition-all" style={{ width: `${streakPct}%` }} />
               </div>
@@ -373,7 +374,13 @@ export default function ScratchCardPage() {
                 <span>
                   #{h.id} · {h.status}
                 </span>
-                <span>{h.payoutAmount > 0 ? `+${h.payoutAmount.toFixed(2)} USDT` : `-${h.stakeAmount.toFixed(2)} USDT`}</span>
+                <span>
+                  {h.payoutAmount > 0 ? (
+                    <UsdtAmount amount={h.payoutAmount} prefix="+" amountClassName="text-sm" currencyClassName="text-[10px] text-[#64748b]" />
+                  ) : (
+                    <UsdtAmount amount={h.stakeAmount} prefix="-" amountClassName="text-sm" currencyClassName="text-[10px] text-[#64748b]" />
+                  )}
+                </span>
               </div>
             ))}
           </CardContent>
@@ -388,7 +395,7 @@ export default function ScratchCardPage() {
                 <span>
                   {i + 1}. {u.name}
                 </span>
-                <span>{u.totalWin.toFixed(2)} USDT</span>
+                <UsdtAmount amount={u.totalWin} amountClassName="text-sm" currencyClassName="text-[10px] text-[#64748b]" />
               </div>
             ))}
           </CardContent>

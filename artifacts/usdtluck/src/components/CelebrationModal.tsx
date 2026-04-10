@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 interface Winner {
   id: number;
@@ -80,9 +81,12 @@ export function CelebrationModal({ winners, poolTitle, onClose }: CelebrationMod
                   <p className="text-white/80 text-sm">{cfg.label}</p>
                 </div>
                 <div className="text-right">
-                  <p className={`font-extrabold text-xl ${cfg.prize} bg-white/30 px-3 py-1 rounded-lg`}>
-                    {winner.prize} USDT
-                  </p>
+                  <UsdtAmount
+                    amount={winner.prize}
+                    amountClassName={`font-extrabold text-xl ${cfg.prize} bg-white/30 px-3 py-1 rounded-lg`}
+                    currencyClassName="text-[10px] text-[#64748b]"
+                    className="items-end"
+                  />
                 </div>
               </div>
             );

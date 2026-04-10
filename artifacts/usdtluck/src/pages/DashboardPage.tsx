@@ -20,6 +20,7 @@ import { ArrowRight, Inbox } from "lucide-react";
 import { TrustStrip } from "@/components/TrustStrip";
 import { poolWinnerCount } from "@/lib/pool-winners";
 import { BalanceCard } from "@/components/dashboard/BalanceCard";
+import { UsdtAmount } from "@/components/UsdtAmount";
 import { RewardsSummaryCard } from "@/components/rewards/RewardsSummaryCard";
 import { LiveWinnerTicker } from "@/components/winners/LiveWinnerTicker";
 import { useGameAvailability } from "@/lib/game-availability";
@@ -276,17 +277,17 @@ export default function DashboardPage() {
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3">
             <p className="text-[11px] text-emerald-300">Withdrawable</p>
-            <p className="text-xl font-semibold tabular-nums text-emerald-200">{Number(user.withdrawableBalance ?? 0).toFixed(2)} USDT</p>
+            <UsdtAmount amount={Number(user.withdrawableBalance ?? 0)} amountClassName="text-xl font-semibold tabular-nums text-emerald-200" />
             <p className="text-[11px] text-emerald-100/80 mt-1">Can be withdrawn anytime</p>
           </div>
           <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/[0.08] p-3">
             <p className="text-[11px] text-cyan-300">Rewards Balance</p>
-            <p className="text-xl font-semibold tabular-nums text-cyan-200">{rewardsUsdt.toFixed(2)} USDT</p>
+            <UsdtAmount amount={rewardsUsdt} amountClassName="text-xl font-semibold tabular-nums text-cyan-200" />
             <p className="text-[11px] text-cyan-100/80 mt-1">Used for in-platform rewards</p>
           </div>
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.08] p-3">
             <p className="text-[11px] text-amber-300">Locked / In-use</p>
-            <p className="text-xl font-semibold tabular-nums text-amber-200">{lockedEstimated.toFixed(2)} USDT</p>
+            <UsdtAmount amount={lockedEstimated} amountClassName="text-xl font-semibold tabular-nums text-amber-200" />
             <p className="text-[11px] text-amber-100/80 mt-1">Staking, open rounds, or temporary holds</p>
           </div>
         </div>
@@ -375,8 +376,7 @@ export default function DashboardPage() {
                   className="font-display text-4xl sm:text-5xl lg:text-[3.25rem] font-extrabold tabular-nums tracking-tight"
                   style={{ color: "hsl(152,72%,56%)" }}
                 >
-                  {animBalance.toFixed(2)}{" "}
-                  <span className="text-lg sm:text-xl font-bold text-muted-foreground">USDT</span>
+                  <UsdtAmount amount={animBalance} amountClassName="font-display text-4xl sm:text-5xl lg:text-[3.25rem] font-extrabold tabular-nums tracking-tight text-emerald-400" />
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Available in-app balance for pool entries and wallet actions.
@@ -625,10 +625,13 @@ export default function DashboardPage() {
                         </div>
                         <p className="text-[10px] text-muted-foreground">{timeAgo(tx.createdAt)}</p>
                       </div>
-                      <p className="shrink-0 text-xs font-semibold tabular-nums" style={{ color: meta.color }}>
-                        {meta.sign}
-                        {tx.amount} USDT
-                      </p>
+                      <UsdtAmount
+                        amount={Number(tx.amount)}
+                        prefix={meta.sign}
+                        amountClassName="shrink-0 text-xs font-semibold tabular-nums"
+                        currencyClassName="text-[10px] text-[#64748b]"
+                        className="items-end"
+                      />
                     </div>
                   </div>
                 );
@@ -680,9 +683,7 @@ export default function DashboardPage() {
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-xs font-semibold tabular-nums" style={{ color: "hsl(152,72%,55%)" }}>
-                          {entry.prizeFirst} USDT
-                        </p>
+                        <UsdtAmount amount={entry.prizeFirst} amountClassName="text-xs font-semibold tabular-nums text-emerald-400" currencyClassName="text-[10px] text-[#64748b]" className="items-end" />
                         <p className="text-[10px] text-muted-foreground">top prize</p>
                       </div>
                     </div>
@@ -722,7 +723,7 @@ export default function DashboardPage() {
           </Link>
           <Link href="/wallet" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
             <p className="text-sm font-semibold">Manage wallet</p>
-            <p className="text-xs text-muted-foreground mt-1">Withdrawable: {(user.withdrawableBalance ?? 0).toFixed(2)} USDT.</p>
+            <p className="text-xs text-muted-foreground mt-1">Withdrawable: <UsdtAmount amount={user.withdrawableBalance ?? 0} amountClassName="text-xs text-muted-foreground" currencyClassName="text-[10px] text-[#64748b]" />.</p>
           </Link>
           <Link href="/p2p" className="rounded-xl border border-primary/25 bg-primary/[0.06] p-3 hover:bg-primary/[0.1] transition-colors">
             <p className="text-sm font-semibold">P2P trading</p>

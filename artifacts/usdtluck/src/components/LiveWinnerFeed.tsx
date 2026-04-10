@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiUrl } from "@/lib/api-base";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 type RecentWinner = {
   id: number;
@@ -80,7 +81,12 @@ export function LiveWinnerFeed() {
                     <p className="text-xs text-muted-foreground truncate">{winner.poolName}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-sm font-bold tabular-nums text-[#D4A843]">+{Number(winner.amountWon).toFixed(2)} USDT</p>
+                    <UsdtAmount
+                      amount={Number(winner.amountWon)}
+                      prefix="+"
+                      amountClassName="text-sm font-bold tabular-nums text-[#D4A843]"
+                      currencyClassName="text-[10px] text-[#64748b]"
+                    />
                     <p className="text-[11px] text-muted-foreground">{formatRelativeTime(winner.completedAt)}</p>
                   </div>
                 </article>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiUrl } from "@/lib/api-base";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 type Row = {
   id: number;
@@ -43,7 +44,7 @@ export function RecentPayouts({ limit = 8, className = "" }: { limit?: number; c
               <span className="text-muted-foreground text-xs block truncate">{r.poolName}</span>
             </div>
             <div className="text-right shrink-0">
-              <p className="font-bold text-primary tabular-nums">{r.prizeAmount} USDT</p>
+              <UsdtAmount amount={r.prizeAmount} amountClassName="font-bold text-primary tabular-nums" currencyClassName="text-[10px] text-[#64748b]" />
               <p className="text-[10px] text-emerald-500">Paid ✓</p>
             </div>
           </li>

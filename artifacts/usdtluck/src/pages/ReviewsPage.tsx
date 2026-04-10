@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiUrl } from "@/lib/api-base";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 /* ── Types ── */
 interface Review {
@@ -155,7 +156,7 @@ function ReviewCard({ review }: { review: Review }) {
           {review.prize && (
             <>
               <span className="text-muted-foreground">·</span>
-              <span className="font-bold text-yellow-400">+{review.prize} USDT</span>
+              <UsdtAmount amount={review.prize} prefix="+" amountClassName="font-bold text-yellow-400" currencyClassName="text-[10px] text-[#64748b]" />
             </>
           )}
         </div>

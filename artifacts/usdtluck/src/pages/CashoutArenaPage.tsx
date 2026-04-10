@@ -17,6 +17,7 @@ import {
 import { getCelebrationSoundEnabled, setCelebrationSoundEnabled } from "@/lib/celebration-preferences";
 import { useAuth } from "@/context/AuthContext";
 import { useLocation } from "wouter";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 function zoneLabel(multiplier: number) {
   if (multiplier < 1.8) return "Safe Zone";
@@ -389,7 +390,7 @@ export default function CashoutArenaPage() {
                 </p>
                 {floatingWin ? (
                   <div key={floatingWin.id} className="mt-1 text-emerald-300 font-semibold text-sm animate-bounce">
-                    +{floatingWin.amount.toFixed(2)} USDT
+                    <UsdtAmount amount={floatingWin.amount} prefix="+" amountClassName="text-emerald-300 font-semibold text-sm" currencyClassName="text-[10px] text-[#64748b]" />
                   </div>
                 ) : null}
                 <div className="mt-4 h-2 rounded-full bg-muted overflow-hidden">
@@ -443,7 +444,7 @@ export default function CashoutArenaPage() {
             <div className="grid grid-cols-5 gap-2">
               {[1, 2, 3, 4, 5].map((n) => (
                 <Button key={n} size="sm" variant={stake === n ? "default" : "outline"} onClick={() => setStake(n)}>
-                  {n} USDT
+                  <UsdtAmount amount={n} amountClassName="text-sm" currencyClassName="text-[10px] text-[#64748b]" />
                 </Button>
               ))}
             </div>
@@ -470,10 +471,10 @@ export default function CashoutArenaPage() {
               </label>
             </div>
             <div className="rounded-lg border p-2 text-xs text-muted-foreground">
-              Stake: {stake.toFixed(2)} USDT · Boost fee: {boostFee.toFixed(2)} USDT
+              Stake: <UsdtAmount amount={stake} amountClassName="text-xs text-muted-foreground" currencyClassName="text-[10px] text-[#64748b]" /> · Boost fee: <UsdtAmount amount={boostFee} amountClassName="text-xs text-muted-foreground" currencyClassName="text-[10px] text-[#64748b]" />
             </div>
             <div className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 p-2 text-xs">
-              Auto preview payout: <strong>{autoPreviewPayout != null ? `${autoPreviewPayout.toFixed(2)} USDT` : "set auto cashout"}</strong>
+              Auto preview payout: <strong>{autoPreviewPayout != null ? <UsdtAmount amount={autoPreviewPayout} amountClassName="text-xs font-semibold" currencyClassName="text-[10px] text-[#64748b]" /> : "set auto cashout"}</strong>
             </div>
             {showAutoHint ? (
               <p className="text-xs text-amber-300 rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-1">
@@ -512,15 +513,15 @@ export default function CashoutArenaPage() {
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-base">Wallet Snapshot</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <p>Withdrawable: <strong>{(data?.wallet.withdrawableBalance ?? 0).toFixed(2)} USDT</strong></p>
-            <p>Non-withdrawable: {(data?.wallet.nonWithdrawableBalance ?? 0).toFixed(2)} USDT</p>
-            <p>Locked in arena: {(data?.wallet.lockedBalance ?? 0).toFixed(2)} USDT</p>
+            <p>Withdrawable: <UsdtAmount amount={data?.wallet.withdrawableBalance ?? 0} amountClassName="font-semibold" currencyClassName="text-[10px] text-[#64748b]" /></p>
+            <p>Non-withdrawable: <UsdtAmount amount={data?.wallet.nonWithdrawableBalance ?? 0} amountClassName="font-semibold" currencyClassName="text-[10px] text-[#64748b]" /></p>
+            <p>Locked in arena: <UsdtAmount amount={data?.wallet.lockedBalance ?? 0} amountClassName="font-semibold" currencyClassName="text-[10px] text-[#64748b]" /></p>
             {data?.myBet ? (
               <div className="rounded-lg border p-2 mt-2">
                 <p className="font-medium">My Bet #{data.myBet.id}</p>
                 <p>Status: {data.myBet.status}</p>
-                <p>Stake: {data.myBet.stakeAmount.toFixed(2)} USDT</p>
-                <p>Payout: {(data.myBet.payoutAmount ?? 0).toFixed(2)} USDT</p>
+                <p>Stake: <UsdtAmount amount={data.myBet.stakeAmount} amountClassName="font-semibold" currencyClassName="text-[10px] text-[#64748b]" /></p>
+                <p>Payout: <UsdtAmount amount={data.myBet.payoutAmount ?? 0} amountClassName="font-semibold" currencyClassName="text-[10px] text-[#64748b]" /></p>
               </div>
             ) : <p className="text-muted-foreground">No active bet</p>}
           </CardContent>
@@ -557,7 +558,7 @@ export default function CashoutArenaPage() {
                   {idx === 0 ? <Crown className="h-3.5 w-3.5 text-amber-300" /> : idx === 1 ? <Trophy className="h-3.5 w-3.5 text-slate-300" /> : idx === 2 ? <Trophy className="h-3.5 w-3.5 text-orange-300" /> : null}
                   #{idx + 1} {x.name}
                 </span>
-                <span className="font-semibold">{x.totalWin.toFixed(2)} USDT</span>
+                <UsdtAmount amount={x.totalWin} amountClassName="font-semibold" currencyClassName="text-[10px] text-[#64748b]" />
               </div>
             ))}
             {(data?.leaderboard ?? []).length === 0 ? <p className="text-sm text-muted-foreground">No winners yet.</p> : null}

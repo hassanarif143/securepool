@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AnimatedNumber } from "@/components/animation/AnimatedNumber";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 type BalanceCardProps = {
   kind: "withdrawable" | "nonWithdrawable";
@@ -23,7 +23,7 @@ export function BalanceCard({ kind, amountUsdt, subtitle, ctaLabel, onCtaClick }
         </Badge>
       </div>
       <p className="mt-1 text-2xl font-bold tabular-nums">
-        <AnimatedNumber value={amountUsdt} decimals={2} /> USDT
+        <UsdtAmount amount={amountUsdt} amountClassName="text-2xl font-bold tabular-nums" />
       </p>
       <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
       {ctaLabel && onCtaClick ? (

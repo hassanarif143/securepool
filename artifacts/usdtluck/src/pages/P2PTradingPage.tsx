@@ -46,6 +46,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 function formatCountdown(ms: number) {
   if (ms <= 0) return "0:00";
@@ -468,9 +469,9 @@ export default function P2PTradingPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card><CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">Wallet Balance</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold tabular-nums">{(summary?.walletBalance ?? user?.walletBalance ?? 0).toFixed(2)} USDT</p></CardContent></Card>
-        <Card className="border-amber-500/30"><CardHeader className="pb-2"><CardTitle className="text-xs text-amber-500">Locked (Escrow)</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold tabular-nums text-amber-400">{(summary?.escrowLockedUsdt ?? 0).toFixed(2)} USDT</p></CardContent></Card>
-        <Card className="border-emerald-500/30"><CardHeader className="pb-2"><CardTitle className="text-xs text-emerald-500">Available to Sell</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold tabular-nums text-emerald-400">{(summary?.availableToSellUsdt ?? 0).toFixed(2)} USDT</p></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">Wallet Balance</CardTitle></CardHeader><CardContent><UsdtAmount amount={summary?.walletBalance ?? user?.walletBalance ?? 0} amountClassName="text-2xl font-semibold tabular-nums" /></CardContent></Card>
+        <Card className="border-amber-500/30"><CardHeader className="pb-2"><CardTitle className="text-xs text-amber-500">Locked (Escrow)</CardTitle></CardHeader><CardContent><UsdtAmount amount={summary?.escrowLockedUsdt ?? 0} amountClassName="text-2xl font-semibold tabular-nums text-amber-400" /></CardContent></Card>
+        <Card className="border-emerald-500/30"><CardHeader className="pb-2"><CardTitle className="text-xs text-emerald-500">Available to Sell</CardTitle></CardHeader><CardContent><UsdtAmount amount={summary?.availableToSellUsdt ?? 0} amountClassName="text-2xl font-semibold tabular-nums text-emerald-400" /></CardContent></Card>
       </div>
 
       <Tabs value={mainTab} onValueChange={setMainTab}>

@@ -5,6 +5,7 @@ import { CountdownTimer } from "./CountdownTimer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { poolWinnerCount } from "@/lib/pool-winners";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 interface PoolCardProps {
   pool: Pool;
@@ -84,7 +85,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
             style={{ background: "linear-gradient(145deg, hsla(152,72%,44%,0.12), hsla(220,16%,8%,0.9))" }}
           >
             <p className="text-[10px] uppercase tracking-wider text-emerald-400/90 mb-1">Ticket price</p>
-            <p className="text-xl font-bold text-white tabular-nums">{pool.entryFee} USDT</p>
+            <UsdtAmount amount={pool.entryFee} amountClassName="text-xl font-bold text-white tabular-nums" />
           </div>
           <div className="rounded-xl px-3 py-3 border border-white/10" style={{ background: "hsla(220, 16%, 10%, 0.9)" }}>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Winners</p>
@@ -152,6 +153,15 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
+          <Link href={`/provably-fair?poolId=${pool.id}`} className="flex-1 min-w-0 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full min-h-11 border-cyan-400/20 bg-cyan-400/5 text-cyan-300 hover:bg-cyan-400/10 touch-manipulation"
+            >
+              Verify draw
+            </Button>
+          </Link>
           <Link href={`/pools/${pool.id}`} className="flex-1 min-w-0 w-full sm:w-auto">
             <Button
               variant="outline"
@@ -187,8 +197,8 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
 
 function PrizeChip({ rank, amount }: { rank: string; amount: number }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-white tabular-nums">
-      {rank}: {amount} USDT
+    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-white tabular-nums gap-1">
+      {rank}: <UsdtAmount amount={amount} amountClassName="text-xs font-medium text-white tabular-nums" currencyClassName="text-[10px] text-[#64748b]" />
     </span>
   );
 }

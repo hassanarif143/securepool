@@ -29,6 +29,10 @@ export const poolsTable = pgTable("pools", {
   drawLuckyNumber: integer("draw_lucky_number"),
   /** User who held a ticket matching draw_lucky_number (null if no match). */
   luckyMatchUserId: integer("lucky_match_user_id").references(() => usersTable.id),
+  /** Revealed seed used for draw verification after completion. */
+  serverSeed: text("server_seed"),
+  /** Pre-commit SHA-256 hash of serverSeed. */
+  seedHash: text("seed_hash"),
   /** Admin safety lock: frozen pools cannot accept new joins. */
   isFrozen: boolean("is_frozen").notNull().default(false),
   /** Optional admin-selected winner ids (comma-separated), used before final distribute action. */

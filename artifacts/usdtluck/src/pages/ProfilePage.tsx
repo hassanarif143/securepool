@@ -29,6 +29,7 @@ import {
   setCelebrationSoundEnabled,
   subscribeCelebrationPrefs,
 } from "@/lib/celebration-preferences";
+import { UsdtAmount } from "@/components/UsdtAmount";
 
 type WalletApi = {
   address: string | null;
@@ -125,12 +126,13 @@ function WalletLedgerCard() {
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p
-                    className={`font-semibold tabular-nums ${r.transaction_type === "CREDIT" ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}`}
-                  >
-                    {r.transaction_type === "CREDIT" ? "+" : "−"}
-                    {r.amount.toFixed(2)} USDT
-                  </p>
+                  <UsdtAmount
+                    amount={r.amount}
+                    prefix={r.transaction_type === "CREDIT" ? "+" : "−"}
+                    amountClassName={`font-semibold tabular-nums ${r.transaction_type === "CREDIT" ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"}`}
+                    currencyClassName="text-[10px] text-[#64748b]"
+                    className="items-end"
+                  />
                   <p className="text-[10px] text-muted-foreground tabular-nums">Bal {r.balance_after.toFixed(2)}</p>
                 </div>
               </li>
@@ -194,7 +196,7 @@ function PrizeHistoryCard() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold text-primary tabular-nums">{r.prizeAmount} USDT</p>
+                  <UsdtAmount amount={r.prizeAmount} amountClassName="font-semibold text-primary tabular-nums" currencyClassName="text-[10px] text-[#64748b]" className="items-end" />
                   <Badge variant={r.paymentStatus === "paid" ? "default" : "secondary"} className="mt-1 text-[10px]">
                     {r.paymentStatus}
                   </Badge>
@@ -612,21 +614,19 @@ export default function ProfilePage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-xs text-muted-foreground">Available</p>
-                <p className="text-lg font-semibold tabular-nums">
-                  {(walletInfo?.available_balance ?? currentUser.walletBalance).toFixed(2)} USDT
-                </p>
+                <UsdtAmount amount={walletInfo?.available_balance ?? currentUser.walletBalance} amountClassName="text-lg font-semibold tabular-nums" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Total won (draws)</p>
-                <p className="text-lg font-semibold tabular-nums">{(walletInfo?.total_won ?? 0).toFixed(2)} USDT</p>
+                <UsdtAmount amount={walletInfo?.total_won ?? 0} amountClassName="text-lg font-semibold tabular-nums" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Total withdrawn</p>
-                <p className="text-lg font-semibold tabular-nums">{(walletInfo?.total_withdrawn ?? 0).toFixed(2)} USDT</p>
+                <UsdtAmount amount={walletInfo?.total_withdrawn ?? 0} amountClassName="text-lg font-semibold tabular-nums" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Total reward credits</p>
-                <p className="text-lg font-semibold tabular-nums">{(walletInfo?.total_bonus ?? 0).toFixed(2)} USDT</p>
+                <UsdtAmount amount={walletInfo?.total_bonus ?? 0} amountClassName="text-lg font-semibold tabular-nums" />
               </div>
             </div>
           )}
@@ -989,7 +989,7 @@ export default function ProfilePage() {
         <CardContent className="grid grid-cols-2 gap-4 pt-0">
           <div className="space-y-0.5">
             <p className="text-xs text-muted-foreground">Wallet Balance</p>
-            <p className="text-xl font-bold text-primary">{currentUser.walletBalance.toFixed(2)} USDT</p>
+            <UsdtAmount amount={currentUser.walletBalance} amountClassName="text-xl font-bold text-primary" />
           </div>
           <div className="space-y-0.5">
             <p className="text-xs text-muted-foreground">Member Since</p>

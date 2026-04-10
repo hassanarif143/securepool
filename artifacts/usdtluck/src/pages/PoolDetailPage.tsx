@@ -347,6 +347,8 @@ export default function PoolDetailPage() {
           message: `You won ${d.prize} USDT!`,
           amount: d.prize,
           place,
+          poolId: id,
+          liveDraw: false,
           dedupeKey: `win-pool-${id}`,
           primaryLabel: "Claim prize",
         });

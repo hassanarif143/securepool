@@ -96,6 +96,8 @@ export function CelebrationProvider({ children }: { children: React.ReactNode })
           amount={active.amount}
           place={active.place}
           progress={active.progress}
+          poolId={active.poolId}
+          liveDraw={active.liveDraw}
           primaryLabel={active.primaryLabel}
           effectsEnabled={effectsEnabled}
           onClose={dismiss}

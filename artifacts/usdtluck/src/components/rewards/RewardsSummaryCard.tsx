@@ -1,3 +1,5 @@
+import { UsdtAmount } from "@/components/UsdtAmount";
+
 type RewardsSummaryCardProps = {
   nonWithdrawableUsdt: number;
   tier: string;
@@ -11,7 +13,7 @@ export function RewardsSummaryCard({ nonWithdrawableUsdt, tier, poolJoinCount }:
       <div className="grid sm:grid-cols-3 gap-3 mt-3 text-sm">
         <div className="rounded-lg border border-border/70 p-3">
           <p className="text-xs text-muted-foreground">Non-withdrawable</p>
-          <p className="font-semibold">{nonWithdrawableUsdt.toFixed(2)} USDT</p>
+          <UsdtAmount amount={nonWithdrawableUsdt} amountClassName="font-semibold" />
         </div>
         <div className="rounded-lg border border-border/70 p-3">
           <p className="text-xs text-muted-foreground">Tier</p>

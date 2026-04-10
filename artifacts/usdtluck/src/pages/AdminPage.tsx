@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import {
   useGetDashboardStats,
@@ -52,6 +52,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MoreHorizontal } from "lucide-react";
 import { apiUrl, getFullImageUrl, readApiErrorMessage } from "@/lib/api-base";
 import { platformFeeUsdtForPoolEntry } from "@/lib/platform-fee";
+import { UsdtAmount } from "@/components/UsdtAmount";
 import {
   Select,
   SelectContent,
@@ -420,15 +421,15 @@ function FinanceTab() {
     <div className="space-y-6 mt-4">
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Central wallet (ledger balance)", value: `${bal.toFixed(2)} USDT` },
-          { label: "Total deposits (ticket approvals)", value: `${dep.toFixed(2)} USDT` },
-          { label: "Total payouts (withdrawals completed)", value: `${payout.toFixed(2)} USDT` },
-          { label: "Total platform fees (draws)", value: `${fees.toFixed(2)} USDT` },
-        ].map((c) => (
+          { label: "Central wallet (ledger balance)", value: <UsdtAmount amount={bal} amountClassName="text-lg font-bold mt-1" /> },
+          { label: "Total deposits (ticket approvals)", value: <UsdtAmount amount={dep} amountClassName="text-lg font-bold mt-1" /> },
+          { label: "Total payouts (withdrawals completed)", value: <UsdtAmount amount={payout} amountClassName="text-lg font-bold mt-1" /> },
+          { label: "Total platform fees (draws)", value: <UsdtAmount amount={fees} amountClassName="text-lg font-bold mt-1" /> },
+        ].map((c: { label: string; value: ReactNode }) => (
           <Card key={c.label}>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">{c.label}</p>
-              <p className="text-lg font-bold mt-1">{c.value}</p>
+              <div>{c.value}</div>
             </CardContent>
           </Card>
         ))}
@@ -438,8 +439,8 @@ function FinanceTab() {
         <Card>
           <CardContent className="p-4 text-sm">
             <p className="text-muted-foreground text-xs mb-1">Today (UTC)</p>
-            <p>Deposits: <span className="font-semibold">{todayD.toFixed(2)} USDT</span></p>
-            <p>Withdrawals: <span className="font-semibold">{todayW.toFixed(2)} USDT</span></p>
+            <p>Deposits: <UsdtAmount amount={todayD} amountClassName="font-semibold" currencyClassName="text-[10px] text-[#64748b]" /></p>
+            <p>Withdrawals: <UsdtAmount amount={todayW} amountClassName="font-semibold" currencyClassName="text-[10px] text-[#64748b]" /></p>
           </CardContent>
         </Card>
         <Card>
@@ -602,13 +603,13 @@ function FinanceTab() {
             <div className="text-sm space-y-2">
               <p className="font-medium">{drawDetail.data.poolTitle ?? "—"}</p>
               <p>Tickets sold: {drawDetail.data.ticketsSold}</p>
-              <p>List price: {drawDetail.data.ticketPrice} USDT</p>
-              <p>Total revenue (paid): {drawDetail.data.totalRevenue.toFixed(2)} USDT</p>
-              <p>1st → {drawDetail.data.winnerFirstName ?? "—"} ({drawDetail.data.prizeFirst} USDT)</p>
-              <p>2nd → {drawDetail.data.winnerSecondName ?? "—"} ({drawDetail.data.prizeSecond} USDT)</p>
-              <p>3rd → {drawDetail.data.winnerThirdName ?? "—"} ({drawDetail.data.prizeThird} USDT)</p>
-              <p>Total prizes: {drawDetail.data.totalPrizes.toFixed(2)} USDT</p>
-              <p className="font-semibold">Platform fee: {drawDetail.data.platformFee.toFixed(2)} USDT</p>
+              <p>List price: <UsdtAmount amount={drawDetail.data.ticketPrice} amountClassName="font-medium" currencyClassName="text-[10px] text-[#64748b]" /></p>
+              <p>Total revenue (paid): <UsdtAmount amount={drawDetail.data.totalRevenue} amountClassName="font-medium" currencyClassName="text-[10px] text-[#64748b]" /></p>
+              <p>1st → {drawDetail.data.winnerFirstName ?? "—"} (<UsdtAmount amount={drawDetail.data.prizeFirst} amountClassName="font-medium" currencyClassName="text-[10px] text-[#64748b]" />)</p>
+              <p>2nd → {drawDetail.data.winnerSecondName ?? "—"} (<UsdtAmount amount={drawDetail.data.prizeSecond} amountClassName="font-medium" currencyClassName="text-[10px] text-[#64748b]" />)</p>
+              <p>3rd → {drawDetail.data.winnerThirdName ?? "—"} (<UsdtAmount amount={drawDetail.data.prizeThird} amountClassName="font-medium" currencyClassName="text-[10px] text-[#64748b]" />)</p>
+              <p>Total prizes: <UsdtAmount amount={drawDetail.data.totalPrizes} amountClassName="font-medium" currencyClassName="text-[10px] text-[#64748b]" /></p>
+              <p className="font-semibold">Platform fee: <UsdtAmount amount={drawDetail.data.platformFee} amountClassName="font-semibold" currencyClassName="text-[10px] text-[#64748b]" /></p>
               <p>Profit margin: {drawDetail.data.profitMarginPercent.toFixed(2)}%</p>
               <p className="text-xs text-muted-foreground">Min participants required: {drawDetail.data.minParticipantsRequired}</p>
             </div>
@@ -638,14 +639,14 @@ function StatsTab() {
           { label: "Total Users", value: stats.totalUsers },
           { label: "Active Pools", value: stats.activePools },
           { label: "Completed Pools", value: stats.completedPools },
-          { label: "Total Rewards Distributed", value: `${stats.totalRewardsDistributed.toFixed(2)} USDT` },
-          { label: "Total Deposits", value: `${stats.totalDeposits.toFixed(2)} USDT` },
-          { label: "Total Withdrawals", value: `${stats.totalWithdrawals.toFixed(2)} USDT` },
-        ].map((stat) => (
+          { label: "Total Rewards Distributed", value: <UsdtAmount amount={stats.totalRewardsDistributed} amountClassName="text-2xl font-bold mt-1" /> },
+          { label: "Total Deposits", value: <UsdtAmount amount={stats.totalDeposits} amountClassName="text-2xl font-bold mt-1" /> },
+          { label: "Total Withdrawals", value: <UsdtAmount amount={stats.totalWithdrawals} amountClassName="text-2xl font-bold mt-1" /> },
+        ].map((stat: { label: string; value: ReactNode }) => (
           <Card key={stat.label}>
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">{stat.label}</p>
-              <p className="text-2xl font-bold mt-1">{stat.value}</p>
+              <div>{stat.value}</div>
             </CardContent>
           </Card>
         ))}
@@ -751,7 +752,7 @@ function StatsTab() {
                     <p className="font-medium text-sm">{w.userName} <span className="text-muted-foreground">— Place {w.place}</span></p>
                     <p className="text-xs text-muted-foreground">{w.poolTitle}</p>
                   </div>
-                  <p className="font-bold text-primary">{w.prize} USDT</p>
+                  <UsdtAmount amount={w.prize} amountClassName="font-bold text-primary" currencyClassName="text-[10px] text-[#64748b]" className="items-end" />
                 </CardContent>
               </Card>
             ))}
@@ -1352,7 +1353,7 @@ function PoolsTab() {
                       <span>Pool #{pool.id}</span>
                       <span>·</span>
                       <span className="font-medium text-foreground/70">
-                        {(pool as any).ticketPrice ?? pool.entryFee} USDT / ticket
+                        <UsdtAmount amount={(pool as any).ticketPrice ?? pool.entryFee} amountClassName="font-medium text-foreground/70" currencyClassName="text-[10px] text-[#64748b]" /> / ticket
                       </span>
                       <span>·</span>
                       <span>
@@ -1361,7 +1362,7 @@ function PoolsTab() {
                       <span>·</span>
                       <span>
                         {wc} winner{wc === 1 ? "" : "s"} · Paid prizes:{" "}
-                        <span className="text-primary font-semibold">{totalPrize} USDT</span>
+                        <UsdtAmount amount={totalPrize} amountClassName="text-primary font-semibold" currencyClassName="text-[10px] text-[#64748b]" />
                       </span>
                     </div>
                     <div className="mt-1 text-[11px] text-muted-foreground flex flex-wrap items-center gap-2">
@@ -1390,7 +1391,7 @@ function PoolsTab() {
                     <div key={p.place} className="rounded-xl px-3 py-2 text-center"
                       style={{ background: p.bg, border: `1px solid ${p.border}` }}>
                       <div className="text-lg mb-0.5">{p.icon}</div>
-                      <p className="text-sm font-bold" style={{ color: p.color }}>{p.prize} USDT</p>
+                      <UsdtAmount amount={p.prize} amountClassName="text-sm font-bold" currencyClassName="text-[10px] text-[#64748b]" />
                       <p className="text-[10px] text-muted-foreground">{p.place === 1 ? "1st" : p.place === 2 ? "2nd" : "3rd"} Place</p>
                     </div>
                   ))}
@@ -2086,7 +2087,7 @@ function CreatePoolTab() {
                 style={{ background: "hsl(222,28%,11%)", border: "1px solid hsl(217,28%,16%)" }}>
                 <p className="font-semibold text-foreground/90">Fee preview (this entry price)</p>
                 <p className="text-muted-foreground leading-relaxed">
-                  Fee per join: <span className="text-primary font-mono font-semibold">{platformFeePerJoin} USDT</span>
+                  Fee per join: <UsdtAmount amount={platformFeePerJoin} amountClassName="text-primary font-mono font-semibold" currencyClassName="text-[10px] text-[#64748b]" />
                   {parsedCustomFee != null && Number.isFinite(parsedCustomFee) ? (
                     <> · custom override (capped at list entry).</>
                   ) : (
@@ -2095,7 +2096,7 @@ function CreatePoolTab() {
                 </p>
                 <p className="text-muted-foreground">
                   Net to pool (per ticket, list − fee):{" "}
-                  <span className="text-foreground font-mono font-medium">{netToPoolPerTicket.toFixed(2)} USDT</span>
+                  <UsdtAmount amount={netToPoolPerTicket} amountClassName="text-foreground font-mono font-medium" currencyClassName="text-[10px] text-[#64748b]" />
                 </p>
               </div>
             </div>
@@ -2251,7 +2252,7 @@ function CreatePoolTab() {
                     <div className="flex-1">
                       <p className="font-bold">{form.title || <span className="text-muted-foreground italic text-sm">Pool title...</span>}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {form.ticketPrice} USDT per ticket · {form.totalTickets} total tickets · {form.winnerCount} winner
+                        <UsdtAmount amount={form.ticketPrice} amountClassName="text-xs text-muted-foreground" currencyClassName="text-[10px] text-[#64748b]" /> per ticket · {form.totalTickets} total tickets · {form.winnerCount} winner
                         {form.winnerCount === 1 ? "" : "s"}
                       </p>
                     </div>
@@ -2272,7 +2273,7 @@ function CreatePoolTab() {
                       .map((p, i) => (
                       <div key={i} className="rounded-xl px-2 py-2 text-center" style={{ background: p.bg }}>
                         <div className="text-base">{p.icon}</div>
-                        <p className="text-xs font-bold" style={{ color: p.color }}>{p.prize} USDT</p>
+                        <UsdtAmount amount={p.prize} amountClassName="text-xs font-bold" currencyClassName="text-[10px] text-[#64748b]" />
                       </div>
                     ))}
                   </div>
@@ -2299,22 +2300,22 @@ function CreatePoolTab() {
                   style={{ borderTop: "1px solid hsl(217,28%,14%)", background: "hsl(222,30%,8%)" }}>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="text-center">
-                      <p className="text-sm font-bold text-primary">{totalPrize} USDT</p>
+                      <UsdtAmount amount={totalPrize} amountClassName="text-sm font-bold text-primary" currencyClassName="text-[10px] text-[#64748b]" />
                       <p className="text-[10px] text-muted-foreground">Total Prizes</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-sm font-bold">{poolRevenue} USDT</p>
+                      <UsdtAmount amount={poolRevenue} amountClassName="text-sm font-bold" currencyClassName="text-[10px] text-[#64748b]" />
                       <p className="text-[10px] text-muted-foreground">Gross (list × seats)</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-[10px] border-t border-border/40 pt-2">
                     <div>
                       <p className="text-muted-foreground">Platform fees (if full)</p>
-                      <p className="font-mono font-semibold text-amber-200/90">{totalPlatformFeesIfFull} USDT</p>
+                      <UsdtAmount amount={totalPlatformFeesIfFull} amountClassName="font-mono font-semibold text-amber-200/90" currencyClassName="text-[10px] text-[#64748b]" />
                     </div>
                     <div>
                       <p className="text-muted-foreground">Net collected (if full)</p>
-                      <p className="font-mono font-semibold text-emerald-300/90">{maxNetCollected.toFixed(0)} USDT</p>
+                      <UsdtAmount amount={maxNetCollected} amountClassName="font-mono font-semibold text-emerald-300/90" currencyClassName="text-[10px] text-[#64748b]" />
                     </div>
                   </div>
                   <div className="rounded-lg px-2 py-2 text-center"
@@ -2325,8 +2326,7 @@ function CreatePoolTab() {
                     }}>
                     <p className="text-[10px] text-muted-foreground">Est. margin (net − prizes)</p>
                     <p className={`text-sm font-bold tabular-nums ${estimatedPoolMargin >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                      {estimatedPoolMargin >= 0 ? "+" : ""}
-                      {estimatedPoolMargin.toFixed(0)} USDT
+                      <UsdtAmount amount={estimatedPoolMargin} prefix={estimatedPoolMargin >= 0 ? "+" : ""} amountClassName={`text-sm font-bold tabular-nums ${estimatedPoolMargin >= 0 ? "text-emerald-400" : "text-red-400"}`} currencyClassName="text-[10px] text-[#64748b]" />
                     </p>
                   </div>
                 </div>
@@ -3175,7 +3175,9 @@ function UserProfileModal({ user, onClose }: { user: any; onClose: () => void })
         <div className="p-5 border-b grid grid-cols-2 gap-3">
           <div className="bg-muted/40 rounded-lg p-3 col-span-2">
             <p className="text-xs text-muted-foreground">Bonus = tickets only · Withdrawable = can cash out</p>
-            <p className="font-bold text-primary text-xl mt-1">{user.walletBalance.toFixed(2)} USDT total (for tickets)</p>
+            <p className="font-bold text-primary text-xl mt-1">
+              <UsdtAmount amount={user.walletBalance} amountClassName="font-bold text-primary text-xl" currencyClassName="text-[10px] text-[#64748b]" /> total (for tickets)
+            </p>
             <p className="text-xs text-muted-foreground mt-1 tabular-nums">
               Reward pts {(user as { rewardPoints?: number }).rewardPoints ?? 0} · Withdrawable{" "}
               {(user as { withdrawableBalance?: number }).withdrawableBalance?.toFixed(2) ?? "0.00"}
@@ -3186,7 +3188,7 @@ function UserProfileModal({ user, onClose }: { user: any; onClose: () => void })
           </div>
           <div className="bg-muted/40 rounded-lg p-3 col-span-2">
             <p className="text-xs text-muted-foreground">Total Deposited</p>
-            <p className="font-bold text-lg">{user.totalDeposited.toFixed(2)} USDT</p>
+            <UsdtAmount amount={user.totalDeposited} amountClassName="font-bold text-lg" currencyClassName="text-[10px] text-[#64748b]" />
           </div>
           {user.cryptoAddress && (
             <div className="col-span-2 bg-muted/40 rounded-lg p-3">
@@ -3208,13 +3210,19 @@ function UserProfileModal({ user, onClose }: { user: any; onClose: () => void })
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`font-bold ${txColor(tx.txType)}`}>
-                      {tx.txType === "deposit" ||
-                      tx.txType === "reward" ||
-                      tx.txType === "pool_refund" ||
-                      tx.txType === "promo_credit"
-                        ? "+"
-                        : "-"}
-                      {tx.amount.toFixed(2)} USDT
+                      <UsdtAmount
+                        amount={tx.amount}
+                        prefix={
+                          tx.txType === "deposit" ||
+                          tx.txType === "reward" ||
+                          tx.txType === "pool_refund" ||
+                          tx.txType === "promo_credit"
+                            ? "+"
+                            : "-"
+                        }
+                        amountClassName={`font-bold ${txColor(tx.txType)}`}
+                        currencyClassName="text-[10px] text-[#64748b]"
+                      />
                     </span>
                     <span className="text-xs text-muted-foreground capitalize">{tx.txType.replace("_", " ")}</span>
                     {tx.status === "pending" && <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">Pending</Badge>}
@@ -3619,7 +3627,7 @@ function PendingTransactionsTab() {
                   {tx.status === "under_review" && (
                     <Badge className="bg-blue-100 text-blue-800 border-blue-200">Under review</Badge>
                   )}
-                  <span className="font-bold text-primary">{tx.amount.toFixed(2)} USDT</span>
+                  <UsdtAmount amount={tx.amount} amountClassName="font-bold text-primary" currencyClassName="text-[10px] text-[#64748b]" />
                 </div>
                 <p className="text-xs text-muted-foreground">{tx.userEmail}</p>
                 {tx.userCryptoAddress && (
@@ -3777,7 +3785,7 @@ function TransactionsTab() {
               <p className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleString()}</p>
             </div>
             <div className="text-right shrink-0">
-              <p className={`font-bold ${txColor(tx.txType)}`}>{tx.amount} USDT</p>
+              <UsdtAmount amount={tx.amount} amountClassName={`font-bold ${txColor(tx.txType)}`} currencyClassName="text-[10px] text-[#64748b]" className="items-end" />
               {tx.screenshotUrl && (
                 <a href={getFullImageUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline">
                   Receipt
@@ -4002,7 +4010,13 @@ function ReviewsTab() {
                         {r.poolTitle && (
                           <span className="text-xs text-muted-foreground">
                             · Won in <span className="text-yellow-400">{r.poolTitle}</span>
-                            {r.prize && <span className="text-primary font-semibold"> (+{r.prize} USDT)</span>}
+                            {r.prize && (
+                              <span className="text-primary font-semibold inline-flex items-center">
+                                (
+                                <UsdtAmount amount={r.prize} prefix="+" amountClassName="text-primary font-semibold" currencyClassName="text-[10px] text-[#64748b]" />
+                                )
+                              </span>
+                            )}
                           </span>
                         )}
                       </div>
