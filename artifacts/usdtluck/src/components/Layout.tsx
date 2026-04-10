@@ -420,6 +420,7 @@ function MoreMenu({ links, location }: { links: { href: string; label: string; i
    Mobile full-screen slide menu
 ───────────────────────────────────────────── */
 function MobileMenu({
+  open,
   primaryLinks,
   secondaryLinks,
   guestLinks,
@@ -428,6 +429,7 @@ function MobileMenu({
   logout,
   onClose,
 }: {
+  open: boolean;
   primaryLinks: { href: string; label: string; icon: string }[];
   secondaryLinks: { href: string; label: string; icon: string }[];
   guestLinks: { href: string; label: string }[];
@@ -439,20 +441,79 @@ function MobileMenu({
   const allLinks = user
     ? [...primaryLinks, ...secondaryLinks]
     : guestLinks.map((link) => ({ ...link, icon: "•" }));
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeBtnRef.current?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !panelRef.current) return;
+      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey) {
+        if (!active || active === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (!active || active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, onClose]);
 
   return (
-    <div className="md:hidden fixed inset-0 z-[70]">
-      <button type="button" aria-label="Close menu" onClick={onClose} className="absolute inset-0 bg-black/50 backdrop-blur-[1px]" />
+    <div className={`md:hidden fixed inset-0 z-[90] ${open ? "" : "pointer-events-none"}`} aria-hidden={!open}>
+      <button
+        type="button"
+        aria-label="Close menu"
+        onClick={onClose}
+        className={`absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity duration-300 ease-in-out ${
+          open ? "opacity-100" : "opacity-0"
+        }`}
+      />
       <aside
-        className="absolute left-0 top-0 h-full w-[84vw] max-w-[20rem] border-r shadow-2xl"
+        id="mobile-nav-drawer"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Mobile Navigation"
+        className={`absolute right-0 top-0 h-full w-[86vw] max-w-[22rem] rounded-l-2xl border-l shadow-2xl transition-transform duration-300 ease-in-out will-change-transform ${
+          open ? "translate-x-0" : "translate-x-full"
+        }`}
         style={{
-          background: "linear-gradient(180deg, hsla(224,30%,10%,0.98) 0%, hsla(224,30%,8%,0.98) 100%)",
+          background: "linear-gradient(180deg, hsla(224,30%,9%,0.99) 0%, hsla(224,30%,7%,0.98) 100%)",
           borderColor: "hsl(217,28%,16%)",
         }}
       >
         <div className="px-4 py-3.5 flex items-center justify-between border-b" style={{ borderColor: "hsl(217,28%,14%)" }}>
           <Logo size="sm" />
-          <button onClick={onClose} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors" aria-label="Close sidebar">
+          <button
+            ref={closeBtnRef}
+            onClick={onClose}
+            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+            aria-label="Close sidebar"
+          >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -478,16 +539,18 @@ function MobileMenu({
         <nav className="px-3 pt-3 pb-6 space-y-1 safe-area-pb">
           {allLinks.map((link) => (
             <Link key={link.href} href={link.href}>
-              <span onClick={onClose}
+              <button
+                onClick={onClose}
                 className={`flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium transition-colors cursor-pointer min-h-12 ${
                   location.startsWith(link.href)
                     ? "bg-primary/12 text-primary"
                     : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                }`}>
+                } w-full text-left`}
+              >
                 <span className="text-base w-5 text-center">{link.icon}</span>
                 {link.label}
                 {location.startsWith(link.href) && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
-              </span>
+              </button>
             </Link>
           ))}
 
@@ -577,25 +640,32 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const isLandingGuest = !isLoading && !user && location === "/";
 
-  /** Shared header + footer dark chrome for consistent theme */
-  const chromeBase = {
-    background: "linear-gradient(180deg, hsla(224,30%,8%,0.92) 0%, hsla(224,30%,7%,0.88) 100%)",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
-    borderColor: "hsla(217,28%,14%,0.65)",
-  };
+  /** Keep landing header transparent so gradient flows behind it */
+  const chromeBase = isLandingGuest
+    ? {
+        background: "transparent",
+        borderColor: "transparent",
+      }
+    : {
+        background: "linear-gradient(180deg, hsla(224,30%,8%,0.92) 0%, hsla(224,30%,7%,0.88) 100%)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        borderColor: "hsla(217,28%,14%,0.65)",
+      };
 
-  const headerShadow = isScrolled
-    ? "0 16px 36px -24px rgba(0,0,0,0.38)"
-    : "0 10px 24px -24px rgba(0,0,0,0.28)";
+  const headerShadow = isLandingGuest
+    ? "none"
+    : isScrolled
+      ? "0 16px 36px -24px rgba(0,0,0,0.38)"
+      : "0 10px 24px -24px rgba(0,0,0,0.28)";
 
   const footerShadow = "0 10px 24px -24px rgba(0,0,0,0.28)";
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground">
-      <div className="sticky top-0 z-50 px-2 sm:px-3 pt-2.5 sm:pt-3.5">
+    <div className={`min-h-screen flex flex-col text-foreground ${isLandingGuest ? "bg-transparent" : "bg-background"}`}>
+      <div className={`${isLandingGuest ? "fixed inset-x-0 top-0" : "sticky top-0"} z-50 px-2 sm:px-3 pt-2.5 sm:pt-3.5`}>
       <header
-        className="mx-auto max-w-7xl rounded-[1.35rem] sm:rounded-[1.7rem] border"
+        className={`mx-auto max-w-7xl ${isLandingGuest ? "rounded-2xl" : "rounded-[1.35rem] sm:rounded-[1.7rem] border"}`}
         style={{
           ...chromeBase,
           boxShadow: headerShadow,
@@ -659,32 +729,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
             {/* ── Right side ── */}
             <div className="flex items-center gap-2 ml-auto shrink-0">
-              {!isLoading && (
-                <button
-                  onClick={() => setMobileOpen((v) => !v)}
-                  className="lg:hidden p-2 rounded-lg transition-colors"
-                  style={{ color: mobileOpen ? "hsl(152,72%,55%)" : undefined }}
-                  aria-label="Menu"
-                >
-                  {mobileOpen ? (
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                  )}
-                </button>
-              )}
-
               {!isLoading && user && (
                 <>
                   {/* Notification bell */}
-                  <NotificationBell />
+                  <div className="hidden md:block">
+                    <NotificationBell />
+                  </div>
 
                   {/* Wallet balance */}
-                  <WalletDropdown balance={user.walletBalance} />
+                  <div className="hidden md:block">
+                    <WalletDropdown balance={user.walletBalance} />
+                  </div>
 
                   {/* Divider */}
                   <div className="hidden md:block w-px h-5 opacity-30" style={{ background: "hsl(217,28%,40%)" }} />
@@ -698,7 +753,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               )}
 
               {!isLoading && !user && (
-                <div className="flex items-center gap-2">
+                <div className="hidden sm:flex items-center gap-2">
                   <Link href="/how-it-works">
                     <Button
                       variant="ghost"
@@ -728,23 +783,44 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   </Link>
                 </div>
               )}
+
+              {!isLoading && (
+                <button
+                  onClick={() => setMobileOpen((v) => !v)}
+                  className="lg:hidden p-2 rounded-lg transition-all duration-200 ease-in-out active:scale-95 hover:bg-white/[0.04]"
+                  style={{ color: mobileOpen ? "hsl(152,72%,55%)" : undefined }}
+                  aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
+                  aria-expanded={mobileOpen}
+                  aria-controls="mobile-nav-drawer"
+                >
+                  {mobileOpen ? (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {mobileOpen && (
-          <MobileMenu
-            primaryLinks={primaryLinks}
-            secondaryLinks={secondaryLinks}
-            guestLinks={guestHeaderLinks}
-            location={location}
-            user={user}
-            logout={logout}
-            onClose={() => setMobileOpen(false)}
-          />
-        )}
       </header>
       </div>
+
+      <MobileMenu
+        open={mobileOpen}
+        primaryLinks={primaryLinks}
+        secondaryLinks={secondaryLinks}
+        guestLinks={guestHeaderLinks}
+        location={location}
+        user={user}
+        logout={logout}
+        onClose={() => setMobileOpen(false)}
+      />
 
       <main
         className={

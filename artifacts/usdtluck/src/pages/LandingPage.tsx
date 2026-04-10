@@ -158,14 +158,14 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="relative overflow-x-hidden">
+    <div className="relative min-h-screen overflow-x-hidden">
       <div
         aria-hidden
-        className="pointer-events-none absolute z-0 -inset-x-16 -inset-y-24 min-h-[120vh] w-auto"
+        className="pointer-events-none fixed inset-0 z-0"
         style={{
-          transform: `translate3d(0, ${parallaxY * -1}px, 0)`,
+          transform: `translate3d(0, ${Math.round(parallaxY * -0.4)}px, 0)`,
           background:
-            "radial-gradient(circle at 16% 8%, hsl(var(--primary)/0.2), transparent 30%), radial-gradient(circle at 82% 12%, hsl(28 90% 58%/0.2), transparent 32%), radial-gradient(circle at 50% 62%, hsl(210 85% 60%/0.12), transparent 42%), linear-gradient(180deg, hsl(224 30% 8%), hsl(224 30% 7%) 44%, hsl(224 30% 6%) 100%)",
+            "radial-gradient(circle at 14% 10%, hsl(var(--primary)/0.18), transparent 32%), radial-gradient(circle at 88% 84%, hsl(210 85% 60%/0.12), transparent 34%), linear-gradient(135deg, #0b1220 0%, #0f172a 45%, #1a1a2e 100%)",
         }}
       />
       <motion.div
@@ -182,7 +182,7 @@ export default function LandingPage() {
       />
 
       <div className="relative z-10">
-      <section className="relative max-w-6xl mx-auto px-4 pt-8 sm:pt-10">
+      <section className="relative max-w-6xl mx-auto px-4 pt-24 sm:pt-28">
         <div
           className="rounded-3xl border border-border/70 bg-card/70 backdrop-blur p-6 sm:p-10 lg:p-14 shadow-2xl"
         >
