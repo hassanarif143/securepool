@@ -523,34 +523,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     ...(user.isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: "⚙️" }] : []),
   ] : [];
 
-  const showLandingPromo = !isLoading && !user && location === "/";
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <div className="sticky top-0 z-50">
-        {showLandingPromo && (
-          <div
-            className="layout-landing-premium-banner border-b"
-            role="region"
-            aria-label="Announcement"
-          >
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-1 sm:gap-3 py-2.5 text-center sm:text-left">
-              <p className="text-[11px] sm:text-xs text-muted-foreground/95 tracking-wide">
-                <span className="text-[hsl(43_62%_58%)] font-semibold uppercase tracking-[0.14em] mr-2">
-                  Featured
-                </span>
-                TRC-20 USDT pools with published rules, wallet-native checkout, and admin-reviewed payouts.
-              </p>
-              <Link
-                href="/pools"
-                className="inline-flex items-center justify-center gap-1 text-[11px] sm:text-xs font-semibold text-primary hover:text-primary/90 transition-colors shrink-0"
-              >
-                Explore live draws
-                <ChevronRight className="h-3.5 w-3.5 opacity-80" aria-hidden />
-              </Link>
-            </div>
-          </div>
-        )}
       <header
         className="border-b"
         style={{
