@@ -1,7 +1,6 @@
+import type { ReactNode } from "react";
 import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
-import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function SocialX({ className }: { className?: string }) {
@@ -30,14 +29,14 @@ function SocialDiscord({ className }: { className?: string }) {
 
 const link = "text-sm text-muted-foreground hover:text-foreground transition-colors";
 
-const FOOTER_LINKS: { href: string; label: string; external?: boolean }[] = [
-  { href: "/pools", label: "Pools" },
-  { href: "/how-it-works", label: "How it works" },
-  { href: "/rewards", label: "Rewards" },
-  { href: "/wallet", label: "Wallet" },
-  { href: "/provably-fair", label: "Provably fair" },
-  { href: "mailto:support@securepool.app", label: "Contact", external: true },
-];
+function FooterCol({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="space-y-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">{title}</p>
+      <ul className="space-y-2.5">{children}</ul>
+    </div>
+  );
+}
 
 export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBottomSpace?: boolean }) {
   const year = new Date().getFullYear();
@@ -50,41 +49,96 @@ export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBott
       )}
     >
       <div className="page-container py-8 sm:py-10">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-sm space-y-3">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-2 md:grid-cols-4 md:gap-x-8">
+          {/* Brand */}
+          <div className="col-span-2 md:col-span-1 space-y-3">
             <Link
               href="/"
               className="inline-flex items-center gap-2 rounded-lg outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Logo size="md" showText />
             </Link>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Transparent USDT pools with fair draws.
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
+              Transparent USDT reward pools with fair draws. Join live pools, track your tickets, and withdraw with
+              clarity.
+            </p>
+            <p className="text-xs text-muted-foreground/80 pt-1">
+              © {year} SecurePool. All rights reserved.
             </p>
           </div>
 
-          <nav className="flex flex-wrap gap-x-6 gap-y-2 lg:justify-end lg:max-w-xl">
-            {FOOTER_LINKS.map((item) =>
-              item.external ? (
-                <a key={item.href} href={item.href} className={link}>
-                  {item.label}
-                </a>
-              ) : (
-                <Link key={item.href} href={item.href} className={link}>
-                  {item.label}
-                </Link>
-              ),
-            )}
-          </nav>
+          <FooterCol title="Product">
+            <li>
+              <Link href="/pools" className={link}>
+                Live Pools
+              </Link>
+            </li>
+            <li>
+              <Link href="/how-it-works" className={link}>
+                How It Works
+              </Link>
+            </li>
+            <li>
+              <Link href="/rewards" className={link}>
+                Rewards
+              </Link>
+            </li>
+            <li>
+              <Link href="/wallet" className={link}>
+                Wallet
+              </Link>
+            </li>
+          </FooterCol>
+
+          <FooterCol title="Support">
+            <li>
+              <Link href="/how-it-works" className={link}>
+                Help Center
+              </Link>
+            </li>
+            <li>
+              <a href="mailto:support@securepool.app" className={link}>
+                Contact
+              </a>
+            </li>
+            <li>
+              <Link href="/how-it-works" className={link}>
+                FAQs
+              </Link>
+            </li>
+            <li>
+              <a href="mailto:support@securepool.app?subject=Issue%20report" className={link}>
+                Report Issue
+              </a>
+            </li>
+          </FooterCol>
+
+          <FooterCol title="Legal & Trust">
+            <li>
+              <a href="mailto:support@securepool.app?subject=Terms%20of%20Service" className={link}>
+                Terms
+              </a>
+            </li>
+            <li>
+              <a href="mailto:support@securepool.app?subject=Privacy%20Policy" className={link}>
+                Privacy
+              </a>
+            </li>
+            <li>
+              <Link href="/provably-fair" className={link}>
+                Fairness Info
+              </Link>
+            </li>
+          </FooterCol>
         </div>
 
-        <div className="mt-8 flex flex-col gap-4 border-t border-border pt-8 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center justify-center gap-2 sm:justify-start">
+        <div className="mt-10 flex justify-center border-t border-border pt-6 sm:justify-start">
+          <div className="flex items-center gap-2">
             <a
               href="https://x.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
               aria-label="X"
             >
               <SocialX className="h-3.5 w-3.5" />
@@ -93,7 +147,7 @@ export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBott
               href="https://t.me"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
               aria-label="Telegram"
             >
               <SocialTelegram className="h-4 w-4" />
@@ -102,24 +156,13 @@ export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBott
               href="https://discord.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
               aria-label="Discord"
             >
               <SocialDiscord className="h-4 w-4" />
             </a>
           </div>
-
-          <Button asChild size="sm" className="w-full sm:w-auto sm:min-w-[180px]">
-            <Link href="/pools" className="inline-flex items-center justify-center gap-2">
-              Join a pool
-              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-            </Link>
-          </Button>
         </div>
-
-        <p className="mt-8 text-center text-xs text-muted-foreground">
-          © {year} SecurePool
-        </p>
       </div>
     </footer>
   );
