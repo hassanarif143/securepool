@@ -2266,6 +2266,33 @@ async function finalizePoolDistribution(
       ),
     )
     .catch(() => {});
+
+  const [fpool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  const drawHashShort =
+    fpool?.seedHash != null && String(fpool.seedHash).length > 12
+      ? `${String(fpool.seedHash).slice(0, 8)}…${String(fpool.seedHash).slice(-6)}`
+      : fpool?.serverSeed != null && String(fpool.serverSeed).length > 8
+        ? `${String(fpool.serverSeed).slice(0, 8)}…`
+        : "—";
+
+  void import("../services/share-card-service.js")
+    .then((m) =>
+      m
+        .onPoolDrawCompletedShareCards({
+          poolId,
+          poolTitle: pool.title,
+          totalTickets: financial.ticketsSold,
+          drawHash: drawHashShort,
+          winners: winnerRecords.map((w) => ({
+            userId: w.userId,
+            place: w.place,
+            prize: w.prize,
+            userName: w.userName,
+          })),
+        })
+        .catch((err: unknown) => logger.warn({ err, poolId }, "[share-card] pool_win hook failed")),
+    )
+    .catch(() => {});
 }
 
 export async function distributePoolWithWinners(

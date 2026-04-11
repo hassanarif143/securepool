@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { notifyUser } from "../lib/notify";
 import { logActivity } from "./activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
+import { formatShareCardDisplayDate, onPoolStreakMilestone } from "./share-card-service";
 
 const STREAK_GAP_DAYS = 7;
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -63,7 +64,7 @@ export async function applyStreakOnPoolJoin(userId: number, joinerDisplayName: s
 
   const who = privacyDisplayName(joinerDisplayName);
 
-  const hasMilestone = false;
+  const hasMilestone = [3, 5, 10, 20].includes(nextStreak);
   if (hasMilestone) {
     if (nextStreak === 3) milestone = "3";
     else if (nextStreak === 5) milestone = "5";
@@ -81,6 +82,24 @@ export async function applyStreakOnPoolJoin(userId: number, joinerDisplayName: s
       `${nextStreak}-pool streak unlocked.`,
       "success",
     );
+
+    void onPoolStreakMilestone(userId, {
+      username: who,
+      streak_days: nextStreak,
+      streak_kind: "pool_join",
+      date: formatShareCardDisplayDate(new Date()),
+    })
+      .then((id) => {
+        if (id > 0) {
+          void notifyUser(
+            userId,
+            "🔥 Share your streak!",
+            `Your ${nextStreak}-pool streak card is ready — open My Shares to post.`,
+            "share_prompt",
+          );
+        }
+      })
+      .catch(() => {});
   }
 
   return {

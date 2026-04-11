@@ -54,6 +54,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [referralCode, setReferralCode] = useState("");
+  const [shareCardId, setShareCardId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [, navigate] = useLocation();
   const search = useSearch();
@@ -68,6 +69,11 @@ export default function SignupPage() {
     const params = new URLSearchParams(search);
     const ref = params.get("ref");
     if (ref) setReferralCode(ref.toUpperCase());
+    const sc = params.get("sc");
+    if (sc) {
+      const n = parseInt(sc, 10);
+      if (Number.isFinite(n) && n > 0) setShareCardId(n);
+    }
   }, [search]);
 
   const addrPhase = trc20ValidationMessage(cryptoAddress);
@@ -123,6 +129,7 @@ export default function SignupPage() {
           email,
           password,
           referralCode: referralCode || undefined,
+          shareCardId: shareCardId ?? undefined,
         }),
       });
       const raw = await res.text();

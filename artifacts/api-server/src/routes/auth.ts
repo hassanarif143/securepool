@@ -14,6 +14,7 @@ import { logger } from "../lib/logger";
 import { getOrCreateCsrfToken } from "../middleware/csrf";
 import { trc20AddressZod } from "../lib/trc20";
 import { applyRiskDelta, extractClientIp, getSecurityConfig, logSecurityEvent, registerDeviceLogin } from "../lib/security";
+import { recordShareCardSignupConversion } from "../services/share-card-service";
 
 declare module "express-session" {
   interface SessionData {
@@ -31,6 +32,7 @@ const SignupSchema = z
     cryptoAddress: z.string().trim().optional(),
     cryptoAddressConfirm: z.string().trim().optional(),
     referralCode: z.string().optional(),
+    shareCardId: z.coerce.number().int().positive().optional(),
   })
   .superRefine((d, ctx) => {
     const a = (d.cryptoAddress ?? "").trim();
@@ -176,6 +178,7 @@ router.post("/signup", signupLimiter, async (req, res) => {
   const { password } = parse.data;
   const cryptoAddress = parse.data.cryptoAddress?.trim() || null;
   const referralCode = parse.data.referralCode;
+  const shareCardId = parse.data.shareCardId;
 
   const existingByEmail = await dbPool.query(
     `SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
@@ -242,6 +245,14 @@ router.post("/signup", signupLimiter, async (req, res) => {
       });
     } catch (_) {
       /* Ignore duplicate — safety guard */
+    }
+    if (shareCardId != null && referralCode) {
+      void recordShareCardSignupConversion({
+        shareCardId,
+        newUserId: user.id,
+        referrerId: referrer.id,
+        referralCodeUsed: referralCode,
+      }).catch(() => {});
     }
   }
 

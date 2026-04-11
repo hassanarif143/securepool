@@ -6,6 +6,7 @@ import { Logo } from "@/components/Logo";
 import { apiUrl } from "@/lib/api-base";
 import { useGameAvailability } from "@/lib/game-availability";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
+import { SharePromptGate } from "@/components/share/SharePromptGate";
 import { ChevronRight, LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
 import { UsdtAmount } from "@/components/UsdtAmount";
 
@@ -560,6 +561,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/my-tickets", label: "My Tickets", icon: "🎟️" },
     { href: "/rewards", label: "Rewards", icon: "🎁" },
     { href: "/referral", label: "Referral", icon: "🔗" },
+    { href: "/my-shares", label: "My Shares", icon: "📤" },
     { href: "/staking", label: "Staking", icon: "🔒" },
     { href: "/p2p", label: "P2P Trading", icon: "💱" },
     ...(!gamesLoading && cashoutArenaEnabled ? [{ href: "/cashout-arena", label: "Cashout Arena", icon: "🚀" }] : []),
@@ -721,6 +723,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         }`}
       >
         {user ? <LiveJoinNotification /> : null}
+        {user ? <SharePromptGate /> : null}
         {children}
       </main>
 

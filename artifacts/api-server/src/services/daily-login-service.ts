@@ -1,5 +1,8 @@
 import { and, desc, eq, gte } from "drizzle-orm";
 import { db, dailyLoginsTable, usersTable } from "@workspace/db";
+import { privacyDisplayName } from "../lib/privacy-name";
+import { notifyUser } from "../lib/notify";
+import { formatShareCardDisplayDate, onStreakMilestone } from "./share-card-service";
 
 export type DailyRewardSpec = { type: "points"; value: number; day: number };
 
@@ -91,6 +94,27 @@ export async function processDailyLogin(userId: number) {
 
   const nextAfter = nextCycleDay >= 7 ? 1 : nextCycleDay + 1;
   const nextSpec = rewardForCycleDay(nextAfter, configuredPoints);
+
+  if (inserted!.dayNumber === 7) {
+    try {
+      const id = await onStreakMilestone(userId, {
+        username: privacyDisplayName(u.name),
+        streak_days: 7,
+        streak_kind: "daily_login",
+        date: formatShareCardDisplayDate(new Date()),
+      });
+      if (id > 0) {
+        void notifyUser(
+          userId,
+          "🔥 Week streak!",
+          "Your 7-day login streak card is in My Shares.",
+          "share_prompt",
+        );
+      }
+    } catch {
+      /* ignore */
+    }
+  }
 
   return {
     isNewLogin: true,

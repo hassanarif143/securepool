@@ -1745,9 +1745,28 @@ router.post("/transactions/:id/approve", async (req, res) => {
 
   if (txn.txType === "deposit") {
     try {
-      const { awardTierPoints, POINTS_PER_USDT } = await import("../lib/tier");
+      const { awardTierPoints, POINTS_PER_USDT, getTierConfig } = await import("../lib/tier");
       const pts = Math.max(1, Math.floor(parseFloat(txn.amount) * POINTS_PER_USDT));
-      await awardTierPoints(txn.userId, pts);
+      const tierResult = await awardTierPoints(txn.userId, pts);
+      if (tierResult?.tierChanged) {
+        const { onLevelUp, formatShareCardDisplayDate } = await import("../services/share-card-service");
+        const [depUser] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, txn.userId)).limit(1);
+        const id = await onLevelUp(txn.userId, {
+          username: privacyDisplayName(depUser?.name ?? "Player"),
+          new_level: getTierConfig(tierResult.newTier).label,
+          previous_level: getTierConfig(tierResult.previousTier).label,
+          tier_kind: "activity",
+          date: formatShareCardDisplayDate(new Date()),
+        });
+        if (id > 0) {
+          void notifyUser(
+            txn.userId,
+            "⬆️ Tier up!",
+            `You're now ${getTierConfig(tierResult.newTier).label}. Share card #${id} — see My Shares.`,
+            "share_prompt",
+          );
+        }
+      }
     } catch {
       /* ignore */
     }
@@ -1839,6 +1858,14 @@ router.post("/transactions/:id/complete", async (req, res) => {
   } catch {
     /* ignore */
   }
+
+  void import("../services/share-card-service.js")
+    .then((m) =>
+      m
+        .onWithdrawalSuccess({ userId: txn.userId, amountUsdt: wdAmount, txId })
+        .catch(() => {}),
+    )
+    .catch(() => {});
 
   if (txUser?.email) {
     void sendWithdrawalStatusEmail(txUser.email, txn.amount, "completed");
@@ -2922,6 +2949,39 @@ router.get("/security/monitor", async (_req, res) => {
       p2pSpikes: Number(p2pSpikes[0]?.c ?? 0),
     },
     recentEvents,
+  });
+});
+
+router.get("/share-cards/analytics", async (_req, res) => {
+  const { rows: byType } = await pgPool.query(
+    `SELECT card_type,
+            COUNT(*)::int AS total_cards,
+            COALESCE(SUM(share_count), 0)::text AS total_shares
+     FROM share_cards
+     WHERE created_at > NOW() - INTERVAL '30 days'
+     GROUP BY card_type
+     ORDER BY total_shares DESC`,
+  );
+  const { rows: tot } = await pgPool.query(
+    `SELECT COUNT(*)::int AS cards_generated,
+            COALESCE(SUM(share_count), 0)::text AS total_share_events
+     FROM share_cards
+     WHERE created_at > NOW() - INTERVAL '30 days'`,
+  );
+  const { rows: plat } = await pgPool.query(
+    `SELECT platform, COUNT(*)::int AS c
+     FROM share_analytics
+     WHERE clicked_at > NOW() - INTERVAL '30 days' AND platform IS NOT NULL
+     GROUP BY platform`,
+  );
+  res.json({
+    periodDays: 30,
+    cardsGenerated: parseInt(String(tot[0]?.cards_generated ?? "0"), 10) || 0,
+    totalShareEvents: parseFloat(String(tot[0]?.total_share_events ?? "0")) || 0,
+    byCardType: byType,
+    shareEventsByPlatform: Object.fromEntries(
+      plat.map((p: { platform: string; c: string }) => [p.platform, parseInt(p.c, 10)]),
+    ),
   });
 });
 

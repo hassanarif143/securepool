@@ -1,7 +1,4 @@
--- Pool auto-draw: FILLED / DRAWING statuses, schedule timestamps, notifications.pool_id
-
-ALTER TYPE pool_status ADD VALUE 'filled';
-ALTER TYPE pool_status ADD VALUE 'drawing';
+-- Pool auto-draw: FILLED / DRAWING statuses (enum values in 0043_00_pool_status_enum.sql), schedule timestamps, notifications.pool_id
 
 ALTER TABLE pools
   ADD COLUMN IF NOT EXISTS draw_scheduled_at TIMESTAMPTZ,

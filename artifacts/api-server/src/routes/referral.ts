@@ -7,6 +7,20 @@ import { assertEmailVerified } from "../middleware/require-email-verified";
 
 const router = Router();
 
+/** Public: redirect to signup with referral code (friend invite links). */
+router.get("/go/:code", (req, res) => {
+  const code = String(req.params.code ?? "").trim();
+  if (!code) {
+    res.redirect(302, "/signup");
+    return;
+  }
+  const base =
+    process.env.FRONTEND_ORIGIN?.replace(/\/$/, "") ||
+    process.env.FRONTEND_URL?.replace(/\/$/, "") ||
+    (process.env.NODE_ENV === "production" ? "https://securepool-usdtluck.vercel.app" : "http://localhost:5173");
+  res.redirect(302, `${base}/signup?ref=${encodeURIComponent(code)}`);
+});
+
 function buildReferralCode(userId: number): string {
   const rand = crypto.randomInt(1000, 10000);
   return `REF${userId}${rand}`;
