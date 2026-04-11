@@ -609,3 +609,14 @@
     animation: none !important;
   }
 }
+
+/* Public landing page typography */
+.landing-root {
+  font-family: "DM Sans", var(--app-font-sans), system-ui, sans-serif;
+}
+.landing-root .landing-display {
+  font-family: "Lexend", "Outfit", var(--app-font-sans), system-ui, sans-serif;
+}
+.landing-root .landing-mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
