@@ -5,10 +5,10 @@ import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TRUST_ITEMS = [
-  { icon: "🔒", label: "Provably Fair" },
-  { icon: "⚡", label: "Instant Credit" },
-  { icon: "💎", label: "No Hidden Fees" },
-  { icon: "🎯", label: "Transparent System" },
+  { icon: "🔒", label: "Provably Fair", mobile: true },
+  { icon: "⚡", label: "Instant Credit", mobile: true },
+  { icon: "💎", label: "No Hidden Fees", mobile: false },
+  { icon: "🎯", label: "Transparent System", mobile: false },
 ] as const;
 
 function SocialX({ className }: { className?: string }) {
@@ -58,13 +58,14 @@ export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBott
       {/* Trust bar */}
       <div className="border-b border-white/[0.06]">
         <div className="page-container py-4 sm:py-5">
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-3 sm:justify-between sm:gap-x-6">
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 sm:gap-x-4 sm:gap-y-3 md:justify-between md:gap-x-6">
             {TRUST_ITEMS.map((item) => (
               <div
                 key={item.label}
                 className={cn(
                   "group flex items-center gap-2 rounded-full border border-white/5 bg-white/[0.03] px-3 py-1.5 sm:px-4 sm:py-2",
                   "transition-all duration-300 hover:border-cyan-500/35 hover:bg-cyan-500/5 hover:shadow-[0_0_20px_-6px_rgba(6,182,212,0.35)]",
+                  !item.mobile && "hidden md:flex",
                 )}
               >
                 <span
@@ -83,17 +84,18 @@ export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBott
       </div>
 
       <div className="page-container py-10 sm:py-14">
-        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 sm:gap-10 md:grid-cols-3 md:gap-8 lg:grid-cols-4">
           {/* Branding */}
           <div className="space-y-4">
             <Link href="/" className="inline-flex items-center gap-2 rounded-lg outline-none ring-offset-2 ring-offset-[#050a14] focus-visible:ring-2 focus-visible:ring-cyan-500/50">
               <Logo size="md" showText />
             </Link>
-            <p className="max-w-xs text-sm leading-relaxed text-slate-400">
+            <p className="max-w-xs text-sm leading-relaxed text-slate-400 hidden sm:block">
               Transparent USDT reward pools with fair draws. Join live pools, track your tickets, and withdraw with
               clarity.
             </p>
-            <p className="text-xs text-slate-500">© {year} SecurePool. All rights reserved.</p>
+            <p className="text-xs text-slate-400 sm:hidden">Fair USDT pools — transparent draws.</p>
+            <p className="text-xs text-slate-500 hidden sm:block">© {year} SecurePool. All rights reserved.</p>
           </div>
 
           {/* Product */}
@@ -123,8 +125,8 @@ export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBott
             </ul>
           </div>
 
-          {/* Support */}
-          <div>
+          {/* Support — desktop / tablet */}
+          <div className="hidden md:block">
             <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-cyan-500/90">Support</p>
             <ul className="space-y-3">
               <li>
@@ -153,8 +155,8 @@ export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBott
             </ul>
           </div>
 
-          {/* Legal & trust */}
-          <div>
+          {/* Legal & trust — desktop / tablet */}
+          <div className="hidden lg:block">
             <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-cyan-500/90">Legal &amp; Trust</p>
             <ul className="space-y-3">
               <li>
@@ -182,8 +184,24 @@ export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBott
           </div>
         </div>
 
+        {/* Mobile: compact trust / legal links (full columns hidden on small screens) */}
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-white/[0.06] pt-8 text-[11px] text-slate-500 md:hidden">
+          <a href="mailto:support@securepool.app" className="hover:text-cyan-400 transition-colors">
+            Contact
+          </a>
+          <Link href="/provably-fair" className="hover:text-cyan-400 transition-colors">
+            Fairness
+          </Link>
+          <a
+            href="mailto:support@securepool.app?subject=Issue%20report"
+            className="hover:text-cyan-400 transition-colors"
+          >
+            Report
+          </a>
+        </div>
+
         {/* Social + CTA */}
-        <div className="mt-12 flex flex-col items-stretch gap-6 border-t border-white/[0.06] pt-10 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-8 flex flex-col items-stretch gap-6 border-t border-white/[0.06] pt-8 sm:mt-12 sm:pt-10 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center justify-center gap-4 sm:justify-start">
             <a
               href="https://x.com"
@@ -198,7 +216,7 @@ export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBott
               href="https://t.me"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#111827] text-slate-400 transition-all duration-200 hover:border-cyan-500/40 hover:text-cyan-300 hover:shadow-[0_0_20px_-8px_rgba(6,182,212,0.45)]"
+              className="hidden h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#111827] text-slate-400 transition-all duration-200 hover:border-cyan-500/40 hover:text-cyan-300 hover:shadow-[0_0_20px_-8px_rgba(6,182,212,0.45)] sm:flex"
               aria-label="Telegram"
             >
               <SocialTelegram className="h-5 w-5" />
@@ -207,7 +225,7 @@ export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBott
               href="https://discord.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#111827] text-slate-400 transition-all duration-200 hover:border-cyan-500/40 hover:text-cyan-300 hover:shadow-[0_0_20px_-8px_rgba(6,182,212,0.45)]"
+              className="hidden h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#111827] text-slate-400 transition-all duration-200 hover:border-cyan-500/40 hover:text-cyan-300 hover:shadow-[0_0_20px_-8px_rgba(6,182,212,0.45)] sm:flex"
               aria-label="Discord"
             >
               <SocialDiscord className="h-5 w-5" />
