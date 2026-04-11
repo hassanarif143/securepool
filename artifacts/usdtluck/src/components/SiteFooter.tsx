@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Link } from "wouter";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
@@ -27,19 +26,10 @@ function SocialDiscord({ className }: { className?: string }) {
   );
 }
 
-const link = "text-[13px] leading-snug text-muted-foreground hover:text-foreground transition-colors";
+const navLink = "text-xs text-muted-foreground hover:text-foreground transition-colors";
 
-function FooterCol({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div className="space-y-2">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">{title}</p>
-      <ul className="space-y-1.5">{children}</ul>
-    </div>
-  );
-}
-
-const socialBtn =
-  "flex h-8 w-8 items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors";
+const socialClass =
+  "p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-white/5 transition-colors";
 
 export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBottomSpace?: boolean }) {
   const year = new Date().getFullYear();
@@ -51,104 +41,83 @@ export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBott
         extraMobileBottomSpace && "pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:pb-0",
       )}
     >
-      <div className="page-container py-5 sm:py-6">
-        <div className="grid grid-cols-2 gap-x-5 gap-y-6 sm:grid-cols-2 md:grid-cols-4 md:gap-x-6 lg:gap-x-8">
-          <div className="col-span-2 md:col-span-1 space-y-2">
+      <div className="page-container py-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="shrink-0">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 rounded-lg outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex rounded-lg outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Logo size="sm" showText />
             </Link>
-            <p className="text-[13px] text-muted-foreground leading-snug max-w-[17rem]">
-              Transparent USDT pools with fair draws — track tickets and withdraw with clarity.
-            </p>
           </div>
 
-          <FooterCol title="Product">
-            <li>
-              <Link href="/pools" className={link}>
-                Live Pools
-              </Link>
-            </li>
-            <li>
-              <Link href="/how-it-works" className={link}>
-                How It Works
-              </Link>
-            </li>
-            <li>
-              <Link href="/rewards" className={link}>
-                Rewards
-              </Link>
-            </li>
-            <li>
-              <Link href="/wallet" className={link}>
-                Wallet
-              </Link>
-            </li>
-          </FooterCol>
-
-          <FooterCol title="Support">
-            <li>
-              <Link href="/how-it-works" className={link}>
-                Help Center
-              </Link>
-            </li>
-            <li>
-              <a href="mailto:support@securepool.app" className={link}>
-                Contact
-              </a>
-            </li>
-            <li>
-              <Link href="/how-it-works" className={link}>
-                FAQs
-              </Link>
-            </li>
-            <li>
-              <a href="mailto:support@securepool.app?subject=Issue%20report" className={link}>
-                Report Issue
-              </a>
-            </li>
-          </FooterCol>
-
-          <FooterCol title="Legal & Trust">
-            <li>
-              <a href="mailto:support@securepool.app?subject=Terms%20of%20Service" className={link}>
-                Terms
-              </a>
-            </li>
-            <li>
-              <a href="mailto:support@securepool.app?subject=Privacy%20Policy" className={link}>
-                Privacy
-              </a>
-            </li>
-            <li>
-              <Link href="/provably-fair" className={link}>
-                Fairness Info
-              </Link>
-            </li>
-          </FooterCol>
+          <nav className="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:justify-end sm:max-w-2xl">
+            <Link href="/pools" className={navLink}>
+              Pools
+            </Link>
+            <span className="text-border select-none" aria-hidden>
+              ·
+            </span>
+            <Link href="/how-it-works" className={navLink}>
+              How it works
+            </Link>
+            <span className="text-border select-none" aria-hidden>
+              ·
+            </span>
+            <Link href="/rewards" className={navLink}>
+              Rewards
+            </Link>
+            <span className="text-border select-none" aria-hidden>
+              ·
+            </span>
+            <Link href="/wallet" className={navLink}>
+              Wallet
+            </Link>
+            <span className="text-border select-none" aria-hidden>
+              ·
+            </span>
+            <Link href="/provably-fair" className={navLink}>
+              Fairness
+            </Link>
+            <span className="text-border select-none" aria-hidden>
+              ·
+            </span>
+            <a href="mailto:support@securepool.app" className={navLink}>
+              Contact
+            </a>
+            <span className="text-border select-none" aria-hidden>
+              ·
+            </span>
+            <a href="mailto:support@securepool.app?subject=Terms%20of%20Service" className={navLink}>
+              Terms
+            </a>
+            <span className="text-border select-none" aria-hidden>
+              ·
+            </span>
+            <a href="mailto:support@securepool.app?subject=Privacy%20Policy" className={navLink}>
+              Privacy
+            </a>
+          </nav>
         </div>
 
-        <div className="mt-5 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <p className="text-[11px] text-muted-foreground order-2 text-center sm:order-1 sm:text-left">
-            © {year} SecurePool. All rights reserved.
-          </p>
-          <div className="flex items-center justify-center gap-1.5 sm:justify-end order-1 sm:order-2">
-            <a href="https://x.com" target="_blank" rel="noopener noreferrer" className={socialBtn} aria-label="X">
-              <SocialX className="h-3 w-3" />
+        <div className="mt-3 flex flex-col items-center justify-between gap-2 border-t border-border/70 pt-3 sm:flex-row sm:gap-3">
+          <p className="text-[11px] text-muted-foreground order-2 sm:order-1">© {year} SecurePool</p>
+          <div className="flex items-center gap-0.5 order-1 sm:order-2">
+            <a href="https://x.com" target="_blank" rel="noopener noreferrer" className={socialClass} aria-label="X">
+              <SocialX className="h-3.5 w-3.5" />
             </a>
-            <a href="https://t.me" target="_blank" rel="noopener noreferrer" className={socialBtn} aria-label="Telegram">
-              <SocialTelegram className="h-3.5 w-3.5" />
+            <a href="https://t.me" target="_blank" rel="noopener noreferrer" className={socialClass} aria-label="Telegram">
+              <SocialTelegram className="h-4 w-4" />
             </a>
             <a
               href="https://discord.com"
               target="_blank"
               rel="noopener noreferrer"
-              className={socialBtn}
+              className={socialClass}
               aria-label="Discord"
             >
-              <SocialDiscord className="h-3.5 w-3.5" />
+              <SocialDiscord className="h-4 w-4" />
             </a>
           </div>
         </div>
