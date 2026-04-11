@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { pool } from "@workspace/db";
 import { sanitizeText } from "../lib/sanitize";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -38,7 +39,7 @@ router.get("/", async (req, res) => {
       hasMore: offset + limit < total,
     });
   } catch (err) {
-    console.error(err);
+    logger.error({ err }, "[reviews] GET / failed");
     return res.status(500).json({ error: "Failed to fetch reviews" });
   }
 });
@@ -100,7 +101,7 @@ router.post("/", async (req, res) => {
       createdAt: r.created_at,
     });
   } catch (err) {
-    console.error(err);
+    logger.error({ err }, "[reviews] POST / failed");
     return res.status(500).json({ error: "Failed to submit review" });
   }
 });
@@ -116,7 +117,8 @@ router.get("/mine", async (req, res) => {
       [user.id]
     );
     return res.json({ hasReviewed: rows.length > 0 });
-  } catch {
+  } catch (err) {
+    logger.warn({ err }, "[reviews] GET /mine failed");
     return res.json({ hasReviewed: false });
   }
 });

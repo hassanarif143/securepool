@@ -1,4 +1,5 @@
 import { pool } from "@workspace/db";
+import { logger } from "./logger";
 
 export const TIER_CONFIG = [
   { id: "aurora", label: "Bronze", minPoints: 0, icon: "🥉", free_ticket: false },
@@ -108,7 +109,7 @@ export async function awardTierPoints(userId: number, points: number) {
 
     return { newTier, previousTier: currentTier, tierChanged, freeTicketGranted, newPoints };
   } catch (err) {
-    console.warn("[tier] awardTierPoints skipped:", err);
+    logger.warn({ err }, "[tier] awardTierPoints skipped");
     return null;
   }
 }

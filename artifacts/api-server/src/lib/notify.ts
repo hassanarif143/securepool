@@ -1,4 +1,5 @@
 import { pool } from "@workspace/db";
+import { logger } from "./logger";
 
 /** Insert a single in-app notification (`message` column matches DB). */
 export async function notifyUser(
@@ -21,7 +22,7 @@ export async function notifyUser(
       );
     }
   } catch (err) {
-    console.error("[notify] failed:", err);
+    logger.error({ err, userId }, "[notify] notifyUser failed");
   }
 }
 
@@ -33,6 +34,6 @@ export async function notifyAllUsers(title: string, message: string, type: strin
       [title, message, type],
     );
   } catch (err) {
-    console.error("[notifyAll] failed:", err);
+    logger.error({ err }, "[notify] notifyAll failed");
   }
 }

@@ -11,6 +11,7 @@ import { EventEmitter } from "node:events";
 import { and, desc, eq, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { mirrorAvailableFromUser } from "./user-wallet-service";
 import { notifyUser } from "../lib/notify";
+import { logger } from "../lib/logger";
 
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -243,7 +244,7 @@ export async function expireStaleP2pOrders(): Promise<void> {
         { userId: null, scope: "offers", orderId: o.id },
       ]);
     } catch (e) {
-      console.error("[p2p] expire order", o.id, e);
+      logger.error({ err: e, orderId: o.id }, "[p2p] expire order failed");
     }
   }
 }

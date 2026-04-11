@@ -3,6 +3,7 @@ import { db, activityLogsTable } from "@workspace/db";
 import { desc, inArray } from "drizzle-orm";
 import { requireAdmin } from "../middleware/auth";
 import { getRecentActivityFeed, sanitizePublicActivityTypes } from "../services/activity-service";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -39,7 +40,7 @@ router.get("/feed", async (req, res) => {
       })),
     );
   } catch (err) {
-    console.error("[activity] feed failed:", err);
+    logger.error({ err }, "[activity] feed failed");
     res.json([]);
   }
 });
@@ -49,7 +50,7 @@ router.post("/reset", requireAdmin, async (_req, res) => {
     await db.delete(activityLogsTable);
     res.json({ ok: true, message: "Live activity reset completed." });
   } catch (err) {
-    console.error("[activity] reset failed:", err);
+    logger.error({ err }, "[activity] reset failed");
     res.status(500).json({ error: "RESET_FAILED" });
   }
 });

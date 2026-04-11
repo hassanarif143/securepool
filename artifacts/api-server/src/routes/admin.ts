@@ -21,6 +21,7 @@ import {
 import { eq, ne, count, sum, desc, and, sql } from "drizzle-orm";
 import { sendWithdrawalStatusEmail } from "../lib/email";
 import { notifyUser } from "../lib/notify";
+import { logger } from "../lib/logger";
 import { sanitizeText } from "../lib/sanitize";
 import { requireAdmin } from "../middleware/auth";
 import { getAuthedUserId } from "../middleware/auth";
@@ -301,7 +302,7 @@ async function queryAdminUsersListRows(): Promise<any[]> {
     const { rows } = await pgPool.query(SQL_ADMIN_USERS_LIST_FULL);
     return rows as any[];
   } catch (firstErr) {
-    console.warn("[admin] GET /users full SQL failed, retrying compat:", firstErr);
+    logger.warn({ err: firstErr }, "[admin] GET /users full SQL failed, retrying compat");
     const { rows } = await pgPool.query(SQL_ADMIN_USERS_LIST_COMPAT);
     return rows as any[];
   }
@@ -465,7 +466,7 @@ router.get("/users", async (req, res) => {
 
     res.json(result);
   } catch (err) {
-    console.error("[admin] GET /users failed:", err);
+    logger.error({ err }, "[admin] GET /users failed");
     res.status(500).json({ error: "Failed to load users", message: process.env.NODE_ENV === "production" ? "Could not load user list." : String(err) });
   }
 });
@@ -545,7 +546,7 @@ router.get("/users/:id", async (req, res) => {
       const r = await pgPool.query(SQL_ADMIN_USER_DETAIL_FULL, [userId]);
       rows = r.rows as any[];
     } catch (firstErr) {
-      console.warn("[admin] GET /users/:id full SQL failed, retrying compat:", firstErr);
+      logger.warn({ err: firstErr }, "[admin] GET /users/:id full SQL failed, retrying compat");
       const r = await pgPool.query(SQL_ADMIN_USER_DETAIL_COMPAT, [userId]);
       rows = r.rows as any[];
     }
@@ -584,7 +585,7 @@ router.get("/users/:id", async (req, res) => {
       wins: Number(user.wins ?? 0),
     });
   } catch (err) {
-    console.error("[admin] GET /users/:id failed:", err);
+    logger.error({ err }, "[admin] GET /users/:id failed");
     res.status(500).json({ error: "Failed to load user" });
   }
 });
@@ -2027,7 +2028,7 @@ router.patch("/users/:id/tier", async (req, res) => {
     await logAction(getAdminId(req), "user", userId, "override_tier", `Set ${rows[0].name}'s tier to ${rows[0].tier} (${rows[0].tier_points} pts)`);
     return res.json({ name: rows[0].name, tier: rows[0].tier, tierPoints: parseInt(rows[0].tier_points) });
   } catch (err) {
-    console.error(err);
+    logger.error({ err }, "[admin] PATCH user tier override failed");
     return res.status(500).json({ error: "Failed to update tier" });
   }
 });
@@ -2056,7 +2057,7 @@ router.get("/reviews", async (req, res) => {
       createdAt: r.created_at,
     })));
   } catch (err) {
-    console.error(err);
+    logger.error({ err }, "[admin] GET /reviews failed");
     res.status(500).json({ error: "Failed to fetch reviews" });
   }
 });
@@ -2073,7 +2074,7 @@ router.delete("/reviews/:id", async (req, res) => {
     await logAction(getAdminId(req), "review", id, "delete_review", `Deleted review #${id} by ${rows[0].user_name}`);
     return res.json({ message: "Review deleted" });
   } catch (err) {
-    console.error(err);
+    logger.error({ err }, "[admin] DELETE /reviews/:id failed");
     return res.status(500).json({ error: "Failed to delete review" });
   }
 });
@@ -2093,7 +2094,7 @@ router.patch("/reviews/:id/visibility", async (req, res) => {
     await logAction(getAdminId(req), "review", id, visible ? "show_review" : "hide_review", `${visible ? "Showed" : "Hid"} review #${id} by ${rows[0].user_name}`);
     return res.json({ id: rows[0].id, isVisible: rows[0].is_visible });
   } catch (err) {
-    console.error(err);
+    logger.error({ err }, "[admin] PATCH /reviews/:id/visibility failed");
     return res.status(500).json({ error: "Failed to update visibility" });
   }
 });
@@ -2113,7 +2114,7 @@ router.patch("/reviews/:id/featured", async (req, res) => {
     await logAction(getAdminId(req), "review", id, featured ? "feature_review" : "unfeature_review", `${featured ? "Featured" : "Unfeatured"} review #${id} by ${rows[0].user_name}`);
     return res.json({ id: rows[0].id, isFeatured: rows[0].is_featured });
   } catch (err) {
-    console.error(err);
+    logger.error({ err }, "[admin] PATCH /reviews/:id/featured failed");
     return res.status(500).json({ error: "Failed to update featured status" });
   }
 });
@@ -2332,11 +2333,9 @@ router.delete("/users/:id", async (req, res) => {
     } catch {
       /* ignore */
     }
-    const pgMsg = err && typeof err === "object" && "message" in err ? String((err as { message?: string }).message) : String(err);
-    console.error(err);
+    logger.error({ err }, "[admin] delete user transaction failed");
     return res.status(500).json({
       error: "Failed to delete user",
-      message: pgMsg,
     });
   } finally {
     client.release();
