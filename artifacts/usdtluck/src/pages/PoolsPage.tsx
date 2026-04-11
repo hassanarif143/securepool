@@ -220,16 +220,6 @@ export default function PoolsPage() {
           </>
         )}
       </Tabs>
-
-      <footer className="pt-8 border-t border-slate-800/80 max-w-4xl">
-        <p className="text-[11px] text-slate-500 uppercase tracking-widest mb-3 text-center">Trust &amp; transparency</p>
-        <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-slate-400">
-          <span>🔒 Provably fair draws</span>
-          <span>⚡ Instant wallet credit</span>
-          <span>🔍 Verify any draw</span>
-          <span>💎 USDT based — fees shown upfront</span>
-        </div>
-      </footer>
     </div>
   );
 }
