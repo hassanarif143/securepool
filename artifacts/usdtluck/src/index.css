@@ -229,7 +229,8 @@
     @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 md:py-10 space-y-6 md:space-y-8;
   }
   .ds-page-heading {
-    @apply font-display text-2xl sm:text-3xl font-bold tracking-tight text-foreground;
+    font-family: var(--app-font-display), var(--app-font-sans), system-ui, sans-serif;
+    @apply text-2xl sm:text-3xl font-bold tracking-tight text-foreground;
   }
   .ds-surface {
     @apply rounded-2xl border border-border bg-card text-card-foreground shadow-sm;
