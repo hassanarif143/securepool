@@ -161,7 +161,7 @@ export default function PoolsPage() {
             How it works
           </Button>
         </div>
-        <TabsList className="w-full h-auto flex-wrap gap-2 p-2 bg-slate-900/80 border border-slate-700/60 rounded-xl">
+        <TabsList className="w-full h-auto flex flex-wrap justify-start gap-2 p-2 bg-slate-900/80 border border-slate-700/60 rounded-xl">
           <TabsTrigger
             value="active"
             className="data-[state=active]:bg-cyan-600/30 data-[state=active]:text-cyan-100 rounded-lg"
