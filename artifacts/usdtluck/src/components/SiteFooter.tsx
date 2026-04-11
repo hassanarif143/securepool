@@ -27,16 +27,19 @@ function SocialDiscord({ className }: { className?: string }) {
   );
 }
 
-const link = "text-sm text-muted-foreground hover:text-foreground transition-colors";
+const link = "text-[13px] leading-snug text-muted-foreground hover:text-foreground transition-colors";
 
 function FooterCol({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="space-y-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">{title}</p>
-      <ul className="space-y-2.5">{children}</ul>
+    <div className="space-y-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">{title}</p>
+      <ul className="space-y-1.5">{children}</ul>
     </div>
   );
 }
+
+const socialBtn =
+  "flex h-8 w-8 items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors";
 
 export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBottomSpace?: boolean }) {
   const year = new Date().getFullYear();
@@ -48,22 +51,17 @@ export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBott
         extraMobileBottomSpace && "pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:pb-0",
       )}
     >
-      <div className="page-container py-8 sm:py-10">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-2 md:grid-cols-4 md:gap-x-8">
-          {/* Brand */}
-          <div className="col-span-2 md:col-span-1 space-y-3">
+      <div className="page-container py-5 sm:py-6">
+        <div className="grid grid-cols-2 gap-x-5 gap-y-6 sm:grid-cols-2 md:grid-cols-4 md:gap-x-6 lg:gap-x-8">
+          <div className="col-span-2 md:col-span-1 space-y-2">
             <Link
               href="/"
               className="inline-flex items-center gap-2 rounded-lg outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <Logo size="md" showText />
+              <Logo size="sm" showText />
             </Link>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
-              Transparent USDT reward pools with fair draws. Join live pools, track your tickets, and withdraw with
-              clarity.
-            </p>
-            <p className="text-xs text-muted-foreground/80 pt-1">
-              © {year} SecurePool. All rights reserved.
+            <p className="text-[13px] text-muted-foreground leading-snug max-w-[17rem]">
+              Transparent USDT pools with fair draws — track tickets and withdraw with clarity.
             </p>
           </div>
 
@@ -132,34 +130,25 @@ export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBott
           </FooterCol>
         </div>
 
-        <div className="mt-10 flex justify-center border-t border-border pt-6 sm:justify-start">
-          <div className="flex items-center gap-2">
-            <a
-              href="https://x.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
-              aria-label="X"
-            >
-              <SocialX className="h-3.5 w-3.5" />
+        <div className="mt-5 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <p className="text-[11px] text-muted-foreground order-2 text-center sm:order-1 sm:text-left">
+            © {year} SecurePool. All rights reserved.
+          </p>
+          <div className="flex items-center justify-center gap-1.5 sm:justify-end order-1 sm:order-2">
+            <a href="https://x.com" target="_blank" rel="noopener noreferrer" className={socialBtn} aria-label="X">
+              <SocialX className="h-3 w-3" />
             </a>
-            <a
-              href="https://t.me"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
-              aria-label="Telegram"
-            >
-              <SocialTelegram className="h-4 w-4" />
+            <a href="https://t.me" target="_blank" rel="noopener noreferrer" className={socialBtn} aria-label="Telegram">
+              <SocialTelegram className="h-3.5 w-3.5" />
             </a>
             <a
               href="https://discord.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+              className={socialBtn}
               aria-label="Discord"
             >
-              <SocialDiscord className="h-4 w-4" />
+              <SocialDiscord className="h-3.5 w-3.5" />
             </a>
           </div>
         </div>
