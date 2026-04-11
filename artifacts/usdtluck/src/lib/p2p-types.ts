@@ -8,6 +8,8 @@ export type P2PPaymentDetails = {
   ibanOrAccount?: string;
   easypaisa?: string;
   jazzcash?: string;
+  easypaisaAccountName?: string;
+  jazzcashAccountName?: string;
 };
 
 export type P2POffer = {

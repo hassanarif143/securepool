@@ -30,6 +30,9 @@ import {
   subscribeCelebrationPrefs,
 } from "@/lib/celebration-preferences";
 import { UsdtAmount } from "@/components/UsdtAmount";
+import { cn } from "@/lib/utils";
+
+type P2pMethodChoice = "bank" | "easypaisa" | "jazzcash";
 
 type WalletApi = {
   address: string | null;
@@ -235,6 +238,17 @@ export default function ProfilePage() {
   const [p2pIban, setP2pIban] = useState(user?.p2pPaymentDetails?.ibanOrAccount ?? "");
   const [p2pEasypaisa, setP2pEasypaisa] = useState(user?.p2pPaymentDetails?.easypaisa ?? "");
   const [p2pJazzcash, setP2pJazzcash] = useState(user?.p2pPaymentDetails?.jazzcash ?? "");
+  const [p2pEasypaisaAccountName, setP2pEasypaisaAccountName] = useState(
+    user?.p2pPaymentDetails?.easypaisaAccountName ?? "",
+  );
+  const [p2pJazzcashAccountName, setP2pJazzcashAccountName] = useState(
+    user?.p2pPaymentDetails?.jazzcashAccountName ?? "",
+  );
+  const [p2pSelectedMethod, setP2pSelectedMethod] = useState<P2pMethodChoice>("bank");
+  const [p2pFieldErrors, setP2pFieldErrors] = useState<Record<string, string>>({});
+  const [p2pShowAddForm, setP2pShowAddForm] = useState(false);
+  const [savingP2p, setSavingP2p] = useState(false);
+  const [p2pSaveFlash, setP2pSaveFlash] = useState(false);
   const [saving, setSaving] = useState(false);
   const [walletInfo, setWalletInfo] = useState<WalletApi | null>(null);
   const [walletLoading, setWalletLoading] = useState(true);
@@ -318,6 +332,8 @@ export default function ProfilePage() {
     setP2pIban(user.p2pPaymentDetails?.ibanOrAccount ?? "");
     setP2pEasypaisa(user.p2pPaymentDetails?.easypaisa ?? "");
     setP2pJazzcash(user.p2pPaymentDetails?.jazzcash ?? "");
+    setP2pEasypaisaAccountName(user.p2pPaymentDetails?.easypaisaAccountName ?? "");
+    setP2pJazzcashAccountName(user.p2pPaymentDetails?.jazzcashAccountName ?? "");
   }, [user]);
 
   const [hasLuckyBadge, setHasLuckyBadge] = useState(false);
@@ -371,23 +387,10 @@ export default function ProfilePage() {
   const ibanOrAccount = p2pIban.trim().toUpperCase();
   const easypaisa = normalizePkPhone(p2pEasypaisa);
   const jazzcash = normalizePkPhone(p2pJazzcash);
-  const hasBankAny = Boolean(bankName || accountTitle || ibanOrAccount);
   const hasBankFull = Boolean(bankName && accountTitle && ibanOrAccount);
-  const bankGroupError = hasBankAny && !hasBankFull;
-  const easypaisaValid = !easypaisa || isValidPkPhone(easypaisa);
-  const jazzcashValid = !jazzcash || isValidPkPhone(jazzcash);
   const hasAnyP2pMethod = hasBankFull || Boolean(easypaisa) || Boolean(jazzcash);
-  const p2pCompletionPct = Math.round(((hasBankFull ? 1 : 0) + (easypaisa ? 1 : 0) + (jazzcash ? 1 : 0)) / 3 * 100);
-  const p2pFormError = !hasAnyP2pMethod
-    ? "At least one payment method is required (Bank, Easypaisa, or JazzCash)."
-    : bankGroupError
-      ? "To use Bank method, Bank Name, Account Title, and IBAN/Account are all required."
-      : !easypaisaValid
-        ? "Easypaisa number is invalid. Format: 03XXXXXXXXX"
-        : !jazzcashValid
-          ? "JazzCash number is invalid. Format: 03XXXXXXXXX"
-          : null;
-  const canSaveProfile = !saving && trimmedName.length >= 2 && !p2pFormError;
+  const showP2pEntryForm = !hasAnyP2pMethod || p2pShowAddForm;
+  const canSaveProfile = !saving && trimmedName.length >= 2;
   const canSetWithdrawPin =
     /^\d{6}$/.test(newWithdrawPin.trim()) &&
     newWithdrawPin.trim() === newWithdrawPinConfirm.trim() &&
@@ -401,8 +404,12 @@ export default function ProfilePage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (p2pFormError) {
-      toast({ title: "P2P details incomplete", description: p2pFormError, variant: "destructive" });
+    if (trimmedName.length < 2) {
+      toast({
+        title: "Check your name",
+        description: "Please enter at least 2 characters.",
+        variant: "destructive",
+      });
       return;
     }
     setSaving(true);
@@ -411,16 +418,7 @@ export default function ProfilePage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          name: trimmedName,
-          p2pPaymentDetails: {
-            bankName,
-            accountTitle,
-            ibanOrAccount,
-            easypaisa,
-            jazzcash,
-          },
-        }),
+        body: JSON.stringify({ name: trimmedName }),
       });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
       const updated = await res.json();
@@ -431,7 +429,7 @@ export default function ProfilePage() {
         p2pPaymentDetails: updated.p2pPaymentDetails ?? currentUser.p2pPaymentDetails ?? {},
       });
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-      toast({ title: "Profile updated", description: "Your details have been saved." });
+      toast({ title: "Profile updated", description: "Your name has been saved." });
     } catch (e: unknown) {
       toast({
         title: "Update failed",
@@ -440,6 +438,63 @@ export default function ProfilePage() {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveP2pPaymentMethod() {
+    setP2pFieldErrors({});
+    const err: Record<string, string> = {};
+    if (p2pSelectedMethod === "bank") {
+      if (!bankName) err.bankName = "Enter bank name";
+      if (!accountTitle) err.accountTitle = "Enter account title";
+      if (!ibanOrAccount) err.ibanOrAccount = "Enter account or IBAN number";
+    } else if (p2pSelectedMethod === "easypaisa") {
+      if (!easypaisa) err.easypaisa = "Enter your Easypaisa number";
+      else if (!isValidPkPhone(easypaisa)) err.easypaisa = "Use format 03XXXXXXXXX";
+    } else {
+      if (!jazzcash) err.jazzcash = "Enter your JazzCash number";
+      else if (!isValidPkPhone(jazzcash)) err.jazzcash = "Use format 03XXXXXXXXX";
+    }
+    if (Object.keys(err).length > 0) {
+      setP2pFieldErrors(err);
+      return;
+    }
+    setSavingP2p(true);
+    try {
+      const p2pPaymentDetails = {
+        bankName,
+        accountTitle,
+        ibanOrAccount,
+        easypaisa,
+        jazzcash,
+        easypaisaAccountName: p2pEasypaisaAccountName.trim(),
+        jazzcashAccountName: p2pJazzcashAccountName.trim(),
+      };
+      const res = await fetch(apiUrl(`/api/users/${currentUser.id}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ p2pPaymentDetails }),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      const updated = await res.json();
+      setUser({
+        ...currentUser,
+        p2pPaymentDetails: updated.p2pPaymentDetails ?? currentUser.p2pPaymentDetails ?? {},
+      });
+      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      setP2pShowAddForm(false);
+      setP2pSaveFlash(true);
+      window.setTimeout(() => setP2pSaveFlash(false), 2200);
+      toast({ title: "Payment method saved", description: "You can use P2P trading with this detail." });
+    } catch (e: unknown) {
+      toast({
+        title: "Could not save",
+        description: e instanceof Error ? e.message : "Try again",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingP2p(false);
     }
   }
 
@@ -857,10 +912,267 @@ export default function ProfilePage() {
 
       <PrizeHistoryCard />
 
+      <Card className="border-border bg-card overflow-hidden">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 pb-2">
+          <div>
+            <CardTitle className="text-base font-semibold">P2P payment setup</CardTitle>
+            <CardDescription className="text-muted-foreground">
+              Add a payment method to receive PKR on P2P trades. Pick one option, fill the fields, save.
+            </CardDescription>
+          </div>
+          <div className="flex flex-col items-end gap-0.5 shrink-0 text-right">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Progress</span>
+            <Badge
+              variant={hasAnyP2pMethod ? "default" : "secondary"}
+              className={cn(
+                "text-[11px] tabular-nums transition-all duration-500",
+                p2pSaveFlash && "ring-2 ring-emerald-500/60 scale-105",
+              )}
+            >
+              {hasAnyP2pMethod ? "100% complete" : "0% → 100%"}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5 pt-0">
+          {!hasAnyP2pMethod ? (
+            <p className="text-sm text-muted-foreground rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-3 py-2">
+              Add a payment method to start P2P trading.
+            </p>
+          ) : null}
+
+          {hasAnyP2pMethod ? (
+            <div className="space-y-3 rounded-2xl border border-border bg-[#111827] p-4 shadow-sm transition-all duration-300">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  {p2pSaveFlash ? (
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs animate-in zoom-in duration-300">
+                      ✓
+                    </span>
+                  ) : (
+                    <span className="text-base" aria-hidden>
+                      ✅
+                    </span>
+                  )}
+                  Your payment methods
+                </p>
+              </div>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                {hasBankFull ? (
+                  <li className="flex gap-2">
+                    <span aria-hidden>🏦</span>
+                    <span>
+                      <span className="text-foreground font-medium">Bank</span>
+                      {" — "}
+                      {accountTitle || bankName}
+                      <span className="block text-xs opacity-80 mt-0.5 font-mono">{ibanOrAccount}</span>
+                    </span>
+                  </li>
+                ) : null}
+                {easypaisa ? (
+                  <li className="flex gap-2">
+                    <span aria-hidden>📱</span>
+                    <span>
+                      <span className="text-foreground font-medium">Easypaisa</span>
+                      {" — "}
+                      {easypaisa}
+                      {p2pEasypaisaAccountName.trim() ? (
+                        <span className="text-foreground/90"> ({p2pEasypaisaAccountName.trim()})</span>
+                      ) : null}
+                    </span>
+                  </li>
+                ) : null}
+                {jazzcash ? (
+                  <li className="flex gap-2">
+                    <span aria-hidden>📱</span>
+                    <span>
+                      <span className="text-foreground font-medium">JazzCash</span>
+                      {" — "}
+                      {jazzcash}
+                      {p2pJazzcashAccountName.trim() ? (
+                        <span className="text-foreground/90"> ({p2pJazzcashAccountName.trim()})</span>
+                      ) : null}
+                    </span>
+                  </li>
+                ) : null}
+              </ul>
+              {!showP2pEntryForm ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full rounded-xl border-cyan-500/30 text-cyan-100 hover:bg-cyan-500/10"
+                  onClick={() => {
+                    setP2pShowAddForm(true);
+                    setP2pFieldErrors({});
+                    if (!hasBankFull) setP2pSelectedMethod("bank");
+                    else if (!easypaisa) setP2pSelectedMethod("easypaisa");
+                    else if (!jazzcash) setP2pSelectedMethod("jazzcash");
+                    else setP2pSelectedMethod("bank");
+                  }}
+                >
+                  + Add another method
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {showP2pEntryForm ? (
+            <div className="space-y-5 animate-in fade-in duration-300">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">1. Choose how buyers pay you</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {(
+                    [
+                      { id: "bank" as const, icon: "🏦", label: "Bank account" },
+                      { id: "easypaisa" as const, icon: "📱", label: "Easypaisa" },
+                      { id: "jazzcash" as const, icon: "📱", label: "JazzCash" },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        setP2pSelectedMethod(opt.id);
+                        setP2pFieldErrors({});
+                      }}
+                      className={cn(
+                        "rounded-2xl border px-4 py-4 text-left text-sm font-medium transition-all duration-200",
+                        "bg-[#111827] hover:border-cyan-500/40",
+                        p2pSelectedMethod === opt.id
+                          ? "border-cyan-500 shadow-[0_0_24px_-8px_rgba(6,182,212,0.45)] ring-1 ring-cyan-500/50 text-foreground"
+                          : "border-border text-muted-foreground",
+                      )}
+                    >
+                      <span className="text-xl mr-2" aria-hidden>
+                        {opt.icon}
+                      </span>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
+                <p className="text-xs font-medium text-muted-foreground">2. Enter details</p>
+                {p2pSelectedMethod === "bank" ? (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="p2p-bank">Bank name</Label>
+                      <Input
+                        id="p2p-bank"
+                        value={p2pBankName}
+                        onChange={(e) => setP2pBankName(e.target.value)}
+                        placeholder="e.g. Meezan Bank"
+                        className="rounded-xl border-border bg-background focus-visible:ring-cyan-500/40"
+                      />
+                      {p2pFieldErrors.bankName ? (
+                        <p className="text-xs text-red-400/90">{p2pFieldErrors.bankName}</p>
+                      ) : null}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="p2p-title">Account title</Label>
+                      <Input
+                        id="p2p-title"
+                        value={p2pAccountTitle}
+                        onChange={(e) => setP2pAccountTitle(e.target.value)}
+                        placeholder="Name on account"
+                        className="rounded-xl border-border bg-background focus-visible:ring-cyan-500/40"
+                      />
+                      {p2pFieldErrors.accountTitle ? (
+                        <p className="text-xs text-red-400/90">{p2pFieldErrors.accountTitle}</p>
+                      ) : null}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="p2p-acct">Account number</Label>
+                      <Input
+                        id="p2p-acct"
+                        value={p2pIban}
+                        onChange={(e) => setP2pIban(e.target.value)}
+                        placeholder="IBAN or account number"
+                        className="rounded-xl border-border bg-background focus-visible:ring-cyan-500/40"
+                      />
+                      {p2pFieldErrors.ibanOrAccount ? (
+                        <p className="text-xs text-red-400/90">{p2pFieldErrors.ibanOrAccount}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
+                {p2pSelectedMethod === "easypaisa" ? (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="p2p-ep">Phone number</Label>
+                      <Input
+                        id="p2p-ep"
+                        value={p2pEasypaisa}
+                        onChange={(e) => setP2pEasypaisa(normalizePkPhone(e.target.value))}
+                        placeholder="03XXXXXXXXX"
+                        inputMode="numeric"
+                        className="rounded-xl border-border bg-background focus-visible:ring-cyan-500/40"
+                      />
+                      {p2pFieldErrors.easypaisa ? (
+                        <p className="text-xs text-red-400/90">{p2pFieldErrors.easypaisa}</p>
+                      ) : null}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="p2p-ep-name">Account name (optional)</Label>
+                      <Input
+                        id="p2p-ep-name"
+                        value={p2pEasypaisaAccountName}
+                        onChange={(e) => setP2pEasypaisaAccountName(e.target.value)}
+                        placeholder="Shown to buyer"
+                        className="rounded-xl border-border bg-background focus-visible:ring-cyan-500/40"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+
+                {p2pSelectedMethod === "jazzcash" ? (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="p2p-jc">Phone number</Label>
+                      <Input
+                        id="p2p-jc"
+                        value={p2pJazzcash}
+                        onChange={(e) => setP2pJazzcash(normalizePkPhone(e.target.value))}
+                        placeholder="03XXXXXXXXX"
+                        inputMode="numeric"
+                        className="rounded-xl border-border bg-background focus-visible:ring-cyan-500/40"
+                      />
+                      {p2pFieldErrors.jazzcash ? (
+                        <p className="text-xs text-red-400/90">{p2pFieldErrors.jazzcash}</p>
+                      ) : null}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="p2p-jc-name">Account name (optional)</Label>
+                      <Input
+                        id="p2p-jc-name"
+                        value={p2pJazzcashAccountName}
+                        onChange={(e) => setP2pJazzcashAccountName(e.target.value)}
+                        placeholder="Shown to buyer"
+                        className="rounded-xl border-border bg-background focus-visible:ring-cyan-500/40"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <Button
+                type="button"
+                className="w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
+                disabled={savingP2p}
+                onClick={() => void saveP2pPaymentMethod()}
+              >
+                {savingP2p ? "Saving…" : "Save payment method"}
+              </Button>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Account Information</CardTitle>
-          <CardDescription>Update your profile and P2P payment details</CardDescription>
+          <CardDescription>Update your display name and view your email</CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
           <form onSubmit={handleSave} className="space-y-4">
@@ -873,75 +1185,17 @@ export default function ProfilePage() {
                 placeholder="Your full name"
                 required
                 minLength={2}
+                className="rounded-xl"
               />
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" value={currentUser.email} disabled className="opacity-60" />
+              <Input id="email" value={currentUser.email} disabled className="opacity-60 rounded-xl" />
             </div>
 
-            <div className="rounded-lg border p-3 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium">P2P Payment Details (required for P2P)</p>
-                <Badge variant={p2pCompletionPct >= 34 ? "default" : "secondary"} className="text-[10px]">
-                  {p2pCompletionPct}% setup
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Save at least one payment method. Buyers will see these details on the order screen.
-              </p>
-              <div className="grid sm:grid-cols-3 gap-2">
-                <Input
-                  value={p2pBankName}
-                  onChange={(e) => setP2pBankName(e.target.value)}
-                  placeholder="Bank name (e.g. Meezan)"
-                />
-                <Input
-                  value={p2pAccountTitle}
-                  onChange={(e) => setP2pAccountTitle(e.target.value)}
-                  placeholder="Account title"
-                />
-                <Input
-                  value={p2pIban}
-                  onChange={(e) => setP2pIban(e.target.value)}
-                  placeholder="IBAN / Account no"
-                />
-              </div>
-              {bankGroupError ? (
-                <p className="text-xs text-destructive">
-                  Incomplete bank details: enter Bank Name, Account Title, and IBAN/Account.
-                </p>
-              ) : null}
-              <div className="grid sm:grid-cols-2 gap-2">
-                <Input
-                  value={p2pEasypaisa}
-                  onChange={(e) => setP2pEasypaisa(normalizePkPhone(e.target.value))}
-                  placeholder="Easypaisa number (03XXXXXXXXX)"
-                  inputMode="numeric"
-                />
-                <Input
-                  value={p2pJazzcash}
-                  onChange={(e) => setP2pJazzcash(normalizePkPhone(e.target.value))}
-                  placeholder="JazzCash number (03XXXXXXXXX)"
-                  inputMode="numeric"
-                />
-              </div>
-              {!easypaisaValid || !jazzcashValid ? (
-                <p className="text-xs text-destructive">Mobile wallet number must be in 03XXXXXXXXX format.</p>
-              ) : null}
-              <p className="text-xs text-muted-foreground">
-                Tip: save these details before placing a P2P order or offer. Save is blocked for incomplete or invalid input.
-              </p>
-              {p2pFormError ? (
-                <p className="text-xs text-destructive">{p2pFormError}</p>
-              ) : (
-                <p className="text-xs text-emerald-600">Looks good. Your P2P payment setup is ready.</p>
-              )}
-            </div>
-
-            <Button type="submit" disabled={!canSaveProfile} className="w-full">
-              {saving ? "Saving..." : "Save Changes"}
+            <Button type="submit" disabled={!canSaveProfile} className="w-full rounded-xl">
+              {saving ? "Saving..." : "Save profile"}
             </Button>
           </form>
         </CardContent>

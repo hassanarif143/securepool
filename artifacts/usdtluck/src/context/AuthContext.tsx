@@ -40,6 +40,8 @@ interface UserType {
     ibanOrAccount?: string;
     easypaisa?: string;
     jazzcash?: string;
+    easypaisaAccountName?: string;
+    jazzcashAccountName?: string;
   };
 }
 

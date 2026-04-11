@@ -69,6 +69,8 @@ export const usersTable = pgTable("users", {
       ibanOrAccount?: string;
       easypaisa?: string;
       jazzcash?: string;
+      easypaisaAccountName?: string;
+      jazzcashAccountName?: string;
     }>()
     .notNull()
     .default({}),

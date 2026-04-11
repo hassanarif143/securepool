@@ -9,6 +9,7 @@ import { LiveJoinNotification } from "@/components/LiveJoinNotification";
 import { SharePromptGate } from "@/components/share/SharePromptGate";
 import { ChevronRight, LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
 import { UsdtAmount } from "@/components/UsdtAmount";
+import { SiteFooter } from "@/components/SiteFooter";
 
 function playNotifSound() {
   try {
@@ -766,27 +767,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
       )}
 
-      <footer className="border-t mt-auto py-10 pb-[max(2.5rem,env(safe-area-inset-bottom))]" style={{ borderColor: "hsl(217,28%,14%)" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-5 text-sm text-muted-foreground">
-          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
-            <Link href="/how-it-works" className="hover:text-foreground transition-colors">How It Works</Link>
-            <span className="opacity-30 hidden sm:inline">·</span>
-            <span className="opacity-50 cursor-default" title="Terms of service — contact support for details">
-              Terms
-            </span>
-            <span className="opacity-30 hidden sm:inline">·</span>
-            <a href="mailto:support@securepool.app" className="hover:text-foreground transition-colors">Support</a>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="opacity-40" aria-hidden>𝕏</span>
-            <span className="opacity-40" aria-hidden>in</span>
-            <span className="opacity-40" aria-hidden>▶</span>
-          </div>
-        </div>
-        <p className="text-center text-xs sm:text-sm text-muted-foreground/90 mt-4 px-4 leading-relaxed max-w-2xl mx-auto">
-          © {new Date().getFullYear()} SecurePool — Transparent USDT Reward Pools
-        </p>
-      </footer>
+      <SiteFooter extraMobileBottomSpace={!!user} />
     </div>
   );
 }

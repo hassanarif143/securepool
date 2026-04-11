@@ -19,6 +19,8 @@ const UpdateUserBodySchema = z.object({
       ibanOrAccount: z.string().max(120).optional(),
       easypaisa: z.string().max(40).optional(),
       jazzcash: z.string().max(40).optional(),
+      easypaisaAccountName: z.string().max(80).optional(),
+      jazzcashAccountName: z.string().max(80).optional(),
     })
     .optional(),
 });
@@ -85,6 +87,8 @@ router.patch("/:userId", async (req, res) => {
       ibanOrAccount: sanitizeText(parse.data.p2pPaymentDetails.ibanOrAccount ?? "", 120),
       easypaisa: sanitizeText(parse.data.p2pPaymentDetails.easypaisa ?? "", 40),
       jazzcash: sanitizeText(parse.data.p2pPaymentDetails.jazzcash ?? "", 40),
+      easypaisaAccountName: sanitizeText(parse.data.p2pPaymentDetails.easypaisaAccountName ?? "", 80),
+      jazzcashAccountName: sanitizeText(parse.data.p2pPaymentDetails.jazzcashAccountName ?? "", 80),
     };
   }
 
