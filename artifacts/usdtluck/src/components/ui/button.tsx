@@ -5,32 +5,25 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 touch-manipulation" +
-" hover-elevate active-elevate-2",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold transition-[color,box-shadow,background-color,border-color,transform,filter] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 disabled:saturate-0 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 touch-manipulation hover-elevate active-elevate-2",
   {
     variants: {
       variant: {
         default:
-           // @replit: no hover, and add primary border
-           "bg-primary text-primary-foreground border border-primary-border",
+          "bg-primary text-primary-foreground border border-primary-border shadow-sm hover:bg-primary-hover hover:brightness-[1.03] active:scale-[0.99]",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-sm border-destructive-border",
+          "bg-destructive text-destructive-foreground shadow-sm border border-destructive-border hover:brightness-110 active:scale-[0.99]",
         outline:
-          // @replit Shows the background color of whatever card / sidebar / accent background it is inside of.
-          // Inherits the current text color. Uses shadow-xs. no shadow on active
-          // No hover state
-          " border [border-color:var(--button-outline)] shadow-xs active:shadow-none ",
+          "border border-border bg-card/40 text-foreground shadow-xs hover:bg-muted/60 hover:border-border active:shadow-none",
         secondary:
-          // @replit border, no hover, no shadow, secondary border.
-          "border bg-secondary text-secondary-foreground border border-secondary-border ",
-        // @replit no hover, transparent border
-        ghost: "border border-transparent font-medium",
-        link: "text-primary underline-offset-4 hover:underline font-medium",
+          "border bg-secondary text-secondary-foreground border-secondary-border hover:bg-secondary/90",
+        ghost: "border border-transparent font-medium hover:bg-muted/50",
+        link: "text-primary underline-offset-4 hover:underline font-medium border-0 shadow-none hover:brightness-110",
       },
       size: {
         default: "min-h-11 px-4 py-2.5 md:min-h-10 md:py-2",
-        sm: "min-h-10 rounded-md px-3.5 text-xs md:min-h-9",
-        lg: "min-h-12 rounded-lg px-8 text-base md:min-h-11",
+        sm: "min-h-10 rounded-lg px-3.5 text-xs md:min-h-9",
+        lg: "min-h-12 rounded-xl px-8 text-base md:min-h-11",
         icon: "h-11 w-11 md:h-10 md:w-10 shrink-0",
       },
     },

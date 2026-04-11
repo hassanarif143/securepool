@@ -61,10 +61,7 @@ export default function PoolsPage() {
   }
 
   return (
-    <div
-      className="min-h-screen -mx-4 px-4 sm:-mx-6 sm:px-6 py-6 sm:py-10 space-y-8"
-      style={{ background: "#0a0f1a" }}
-    >
+    <div className="min-h-screen -mx-4 px-4 sm:-mx-6 sm:px-6 py-6 sm:py-10 space-y-8 bg-background">
       {bannerOpen && (
         <div
           className="rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-cyan-950/50 to-slate-900/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3"

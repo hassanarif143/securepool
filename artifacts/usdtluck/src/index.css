@@ -45,6 +45,15 @@
   --color-chart-4: hsl(var(--chart-4));
   --color-chart-5: hsl(var(--chart-5));
 
+  /* Semantic status (single source of truth — use bg-success, text-warning, etc.) */
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-completed: hsl(var(--completed));
+  --color-completed-foreground: hsl(var(--completed-foreground));
+  --color-primary-hover: hsl(var(--primary-hover));
+
   --font-sans: var(--app-font-sans);
   --font-serif: var(--app-font-serif);
   --font-mono: var(--app-font-mono);
@@ -74,6 +83,14 @@
   --primary: 188 94% 42%;
   --primary-foreground: 0 0% 100%;
   --primary-border: 188 85% 36%;
+  --primary-hover: 189 94% 48%;
+
+  --success: 160 84% 36%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 45%;
+  --warning-foreground: 26 90% 12%;
+  --completed: 258 90% 58%;
+  --completed-foreground: 0 0% 100%;
 
   --secondary: 222 47% 11%;
   --secondary-foreground: 0 0% 100%;
@@ -87,14 +104,14 @@
   --accent-foreground: 222.2 47.4% 11.2%;
   --accent-border: 214 32% 91%;
 
-  --destructive: 0 84.2% 60.2%;
+  --destructive: 0 84% 60%;
   --destructive-foreground: 210 40% 98%;
-  --destructive-border: 0 84.2% 60.2%;
+  --destructive-border: 0 84% 60%;
 
   --chart-1: 188 94% 42%;
   --chart-2: 160 84% 39%;
   --chart-3: 214 32% 91%;
-  --chart-4: 210 40% 96%;
+  --chart-4: 258 90% 66%;
   --chart-5: 215.4 16.3% 46.9%;
 
   --sidebar-primary: 222 47% 11%;
@@ -115,11 +132,11 @@
 }
 
 .dark {
-  /* App shell: #0a0f1a · cards #111827 · borders #1f2937 · primary cyan #06b6d4 */
-  --background: 220 44% 7%;
+  /* Tokens: bg #0a0f1a · surface #111827 · border #1f2937 · primary #06b6d4 · hover #22d3ee */
+  --background: 223 44% 7%;
   --foreground: 0 0% 100%;
   --border: 217 19% 17%;
-  --input: 217 33% 12%;
+  --input: 217 33% 14%;
   --ring: 188 94% 43%;
   --radius: 1rem;
 
@@ -133,7 +150,8 @@
 
   --primary: 188 94% 43%;
   --primary-foreground: 0 0% 100%;
-  --primary-border: 188 85% 38%;
+  --primary-border: 188 85% 36%;
+  --primary-hover: 189 94% 52%;
 
   --secondary: 217 19% 17%;
   --secondary-foreground: 210 40% 96%;
@@ -150,6 +168,13 @@
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
   --destructive-border: 0 72% 50%;
+
+  --success: 160 84% 39%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 26 90% 10%;
+  --completed: 258 90% 66%;
+  --completed-foreground: 0 0% 100%;
 
   --chart-1: 188 94% 43%;
   --chart-2: 160 84% 39%;
@@ -198,6 +223,19 @@
 @layer utilities {
   .font-display {
     font-family: var(--app-font-display), var(--app-font-sans), system-ui, sans-serif;
+  }
+  /** Standard page shell — use on route roots for consistent rhythm */
+  .ds-page {
+    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 md:py-10 space-y-6 md:space-y-8;
+  }
+  .ds-page-heading {
+    @apply font-display text-2xl sm:text-3xl font-bold tracking-tight text-foreground;
+  }
+  .ds-surface {
+    @apply rounded-2xl border border-border bg-card text-card-foreground shadow-sm;
+  }
+  .ds-focus {
+    @apply transition-[box-shadow,background-color,border-color,color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
   .page-container {
     @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
@@ -280,7 +318,7 @@
   width: 4px;
   height: 1.6rem;
   border-radius: 9999px;
-  background: linear-gradient(180deg, #00d4ff 0%, #22c55e 100%);
+  background: linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(var(--primary-hover)) 100%);
   flex-shrink: 0;
 }
 

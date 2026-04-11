@@ -4,13 +4,6 @@ import { Logo } from "@/components/Logo";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const TRUST_ITEMS = [
-  { icon: "🔒", label: "Provably Fair", mobile: true },
-  { icon: "⚡", label: "Instant Credit", mobile: true },
-  { icon: "💎", label: "No Hidden Fees", mobile: false },
-  { icon: "🎯", label: "Transparent System", mobile: false },
-] as const;
-
 function SocialX({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden fill="currentColor">
@@ -35,8 +28,16 @@ function SocialDiscord({ className }: { className?: string }) {
   );
 }
 
-const FOOTER_LINK_CLASS =
-  "text-sm text-slate-400 hover:text-cyan-400 transition-colors duration-200";
+const link = "text-sm text-muted-foreground hover:text-foreground transition-colors";
+
+const FOOTER_LINKS: { href: string; label: string; external?: boolean }[] = [
+  { href: "/pools", label: "Pools" },
+  { href: "/how-it-works", label: "How it works" },
+  { href: "/rewards", label: "Rewards" },
+  { href: "/wallet", label: "Wallet" },
+  { href: "/provably-fair", label: "Provably fair" },
+  { href: "mailto:support@securepool.app", label: "Contact", external: true },
+];
 
 export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBottomSpace?: boolean }) {
   const year = new Date().getFullYear();
@@ -44,210 +45,80 @@ export function SiteFooter({ extraMobileBottomSpace = false }: { extraMobileBott
   return (
     <footer
       className={cn(
-        "mt-auto border-t border-cyan-500/20 shadow-[0_-4px_48px_-12px_rgba(6,182,212,0.12)]",
+        "mt-auto border-t border-border bg-background",
         extraMobileBottomSpace && "pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:pb-0",
       )}
-      style={{ background: "#050a14" }}
     >
-      {/* Cyan glow line */}
-      <div
-        className="h-[1px] w-full bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent"
-        aria-hidden
-      />
-
-      {/* Trust bar */}
-      <div className="border-b border-white/[0.06]">
-        <div className="page-container py-4 sm:py-5">
-          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 sm:gap-x-4 sm:gap-y-3 md:justify-between md:gap-x-6">
-            {TRUST_ITEMS.map((item) => (
-              <div
-                key={item.label}
-                className={cn(
-                  "group flex items-center gap-2 rounded-full border border-white/5 bg-white/[0.03] px-3 py-1.5 sm:px-4 sm:py-2",
-                  "transition-all duration-300 hover:border-cyan-500/35 hover:bg-cyan-500/5 hover:shadow-[0_0_20px_-6px_rgba(6,182,212,0.35)]",
-                  !item.mobile && "hidden md:flex",
-                )}
-              >
-                <span
-                  className="text-base transition-transform duration-300 group-hover:scale-110"
-                  aria-hidden
-                >
-                  {item.icon}
-                </span>
-                <span className="text-xs sm:text-sm font-medium text-slate-300 group-hover:text-cyan-100/95">
-                  {item.label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="page-container py-10 sm:py-14">
-        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 sm:gap-10 md:grid-cols-3 md:gap-8 lg:grid-cols-4">
-          {/* Branding */}
-          <div className="space-y-4">
-            <Link href="/" className="inline-flex items-center gap-2 rounded-lg outline-none ring-offset-2 ring-offset-[#050a14] focus-visible:ring-2 focus-visible:ring-cyan-500/50">
+      <div className="page-container py-8 sm:py-10">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-sm space-y-3">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 rounded-lg outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+            >
               <Logo size="md" showText />
             </Link>
-            <p className="max-w-xs text-sm leading-relaxed text-slate-400 hidden sm:block">
-              Transparent USDT reward pools with fair draws. Join live pools, track your tickets, and withdraw with
-              clarity.
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Transparent USDT pools with fair draws.
             </p>
-            <p className="text-xs text-slate-400 sm:hidden">Fair USDT pools — transparent draws.</p>
-            <p className="text-xs text-slate-500 hidden sm:block">© {year} SecurePool. All rights reserved.</p>
           </div>
 
-          {/* Product */}
-          <div>
-            <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-cyan-500/90">Product</p>
-            <ul className="space-y-3">
-              <li>
-                <Link href="/pools" className={FOOTER_LINK_CLASS}>
-                  Live Pools
-                </Link>
-              </li>
-              <li>
-                <Link href="/how-it-works" className={FOOTER_LINK_CLASS}>
-                  How It Works
-                </Link>
-              </li>
-              <li>
-                <Link href="/rewards" className={FOOTER_LINK_CLASS}>
-                  Rewards
-                </Link>
-              </li>
-              <li>
-                <Link href="/wallet" className={FOOTER_LINK_CLASS}>
-                  Wallet
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Support — desktop / tablet */}
-          <div className="hidden md:block">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-cyan-500/90">Support</p>
-            <ul className="space-y-3">
-              <li>
-                <Link href="/how-it-works" className={FOOTER_LINK_CLASS}>
-                  Help Center
-                </Link>
-              </li>
-              <li>
-                <a href="mailto:support@securepool.app" className={FOOTER_LINK_CLASS}>
-                  Contact
+          <nav className="flex flex-wrap gap-x-6 gap-y-2 lg:justify-end lg:max-w-xl">
+            {FOOTER_LINKS.map((item) =>
+              item.external ? (
+                <a key={item.href} href={item.href} className={link}>
+                  {item.label}
                 </a>
-              </li>
-              <li>
-                <Link href="/how-it-works" className={FOOTER_LINK_CLASS}>
-                  FAQs
+              ) : (
+                <Link key={item.href} href={item.href} className={link}>
+                  {item.label}
                 </Link>
-              </li>
-              <li>
-                <a
-                  href="mailto:support@securepool.app?subject=Issue%20report"
-                  className={FOOTER_LINK_CLASS}
-                >
-                  Report Issue
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          {/* Legal & trust — desktop / tablet */}
-          <div className="hidden lg:block">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-cyan-500/90">Legal &amp; Trust</p>
-            <ul className="space-y-3">
-              <li>
-                <a
-                  href="mailto:support@securepool.app?subject=Terms%20of%20Service"
-                  className={FOOTER_LINK_CLASS}
-                >
-                  Terms
-                </a>
-              </li>
-              <li>
-                <a
-                  href="mailto:support@securepool.app?subject=Privacy%20Policy"
-                  className={FOOTER_LINK_CLASS}
-                >
-                  Privacy
-                </a>
-              </li>
-              <li>
-                <Link href="/provably-fair" className={FOOTER_LINK_CLASS}>
-                  Fairness Info
-                </Link>
-              </li>
-            </ul>
-          </div>
+              ),
+            )}
+          </nav>
         </div>
 
-        {/* Mobile: compact trust / legal links (full columns hidden on small screens) */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-white/[0.06] pt-8 text-[11px] text-slate-500 md:hidden">
-          <a href="mailto:support@securepool.app" className="hover:text-cyan-400 transition-colors">
-            Contact
-          </a>
-          <Link href="/provably-fair" className="hover:text-cyan-400 transition-colors">
-            Fairness
-          </Link>
-          <a
-            href="mailto:support@securepool.app?subject=Issue%20report"
-            className="hover:text-cyan-400 transition-colors"
-          >
-            Report
-          </a>
-        </div>
-
-        {/* Social + CTA */}
-        <div className="mt-8 flex flex-col items-stretch gap-6 border-t border-white/[0.06] pt-8 sm:mt-12 sm:pt-10 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center justify-center gap-4 sm:justify-start">
+        <div className="mt-8 flex flex-col gap-4 border-t border-border pt-8 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center justify-center gap-2 sm:justify-start">
             <a
               href="https://x.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#111827] text-slate-400 transition-all duration-200 hover:border-cyan-500/40 hover:text-cyan-300 hover:shadow-[0_0_20px_-8px_rgba(6,182,212,0.45)]"
-              aria-label="X (Twitter)"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              aria-label="X"
             >
-              <SocialX className="h-4 w-4" />
+              <SocialX className="h-3.5 w-3.5" />
             </a>
             <a
               href="https://t.me"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#111827] text-slate-400 transition-all duration-200 hover:border-cyan-500/40 hover:text-cyan-300 hover:shadow-[0_0_20px_-8px_rgba(6,182,212,0.45)] sm:flex"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               aria-label="Telegram"
             >
-              <SocialTelegram className="h-5 w-5" />
+              <SocialTelegram className="h-4 w-4" />
             </a>
             <a
               href="https://discord.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-[#111827] text-slate-400 transition-all duration-200 hover:border-cyan-500/40 hover:text-cyan-300 hover:shadow-[0_0_20px_-8px_rgba(6,182,212,0.45)] sm:flex"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               aria-label="Discord"
             >
-              <SocialDiscord className="h-5 w-5" />
+              <SocialDiscord className="h-4 w-4" />
             </a>
           </div>
 
-          <Button
-            asChild
-            className="h-12 rounded-xl bg-cyan-600 px-8 text-base font-semibold text-white shadow-lg shadow-cyan-900/30 transition-all hover:bg-cyan-500 hover:shadow-[0_0_28px_-6px_rgba(6,182,212,0.55)] sm:min-w-[220px]"
-          >
+          <Button asChild size="sm" className="w-full sm:w-auto sm:min-w-[180px]">
             <Link href="/pools" className="inline-flex items-center justify-center gap-2">
-              Join a Pool Now
-              <ArrowRight className="h-4 w-4" aria-hidden />
+              Join a pool
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
             </Link>
           </Button>
         </div>
-      </div>
 
-      {/* Bottom strip */}
-      <div className="border-t border-white/[0.06] py-4">
-        <p className="text-center text-[11px] sm:text-xs text-slate-500">
-          © {year} SecurePool — Transparent USDT Reward Platform
+        <p className="mt-8 text-center text-xs text-muted-foreground">
+          © {year} SecurePool
         </p>
       </div>
     </footer>

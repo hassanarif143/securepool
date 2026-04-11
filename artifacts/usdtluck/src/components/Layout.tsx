@@ -10,6 +10,7 @@ import { SharePromptGate } from "@/components/share/SharePromptGate";
 import { ChevronRight, LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import { SiteFooter } from "@/components/SiteFooter";
+import { cn } from "@/lib/utils";
 
 function playNotifSound() {
   try {
@@ -112,11 +113,11 @@ function NotificationBell() {
     warning: "⚠️",
   };
 
-  function typeStyle(t: string) {
-    if (t === "success") return { bg: "hsla(152,72%,44%,0.12)", border: "hsla(152,72%,44%,0.25)", fg: "hsl(152,72%,55%)" };
-    if (t === "error") return { bg: "hsla(0,72%,44%,0.12)", border: "hsla(0,72%,44%,0.25)", fg: "hsl(0,72%,60%)" };
-    if (t === "warning") return { bg: "hsla(38,100%,55%,0.1)", border: "hsla(38,100%,55%,0.25)", fg: "hsl(38,100%,60%)" };
-    return { bg: "hsla(210,80%,55%,0.1)", border: "hsla(210,80%,55%,0.2)", fg: "hsl(210,80%,65%)" };
+  function typeChipClass(t: string) {
+    if (t === "success") return "bg-success/12 border-success/30 text-success";
+    if (t === "error") return "bg-destructive/12 border-destructive/30 text-destructive";
+    if (t === "warning") return "bg-warning/12 border-warning/35 text-warning-foreground";
+    return "bg-primary/10 border-primary/25 text-primary";
   }
   function timeAgo(d: string) {
     const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
@@ -137,19 +138,15 @@ function NotificationBell() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center text-[9px] font-bold rounded-full px-1"
-            style={{ background: "hsl(0,72%,55%)", color: "white" }}>
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center text-[9px] font-bold rounded-full px-1 bg-destructive text-destructive-foreground">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
       </button>
 
       {open && (
-        <div
-          className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] sm:w-80 rounded-2xl border shadow-2xl overflow-hidden z-50"
-          style={{ background: "hsl(222,30%,10%)", borderColor: "hsl(217,28%,18%)", boxShadow: "0 20px 40px rgba(0,0,0,0.6)" }}
-        >
-          <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "hsl(217,28%,16%)" }}>
+        <div className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] sm:w-80 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden z-50">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <p className="text-sm font-semibold">Notifications</p>
             <div className="flex items-center gap-2">
               {unread > 0 && (
@@ -179,23 +176,23 @@ function NotificationBell() {
                   key={n.id}
                   type="button"
                   onClick={() => markOneRead(n.id)}
-                  className="w-full text-left flex items-start gap-3 px-4 py-3 border-b transition-colors hover:bg-white/[0.02]"
-                  style={{ borderColor: "hsl(217,28%,13%)", background: n.read ? "transparent" : "hsla(152,72%,44%,0.03)" }}
+                  className={cn(
+                    "w-full text-left flex items-start gap-3 px-4 py-3 border-b border-border transition-colors hover:bg-white/[0.02]",
+                    !n.read && "bg-primary/[0.04]"
+                  )}
                 >
                   <div
-                    className="w-8 h-8 rounded-xl flex items-center justify-center text-sm shrink-0 mt-0.5 border"
-                    style={{
-                      background: typeStyle(n.type ?? "info").bg,
-                      borderColor: typeStyle(n.type ?? "info").border,
-                      color: typeStyle(n.type ?? "info").fg,
-                    }}
+                    className={cn(
+                      "w-8 h-8 rounded-xl flex items-center justify-center text-sm shrink-0 mt-0.5 border",
+                      typeChipClass(n.type ?? "info")
+                    )}
                   >
                     {typeIcon[n.type] ?? "📢"}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-semibold leading-none">{n.title}</p>
-                      {!n.read && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "hsl(152,72%,55%)" }} />}
+                      {!n.read && <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-primary" />}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{n.message}</p>
                     <p className="text-[11px] text-muted-foreground/60 mt-1">{timeAgo(n.created_at)}</p>
@@ -248,23 +245,20 @@ function WalletDropdown({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-xl px-3 py-1.5 transition-all border focus:outline-none"
-        style={{
-          background: open
-            ? "hsla(152,72%,44%,0.15)"
-            : "hsla(152,72%,44%,0.08)",
-          borderColor: open ? "hsla(152,72%,44%,0.4)" : "hsla(152,72%,44%,0.2)",
-        }}
+        className={cn(
+          "flex items-center gap-2 rounded-xl px-3 py-1.5 transition-all border border-primary/25 focus:outline-none",
+          open ? "bg-primary/15 border-primary/40" : "bg-primary/10"
+        )}
       >
         <div className="hidden md:flex items-center gap-2 text-xs leading-none">
           <span className="inline-flex items-center gap-1 text-primary font-semibold tabular-nums">
             <span aria-hidden>💼</span>{" "}
-            {isLoading ? "..." : <UsdtAmount amount={wd} amountClassName="text-primary font-semibold" currencyClassName="text-[10px] text-[#64748b]" />}
+            {isLoading ? "..." : <UsdtAmount amount={wd} amountClassName="text-primary font-semibold" currencyClassName="text-[10px] text-muted-foreground" />}
           </span>
           <span className="text-muted-foreground/60">|</span>
-          <span className="inline-flex items-center gap-1 text-cyan-300 font-semibold tabular-nums">
+          <span className="inline-flex items-center gap-1 text-primary font-semibold tabular-nums">
             <span aria-hidden>🎁</span>{" "}
-            {isLoading ? "..." : <UsdtAmount amount={bonus} amountClassName="text-cyan-300 font-semibold" currencyClassName="text-[10px] text-[#64748b]" />}
+            {isLoading ? "..." : <UsdtAmount amount={bonus} amountClassName="text-primary font-semibold" currencyClassName="text-[10px] text-muted-foreground" />}
           </span>
         </div>
         <div className="md:hidden text-left">
@@ -279,9 +273,8 @@ function WalletDropdown({
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-64 rounded-2xl border shadow-2xl overflow-hidden z-50"
-          style={{ background: "hsl(222,30%,10%)", borderColor: "hsla(152,72%,44%,0.2)", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}>
-          <div className="px-4 py-3.5" style={{ background: "linear-gradient(135deg, hsla(152,72%,44%,0.12), hsla(200,80%,55%,0.06))" }}>
+        <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden z-50">
+          <div className="px-4 py-3.5 bg-gradient-to-br from-primary/12 to-primary/5">
             <p className="text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wide">Total Balance</p>
             {isLoading ? (
               <p className="text-2xl font-bold text-primary leading-none tabular-nums">{displayValue}</p>
@@ -292,13 +285,13 @@ function WalletDropdown({
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground inline-flex items-center gap-1"><span aria-hidden>💼</span>Withdrawable</span>
                 <span className="font-semibold text-foreground tabular-nums">
-                  {isLoading ? "..." : <UsdtAmount amount={wd} amountClassName="font-semibold text-foreground" currencyClassName="text-[10px] text-[#64748b]" />}
+                  {isLoading ? "..." : <UsdtAmount amount={wd} amountClassName="font-semibold text-foreground" currencyClassName="text-[10px] text-muted-foreground" />}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground inline-flex items-center gap-1"><span aria-hidden>🎁</span>Bonus</span>
-                <span className="font-semibold text-cyan-300 tabular-nums">
-                  {isLoading ? "..." : <UsdtAmount amount={bonus} amountClassName="font-semibold text-cyan-300" currencyClassName="text-[10px] text-[#64748b]" />}
+                <span className="font-semibold text-primary tabular-nums">
+                  {isLoading ? "..." : <UsdtAmount amount={bonus} amountClassName="font-semibold text-primary" currencyClassName="text-[10px] text-muted-foreground" />}
                 </span>
               </div>
             </div>
@@ -342,11 +335,12 @@ function UserMenu({ user, logout }: { user: any; logout: () => void }) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-xl px-2 py-1.5 transition-all focus:outline-none hover:bg-white/5"
-        style={{ border: `1px solid ${open ? "hsla(152,72%,44%,0.3)" : "transparent"}` }}
+        className={cn(
+          "flex items-center gap-2 rounded-xl px-2 py-1.5 transition-all focus:outline-none hover:bg-white/5 border",
+          open ? "border-primary/30" : "border-transparent"
+        )}
       >
-        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
-          style={{ background: "hsla(152,72%,44%,0.15)", border: "1px solid hsla(152,72%,44%,0.3)", color: "hsl(152,72%,60%)" }}>
+        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-primary/15 border border-primary/30 text-primary">
           {user.name.charAt(0).toUpperCase()}
         </div>
         <span className="hidden lg:block text-sm font-medium max-w-[90px] truncate">{user.name.split(" ")[0]}</span>
@@ -357,13 +351,11 @@ function UserMenu({ user, logout }: { user: any; logout: () => void }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-56 rounded-2xl border shadow-2xl overflow-hidden z-50"
-          style={{ background: "hsl(222,30%,10%)", borderColor: "hsl(217,28%,18%)", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}>
+        <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden z-50">
           {/* User info header */}
-          <div className="px-4 py-3 border-b" style={{ borderColor: "hsl(217,28%,16%)" }}>
+          <div className="px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-                style={{ background: "hsla(152,72%,44%,0.15)", border: "1px solid hsla(152,72%,44%,0.3)", color: "hsl(152,72%,60%)" }}>
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 bg-primary/15 border border-primary/30 text-primary">
                 {user.name.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
@@ -387,7 +379,7 @@ function UserMenu({ user, logout }: { user: any; logout: () => void }) {
             </Link>
           </div>
 
-          <div className="p-2 border-t" style={{ borderColor: "hsl(217,28%,16%)" }}>
+          <div className="p-2 border-t border-border">
             <button onClick={() => { logout(); setOpen(false); }}
               className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors text-red-400 hover:bg-red-500/10">
               <span className="w-5 text-center">🚪</span> Sign Out
@@ -420,10 +412,10 @@ function MoreMenu({ links, location }: { links: { href: string; label: string; i
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-          anyActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
-        }`}
-        style={anyActive ? { background: "hsla(152,72%,44%,0.1)", border: "1px solid hsla(152,72%,44%,0.2)" } : {}}
+        className={cn(
+          "relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
+          anyActive ? "text-primary bg-primary/10 border border-primary/20" : "text-muted-foreground hover:text-foreground"
+        )}
       >
         <span>More</span>
         <svg className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`}
@@ -433,8 +425,7 @@ function MoreMenu({ links, location }: { links: { href: string; label: string; i
       </button>
 
       {open && (
-        <div className="absolute left-0 mt-2 w-48 rounded-2xl border shadow-2xl overflow-hidden z-50"
-          style={{ background: "hsl(222,30%,10%)", borderColor: "hsl(217,28%,18%)", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}>
+        <div className="absolute left-0 mt-2 w-48 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden z-50">
           <div className="p-2 space-y-0.5">
             {links.map((link) => {
               const active = location.startsWith(link.href);
@@ -479,11 +470,10 @@ function MobileMenu({
   const allLinks = [...primaryLinks, ...secondaryLinks];
 
   return (
-    <div className="md:hidden border-t" style={{ background: "hsl(224,30%,8%)", borderColor: "hsl(217,28%,16%)" }}>
+    <div className="md:hidden border-t border-border bg-background">
       {/* User identity strip */}
-      <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b" style={{ borderColor: "hsl(217,28%,14%)" }}>
-        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
-          style={{ background: "hsla(152,72%,44%,0.15)", border: "1px solid hsla(152,72%,44%,0.3)", color: "hsl(152,72%,60%)" }}>
+      <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b border-border">
+        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold bg-primary/15 border border-primary/30 text-primary">
           {user.name.charAt(0).toUpperCase()}
         </div>
         <div>
@@ -494,7 +484,7 @@ function MobileMenu({
             <UsdtAmount
               amount={Number(user.withdrawableBalance ?? 0) + Number(user.bonusBalance ?? 0)}
               amountClassName="text-xs font-bold text-primary"
-              currencyClassName="text-[10px] text-[#64748b]"
+              currencyClassName="text-[10px] text-muted-foreground"
             />
           </p>
           <p className="text-[10px] text-muted-foreground">balance</p>
@@ -517,7 +507,7 @@ function MobileMenu({
           </Link>
         ))}
 
-        <div className="pt-2 mt-2 border-t space-y-0.5" style={{ borderColor: "hsl(217,28%,14%)" }}>
+        <div className="pt-2 mt-2 border-t border-border space-y-0.5">
           <Link href="/profile">
             <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12">
               <span className="w-5 text-center">👤</span> Profile & Settings
@@ -577,15 +567,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <div className="sticky top-0 z-50">
-      <header
-        className="border-b"
-        style={{
-          background: "hsla(224,30%,7%,0.92)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
-          borderColor: "hsl(217,28%,14%)",
-        }}
-      >
+      <header className="border-b border-border bg-background/92 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center min-h-[3.25rem] py-2.5 gap-2 sm:gap-3">
 
@@ -602,10 +584,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   return (
                     <Link key={link.href} href={link.href}>
                       <span
-                        className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer whitespace-nowrap ${
-                          active ? "text-primary" : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
-                        }`}
-                        style={active ? { background: "hsla(152,72%,44%,0.1)", border: "1px solid hsla(152,72%,44%,0.2)" } : {}}
+                        className={cn(
+                          "relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer whitespace-nowrap",
+                          active
+                            ? "text-primary bg-primary/10 border border-primary/20"
+                            : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+                        )}
                       >
                         <span>{link.icon}</span>
                         <span>{link.label}</span>
@@ -638,8 +622,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <Link href="/wallet?tab=deposit">
                     <button
                       type="button"
-                      className="h-8 w-8 rounded-lg border text-primary font-bold text-base leading-none transition-colors hover:bg-primary/10"
-                      style={{ borderColor: "hsla(152,72%,44%,0.35)" }}
+                      className="h-8 w-8 rounded-lg border border-primary/35 text-primary font-bold text-base leading-none transition-colors hover:bg-primary/10"
                       aria-label="Deposit"
                       title="Deposit"
                     >
@@ -648,7 +631,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   </Link>
 
                   {/* Divider */}
-                  <div className="hidden md:block w-px h-5 opacity-30" style={{ background: "hsl(217,28%,40%)" }} />
+                  <div className="hidden md:block w-px h-5 bg-border opacity-60" />
 
                   {/* User menu */}
                   <div className="hidden md:block">
@@ -658,8 +641,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   {/* Hamburger — mobile only */}
                   <button
                     onClick={() => setMobileOpen((v) => !v)}
-                    className="md:hidden p-2 rounded-lg transition-colors"
-                    style={{ color: mobileOpen ? "hsl(152,72%,55%)" : undefined }}
+                    className={cn("md:hidden p-2 rounded-lg transition-colors", mobileOpen ? "text-primary" : undefined)}
                     aria-label="Menu"
                   >
                     {mobileOpen ? (
@@ -693,8 +675,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     </Button>
                   </Link>
                   <Link href="/signup">
-                    <Button size="sm" className="font-semibold text-sm"
-                      style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", boxShadow: "0 2px 8px rgba(22,163,74,0.3)" }}>
+                    <Button size="sm" className="font-semibold text-sm shadow-sm">
                       Get Started
                     </Button>
                   </Link>
@@ -730,8 +711,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {user && (
         <nav
-          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t flex justify-evenly items-stretch min-h-[4.35rem] py-1.5 px-0.5 safe-area-pb touch-manipulation shadow-[0_-8px_32px_rgba(0,0,0,0.35)] transition-shadow"
-          style={{ background: "hsla(224,30%,7%,0.96)", backdropFilter: "blur(12px)", borderColor: "hsl(217,28%,14%)" }}
+          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/96 backdrop-blur-md flex justify-evenly items-stretch min-h-[4.35rem] py-1.5 px-0.5 safe-area-pb touch-manipulation shadow-[0_-8px_32px_rgba(0,0,0,0.35)] transition-shadow"
           aria-label="Primary"
         >
           {(
@@ -753,10 +733,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
             return (
               <Link key={item.href} href={item.href} className="flex-1 min-w-0 basis-0">
                 <span
-                  className={`flex min-h-[3.35rem] min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[9px] sm:text-[10px] font-semibold tracking-tight transition-colors duration-200 active:scale-[0.97] touch-manipulation ${
-                    active ? "text-primary" : "text-muted-foreground hover:text-foreground/90"
-                  }`}
-                  style={active ? { background: "hsla(152,72%,44%,0.12)" } : {}}
+                  className={cn(
+                    "flex min-h-[3.35rem] min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[9px] sm:text-[10px] font-semibold tracking-tight transition-colors duration-200 active:scale-[0.97] touch-manipulation",
+                    active ? "text-primary bg-primary/12" : "text-muted-foreground hover:text-foreground/90"
+                  )}
                 >
                   <Icon className="h-[1.15rem] w-[1.15rem] sm:h-5 sm:w-5 shrink-0" strokeWidth={active ? 2.25 : 2} aria-hidden />
                   <span className="leading-tight text-center truncate w-full px-0.5">{item.label}</span>
