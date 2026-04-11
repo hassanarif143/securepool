@@ -6,12 +6,20 @@ export async function notifyUser(
   title: string,
   message: string,
   type: string = "info",
+  poolId?: number | null,
 ): Promise<void> {
   try {
-    await pool.query(
-      `INSERT INTO notifications (user_id, title, message, type) VALUES ($1, $2, $3, $4)`,
-      [userId, title, message, type],
-    );
+    if (poolId != null && Number.isFinite(poolId)) {
+      await pool.query(
+        `INSERT INTO notifications (user_id, title, message, type, pool_id) VALUES ($1, $2, $3, $4, $5)`,
+        [userId, title, message, type, poolId],
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO notifications (user_id, title, message, type) VALUES ($1, $2, $3, $4)`,
+        [userId, title, message, type],
+      );
+    }
   } catch (err) {
     console.error("[notify] failed:", err);
   }

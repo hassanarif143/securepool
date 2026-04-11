@@ -1,168 +1,259 @@
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useListPools } from "@workspace/api-client-react";
+import type { Pool } from "@workspace/api-client-react";
 import { PoolCard } from "@/components/PoolCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { apiUrl } from "@/lib/api-base";
+
+const BANNER_KEY = "securepool_pools_onboarding_dismissed";
+
+type PublicStats = {
+  totalPaidOutUsdt: number;
+  drawsToday: number;
+  pkrPerUsdt?: number;
+};
 
 export default function PoolsPage() {
   const { data: pools, isLoading } = useListPools();
-  const poolStatus = (p: any) => String(p?.status ?? "");
-  const activeRaw = pools?.filter((p) => poolStatus(p) === "open") ?? [];
-  const active = [...activeRaw].sort((a, b) => {
-    const aFull = a.participantCount >= a.maxUsers ? 1 : 0;
-    const bFull = b.participantCount >= b.maxUsers ? 1 : 0;
-    if (aFull !== bFull) return bFull - aFull;
-    return b.participantCount - a.participantCount;
+  const [bannerOpen, setBannerOpen] = useState(false);
+  const [howOpen, setHowOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setBannerOpen(!localStorage.getItem(BANNER_KEY));
+  }, []);
+
+  const { data: stats } = useQuery({
+    queryKey: ["pools-public-stats"],
+    queryFn: async (): Promise<PublicStats> => {
+      const r = await fetch(apiUrl("/api/pools/public-stats"));
+      if (!r.ok) return { totalPaidOutUsdt: 0, drawsToday: 0 };
+      return r.json() as Promise<PublicStats>;
+    },
   });
+
+  const poolStatus = (p: { status?: string }) => String(p?.status ?? "");
+
+  const openPools = pools?.filter((p) => poolStatus(p) === "open") ?? [];
+  const fillingFast = openPools.filter((p) => p.maxUsers > 0 && p.participantCount / p.maxUsers > 0.6);
+  const drawingSoon =
+    pools?.filter((p) => ["filled", "drawing"].includes(poolStatus(p))) ?? [];
   const upcoming = pools?.filter((p) => poolStatus(p) === "upcoming") ?? [];
-  const closed = pools?.filter((p) => poolStatus(p) === "closed") ?? [];
-  const completed = pools?.filter((p) => poolStatus(p) === "completed") ?? [];
-  const closingSoon = active.filter((p) => {
-    const endMs = new Date(p.endTime).getTime();
-    if (!Number.isFinite(endMs)) return false;
-    // Ignore "no time limit" pools and show real soon-ending pools only.
-    if (new Date(p.endTime).getUTCFullYear() >= 2099) return false;
-    const minsLeft = (endMs - Date.now()) / 60000;
-    return minsLeft > 0 && minsLeft <= 120;
-  });
-  const closingSoonIds = new Set(closingSoon.map((p) => p.id));
-  const startingSoon = active.filter(
-    (p) => new Date(p.startTime).getTime() > Date.now() && !closingSoonIds.has(p.id),
-  );
-  const startingSoonIds = new Set(startingSoon.map((p) => p.id));
-  const liveDraws = active.filter((p) => !closingSoonIds.has(p.id) && !startingSoonIds.has(p.id));
-  const revealQueueCount = [...active, ...closed].filter((p) => p.participantCount >= p.maxUsers).length;
-  const openTickets = active.reduce((sum, p) => sum + Math.max(0, p.maxUsers - p.participantCount), 0);
+  const completed =
+    pools?.filter((p) => poolStatus(p) === "completed" || poolStatus(p) === "closed") ?? [];
+
+  const ticketsAvailable = openPools.reduce((sum, p) => sum + Math.max(0, p.maxUsers - p.participantCount), 0);
+
+  const staleWarningCount = openPools.filter((p) => {
+    const created = new Date((p as { createdAt?: string }).createdAt ?? 0).getTime();
+    const ageH = (Date.now() - created) / 3600000;
+    const fill = p.maxUsers > 0 ? p.participantCount / p.maxUsers : 0;
+    return ageH >= 20 && fill < 0.2;
+  }).length;
+
+  function dismissBanner() {
+    setBannerOpen(false);
+    if (typeof window !== "undefined") localStorage.setItem(BANNER_KEY, "1");
+  }
 
   return (
-    <div className="space-y-6 sm:space-y-8">
-      <div className="space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/90">Draws</p>
-        <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Pool Marketplace</h1>
-        <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-2xl">
-          Each card shows ticket price, winners, time left, and how full the pool is — same layout everywhere so you can decide fast. Rules stay visible on the pool page before you pay.
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-3xl">
-          <QuickStat label="Active pools" value={String(active.length)} />
-          <QuickStat label="Upcoming" value={String(upcoming.length)} />
-          <QuickStat label="Tickets left" value={String(openTickets)} />
-          <QuickStat label="Completed" value={String(completed.length + closed.length)} />
-        </div>
-        {revealQueueCount > 0 && (
-          <div className="inline-flex items-center gap-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs sm:text-sm font-semibold text-amber-200 animate-pulse">
-            <span aria-hidden>🔥</span>
-            {revealQueueCount} pool{revealQueueCount === 1 ? "" : "s"} full - winner reveal coming soon
+    <div
+      className="min-h-screen -mx-4 px-4 sm:-mx-6 sm:px-6 py-6 sm:py-10 space-y-8"
+      style={{ background: "#0a0f1a" }}
+    >
+      {bannerOpen && (
+        <div
+          className="rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-cyan-950/50 to-slate-900/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3"
+          style={{ boxShadow: "0 0 40px -12px rgba(6,182,212,0.35)" }}
+        >
+          <div className="flex-1 space-y-1">
+            <p className="text-sm font-semibold text-cyan-100">
+              🆕 New here? Pick a pool → Buy a ticket → When all spots fill, winners are picked fairly & automatically. Your
+              win chance is on every card!
+            </p>
+            <button
+              type="button"
+              className="text-xs font-medium text-cyan-400 hover:underline"
+              onClick={() => setHowOpen(true)}
+            >
+              How it works
+            </button>
           </div>
+          <Button variant="outline" size="sm" className="shrink-0 border-cyan-500/40 text-cyan-100" onClick={dismissBanner}>
+            Got it
+          </Button>
+        </div>
+      )}
+
+      <div className="space-y-4 max-w-4xl">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-cyan-400/90">Live draws</p>
+        <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white">🎱 Live Pools</h1>
+        <p className="text-base text-slate-400 leading-relaxed max-w-2xl">
+          Buy a ticket → Pool fills → Winners picked automatically → Winnings to your wallet
+        </p>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 max-w-4xl">
+          <QuickStat icon="🔥" label="Active pools" value={String(openPools.length)} accent="border-cyan-500/30 text-cyan-200" />
+          <QuickStat icon="🎟️" label="Tickets available" value={String(ticketsAvailable)} accent="border-teal-500/30 text-teal-200" />
+          <QuickStat icon="🏆" label="Draws today" value={String(stats?.drawsToday ?? "—")} accent="border-amber-500/30 text-amber-200" />
+          <QuickStat
+            icon="💰"
+            label="Total paid out"
+            value={stats ? `${Math.round(stats.totalPaidOutUsdt).toLocaleString()} USDT` : "—"}
+            accent="border-violet-500/30 text-violet-200"
+          />
+        </div>
+
+        {staleWarningCount > 0 && (
+          <p className="text-xs text-amber-300/90 rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2">
+            ⚠️ {staleWarningCount} pool{staleWarningCount === 1 ? "" : "s"} slow to fill — still safe to join.
+          </p>
         )}
       </div>
 
-      <Tabs defaultValue="browse">
-        <TabsList className="w-full sm:w-auto h-auto flex-wrap gap-1 p-1">
-          <TabsTrigger value="browse">🔥 Active ({active.length})</TabsTrigger>
-          <TabsTrigger value="upcoming">⏳ Upcoming ({upcoming.length})</TabsTrigger>
-          <TabsTrigger value="completed">🏁 Completed ({completed.length + closed.length})</TabsTrigger>
+      <Dialog open={howOpen} onOpenChange={setHowOpen}>
+        <DialogContent className="sm:max-w-md border-cyan-500/20 bg-[#0d1526] text-slate-100">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl text-cyan-100">How it works</DialogTitle>
+          </DialogHeader>
+          <ol className="space-y-4 text-sm text-slate-300">
+            <li className="flex gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-300 font-bold">
+                1
+              </span>
+              <span>
+                <strong className="text-white">Choose a pool</strong> — each card shows ticket price, seats, and your approximate win chance.
+              </span>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-500/20 text-teal-300 font-bold">
+                2
+              </span>
+              <span>
+                <strong className="text-white">Buy tickets</strong> — payment is in USDT; prizes credit to your wallet when you win.
+              </span>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-violet-300 font-bold">
+                3
+              </span>
+              <span>
+                <strong className="text-white">Pool fills → draw runs</strong> — winners are picked automatically. You can verify any completed draw.
+              </span>
+            </li>
+          </ol>
+        </DialogContent>
+      </Dialog>
+
+      <Tabs defaultValue="active" className="w-full">
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-cyan-400 hover:text-cyan-300 text-xs"
+            onClick={() => setHowOpen(true)}
+          >
+            How it works
+          </Button>
+        </div>
+        <TabsList className="w-full h-auto flex-wrap gap-2 p-2 bg-slate-900/80 border border-slate-700/60 rounded-xl">
+          <TabsTrigger
+            value="active"
+            className="data-[state=active]:bg-cyan-600/30 data-[state=active]:text-cyan-100 rounded-lg"
+          >
+            🔥 Active ({openPools.length})
+          </TabsTrigger>
+          <TabsTrigger
+            value="fast"
+            className="data-[state=active]:bg-amber-600/30 data-[state=active]:text-amber-100 rounded-lg"
+          >
+            ⚡ Filling fast ({fillingFast.length})
+          </TabsTrigger>
+          <TabsTrigger
+            value="drawing"
+            className="data-[state=active]:bg-red-600/30 data-[state=active]:text-red-100 rounded-lg"
+          >
+            🔴 Drawing soon ({drawingSoon.length})
+          </TabsTrigger>
+          <TabsTrigger
+            value="completed"
+            className="data-[state=active]:bg-violet-600/30 data-[state=active]:text-violet-100 rounded-lg"
+          >
+            ✅ Completed ({completed.length})
+          </TabsTrigger>
+          <TabsTrigger
+            value="upcoming"
+            className="data-[state=active]:bg-sky-600/30 data-[state=active]:text-sky-100 rounded-lg"
+          >
+            ⏳ Upcoming ({upcoming.length})
+          </TabsTrigger>
         </TabsList>
 
         {isLoading ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-64" />)}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-6">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-96 rounded-2xl bg-slate-800/80" />
+            ))}
           </div>
         ) : (
           <>
-            <TabsContent value="browse" className="space-y-8 sm:space-y-10 mt-4">
-              {active.length === 0 ? (
-                <p className="text-muted-foreground py-8 text-center">No open draws right now. Check back soon.</p>
-              ) : (
-                <>
-                  {closingSoon.length > 0 && (
-                    <section className="space-y-3" aria-labelledby="pools-closing-heading">
-                      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 border-b border-amber-500/25 pb-2">
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Closing soon</p>
-                          <h2 id="pools-closing-heading" className="font-display text-lg sm:text-xl font-bold">
-                            Cut-off approaching
-                          </h2>
-                          <p className="text-xs text-muted-foreground mt-0.5">These draws end within about two hours.</p>
-                        </div>
-                      </div>
-                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {closingSoon.map((pool) => (
-                          <PoolCard key={pool.id} pool={pool} />
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  {startingSoon.length > 0 && (
-                    <section className="space-y-3" aria-labelledby="pools-starting-heading">
-                      <div className="border-b border-border/60 pb-2">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-sky-400/90">Starting soon</p>
-                        <h2 id="pools-starting-heading" className="font-display text-lg sm:text-xl font-bold">
-                          Opens shortly
-                        </h2>
-                        <p className="text-xs text-muted-foreground mt-0.5">Sales are already open; official window starts at the listed time.</p>
-                      </div>
-                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {startingSoon.map((pool) => (
-                          <PoolCard key={pool.id} pool={pool} />
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  <section className="space-y-3" aria-labelledby="pools-live-heading">
-                    <div className="border-b border-border/60 pb-2">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Live draws</p>
-                      <h2 id="pools-live-heading" className="font-display text-lg sm:text-xl font-bold">
-                        All open pools
-                      </h2>
-                    </div>
-                    {liveDraws.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-4">
-                        {closingSoon.length > 0 || startingSoon.length > 0
-                          ? "Every open draw is listed in the sections above."
-                          : "No additional open draws."}
-                      </p>
-                    ) : (
-                      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {liveDraws.map((pool) => (
-                          <PoolCard key={pool.id} pool={pool} />
-                        ))}
-                      </div>
-                    )}
-                  </section>
-                </>
-              )}
+            <TabsContent value="active" className="mt-6">
+              <PoolGrid pools={openPools} empty="No pools open for tickets right now. Check back soon." />
             </TabsContent>
-            <TabsContent value="upcoming">
-              {upcoming.length === 0 ? (
-                <p className="text-muted-foreground py-8 text-center">No upcoming pools</p>
-              ) : (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                  {upcoming.map((pool) => <PoolCard key={pool.id} pool={pool as any} />)}
-                </div>
-              )}
+            <TabsContent value="fast" className="mt-6">
+              <PoolGrid pools={fillingFast} empty="No pools are filling fast yet (&gt;60%)." />
             </TabsContent>
-            <TabsContent value="completed">
-              {completed.length + closed.length === 0 ? (
-                <p className="text-muted-foreground py-8 text-center">No completed pools</p>
-              ) : (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                  {[...completed, ...closed].map((pool) => <PoolCard key={pool.id} pool={pool} />)}
-                </div>
-              )}
+            <TabsContent value="drawing" className="mt-6">
+              <PoolGrid pools={drawingSoon} empty="No pools waiting for a draw right now." />
+            </TabsContent>
+            <TabsContent value="completed" className="mt-6">
+              <PoolGrid pools={completed} empty="No completed draws yet." />
+            </TabsContent>
+            <TabsContent value="upcoming" className="mt-6">
+              <PoolGrid pools={upcoming} empty="No upcoming pools scheduled." />
             </TabsContent>
           </>
         )}
       </Tabs>
+
+      <footer className="pt-8 border-t border-slate-800/80 max-w-4xl">
+        <p className="text-[11px] text-slate-500 uppercase tracking-widest mb-3 text-center">Trust &amp; transparency</p>
+        <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-slate-400">
+          <span>🔒 Provably fair draws</span>
+          <span>⚡ Instant wallet credit</span>
+          <span>🔍 Verify any draw</span>
+          <span>💎 USDT based — fees shown upfront</span>
+        </div>
+      </footer>
     </div>
   );
 }
 
-function QuickStat({ label, value }: { label: string; value: string }) {
+function PoolGrid({ pools, empty }: { pools: Pool[]; empty: string }) {
+  if (pools.length === 0) {
+    return <p className="text-slate-500 text-center py-12">{empty}</p>;
+  }
   return (
-    <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="text-sm font-semibold tabular-nums">{value}</p>
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+      {pools.map((pool) => (
+        <PoolCard key={pool.id} pool={pool} />
+      ))}
+    </div>
+  );
+}
+
+function QuickStat({ icon, label, value, accent }: { icon: string; label: string; value: string; accent: string }) {
+  return (
+    <div className={`rounded-xl border px-3 py-3 ${accent}`} style={{ background: "rgba(15,23,42,0.5)" }}>
+      <p className="text-[10px] uppercase tracking-wide text-slate-500 flex items-center gap-1">
+        <span aria-hidden>{icon}</span> {label}
+      </p>
+      <p className="text-sm font-semibold tabular-nums font-mono mt-1 text-white">{value}</p>
     </div>
   );
 }

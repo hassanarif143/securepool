@@ -60,6 +60,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PoolFactoryDashboard } from "@/components/admin/PoolFactoryDashboard";
 
 function parseSuperAdminIds(): number[] {
   const raw = import.meta.env.VITE_SUPER_ADMIN_IDS as string | undefined;
@@ -1871,6 +1872,8 @@ function CreatePoolTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PoolFactoryDashboard />
 
       <div className="mb-4 rounded-2xl p-4 space-y-3" style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}>
         <p className="text-sm font-semibold">Pool Factory Dashboard</p>

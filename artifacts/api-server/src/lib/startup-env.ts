@@ -21,6 +21,7 @@ export function logConfiguredEnv(): void {
       SMTP_GMAIL_TRANSPORT: process.env.SMTP_GMAIL_TRANSPORT ?? "(unset; auto try service then 465)",
       EMAIL_FROM: process.env.EMAIL_FROM ? "set" : "unset (falls back to SMTP user)",
       PORT: process.env.PORT ?? "(unset)",
+      DRAW_DELAY_MINUTES: process.env.DRAW_DELAY_MINUTES ?? "(default 10)",
     },
     "[env] configuration snapshot (values redacted)",
   );

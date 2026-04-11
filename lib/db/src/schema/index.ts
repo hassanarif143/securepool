@@ -1,6 +1,7 @@
 export * from "./users";
 export * from "./emailOtp";
 export * from "./pools";
+export * from "./poolTemplates";
 export * from "./poolParticipants";
 export * from "./poolTickets";
 export * from "./transactions";

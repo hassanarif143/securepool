@@ -16,6 +16,7 @@ export async function runExpiredPoolRefunds(): Promise<void> {
 
   for (const pool of candidatePools) {
     if (pool.status === "completed") continue;
+    if (pool.status === "filled" || pool.status === "drawing") continue;
     if (pool.endTime.getTime() >= now.getTime()) continue;
 
     const [{ ct }] = await db

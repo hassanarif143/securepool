@@ -13,7 +13,7 @@ import {
   pool as pgPool,
 } from "@workspace/db";
 import { poolTicketsTable } from "@workspace/db/schema";
-import { eq, and, desc, asc, count, sql } from "drizzle-orm";
+import { eq, and, desc, asc, count, sql, or, isNull, lte, inArray } from "drizzle-orm";
 import {
   deductForPoolEntry,
   distributeWinnings,
@@ -27,7 +27,12 @@ import {
 } from "../lib/user-balances";
 import { notifyUser, notifyAllUsers } from "../lib/notify";
 import { CreatePoolBody, UpdatePoolBody } from "@workspace/api-zod";
-import { sendDrawResultEmail, sendTicketApprovedEmail, sendAdminDrawFinancialSummaryEmail } from "../lib/email";
+import {
+  sendDrawResultEmail,
+  sendTicketApprovedEmail,
+  sendAdminDrawFinancialSummaryEmail,
+  sendPoolFilledParticipantEmails,
+} from "../lib/email";
 import { logger } from "../lib/logger";
 import { getAuthedUserId, requireAdmin, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
@@ -75,6 +80,24 @@ const JoinPoolBody = z.object({
 const DistributeRewardsBody = z.object({
   winnerUserIds: z.array(z.number().int().positive()).min(1).max(3),
 });
+
+function getDrawDelayMinutes(): number {
+  const n = Math.floor(Number(process.env.DRAW_DELAY_MINUTES ?? "10"));
+  return Math.min(120, Math.max(1, Number.isFinite(n) ? n : 10));
+}
+
+const poolAutoDrawInFlight = new Set<number>();
+
+function placeOrdinal(place: number): string {
+  if (place === 1) return "1st";
+  if (place === 2) return "2nd";
+  if (place === 3) return "3rd";
+  return `${place}th`;
+}
+
+async function sleepMs(ms: number): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
 
 const router: IRouter = Router();
 
@@ -147,6 +170,9 @@ function formatPool(
       ),
     currentMembers: participantCount,
     createdAt: pool.createdAt,
+    filledAt: pool.filledAt ?? null,
+    drawScheduledAt: pool.drawScheduledAt ?? null,
+    drawExecutedAt: pool.drawExecutedAt ?? null,
     minPoolVipTier: "bronze",
     loserRefundIfNotWinListUsdt,
     platformFeePerJoinOverride:
@@ -213,8 +239,33 @@ router.get("/", async (req, res) => {
   res.json(result);
 });
 
+/** Public stats for marketplace hero (no auth). */
+router.get("/public-stats", async (_req, res) => {
+  try {
+    const paid = await pgPool.query(`SELECT COALESCE(SUM(CAST(prize AS numeric)), 0)::text AS s FROM winners`);
+    const totalPaidOutUsdt = parseFloat(paid.rows[0]?.s ?? "0") || 0;
+    const today = await pgPool.query(
+      `SELECT COUNT(*)::int AS c FROM pools
+       WHERE status = 'completed' AND draw_executed_at IS NOT NULL
+         AND (draw_executed_at AT TIME ZONE 'UTC')::date = (NOW() AT TIME ZONE 'UTC')::date`,
+    );
+    const drawsToday = Number(today.rows[0]?.c ?? 0) || 0;
+    res.json({
+      totalPaidOutUsdt,
+      drawsToday,
+      pkrPerUsdt: parseFloat(process.env.PKR_PER_USDT ?? "278.5") || 278.5,
+    });
+  } catch {
+    res.json({ totalPaidOutUsdt: 0, drawsToday: 0, pkrPerUsdt: 278.5 });
+  }
+});
+
 router.get("/active", async (_req, res) => {
-  const pools = await db.select().from(poolsTable).where(eq(poolsTable.status, "open")).orderBy(desc(poolsTable.createdAt));
+  const pools = await db
+    .select()
+    .from(poolsTable)
+    .where(inArray(poolsTable.status, ["open", "filled", "drawing"]))
+    .orderBy(desc(poolsTable.createdAt));
   const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
   const result = await Promise.all(
     pools.map(async (pool) => {
@@ -317,7 +368,8 @@ router.get("/details/:poolId", async (req, res) => {
   const estimatedWinChancePercent = totalWeight > 0 ? Number(((myWeight / totalWeight) * 100).toFixed(2)) : 0;
   const inCooldown = myTicketCount > 0 && myWeight / Math.max(1, myTicketCount) < 0.999;
 
-  let joinBlocked = pool.status !== "open" || currentEntries >= totalTickets || !!pool.isFrozen;
+  let joinBlocked =
+    pool.status !== "open" || currentEntries >= totalTickets || !!pool.isFrozen;
   let entryPricing: {
     baseFee: number;
     amountDue: number;
@@ -351,6 +403,25 @@ router.get("/details/:poolId", async (req, res) => {
 
   const drawLuckyDisplay =
     pool.drawLuckyNumber != null ? formatLuckyNumberDisplay(pool.drawLuckyNumber) : null;
+
+  let winnersPublic: { place: number; name: string; prize: number }[] | null = null;
+  if (pool.status === "completed") {
+    const wr = await db
+      .select({
+        place: winnersTable.place,
+        prize: winnersTable.prize,
+        name: usersTable.name,
+      })
+      .from(winnersTable)
+      .innerJoin(usersTable, eq(winnersTable.userId, usersTable.id))
+      .where(eq(winnersTable.poolId, poolId))
+      .orderBy(asc(winnersTable.place));
+    winnersPublic = wr.map((w) => ({
+      place: w.place,
+      name: privacyDisplayName(w.name),
+      prize: parseFloat(String(w.prize)),
+    }));
+  }
 
   res.json({
     id: pool.id,
@@ -395,6 +466,10 @@ router.get("/details/:poolId", async (req, res) => {
     draw_lucky_number: drawLuckyDisplay,
     lucky_match_user_id: pool.luckyMatchUserId,
     user_won_lucky_match: Boolean(sessionUserId && pool.luckyMatchUserId === sessionUserId),
+    filled_at: pool.filledAt ?? null,
+    draw_scheduled_at: pool.drawScheduledAt ?? null,
+    draw_executed_at: pool.drawExecutedAt ?? null,
+    winners_public: winnersPublic,
   });
 });
 
@@ -520,7 +595,7 @@ router.get("/my-active-pools", async (req, res) => {
        (SELECT COUNT(*)::int FROM pool_tickets t WHERE t.pool_id = p.id) AS participant_count
      FROM pool_participants pp
      JOIN pools p ON p.id = pp.pool_id
-     WHERE pp.user_id = $1 AND p.status = 'open'
+     WHERE pp.user_id = $1 AND p.status IN ('open', 'filled', 'drawing')
      ORDER BY pp.joined_at DESC`,
     [userId],
   );
@@ -597,8 +672,12 @@ router.get("/:poolId/live-status", async (req, res) => {
 
   res.json({
     poolId,
+    status: pool.status,
     current_entries: currentEntries,
     max_entries: pool.maxUsers,
+    filled_at: pool.filledAt ?? null,
+    draw_scheduled_at: pool.drawScheduledAt ?? null,
+    draw_executed_at: pool.drawExecutedAt ?? null,
     recent_joiners: recentRows.map((r) => ({
       name: privacyDisplayName(r.userName),
       joined_at: r.joinedAt,
@@ -1023,10 +1102,14 @@ router.patch("/:poolId", (req, res, next) => void requireAdmin(req as AuthedRequ
     }
     updates.winnerCount = parse.data.winnerCount;
   }
-  /* Refund if admin closes an open pool that never filled */
-  if (parse.data.status === "closed" && existingPool.status === "open") {
+  /* Refund if admin closes an open/filled pool before draw completes */
+  if (
+    parse.data.status === "closed" &&
+    (existingPool.status === "open" || existingPool.status === "filled" || existingPool.status === "drawing")
+  ) {
     const n = await countPoolTickets(poolId);
-    if (n > 0 && n < existingPool.maxUsers) {
+    const cap = getTotalTickets(existingPool);
+    if (n > 0 && n < cap) {
       await refundAllPoolParticipants(poolId, existingPool, "Pool closed before filling");
     }
   }
@@ -1181,6 +1264,7 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
   }
 
   let luckyNumbers: number[] = [];
+  let poolBecameFilled = false;
   try {
     let fromPointsUsdt = 0;
     let fromWithdrawable = 0;
@@ -1295,10 +1379,16 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
       luckyNumbers = await insertPoolTicketsWithLuckyNumbers(trx, poolId, sessionUserId, ticketQty, {
         weight: weightPerTicket,
       });
-      await trx
-        .update(poolsTable)
-        .set({ soldTickets: ticketsNow + ticketQty })
-        .where(eq(poolsTable.id, poolId));
+      const priorSold = Number(freshTickets?.c ?? 0);
+      const newSold = priorSold + ticketQty;
+      const poolUpd: Partial<typeof poolsTable.$inferInsert> = { soldTickets: newSold };
+      if (newSold >= totalTickets) {
+        poolBecameFilled = true;
+        poolUpd.status = "filled";
+        poolUpd.filledAt = new Date();
+        poolUpd.drawScheduledAt = new Date(Date.now() + getDrawDelayMinutes() * 60_000);
+      }
+      await trx.update(poolsTable).set(poolUpd).where(eq(poolsTable.id, poolId));
     });
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code ?? "";
@@ -1317,6 +1407,23 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
       return;
     }
     throw err;
+  }
+
+  if (poolBecameFilled) {
+    const delayMin = getDrawDelayMinutes();
+    const msg = `🎉 Pool ${pool.title} is now FULL! Winner will be announced in ${delayMin} minutes. Stay tuned!`;
+    const holders = await db
+      .select({ userId: poolParticipantsTable.userId })
+      .from(poolParticipantsTable)
+      .where(eq(poolParticipantsTable.poolId, poolId));
+    for (const h of holders) {
+      void notifyUser(h.userId, "Pool is full!", msg, "POOL_FILLED", poolId);
+    }
+    void sendPoolFilledParticipantEmails(
+      poolId,
+      pool.title,
+      `<p><b>${msg}</b></p><p>All times are UTC.</p>`,
+    );
   }
 
   const txAmountStr = useFreeEntry ? "0" : netDue.toFixed(2);
@@ -1634,23 +1741,81 @@ async function executePoolDistribution(
 
     const feePerListEntry = platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin);
     const stakeReturnPerTicket = Math.max(0, entryFee - feePerListEntry);
-    const loserRefundByUserId = new Map<number, number>();
-    let totalLoserRefunds = 0;
     const winnerIdSet = new Set(manualWinnerUserIds);
 
+    /** Per-loser cap: list stake returned (net of join fee), never more than they paid. */
+    const loserFullRefundByUserId = new Map<number, number>();
     for (const row of participants) {
       if (winnerIdSet.has(row.userId)) continue;
       const paid = parseFloat(String(row.amountPaid ?? "0"));
       if (paid <= 0) continue;
       const tc = row.ticketCount ?? 1;
       const theoretical = tc * stakeReturnPerTicket;
-      const refundAmount = Number(Math.min(paid, theoretical).toFixed(2));
-      if (refundAmount <= 0) continue;
-      loserRefundByUserId.set(row.userId, refundAmount);
-      totalLoserRefunds += refundAmount;
+      const fullRefund = Number(Math.min(paid, theoretical).toFixed(2));
+      if (fullRefund <= 0) continue;
+      loserFullRefundByUserId.set(row.userId, fullRefund);
     }
 
     const totalPrizes = prizeTotalForWinnerSlots(p1, p2, p3, winnerCount);
+    if (totalRevenue + 0.02 < totalPrizes) {
+      const e = new Error(
+        `Pool settlement is short by ${Math.abs(totalRevenue - totalPrizes).toFixed(2)} USDT (wallet revenue ${totalRevenue.toFixed(2)} vs ${totalPrizes.toFixed(2)} prizes). Lower prizes or add participants.`,
+      );
+      (e as { code?: string }).code = "INSUFFICIENT_SETTLEMENT";
+      throw e;
+    }
+
+    // Full stake-back to every loser would need W*net >= prizes + profit (impossible for typical templates).
+    // Split whatever remains after prizes + target platform profit across losers, proportional to their caps.
+    const refundBudget = Number(
+      Math.max(0, totalRevenue - totalPrizes - desiredProfit).toFixed(2),
+    );
+    let totalTheoretical = 0;
+    for (const v of loserFullRefundByUserId.values()) totalTheoretical += v;
+
+    const loserRefundByUserId = new Map<number, number>();
+    let totalLoserRefunds = 0;
+
+    if (totalTheoretical <= 0) {
+      // no paid losers or all winners
+    } else if (totalTheoretical <= refundBudget + 0.01) {
+      for (const [userId, full] of loserFullRefundByUserId) {
+        loserRefundByUserId.set(userId, full);
+        totalLoserRefunds += full;
+      }
+    } else {
+      const scale = refundBudget / totalTheoretical;
+      const targetCents = Math.round(refundBudget * 100);
+      type RRow = { userId: number; fullCents: number; cents: number; frac: number };
+      const rows: RRow[] = [];
+      for (const [userId, full] of loserFullRefundByUserId) {
+        const fullCents = Math.round(full * 100);
+        const rawCents = full * scale * 100;
+        const base = Math.floor(rawCents + 1e-9);
+        rows.push({
+          userId,
+          fullCents,
+          cents: Math.min(base, fullCents),
+          frac: rawCents - Math.floor(rawCents + 1e-9),
+        });
+      }
+      let sumCents = rows.reduce((a, r) => a + r.cents, 0);
+      let give = targetCents - sumCents;
+      rows.sort((a, b) => b.frac - a.frac);
+      for (let i = 0; i < rows.length && give > 0; i++) {
+        const room = rows[i].fullCents - rows[i].cents;
+        const add = Math.min(give, room);
+        rows[i].cents += add;
+        give -= add;
+      }
+      for (const r of rows) {
+        if (r.cents <= 0) continue;
+        const amt = r.cents / 100;
+        loserRefundByUserId.set(r.userId, amt);
+        totalLoserRefunds += amt;
+      }
+    }
+
     const settlementRemainder = totalRevenue - totalPrizes - totalLoserRefunds;
     if (settlementRemainder < -0.02) {
       const e = new Error(
@@ -1853,6 +2018,7 @@ async function executePoolDistribution(
         luckyMatchUserId,
         serverSeed: drawServerSeed,
         seedHash: drawSeedHash,
+        drawExecutedAt: new Date(),
       })
       .where(eq(poolsTable.id, poolId));
 
@@ -1890,10 +2056,38 @@ async function executePoolDistribution(
 
 type DistributedPoolResult = Awaited<ReturnType<typeof executePoolDistribution>>;
 
+async function runAutoFillStaggeredNotifications(
+  poolId: number,
+  poolTitle: string,
+  distributed: DistributedPoolResult,
+): Promise<void> {
+  const { winnerRecords, participants } = distributed;
+  const sorted = [...winnerRecords].sort((a, b) => b.place - a.place);
+  const revealed: Array<{ place: number; name: string }> = [];
+
+  for (const w of sorted) {
+    await sleepMs(3000 + randomInt(0, 2000));
+    revealed.push({ place: w.place, name: privacyDisplayName(w.userName) });
+    const resultsLine = [...revealed]
+      .sort((a, b) => b.place - a.place)
+      .map((r) => `${placeOrdinal(r.place)} place: ${r.name}`)
+      .join(", ");
+
+    for (const p of participants) {
+      const isThisWinner = w.userId === p.userId;
+      const title = isThisWinner ? "You won!" : "Draw update";
+      const msg = isThisWinner
+        ? `🏆 Congratulations! You won ${w.prize} USDT in ${poolTitle}!`
+        : `Pool ${poolTitle} results: ${resultsLine}`;
+      void notifyUser(p.userId, title, msg, isThisWinner ? "YOU_WON" : "POOL_RESULTS", poolId);
+    }
+  }
+}
+
 async function finalizePoolDistribution(
   poolId: number,
   distributed: DistributedPoolResult,
-  source: "admin-selected" | "auto-expiry",
+  source: "admin-selected" | "auto-expiry" | "auto-fill",
 ): Promise<void> {
   const {
     pool,
@@ -1912,26 +2106,58 @@ async function finalizePoolDistribution(
   for (const uid of firstWinUserIds) {
   }
 
-  for (const w of winnerRecords) {
-    void notifySquadOnMemberWin({
-      winnerUserId: w.userId,
-      poolId,
-      poolTitle: pool.title,
-      prize: parseFloat(w.prize),
-    });
-    void notifyUser(
-      w.userId,
-      "Prize awarded",
-      `You placed ${placeLabel(w.place)} in "${pool.title}" (pool #${poolId}) and received ${w.prize} USDT in your wallet.`,
-      "win",
-    );
-    void logActivity({
-      type: "winner_drawn",
-      message: `${privacyDisplayName(w.userName)} earned ${placeLabel(w.place)} prize (${w.prize} USDT) in ${pool.title}.`,
-      poolId,
-      userId: w.userId,
-      metadata: { place: w.place, prize: parseFloat(w.prize), poolTitle: pool.title },
-    });
+  if (source === "auto-fill") {
+    try {
+      await runAutoFillStaggeredNotifications(poolId, pool.title, distributed);
+    } catch (err) {
+      logger.error({ err, poolId }, "[finalize] staggered reveal failed; sending standard winner notifications");
+      for (const w of winnerRecords) {
+        void notifyUser(
+          w.userId,
+          "Prize awarded",
+          `You placed ${placeLabel(w.place)} in "${pool.title}" (pool #${poolId}) and received ${w.prize} USDT in your wallet.`,
+          "win",
+          poolId,
+        );
+      }
+    }
+    for (const w of winnerRecords) {
+      void notifySquadOnMemberWin({
+        winnerUserId: w.userId,
+        poolId,
+        poolTitle: pool.title,
+        prize: parseFloat(w.prize),
+      });
+      void logActivity({
+        type: "winner_drawn",
+        message: `${privacyDisplayName(w.userName)} earned ${placeLabel(w.place)} prize (${w.prize} USDT) in ${pool.title}.`,
+        poolId,
+        userId: w.userId,
+        metadata: { place: w.place, prize: parseFloat(w.prize), poolTitle: pool.title },
+      });
+    }
+  } else {
+    for (const w of winnerRecords) {
+      void notifySquadOnMemberWin({
+        winnerUserId: w.userId,
+        poolId,
+        poolTitle: pool.title,
+        prize: parseFloat(w.prize),
+      });
+      void notifyUser(
+        w.userId,
+        "Prize awarded",
+        `You placed ${placeLabel(w.place)} in "${pool.title}" (pool #${poolId}) and received ${w.prize} USDT in your wallet.`,
+        "win",
+      );
+      void logActivity({
+        type: "winner_drawn",
+        message: `${privacyDisplayName(w.userName)} earned ${placeLabel(w.place)} prize (${w.prize} USDT) in ${pool.title}.`,
+        poolId,
+        userId: w.userId,
+        metadata: { place: w.place, prize: parseFloat(w.prize), poolTitle: pool.title },
+      });
+    }
   }
 
   for (const p of participants) {
@@ -1958,7 +2184,7 @@ async function finalizePoolDistribution(
     } else {
       body = `You finished #${pos} of ${totalN}. Thank you for participating in "${pool.title}".`;
     }
-    void notifyUser(p.userId, title, body, "pool_update");
+    void notifyUser(p.userId, title, body, "pool_update", source === "auto-fill" ? poolId : undefined);
   }
 
   if (luckyDraw?.matchUserId != null) {
@@ -1991,7 +2217,9 @@ async function finalizePoolDistribution(
     message:
       source === "auto-expiry"
         ? `Draw auto-settled for ${pool.title} at end time; winners notified and payouts completed.`
-        : `Draw settled for ${pool.title} — admin-selected winners; losers refunded where applicable.`,
+        : source === "auto-fill"
+          ? `Draw auto-settled for ${pool.title} after fill countdown; staggered winner reveal completed.`
+          : `Draw settled for ${pool.title} — admin-selected winners; losers refunded where applicable.`,
     poolId,
     metadata: { drawCompleted: true, totalLoserRefunds: financial.totalLoserRefunds, source },
   });
@@ -2030,6 +2258,14 @@ async function finalizePoolDistribution(
       winner ? String(winner.prize) : undefined,
     );
   }
+
+  void import("../services/pool-template-service.js")
+    .then((m) =>
+      m.runRotationAfterPoolCompleted(poolId).catch((err: unknown) =>
+        logger.warn({ err, poolId }, "[pool] rotation hook failed"),
+      ),
+    )
+    .catch(() => {});
 }
 
 export async function distributePoolWithWinners(
@@ -2041,13 +2277,10 @@ export async function distributePoolWithWinners(
   return distributed;
 }
 
-export async function autoDistributePool(poolId: number): Promise<DistributedPoolResult> {
-  const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
-  if (!pool) {
-    const e = new Error("POOL_NOT_FOUND");
-    (e as { code?: string }).code = "POOL_NOT_FOUND";
-    throw e;
-  }
+async function pickAutoWinnerUserIds(
+  pool: typeof poolsTable.$inferSelect,
+  poolId: number,
+): Promise<number[]> {
   const winnerCount = pool.winnerCount ?? 3;
   const ticketRows = await db
     .select({
@@ -2058,7 +2291,7 @@ export async function autoDistributePool(poolId: number): Promise<DistributedPoo
     .from(poolTicketsTable)
     .where(eq(poolTicketsTable.poolId, poolId));
   const allowMultiWin = Boolean(pool.allowMultiWin);
-  let picked = pickWeightedWinnersByTickets(
+  let pickedIds = pickWeightedWinnersByTickets(
     ticketRows.map((t) => ({
       id: t.id,
       userId: t.userId,
@@ -2067,23 +2300,77 @@ export async function autoDistributePool(poolId: number): Promise<DistributedPoo
     winnerCount,
     allowMultiWin,
   ).map((t) => t.userId);
-  if (picked.length !== winnerCount) {
+  if (pickedIds.length !== winnerCount) {
     const participants = await db
       .select({ userId: poolParticipantsTable.userId })
       .from(poolParticipantsTable)
       .where(eq(poolParticipantsTable.poolId, poolId));
-    picked = pickUniqueWinners(participants, winnerCount).map((p) => p.userId);
+    pickedIds = pickUniqueWinners(participants, winnerCount).map((p) => p.userId);
   }
-  if (picked.length !== winnerCount) {
-    const e = new Error(`Pool requires ${winnerCount} winner(s), but only ${picked.length} unique participant(s) found.`);
+  if (pickedIds.length !== winnerCount) {
+    const e = new Error(`Pool requires ${winnerCount} winner(s), but only ${pickedIds.length} unique participant(s) found.`);
     (e as { code?: string }).code = "INVALID_WINNER_COUNT";
     throw e;
   }
+  return pickedIds;
+}
+
+export async function autoDistributePool(poolId: number): Promise<DistributedPoolResult> {
+  const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  if (!pool) {
+    const e = new Error("POOL_NOT_FOUND");
+    (e as { code?: string }).code = "POOL_NOT_FOUND";
+    throw e;
+  }
+  const picked = await pickAutoWinnerUserIds(pool, poolId);
   // End-time auto-settlement should not block on "target profit" threshold.
-  // If prizes + refund math is feasible, draw should still complete.
   const distributed = await executePoolDistribution(poolId, picked, { skipMinParticipantsCheck: true });
   await finalizePoolDistribution(poolId, distributed, "auto-expiry");
   return distributed;
+}
+
+export async function autoDistributePoolFill(poolId: number): Promise<DistributedPoolResult> {
+  const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  if (!pool) {
+    const e = new Error("POOL_NOT_FOUND");
+    (e as { code?: string }).code = "POOL_NOT_FOUND";
+    throw e;
+  }
+  const picked = await pickAutoWinnerUserIds(pool, poolId);
+  const distributed = await executePoolDistribution(poolId, picked, { skipMinParticipantsCheck: true });
+  await finalizePoolDistribution(poolId, distributed, "auto-fill");
+  return distributed;
+}
+
+export async function runDuePoolAutoDraws(): Promise<void> {
+  const now = new Date();
+  const due = await db
+    .select()
+    .from(poolsTable)
+    .where(
+      and(
+        isNull(poolsTable.drawExecutedAt),
+        lte(poolsTable.drawScheduledAt, now),
+        or(eq(poolsTable.status, "filled"), eq(poolsTable.status, "drawing")),
+      ),
+    );
+
+  for (const p of due) {
+    if (poolAutoDrawInFlight.has(p.id)) continue;
+    poolAutoDrawInFlight.add(p.id);
+    try {
+      await db.update(poolsTable).set({ status: "drawing" }).where(eq(poolsTable.id, p.id));
+      await autoDistributePoolFill(p.id);
+    } catch (err) {
+      logger.error({ err, poolId: p.id }, "[pool-auto-draw] execute failed");
+      await db
+        .update(poolsTable)
+        .set({ status: "filled" })
+        .where(and(eq(poolsTable.id, p.id), eq(poolsTable.status, "drawing")));
+    } finally {
+      poolAutoDrawInFlight.delete(p.id);
+    }
+  }
 }
 
 router.post("/:poolId/distribute", (req, res, next) => void requireAdmin(req as AuthedRequest, res, next), async (req, res) => {

@@ -73,6 +73,7 @@ function streakCelebrationItem(milestone: "3" | "5" | "10" | "20", poolId: numbe
 }
 
 type PoolDetailsApi = {
+  status?: string;
   current_entries: number;
   loser_refund_if_not_win_list_usdt?: number;
   total_pool_amount: number;
@@ -100,6 +101,10 @@ type PoolDetailsApi = {
     hasActiveComebackCoupon: boolean;
     joinPlatformFeeUsdt: number;
   } | null;
+  filled_at?: string | null;
+  draw_scheduled_at?: string | null;
+  draw_executed_at?: string | null;
+  winners_public?: { place: number; name: string; prize: number }[] | null;
 };
 
 function JoinCelebrationModal({
@@ -197,6 +202,8 @@ export default function PoolDetailPage() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [viewersCount, setViewersCount] = useState<number | undefined>(undefined);
   const [recentJoiners, setRecentJoiners] = useState<{ name: string; joined_at: string }[]>([]);
+  const [winnerRevealStep, setWinnerRevealStep] = useState(0);
+
   const [pendingMystery, setPendingMystery] = useState<{
     id: number;
     rewardType: string;
@@ -236,6 +243,35 @@ export default function PoolDetailPage() {
     query: { enabled: !!id, queryKey: getGetPoolParticipantsQueryKey(id) },
   });
 
+  const winnerRevealSig = useRef("");
+
+  useEffect(() => {
+    if (pool?.status !== "completed") {
+      winnerRevealSig.current = "";
+      setWinnerRevealStep(0);
+    }
+  }, [pool?.status]);
+
+  useEffect(() => {
+    if (pool?.status !== "completed" || !poolDetails?.winners_public?.length || !id) return;
+    const sig = `${id}:${poolDetails.winners_public.map((w) => `${w.place}-${w.prize}-${w.name}`).join("|")}`;
+    if (winnerRevealSig.current === sig) return;
+    winnerRevealSig.current = sig;
+
+    const sorted = [...poolDetails.winners_public].sort((a, b) => b.place - a.place);
+    setWinnerRevealStep(0);
+    let step = 0;
+    const timer = window.setInterval(() => {
+      step += 1;
+      setWinnerRevealStep(step);
+      if (step >= sorted.length) {
+        window.clearInterval(timer);
+        void confetti({ particleCount: 140, spread: 75, origin: { y: 0.65 }, colors: ["#22c55e", "#eab308", "#38bdf8"] });
+      }
+    }, 4_000);
+    return () => window.clearInterval(timer);
+  }, [pool?.status, id, poolDetails?.winners_public]);
+
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
@@ -244,13 +280,16 @@ export default function PoolDetailPage() {
         const r = await fetch(apiUrl(`/api/pools/details/${id}`), { credentials: "include" });
         if (!r.ok) return;
         const j = (await r.json()) as PoolDetailsApi;
-        if (!cancelled) setPoolDetails(j);
+        if (!cancelled) {
+          setPoolDetails(j);
+          void queryClient.invalidateQueries({ queryKey: getGetPoolQueryKey(id) });
+        }
       } catch {
         /* ignore */
       }
     }
     void loadDetails();
-    const t = setInterval(loadDetails, 15_000);
+    const t = setInterval(loadDetails, 5_000);
     return () => {
       cancelled = true;
       clearInterval(t);
@@ -607,7 +646,7 @@ export default function PoolDetailPage() {
         <div>
           <div className="flex flex-wrap items-center gap-3 mb-2">
             <h1 className="text-2xl font-bold">{pool.title}</h1>
-            <StatusBadge status={pool.status} />
+            <StatusBadge status={poolDetails?.status ?? pool.status} />
             <Button
               type="button"
               variant="outline"
@@ -669,6 +708,35 @@ export default function PoolDetailPage() {
           </div>
         )}
 
+        {(String(pool.status) === "filled" || String(pool.status) === "drawing") && (
+          <div
+            className="sticky top-14 z-30 -mx-4 px-4 py-3 mb-4 rounded-xl border border-red-500/35 bg-red-950/35 backdrop-blur-md shadow-lg shadow-black/25 sm:static sm:mx-0 sm:mb-5 sm:rounded-2xl"
+          >
+            {String(pool.status) === "filled" && poolDetails?.draw_scheduled_at && (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-red-300 mb-1">LIVE</p>
+                  <p className="text-sm text-foreground">
+                    Winner announcement in:{" "}
+                    <span className="font-mono text-lg font-bold text-white tabular-nums">
+                      <MmSsCountdown endIso={poolDetails.draw_scheduled_at} />
+                    </span>
+                  </p>
+                </div>
+                <span className="text-[10px] font-semibold uppercase text-red-400 border border-red-400/40 rounded-full px-2 py-0.5 animate-pulse">
+                  🔴 Live
+                </span>
+              </div>
+            )}
+            {String(pool.status) === "drawing" && (
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" aria-hidden />
+                <p className="text-sm font-semibold text-amber-100 animate-pulse">Drawing winners…</p>
+              </div>
+            )}
+          </div>
+        )}
+
         <Card className="border-primary/20 overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-yellow-500 via-primary to-blue-500" />
           <CardHeader className="pb-3">
@@ -692,6 +760,40 @@ export default function PoolDetailPage() {
             </p>
           </CardContent>
         </Card>
+
+        {pool.status === "completed" && poolDetails?.winners_public && poolDetails.winners_public.length > 0 && (
+          <Card className="border-emerald-500/25 bg-gradient-to-b from-emerald-950/30 to-transparent overflow-hidden">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Winner reveal</CardTitle>
+              <p className="text-xs text-muted-foreground font-normal">Places announced in order — 3rd, then 2nd, then 1st.</p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[...poolDetails.winners_public]
+                .sort((a, b) => b.place - a.place)
+                .map((w, i) => {
+                  const stepIx = i + 1;
+                  const visible = winnerRevealStep >= stepIx;
+                  return (
+                    <div
+                      key={w.place}
+                      className={`rounded-xl border px-4 py-3 transition-all duration-700 ${
+                        visible
+                          ? "opacity-100 translate-y-0 border-emerald-500/35 bg-emerald-500/10 shadow-lg shadow-emerald-900/20"
+                          : "opacity-35 translate-y-1 border-border/25"
+                      }`}
+                      style={{ perspective: "800px" }}
+                    >
+                      <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wide">
+                        {w.place === 1 ? "🥇 1st place" : w.place === 2 ? "🥈 2nd place" : "🥉 3rd place"}
+                      </p>
+                      <p className="text-lg font-bold text-foreground">{visible ? w.name : "••••••"}</p>
+                      <p className="text-sm text-primary font-semibold tabular-nums">{visible ? `${w.prize} USDT` : "—"}</p>
+                    </div>
+                  );
+                })}
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="border-primary/20">
           <CardContent className="p-5 space-y-4">
@@ -1026,8 +1128,31 @@ function PrizeTile({ place, amount, color, bg }: { place: string; amount: number
   );
 }
 
+function MmSsCountdown({ endIso }: { endIso: string }) {
+  const [label, setLabel] = useState("—");
+  useEffect(() => {
+    const tick = () => {
+      const ms = new Date(endIso).getTime() - Date.now();
+      if (ms <= 0) {
+        setLabel("00:00");
+        return;
+      }
+      const m = Math.floor(ms / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      setLabel(`${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [endIso]);
+  return <>{label}</>;
+}
+
 function StatusBadge({ status }: { status: string }) {
   if (status === "open") return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Open</Badge>;
+  if (status === "filled") return <Badge className="bg-red-500/20 text-red-300 border-red-500/35">Filled · LIVE</Badge>;
+  if (status === "drawing") return <Badge className="bg-amber-500/20 text-amber-200 border-amber-500/35">Drawing</Badge>;
   if (status === "closed") return <Badge variant="outline">Closed</Badge>;
-  return <Badge variant="secondary">Completed</Badge>;
+  if (status === "completed") return <Badge variant="secondary">Completed</Badge>;
+  return <Badge variant="outline">{status}</Badge>;
 }

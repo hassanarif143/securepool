@@ -52,6 +52,7 @@ import {
 } from "../services/user-wallet-service";
 import { getRewardConfig, normalizeRewardConfig } from "../lib/reward-config";
 import { getSecurityConfig } from "../lib/security";
+import poolFactoryV2Router from "./pool-factory-v2";
 
 const router: IRouter = Router();
 
@@ -2923,5 +2924,7 @@ router.get("/security/monitor", async (_req, res) => {
     recentEvents,
   });
 });
+
+router.use("/pool-factory-v2", poolFactoryV2Router);
 
 export default router;

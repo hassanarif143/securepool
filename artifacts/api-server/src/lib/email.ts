@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { pool } from "@workspace/db";
 import { logger } from "./logger";
 import { buildOtpEmailHtml } from "./load-otp-template";
 
@@ -305,6 +306,22 @@ export async function sendTicketApprovedEmail(to: string, ticketLabel: string, d
   const title = "Ticket Approved";
   const body = `Your ticket <b>${ticketLabel}</b> has been approved for <b>${drawLabel}</b>.`;
   void sendEmail({ to, subject: title, html: brandTemplate(title, body) });
+}
+
+/** When SMTP is configured, email everyone with tickets in the pool that it is full and the draw is scheduled. */
+export async function sendPoolFilledParticipantEmails(poolId: number, poolTitle: string, announcementHtml: string): Promise<void> {
+  if (!isSmtpConfigured()) return;
+  const { rows } = await pool.query<{ email: string }>(
+    `SELECT u.email::text AS email
+     FROM pool_participants pp
+     INNER JOIN users u ON u.id = pp.user_id
+     WHERE pp.pool_id = $1 AND u.email IS NOT NULL AND trim(u.email) <> ''`,
+    [poolId],
+  );
+  const title = `Pool full — ${poolTitle}`;
+  for (const r of rows) {
+    void sendEmail({ to: r.email, subject: title, html: brandTemplate(title, announcementHtml) });
+  }
 }
 
 export type DrawFinancialSummaryPayload = {

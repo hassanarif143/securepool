@@ -4,7 +4,9 @@ import { logConfiguredEnv } from "./lib/startup-env";
 import { runPendingSqlMigrations } from "./runMigrations";
 import { logger } from "./lib/logger";
 import { scheduleExpiredPoolJob } from "./lib/pool-auto-close";
+import { schedulePoolAutoDrawJob } from "./lib/pool-auto-draw-scheduler";
 import { scheduleEngagementJobs } from "./lib/engagement-scheduler";
+import { schedulePoolFactoryJobs } from "./lib/pool-factory-scheduler";
 import { assertSecurityStartupRequirements } from "./lib/security";
 
 process.on("unhandledRejection", (reason: unknown) => {
@@ -43,7 +45,9 @@ async function main() {
 
     logger.info({ port }, "Server listening");
     scheduleExpiredPoolJob();
+    schedulePoolAutoDrawJob();
     scheduleEngagementJobs();
+    schedulePoolFactoryJobs();
   });
 }
 

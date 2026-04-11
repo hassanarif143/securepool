@@ -1,9 +1,18 @@
 import { pgTable, serial, text, integer, numeric, timestamp, pgEnum, boolean, jsonb } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
+import { poolTemplatesTable } from "./poolTemplates";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const poolStatusEnum = pgEnum("pool_status", ["open", "closed", "completed", "upcoming", "paused"]);
+export const poolStatusEnum = pgEnum("pool_status", [
+  "open",
+  "closed",
+  "completed",
+  "upcoming",
+  "paused",
+  "filled",
+  "drawing",
+]);
 export const poolTypeEnum = pgEnum("pool_type", ["small", "large"]);
 
 export const poolsTable = pgTable("pools", {
@@ -19,6 +28,10 @@ export const poolsTable = pgTable("pools", {
   prizeThird: numeric("prize_third", { precision: 18, scale: 2 }).notNull().default("30"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   filledAt: timestamp("filled_at", { withTimezone: true }),
+  /** When auto-draw runs (filled_at + DRAW_DELAY_MINUTES), UTC. */
+  drawScheduledAt: timestamp("draw_scheduled_at", { withTimezone: true }),
+  /** Set when provably fair settlement transaction commits. */
+  drawExecutedAt: timestamp("draw_executed_at", { withTimezone: true }),
   avgFillTimeMinutes: integer("avg_fill_time_minutes"),
   minPoolVipTier: text("min_pool_vip_tier").notNull().default("bronze"),
   /** How many distinct winners this draw pays (1st … Nth prize slots). */
@@ -51,6 +64,8 @@ export const poolsTable = pgTable("pools", {
   totalPoolAmount: numeric("total_pool_amount", { precision: 18, scale: 2 }).notNull().default("0"),
   platformFeeAmount: numeric("platform_fee_amount", { precision: 18, scale: 2 }).notNull().default("0"),
   currentMembers: integer("current_members").notNull().default(0),
+  templateId: integer("template_id").references(() => poolTemplatesTable.id),
+  autoCreated: boolean("auto_created").notNull().default(false),
 });
 
 export const insertPoolSchema = createInsertSchema(poolsTable).omit({ id: true, createdAt: true });
