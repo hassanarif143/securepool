@@ -535,7 +535,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { loading: gamesLoading, cashoutArenaEnabled, scratchCardEnabled } = useGameAvailability(!!user);
-  const isGuestLanding = !user && location === "/";
+  const isGuestMarketing = !user && (location === "/" || location === "/how-it-works");
 
   /* Close mobile menu on navigation */
   useEffect(() => { setMobileOpen(false); }, [location]);
@@ -566,7 +566,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      {!isGuestLanding ? (
+      {!isGuestMarketing ? (
       <div className="sticky top-0 z-50">
       <header className="border-b border-border bg-background/92 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -703,7 +703,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <main
         className={`flex-1 w-full min-w-0 mx-auto ${
-          isGuestLanding
+          isGuestMarketing
             ? "!max-w-none !px-0 !py-0"
             : "max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-10"
         } ${user ? "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""}`}
@@ -749,7 +749,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
       )}
 
-      {!isGuestLanding ? <SiteFooter extraMobileBottomSpace={!!user} /> : null}
+      {!isGuestMarketing ? <SiteFooter extraMobileBottomSpace={!!user} /> : null}
     </div>
   );
 }
