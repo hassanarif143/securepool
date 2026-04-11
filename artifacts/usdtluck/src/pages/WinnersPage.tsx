@@ -114,7 +114,7 @@ function PodiumCard({ winner }: { winner: any }) {
 }
 
 /* ── Regular winner row ── */
-function WinnerRow({ winner, index }: { winner: any; index: number }) {
+function WinnerRow({ winner }: { winner: any }) {
   const meta = PLACE[winner.place] ?? {
     emoji: "🎖️",
     label: `${winner.place}th`,
@@ -279,8 +279,8 @@ export default function WinnersPage() {
           </div>
 
           <div className="space-y-2">
-            {feedWinners.map((winner: any, index: number) => (
-              <WinnerRow key={winner.id} winner={winner} index={index} />
+            {feedWinners.map((winner: any) => (
+              <WinnerRow key={winner.id} winner={winner} />
             ))}
           </div>
 

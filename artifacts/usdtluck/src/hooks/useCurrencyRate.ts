@@ -2,11 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 
 export type LocalCurrency = "PKR" | "INR" | "AED";
 
-type CurrencyState = {
-  rates: Record<LocalCurrency, number>;
-  localeCurrency: LocalCurrency;
-};
-
 const STORAGE_KEY = "securepool_currency_rates_v1";
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const FALLBACK_RATES: Record<LocalCurrency, number> = {

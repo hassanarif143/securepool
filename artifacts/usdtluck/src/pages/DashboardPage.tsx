@@ -6,9 +6,7 @@ import {
   useListPools,
   useGetUserTransactions,
   getGetUserTransactionsQueryKey,
-  getGetMeQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { LivePoolWatcher } from "@/components/LivePoolWatcher";
@@ -114,7 +112,6 @@ const panelHead =
   "flex flex-wrap items-center justify-between gap-2 px-4 py-3.5 border-b border-[hsl(217,28%,16%)] sm:px-5 bg-gradient-to-r from-[hsl(222,30%,11%)] to-[hsl(222,30%,10%)]";
 
 export default function DashboardPage() {
-  const queryClient = useQueryClient();
   const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
   const { loading: gamesLoading, cashoutArenaEnabled, scratchCardEnabled, anyGameEnabled } = useGameAvailability(!!user);

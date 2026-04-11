@@ -1,7 +1,6 @@
 import { config } from "dotenv";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 
 /* Load .env before @workspace/db (pool throws if DATABASE_URL is missing). */

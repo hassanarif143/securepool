@@ -7,7 +7,7 @@ import { apiUrl } from "@/lib/api-base";
 import { useGameAvailability } from "@/lib/game-availability";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
 import { SharePromptGate } from "@/components/share/SharePromptGate";
-import { ChevronRight, LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
+import { LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import { SiteFooter } from "@/components/SiteFooter";
 import { cn } from "@/lib/utils";

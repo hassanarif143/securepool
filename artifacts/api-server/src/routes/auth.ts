@@ -1,11 +1,10 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
-import { db, pool as dbPool, usersTable, referralsTable, transactionsTable } from "@workspace/db";
+import { db, pool as dbPool, usersTable, referralsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getJwtCookieName, signUserJwt } from "../lib/jwt";
-import type { AuthedRequest } from "../middleware/auth";
 import { getAuthedUserId } from "../middleware/auth";
 import { getOtpStatus, issueOtpEmail, verifyOtpCode } from "../services/otp-service";
 import { notifyUser } from "../lib/notify";

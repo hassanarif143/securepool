@@ -225,7 +225,7 @@ function preExitChargeUsdt(entryFee: number, poolPlatformFeeOverride: string | n
   return Number((feePerTicket * 0.5 * Math.max(1, ticketCount)).toFixed(2));
 }
 
-router.get("/", async (req, res) => {
+router.get("/", async (_req, res) => {
   const pools = await db.select().from(poolsTable).orderBy(desc(poolsTable.createdAt));
   const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
 
@@ -2095,16 +2095,12 @@ async function finalizePoolDistribution(
     positionByUserId,
     winnerUserIds,
     winnerRecords,
-    firstWinUserIds,
     financial,
     luckyDraw,
     loserRefundByUserId,
   } = distributed;
   const placeLabel = (n: number) => (n === 1 ? "1st" : n === 2 ? "2nd" : "3rd");
   const totalN = financial.ticketsSold;
-
-  for (const uid of firstWinUserIds) {
-  }
 
   if (source === "auto-fill") {
     try {

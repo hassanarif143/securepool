@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { apiUrl } from "@/lib/api-base";
 import { Link } from "wouter";
 
 export type ActiveCouponJson = {

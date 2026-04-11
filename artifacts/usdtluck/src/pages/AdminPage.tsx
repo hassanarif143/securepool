@@ -1563,7 +1563,7 @@ function PoolsTab() {
                       <p className="text-xs text-muted-foreground">No participants yet</p>
                     ) : (
                       <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-                        {participants.map((p, i) => (
+                        {participants.map((p) => (
                           <div key={p.id} className="flex items-center gap-3 rounded-xl px-3 py-2"
                             style={{ background: "hsl(222,28%,11%)", border: "1px solid hsl(217,28%,15%)" }}>
                             <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
@@ -1626,7 +1626,7 @@ function CreatePoolTab() {
     winnerCount: 3 as 1 | 2 | 3,
     platformFeePerJoinStr: "",
   });
-  const [submitted, setSubmitted] = useState(false);
+  const [, setSubmitted] = useState(false);
 
   function setDuration(days: number) {
     const start = new Date();
@@ -2174,7 +2174,6 @@ function UsersTab() {
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [resetOpen, setResetOpen] = useState(false);
-  const [resetTarget, setResetTarget] = useState<any | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [notifyOpen, setNotifyOpen] = useState(false);
   const [notifyTarget, setNotifyTarget] = useState<any | null>(null);

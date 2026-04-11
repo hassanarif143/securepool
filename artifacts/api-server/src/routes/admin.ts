@@ -34,7 +34,6 @@ import { platformFeePerJoinUsdt } from "../lib/user-balances";
 import {
   appendDepositFromTicketPurchase,
   appendWithdrawalForPayout,
-  appendBonusGrant,
   financeOverviewQueries,
   financeSummaryExtended,
   listWalletTransactionsFiltered,
@@ -48,7 +47,6 @@ import {
 import {
   mirrorAvailableFromUser,
   recordDepositApproved,
-  recordTicketOnlyBonus,
   recordWithdrawalCompleted,
 } from "../services/user-wallet-service";
 import { getRewardConfig, normalizeRewardConfig } from "../lib/reward-config";
@@ -308,7 +306,7 @@ async function queryAdminUsersListRows(): Promise<any[]> {
   }
 }
 
-router.get("/stats", async (req, res) => {
+router.get("/stats", async (_req, res) => {
   const [{ totalUsers }] = await db.select({ totalUsers: count() }).from(usersTable);
 
   const pools = await db.select().from(poolsTable);
@@ -429,7 +427,7 @@ router.get("/stats", async (req, res) => {
   });
 });
 
-router.get("/users", async (req, res) => {
+router.get("/users", async (_req, res) => {
   try {
     /* Single round-trip; compat SQL if tier/block/winners migrations not applied. */
     const rows = await queryAdminUsersListRows();
@@ -471,7 +469,7 @@ router.get("/users", async (req, res) => {
   }
 });
 
-router.get("/users/export", async (req, res) => {
+router.get("/users/export", async (_req, res) => {
   const { rows } = await pgPool.query(
     `SELECT u.id, u.name, u.email, u.phone, u.wallet_balance, u.city,
             COALESCE(u.tier, 'aurora') AS tier, u.joined_at, u.is_blocked,
@@ -708,7 +706,7 @@ router.get("/users/:id/transactions", async (req, res) => {
   })));
 });
 
-router.get("/audit-logs", async (req, res) => {
+router.get("/audit-logs", async (_req, res) => {
   const logs = await db
     .select({
       id: adminActionsTable.id,
@@ -1642,7 +1640,7 @@ router.post("/pool/seed-defaults", async (_req, res) => {
   res.json({ message: "Default pools seeded", created, total: DEFAULT_POOL_BLUEPRINTS.length });
 });
 
-router.get("/transactions/pending", async (req, res) => {
+router.get("/transactions/pending", async (_req, res) => {
   const txs = await db
     .select({
       id: transactionsTable.id,
@@ -2034,7 +2032,7 @@ router.patch("/users/:id/tier", async (req, res) => {
 });
 
 /* ── GET /api/admin/reviews — all reviews for admin ── */
-router.get("/reviews", async (req, res) => {
+router.get("/reviews", async (_req, res) => {
   try {
     const { rows } = await (await import("@workspace/db")).pool.query(
       `SELECT r.id, r.user_id, r.user_name, r.message, r.rating,

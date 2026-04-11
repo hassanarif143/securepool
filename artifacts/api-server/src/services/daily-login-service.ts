@@ -15,12 +15,6 @@ function todayUTC(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function yesterdayUTC(): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
-
 function daysBetween(a: string, b: string): number {
   const da = new Date(a + "T12:00:00Z").getTime();
   const db = new Date(b + "T12:00:00Z").getTime();

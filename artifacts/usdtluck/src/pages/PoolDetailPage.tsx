@@ -578,7 +578,6 @@ export default function PoolDetailPage() {
     freeThisPurchase || grossTicketTotal <= 0
       ? 0
       : Math.min(grossTicketTotal, feePerListEntry * ticketQty);
-  const netFromWallet = Math.max(0, grossTicketTotal - platformFeeThisCheckout);
   const displayPayUsdt = grossTicketTotal;
   const canPayJoin = Boolean(user && (freeThisPurchase || Number(user.walletBalance) >= displayPayUsdt));
   const vipLocked = false;

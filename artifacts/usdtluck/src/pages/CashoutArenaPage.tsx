@@ -12,7 +12,6 @@ import {
   fetchCashoutArenaState,
   placeCashoutBetApi,
   verifyCashoutRoundApi,
-  type CashoutArenaState,
 } from "@/lib/cashout-arena-api";
 import { getCelebrationSoundEnabled, setCelebrationSoundEnabled } from "@/lib/celebration-preferences";
 import { useAuth } from "@/context/AuthContext";
