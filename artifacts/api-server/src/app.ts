@@ -108,7 +108,14 @@ app.use(
   }),
 );
 
-const sessionSecret = process.env.SESSION_SECRET;
+const isProd = process.env.NODE_ENV === "production";
+let sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret && !isProd) {
+  sessionSecret = "local-dev-only-insecure-session-secret";
+  logger.warn(
+    "[session] SESSION_SECRET unset — using insecure dev default. Set SESSION_SECRET in artifacts/api-server/.env for stable sessions.",
+  );
+}
 if (!sessionSecret) {
   throw new Error("SESSION_SECRET environment variable is required");
 }
