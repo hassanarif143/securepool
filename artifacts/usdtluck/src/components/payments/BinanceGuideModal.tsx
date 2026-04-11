@@ -37,7 +37,7 @@ const STEPS = [
 export function BinanceGuideModal({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[85vh] flex flex-col border-cyan-500/20">
+      <DialogContent className="max-w-md max-h-[85vh] flex flex-col border-emerald-500/20">
         <DialogHeader>
           <DialogTitle>How to send USDT from Binance</DialogTitle>
           <DialogDescription className="text-left">

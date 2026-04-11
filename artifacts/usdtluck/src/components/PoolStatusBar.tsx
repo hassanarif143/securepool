@@ -49,7 +49,7 @@ export function PoolStatusBar({
         </span>
         <span className="flex items-center gap-2">
           {typeof viewersCount === "number" && viewersCount > 0 && (
-            <span className="text-sky-400/90">👁 {viewersCount} viewing</span>
+            <span className="text-emerald-400/90">👁 {viewersCount} viewing</span>
           )}
           {status === "open" && left > 0 && left <= 5 && pct < 91 && (
             <span className="text-amber-400 font-medium">Only {left} left</span>

@@ -459,7 +459,7 @@ export default function P2PTradingPage() {
           <Shield className="h-4 w-4 text-amber-400" />
           Trade safely using escrow protection
         </div>
-        <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/[0.08] px-4 py-3 text-sm">
+        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.08] px-4 py-3 text-sm">
           Platform fee: <span className="font-semibold">1 USDT</span> is charged on every completed P2P order (seller side).
         </div>
         <div className="rounded-xl border border-destructive/20 bg-destructive/[0.06] px-4 py-3 text-sm flex items-start gap-2">

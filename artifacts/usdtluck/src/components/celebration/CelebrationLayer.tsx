@@ -5,8 +5,8 @@ type CelebrationLayerProps = {
 
 const styles: Record<CelebrationLayerProps["level"], string> = {
   small: "border-emerald-500/40 bg-emerald-500/10",
-  medium: "border-blue-500/40 bg-blue-500/10",
-  large: "border-fuchsia-500/40 bg-fuchsia-500/10",
+  medium: "border-emerald-600/40 bg-emerald-600/10",
+  large: "border-green-500/40 bg-green-500/10",
 };
 
 export function CelebrationLayer({ level, message }: CelebrationLayerProps) {

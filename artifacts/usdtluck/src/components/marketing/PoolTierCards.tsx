@@ -12,16 +12,16 @@ function TierCard({ tier }: { tier: PoolTierDef }) {
         "group relative flex min-h-[420px] flex-col overflow-hidden rounded-2xl border transition-all duration-300",
         "bg-gradient-to-b from-white/[0.06] via-[#0f172a]/80 to-[#0a0f1a]",
         "shadow-[0_12px_40px_-12px_rgba(0,0,0,0.5)]",
-        "hover:-translate-y-1 hover:shadow-[0_20px_50px_-12px_rgba(6,182,212,0.15)]",
+        "hover:-translate-y-1 hover:shadow-[0_20px_50px_-12px_rgba(34,197,94,0.15)]",
         tier.recommended
-          ? "border-cyan-400/35 ring-2 ring-cyan-500/20"
-          : "border-white/[0.1] hover:border-cyan-500/20",
+          ? "border-emerald-400/35 ring-2 ring-emerald-500/20"
+          : "border-white/[0.1] hover:border-emerald-500/20",
       )}
     >
       <div className="h-1.5 w-full shrink-0" style={{ background: tier.topGradient }} />
 
       {tier.recommended ? (
-        <span className="absolute right-3 top-5 z-10 rounded-md bg-gradient-to-r from-cyan-500/90 to-teal-600/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-md">
+        <span className="absolute right-3 top-5 z-10 rounded-md bg-gradient-to-r from-emerald-500/90 to-green-700/90 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-md">
           Recommended
         </span>
       ) : null}
@@ -39,7 +39,7 @@ function TierCard({ tier }: { tier: PoolTierDef }) {
           <p
             className="landing-mono mt-1 text-4xl font-black tabular-nums leading-none tracking-tight"
             style={{
-              background: "linear-gradient(180deg, #fff 0%, #22d3ee 100%)",
+              background: "linear-gradient(180deg, #fff 0%, #4ade80 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
@@ -64,7 +64,7 @@ function TierCard({ tier }: { tier: PoolTierDef }) {
             {tier.prizes.map((p) => (
               <li key={p.m} className="flex items-center justify-between gap-2 text-sm">
                 <span className="text-base">{p.m}</span>
-                <span className="landing-mono font-semibold text-cyan-200/95">${p.v}</span>
+                <span className="landing-mono font-semibold text-emerald-200/95">${p.v}</span>
               </li>
             ))}
           </ul>
@@ -75,7 +75,7 @@ function TierCard({ tier }: { tier: PoolTierDef }) {
             className="landing-mono flex h-12 w-full items-center justify-center rounded-xl text-sm font-bold text-white transition hover:opacity-95 active:scale-[0.99]"
             style={{
               background: tierBtnBg[tier.accent],
-              boxShadow: "0 6px 24px rgba(6,182,212,0.25)",
+              boxShadow: "0 6px 24px rgba(34,197,94,0.25)",
             }}
           >
             Join pool

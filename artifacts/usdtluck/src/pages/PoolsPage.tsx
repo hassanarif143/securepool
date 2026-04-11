@@ -64,44 +64,44 @@ export default function PoolsPage() {
     <div className="min-h-screen -mx-4 px-4 sm:-mx-6 sm:px-6 py-6 sm:py-10 space-y-8 bg-background">
       {bannerOpen && (
         <div
-          className="rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-cyan-950/50 to-slate-900/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3"
-          style={{ boxShadow: "0 0 40px -12px rgba(6,182,212,0.35)" }}
+          className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/50 to-slate-900/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3"
+          style={{ boxShadow: "0 0 40px -12px rgba(34,197,94,0.35)" }}
         >
           <div className="flex-1 space-y-1">
-            <p className="text-sm font-semibold text-cyan-100">
+            <p className="text-sm font-semibold text-emerald-100">
               🆕 New here? Pick a pool → Buy a ticket → When all spots fill, winners are picked fairly & automatically. Your
               win chance is on every card!
             </p>
             <button
               type="button"
-              className="text-xs font-medium text-cyan-400 hover:underline"
+              className="text-xs font-medium text-emerald-400 hover:underline"
               onClick={() => setHowOpen(true)}
             >
               How it works
             </button>
           </div>
-          <Button variant="outline" size="sm" className="shrink-0 border-cyan-500/40 text-cyan-100" onClick={dismissBanner}>
+          <Button variant="outline" size="sm" className="shrink-0 border-emerald-500/40 text-emerald-100" onClick={dismissBanner}>
             Got it
           </Button>
         </div>
       )}
 
       <div className="space-y-4 max-w-4xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-cyan-400/90">Live draws</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-emerald-400/90">Live draws</p>
         <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white">🎱 Live Pools</h1>
         <p className="text-base text-slate-400 leading-relaxed max-w-2xl">
           Buy a ticket → Pool fills → Winners picked automatically → Winnings to your wallet
         </p>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 max-w-4xl">
-          <QuickStat icon="🔥" label="Active pools" value={String(openPools.length)} accent="border-cyan-500/30 text-cyan-200" />
-          <QuickStat icon="🎟️" label="Tickets available" value={String(ticketsAvailable)} accent="border-teal-500/30 text-teal-200" />
+          <QuickStat icon="🔥" label="Active pools" value={String(openPools.length)} accent="border-emerald-500/30 text-emerald-200" />
+          <QuickStat icon="🎟️" label="Tickets available" value={String(ticketsAvailable)} accent="border-emerald-500/30 text-emerald-200" />
           <QuickStat icon="🏆" label="Draws today" value={String(stats?.drawsToday ?? "—")} accent="border-amber-500/30 text-amber-200" />
           <QuickStat
             icon="💰"
             label="Total paid out"
             value={stats ? `${Math.round(stats.totalPaidOutUsdt).toLocaleString()} USDT` : "—"}
-            accent="border-violet-500/30 text-violet-200"
+            accent="border-emerald-500/30 text-emerald-200"
           />
         </div>
 
@@ -113,13 +113,13 @@ export default function PoolsPage() {
       </div>
 
       <Dialog open={howOpen} onOpenChange={setHowOpen}>
-        <DialogContent className="sm:max-w-md border-cyan-500/20 bg-[#0d1526] text-slate-100">
+        <DialogContent className="sm:max-w-md border-emerald-500/20 bg-[#0d1526] text-slate-100">
           <DialogHeader>
-            <DialogTitle className="font-display text-xl text-cyan-100">How it works</DialogTitle>
+            <DialogTitle className="font-display text-xl text-emerald-100">How it works</DialogTitle>
           </DialogHeader>
           <ol className="space-y-4 text-sm text-slate-300">
             <li className="flex gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-300 font-bold">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
                 1
               </span>
               <span>
@@ -127,7 +127,7 @@ export default function PoolsPage() {
               </span>
             </li>
             <li className="flex gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-500/20 text-teal-300 font-bold">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
                 2
               </span>
               <span>
@@ -135,7 +135,7 @@ export default function PoolsPage() {
               </span>
             </li>
             <li className="flex gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-violet-300 font-bold">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
                 3
               </span>
               <span>
@@ -161,7 +161,7 @@ export default function PoolsPage() {
             type="button"
             variant="ghost"
             size="sm"
-            className="text-cyan-400 hover:text-cyan-300 text-xs"
+            className="text-emerald-400 hover:text-emerald-300 text-xs"
             onClick={() => setHowOpen(true)}
           >
             How it works
@@ -170,7 +170,7 @@ export default function PoolsPage() {
         <TabsList className="w-full h-auto flex flex-wrap justify-start gap-2 p-2 bg-slate-900/80 border border-slate-700/60 rounded-xl">
           <TabsTrigger
             value="active"
-            className="data-[state=active]:bg-cyan-600/30 data-[state=active]:text-cyan-100 rounded-lg"
+            className="data-[state=active]:bg-emerald-600/30 data-[state=active]:text-emerald-100 rounded-lg"
           >
             🔥 Active ({openPools.length})
           </TabsTrigger>
@@ -188,13 +188,13 @@ export default function PoolsPage() {
           </TabsTrigger>
           <TabsTrigger
             value="completed"
-            className="data-[state=active]:bg-violet-600/30 data-[state=active]:text-violet-100 rounded-lg"
+            className="data-[state=active]:bg-emerald-600/30 data-[state=active]:text-emerald-100 rounded-lg"
           >
             ✅ Completed ({completed.length})
           </TabsTrigger>
           <TabsTrigger
             value="upcoming"
-            className="data-[state=active]:bg-sky-600/30 data-[state=active]:text-sky-100 rounded-lg"
+            className="data-[state=active]:bg-emerald-600/30 data-[state=active]:text-emerald-100 rounded-lg"
           >
             ⏳ Upcoming ({upcoming.length})
           </TabsTrigger>

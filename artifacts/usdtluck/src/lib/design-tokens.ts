@@ -1,7 +1,7 @@
 export const designTokens = {
   colors: {
     withdrawable: "#16A34A",
-    rewards: "#2563EB",
+    rewards: "#22C55E",
     warning: "#F59E0B",
     danger: "#DC2626",
     surface: "#111827",

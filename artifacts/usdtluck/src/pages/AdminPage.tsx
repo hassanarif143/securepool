@@ -771,13 +771,13 @@ function PoolStatusChip({ status }: { status: string }) {
   if (status === "upcoming") return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
       style={{ background: "hsla(200,90%,50%,0.12)", color: "hsl(200,90%,70%)", border: "1px solid hsla(200,90%,50%,0.25)" }}>
-      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />Upcoming
+      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Upcoming
     </span>
   );
   if (status === "paused") return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
       style={{ background: "hsla(260,90%,60%,0.12)", color: "hsl(260,90%,75%)", border: "1px solid hsla(260,90%,60%,0.25)" }}>
-      <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />Paused
+      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Paused
     </span>
   );
   if (status === "open") return (
@@ -1347,7 +1347,7 @@ function PoolsTab() {
                       <p className={`font-bold text-base ${isCompleted ? "text-muted-foreground" : ""}`}>{pool.title}</p>
                       <PoolStatusChip status={pool.status} />
                       {(pool as any).isFrozen ? (
-                        <Badge variant="outline" className="text-[10px] border-blue-500/40 text-blue-200/90">
+                        <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-200/90">
                           Frozen
                         </Badge>
                       ) : null}
@@ -3019,7 +3019,7 @@ function UserProfileModal({ user, onClose }: { user: any; onClose: () => void })
                     </span>
                     <span className="text-xs text-muted-foreground capitalize">{tx.txType.replace("_", " ")}</span>
                     {tx.status === "pending" && <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">Pending</Badge>}
-                    {tx.status === "under_review" && <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">Under review</Badge>}
+                    {tx.status === "under_review" && <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-xs">Under review</Badge>}
                     {tx.status === "completed" && <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">Completed</Badge>}
                     {(tx.status === "rejected" || tx.status === "failed") && <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">Rejected</Badge>}
                   </div>
@@ -3034,7 +3034,7 @@ function UserProfileModal({ user, onClose }: { user: any; onClose: () => void })
                 )}
                 {tx.status === "under_review" && tx.txType === "withdraw" && (
                   <div className="flex gap-1 shrink-0">
-                    <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleComplete(tx.id)} disabled={acting === tx.id}>Mark complete</Button>
+                    <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleComplete(tx.id)} disabled={acting === tx.id}>Mark complete</Button>
                     <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => handleAction(tx.id, "reject", tx)} disabled={acting === tx.id}>Reject</Button>
                   </div>
                 )}
@@ -3275,10 +3275,10 @@ function AuditLogsTab() {
   function actionColor(type: string) {
     if (type === "approve") return "text-green-700 bg-green-50 border-green-200";
     if (type === "reject") return "text-red-700 bg-red-50 border-red-200";
-    if (type === "adjust_balance") return "text-blue-700 bg-blue-50 border-blue-200";
+    if (type === "adjust_balance") return "text-emerald-700 bg-emerald-50 border-emerald-200";
     if (type === "delete_pool") return "text-orange-700 bg-orange-50 border-orange-200";
     if (type === "delete_user" || type === "block_user") return "text-red-800 bg-red-50 border-red-200";
-    if (type === "broadcast" || type === "notify_user") return "text-violet-800 bg-violet-50 border-violet-200";
+    if (type === "broadcast" || type === "notify_user") return "text-emerald-800 bg-emerald-50 border-emerald-200";
     if (type === "make_admin" || type === "remove_admin") return "text-amber-800 bg-amber-50 border-amber-200";
     return "text-gray-700 bg-gray-50 border-gray-200";
   }
@@ -3494,7 +3494,7 @@ function PendingTransactionsTab() {
                     <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Pending</Badge>
                   )}
                   {tx.status === "under_review" && (
-                    <Badge className="bg-blue-100 text-blue-800 border-blue-200">Under review</Badge>
+                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">Under review</Badge>
                   )}
                   <UsdtAmount amount={tx.amount} amountClassName="font-bold text-primary" currencyClassName="text-[10px] text-[#64748b]" />
                 </div>
@@ -3531,7 +3531,7 @@ function PendingTransactionsTab() {
                     size="sm"
                     onClick={() => handleComplete(tx.id)}
                     disabled={acting === tx.id}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
                   >
                     Mark complete
                   </Button>
@@ -3585,7 +3585,7 @@ function TransactionsTab() {
   function TxStatus({ status }: { status: string }) {
     if (status === "completed") return <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">Completed</Badge>;
     if (status === "pending") return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">Pending</Badge>;
-    if (status === "under_review") return <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">Under review</Badge>;
+    if (status === "under_review") return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-xs">Under review</Badge>;
     if (status === "rejected") return <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">Rejected</Badge>;
     return <Badge className="bg-red-100 text-red-800 border-red-200 text-xs capitalize">{status.replace(/_/g, " ")}</Badge>;
   }

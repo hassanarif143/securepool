@@ -32,7 +32,7 @@ export function MarketingNav({
     >
       <div className="mx-auto flex max-w-[900px] items-center justify-between gap-3 px-4 py-3 sm:px-5">
         <Link href="/" className="landing-display shrink-0 text-lg font-black tracking-tight sm:text-xl" aria-label="SecurePool home">
-          <span className="text-[#06b6d4]">SECURE</span>
+          <span className="text-[#22c55e]">SECURE</span>
           <span className="text-[#f0f0f0]">POOL</span>
         </Link>
 
@@ -80,7 +80,7 @@ export function MarketingNav({
                 </span>
               </Link>
               <Link href="/profile">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-sm font-bold text-cyan-300">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 text-sm font-bold text-emerald-300">
                   {user.name.charAt(0).toUpperCase()}
                 </span>
               </Link>
@@ -106,9 +106,9 @@ export function MarketingNav({
                   size="sm"
                   className={cn(
                     "font-semibold shadow-lg sm:px-5",
-                    "bg-gradient-to-r from-cyan-500 to-teal-500 text-white hover:from-cyan-400 hover:to-teal-400",
+                    "bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:from-emerald-400 hover:to-green-500",
                   )}
-                  style={{ boxShadow: "0 4px 20px rgba(6,182,212,0.25)" }}
+                  style={{ boxShadow: "0 4px 20px rgba(34,197,94,0.25)" }}
                 >
                   <span className="hidden sm:inline">Sign Up Free</span>
                   <span className="sm:hidden">Sign Up</span>
@@ -150,7 +150,7 @@ export function MarketingNav({
                 </a>
               </>
             )}
-            <Link href="/login" className="py-2 text-cyan-400" onClick={() => setMobileOpen(false)}>
+            <Link href="/login" className="py-2 text-emerald-400" onClick={() => setMobileOpen(false)}>
               Login
             </Link>
             <p className="text-[10px] text-[#64748b]">

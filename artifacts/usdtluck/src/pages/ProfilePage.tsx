@@ -935,7 +935,7 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent className="space-y-5 pt-0">
           {!hasAnyP2pMethod ? (
-            <p className="text-sm text-muted-foreground rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-3 py-2">
+            <p className="text-sm text-muted-foreground rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
               Add a payment method to start P2P trading.
             </p>
           ) : null}
@@ -999,7 +999,7 @@ export default function ProfilePage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full rounded-xl border-cyan-500/30 text-cyan-100 hover:bg-cyan-500/10"
+                  className="w-full rounded-xl border-emerald-500/30 text-emerald-100 hover:bg-emerald-500/10"
                   onClick={() => {
                     setP2pShowAddForm(true);
                     setP2pFieldErrors({});
@@ -1036,9 +1036,9 @@ export default function ProfilePage() {
                       }}
                       className={cn(
                         "rounded-2xl border px-4 py-4 text-left text-sm font-medium transition-all duration-200",
-                        "bg-[#111827] hover:border-cyan-500/40",
+                        "bg-[#111827] hover:border-emerald-500/40",
                         p2pSelectedMethod === opt.id
-                          ? "border-cyan-500 shadow-[0_0_24px_-8px_rgba(6,182,212,0.45)] ring-1 ring-cyan-500/50 text-foreground"
+                          ? "border-emerald-500 shadow-[0_0_24px_-8px_rgba(34,197,94,0.45)] ring-1 ring-emerald-500/50 text-foreground"
                           : "border-border text-muted-foreground",
                       )}
                     >
@@ -1062,7 +1062,7 @@ export default function ProfilePage() {
                         value={p2pBankName}
                         onChange={(e) => setP2pBankName(e.target.value)}
                         placeholder="e.g. Meezan Bank"
-                        className="rounded-xl border-border bg-background focus-visible:ring-cyan-500/40"
+                        className="rounded-xl border-border bg-background focus-visible:ring-emerald-500/40"
                       />
                       {p2pFieldErrors.bankName ? (
                         <p className="text-xs text-red-400/90">{p2pFieldErrors.bankName}</p>
@@ -1075,7 +1075,7 @@ export default function ProfilePage() {
                         value={p2pAccountTitle}
                         onChange={(e) => setP2pAccountTitle(e.target.value)}
                         placeholder="Name on account"
-                        className="rounded-xl border-border bg-background focus-visible:ring-cyan-500/40"
+                        className="rounded-xl border-border bg-background focus-visible:ring-emerald-500/40"
                       />
                       {p2pFieldErrors.accountTitle ? (
                         <p className="text-xs text-red-400/90">{p2pFieldErrors.accountTitle}</p>
@@ -1088,7 +1088,7 @@ export default function ProfilePage() {
                         value={p2pIban}
                         onChange={(e) => setP2pIban(e.target.value)}
                         placeholder="IBAN or account number"
-                        className="rounded-xl border-border bg-background focus-visible:ring-cyan-500/40"
+                        className="rounded-xl border-border bg-background focus-visible:ring-emerald-500/40"
                       />
                       {p2pFieldErrors.ibanOrAccount ? (
                         <p className="text-xs text-red-400/90">{p2pFieldErrors.ibanOrAccount}</p>
@@ -1107,7 +1107,7 @@ export default function ProfilePage() {
                         onChange={(e) => setP2pEasypaisa(normalizePkPhone(e.target.value))}
                         placeholder="03XXXXXXXXX"
                         inputMode="numeric"
-                        className="rounded-xl border-border bg-background focus-visible:ring-cyan-500/40"
+                        className="rounded-xl border-border bg-background focus-visible:ring-emerald-500/40"
                       />
                       {p2pFieldErrors.easypaisa ? (
                         <p className="text-xs text-red-400/90">{p2pFieldErrors.easypaisa}</p>
@@ -1120,7 +1120,7 @@ export default function ProfilePage() {
                         value={p2pEasypaisaAccountName}
                         onChange={(e) => setP2pEasypaisaAccountName(e.target.value)}
                         placeholder="Shown to buyer"
-                        className="rounded-xl border-border bg-background focus-visible:ring-cyan-500/40"
+                        className="rounded-xl border-border bg-background focus-visible:ring-emerald-500/40"
                       />
                     </div>
                   </div>
@@ -1136,7 +1136,7 @@ export default function ProfilePage() {
                         onChange={(e) => setP2pJazzcash(normalizePkPhone(e.target.value))}
                         placeholder="03XXXXXXXXX"
                         inputMode="numeric"
-                        className="rounded-xl border-border bg-background focus-visible:ring-cyan-500/40"
+                        className="rounded-xl border-border bg-background focus-visible:ring-emerald-500/40"
                       />
                       {p2pFieldErrors.jazzcash ? (
                         <p className="text-xs text-red-400/90">{p2pFieldErrors.jazzcash}</p>
@@ -1149,7 +1149,7 @@ export default function ProfilePage() {
                         value={p2pJazzcashAccountName}
                         onChange={(e) => setP2pJazzcashAccountName(e.target.value)}
                         placeholder="Shown to buyer"
-                        className="rounded-xl border-border bg-background focus-visible:ring-cyan-500/40"
+                        className="rounded-xl border-border bg-background focus-visible:ring-emerald-500/40"
                       />
                     </div>
                   </div>

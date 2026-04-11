@@ -9,7 +9,7 @@ import {
 export function TxIdHelpModal({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm border-cyan-500/20">
+      <DialogContent className="max-w-sm border-emerald-500/20">
         <DialogHeader>
           <DialogTitle>TxID kya hai?</DialogTitle>
           <DialogDescription className="text-left space-y-2">

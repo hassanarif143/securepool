@@ -76,7 +76,7 @@ export function PredictionPicker({ poolId, onLocked }: { poolId: number; onLocke
   }
 
   return (
-    <div className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-4 space-y-3">
+    <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4 space-y-3">
       <p className="text-sm font-medium">Predict who finishes first</p>
       <p className="text-[11px] text-muted-foreground">
         Optional engagement — correct picks earn small bonus points after the draw.

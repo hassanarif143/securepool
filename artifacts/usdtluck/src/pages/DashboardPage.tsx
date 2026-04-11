@@ -310,10 +310,10 @@ export default function DashboardPage() {
             <UsdtAmount amount={Number(user.withdrawableBalance ?? 0)} amountClassName="text-xl font-semibold tabular-nums text-emerald-200" />
             <p className="text-[11px] text-emerald-100/80 mt-1">Can be withdrawn anytime</p>
           </div>
-          <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/[0.08] p-3">
-            <p className="text-[11px] text-cyan-300">Rewards Balance</p>
-            <UsdtAmount amount={rewardsUsdt} amountClassName="text-xl font-semibold tabular-nums text-cyan-200" />
-            <p className="text-[11px] text-cyan-100/80 mt-1">Used for in-platform rewards</p>
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3">
+            <p className="text-[11px] text-emerald-300">Rewards Balance</p>
+            <UsdtAmount amount={rewardsUsdt} amountClassName="text-xl font-semibold tabular-nums text-emerald-200" />
+            <p className="text-[11px] text-emerald-100/80 mt-1">Used for in-platform rewards</p>
           </div>
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.08] p-3">
             <p className="text-[11px] text-amber-300">Locked / In-use</p>

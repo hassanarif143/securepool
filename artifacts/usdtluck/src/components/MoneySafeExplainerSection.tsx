@@ -112,7 +112,7 @@ export function MoneySafeExplainerSection() {
               }`}
             >
               {s.n === 4 && (
-                <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-emerald-500/0 via-emerald-400/70 to-teal-500/0" />
+                <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-emerald-500/0 via-emerald-400/70 to-green-600/0" />
               )}
               <CardContent className="p-5 sm:p-6 text-left">
                 <div className="flex items-start gap-4">
@@ -191,8 +191,8 @@ export function MoneySafeExplainerSection() {
               </span>
             </div>
             <div className="flex justify-between items-start gap-4 py-2 border-b border-emerald-500/20 bg-emerald-950/25 -mx-2 px-2 rounded-lg">
-              <span className="text-teal-200 font-medium">If you DON&apos;T WIN</span>
-              <span className="text-right font-semibold text-teal-100 tabular-nums">
+              <span className="text-emerald-200 font-medium">If you DON&apos;T WIN</span>
+              <span className="text-right font-semibold text-emerald-100 tabular-nums">
                 $8 USDT back to wallet <span aria-hidden>💸</span>
               </span>
             </div>

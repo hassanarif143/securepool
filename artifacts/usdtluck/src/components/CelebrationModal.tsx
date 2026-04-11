@@ -61,7 +61,7 @@ export function CelebrationModal({ winners, poolTitle, onClose }: CelebrationMod
       style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
     >
       <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-500">
-        <div className="bg-gradient-to-br from-emerald-600 to-teal-700 p-6 text-white text-center">
+        <div className="bg-gradient-to-br from-emerald-600 to-green-800 p-6 text-white text-center">
           <p className="text-4xl mb-2">🎉</p>
           <h2 className="text-2xl font-bold tracking-tight">Winners Revealed!</h2>
           <p className="text-emerald-100 text-sm mt-1 font-medium">{poolTitle}</p>

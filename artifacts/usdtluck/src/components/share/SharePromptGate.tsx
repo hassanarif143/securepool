@@ -163,7 +163,7 @@ export function SharePromptGate() {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleLater()}>
-      <DialogContent className="max-w-[440px] max-h-[92vh] overflow-y-auto border-cyan-500/25 sm:max-w-[440px]">
+      <DialogContent className="max-w-[440px] max-h-[92vh] overflow-y-auto border-emerald-500/25 sm:max-w-[440px]">
         <DialogHeader>
           <DialogTitle>Share your moment</DialogTitle>
           <DialogDescription>

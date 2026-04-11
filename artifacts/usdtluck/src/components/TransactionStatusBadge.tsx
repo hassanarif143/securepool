@@ -31,7 +31,7 @@ export const TransactionStatusBadge = memo(function TransactionStatusBadge({
           ? {
               Icon: Eye,
               label: compact ? "Review" : "Under review",
-              className: "border-sky-500/35 bg-sky-500/[0.12] text-sky-300",
+              className: "border-emerald-500/35 bg-emerald-500/[0.12] text-emerald-300",
             }
           : s === "failed" || s === "rejected"
             ? {

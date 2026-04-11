@@ -68,7 +68,7 @@ export function DepositStepFlow({ platformAddress, network, minDeposit, copied, 
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-border/90 bg-gradient-to-b from-card/80 to-card/40 shadow-lg shadow-black/20 ring-1 ring-white/[0.04]">
-      <div className="border-b border-border/60 bg-gradient-to-r from-primary/[0.06] via-transparent to-sky-500/[0.05] px-4 py-3 sm:px-5">
+      <div className="border-b border-border/60 bg-gradient-to-r from-primary/[0.06] via-transparent to-emerald-500/[0.05] px-4 py-3 sm:px-5">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Deposit in 3 steps</p>
         <p className="mt-0.5 text-sm font-medium text-foreground">Simple, guided, and review-backed</p>
       </div>

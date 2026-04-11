@@ -194,7 +194,7 @@ export default function MySharesPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs rounded-xl border p-3 bg-card/30">
           <div>
             <p className="text-muted-foreground">Total shares (tracked)</p>
-            <p className="text-lg font-semibold text-cyan-400">{stats.totalShares}</p>
+            <p className="text-lg font-semibold text-emerald-400">{stats.totalShares}</p>
           </div>
           <div className="col-span-3 text-muted-foreground text-[11px]">
             {Object.entries(stats.byPlatform ?? {}).map(([k, v]) => (
@@ -245,7 +245,7 @@ export default function MySharesPage() {
       )}
 
       <Dialog open={active != null} onOpenChange={(o) => !o && setActive(null)}>
-        <DialogContent className="max-w-[420px] max-h-[90vh] overflow-y-auto border-cyan-500/20">
+        <DialogContent className="max-w-[420px] max-h-[90vh] overflow-y-auto border-emerald-500/20">
           <DialogHeader>
             <DialogTitle>Share</DialogTitle>
           </DialogHeader>

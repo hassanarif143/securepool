@@ -133,7 +133,7 @@ export function PlatformStats() {
         <div className="grid grid-cols-1 gap-2 overflow-hidden rounded-[0.85rem] bg-[hsl(222,30%,9%)]/80 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-border/50">
           {cards.map((card) => (
             <div key={card.key} className="rounded-[0.75rem] border border-border/40 bg-card/40 px-5 py-6 text-center sm:rounded-none sm:border-0">
-              <div className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-background/30 text-cyan-300">
+              <div className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-background/30 text-emerald-300">
                 {card.icon}
               </div>
               <p className="text-[14px] text-muted-foreground">{card.label}</p>

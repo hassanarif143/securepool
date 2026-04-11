@@ -309,7 +309,7 @@ export function DepositWizard({
                 onClick={() => setWallet(c.id)}
                 className={cn(
                   "flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-colors min-h-[56px]",
-                  wallet === c.id ? "border-cyan-500/60 bg-cyan-500/10 ring-1 ring-cyan-500/30" : "border-border/80 bg-muted/15 hover:bg-muted/25",
+                  wallet === c.id ? "border-emerald-500/60 bg-emerald-500/10 ring-1 ring-emerald-500/30" : "border-border/80 bg-muted/15 hover:bg-muted/25",
                 )}
               >
                 <span className="text-2xl">{c.icon}</span>
@@ -322,13 +322,13 @@ export function DepositWizard({
                   </span>
                   <span className="block text-xs text-muted-foreground mt-0.5">{c.sub}</span>
                 </span>
-                {wallet === c.id ? <span className="text-cyan-400 font-bold">✓</span> : null}
+                {wallet === c.id ? <span className="text-emerald-400 font-bold">✓</span> : null}
               </button>
             ))}
           </div>
           <p className="text-xs text-muted-foreground">
             USDT abhi nahi hai?{" "}
-            <Link href="/how-to-buy-usdt" className="text-cyan-400 font-semibold underline underline-offset-2">
+            <Link href="/how-to-buy-usdt" className="text-emerald-400 font-semibold underline underline-offset-2">
               Yahan dekhein: USDT kaise khareedein (Pakistan)
             </Link>
           </p>
@@ -364,7 +364,7 @@ export function DepositWizard({
                 <div className="text-center space-y-1">
                   <p className="text-sm font-semibold">Send exactly</p>
                   <div className="flex justify-center">
-                    <UsdtAmount amount={amtNum} amountClassName="text-lg font-bold text-cyan-400 tabular-nums" />
+                    <UsdtAmount amount={amtNum} amountClassName="text-lg font-bold text-emerald-400 tabular-nums" />
                   </div>
                   <p className="text-xs text-muted-foreground">to:</p>
                 </div>
@@ -396,11 +396,11 @@ export function DepositWizard({
                 </ul>
               </div>
 
-              <button type="button" className="text-xs text-cyan-400 font-semibold underline text-left w-full" onClick={() => setGuideOpen(true)}>
+              <button type="button" className="text-xs text-emerald-400 font-semibold underline text-left w-full" onClick={() => setGuideOpen(true)}>
                 📖 Step-by-step Binance guide
               </button>
 
-              <p className="text-center text-sm font-mono text-cyan-300/90">
+              <p className="text-center text-sm font-mono text-emerald-300/90">
                 ⏰ Complete within: {fmtTime(remainMs)}
               </p>
             </>
@@ -433,7 +433,7 @@ export function DepositWizard({
           <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 p-3">
             <p className="text-[10px] font-semibold uppercase text-muted-foreground mb-2">Example (aise dikhe)</p>
             <div className="rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 p-4 text-[10px] text-muted-foreground space-y-2">
-              <div className="flex justify-between"><span>Amount</span><span className="text-cyan-400">→ {validAmt ? `${amtNum.toFixed(2)} USDT` : "—"}</span></div>
+              <div className="flex justify-between"><span>Amount</span><span className="text-emerald-400">→ {validAmt ? `${amtNum.toFixed(2)} USDT` : "—"}</span></div>
               <div className="flex justify-between"><span>Status</span><span className="text-emerald-400">→ Completed</span></div>
               <div className="flex justify-between gap-2"><span>To</span><span className="break-all text-right">→ T… (address)</span></div>
             </div>
@@ -470,7 +470,7 @@ export function DepositWizard({
           <div className="space-y-1.5">
             <Label className="text-xs">TxID (optional — tez verification)</Label>
             <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Paste transaction hash / TxID" className="font-mono text-xs min-h-11" />
-            <button type="button" className="text-[10px] text-cyan-400 underline" onClick={() => setTxHelpOpen(true)}>
+            <button type="button" className="text-[10px] text-emerald-400 underline" onClick={() => setTxHelpOpen(true)}>
               TxID kahan milta hai?
             </button>
           </div>
@@ -498,7 +498,7 @@ export function DepositWizard({
             <p className="font-semibold text-foreground">Payment summary</p>
             {summaryAmount > 0 ? (
               <p>
-                Amount: <UsdtAmount amount={summaryAmount} amountClassName="font-bold text-cyan-300" />
+                Amount: <UsdtAmount amount={summaryAmount} amountClassName="font-bold text-emerald-300" />
               </p>
             ) : null}
             <p>Network: {networkLabel}</p>

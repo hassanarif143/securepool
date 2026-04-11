@@ -46,7 +46,7 @@ export function Logo({ size = "md", showText = true }: LogoProps) {
 
       {showText && (
         <span className={`font-extrabold tracking-tight leading-none ${textCls}`}>
-          Secure<span style={{ color: "hsl(152,72%,55%)" }}>Pool</span>
+          Secure<span style={{ color: "hsl(142,71%,55%)" }}>Pool</span>
         </span>
       )}
     </div>

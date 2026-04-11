@@ -31,7 +31,7 @@ export const POOL_TIERS: PoolTierDef[] = [
     ],
     accent: "cyan",
     recommended: true,
-    topGradient: "linear-gradient(90deg, #06b6d4, #22d3ee, #14b8a6)",
+    topGradient: "linear-gradient(90deg, #22c55e, #4ade80, #15803d)",
   },
   {
     icon: "🔵",
@@ -47,7 +47,7 @@ export const POOL_TIERS: PoolTierDef[] = [
     ],
     accent: "blue",
     recommended: false,
-    topGradient: "linear-gradient(90deg, #0ea5e9, #38bdf8, #06b6d4)",
+    topGradient: "linear-gradient(90deg, #15803d, #22c55e, #4ade80)",
   },
   {
     icon: "🟡",
@@ -83,8 +83,8 @@ export const POOL_TIERS: PoolTierDef[] = [
 ];
 
 export const tierBtnBg: Record<PoolTierAccent, string> = {
-  cyan: "linear-gradient(135deg, #06b6d4, #0d9488)",
-  blue: "linear-gradient(135deg, #0ea5e9, #06b6d4)",
+  cyan: "linear-gradient(135deg, #16a34a, #15803d)",
+  blue: "linear-gradient(135deg, #22c55e, #16a34a)",
   amber: "linear-gradient(135deg, #f59e0b, #ea580c)",
   emerald: "linear-gradient(135deg, #10b981, #0f766e)",
 };

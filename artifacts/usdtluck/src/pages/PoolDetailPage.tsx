@@ -743,7 +743,7 @@ export default function PoolDetailPage() {
         )}
 
         <Card className="border-primary/20 overflow-hidden">
-          <div className="h-1 bg-gradient-to-r from-yellow-500 via-primary to-blue-500" />
+          <div className="h-1 bg-gradient-to-r from-yellow-500 via-primary to-emerald-600" />
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Prize Distribution</CardTitle>
           </CardHeader>

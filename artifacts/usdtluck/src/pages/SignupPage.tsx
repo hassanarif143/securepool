@@ -190,7 +190,7 @@ export default function SignupPage() {
       {/* Glow orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/3 right-1/4 w-96 h-96 rounded-full opacity-[0.08] blur-3xl"
-          style={{ background: "radial-gradient(circle, #06b6d4, transparent)" }} />
+          style={{ background: "radial-gradient(circle, #22c55e, transparent)" }} />
         <div className="absolute bottom-1/3 left-1/4 w-80 h-80 rounded-full opacity-[0.04] blur-3xl"
           style={{ background: "radial-gradient(circle, #a855f7, transparent)" }} />
       </div>

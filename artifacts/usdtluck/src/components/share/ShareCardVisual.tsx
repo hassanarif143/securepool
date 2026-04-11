@@ -12,13 +12,13 @@ export type ShareCardRecord = {
 const BG = "#0a0f1a";
 const ACCENTS: Record<string, { bar: string; glow: string }> = {
   pool_win: { bar: "linear-gradient(90deg,#f59e0b,#fbbf24)", glow: "rgba(245,158,11,0.15)" },
-  referral_earned: { bar: "linear-gradient(90deg,#8b5cf6,#a78bfa)", glow: "rgba(139,92,246,0.15)" },
+  referral_earned: { bar: "linear-gradient(90deg,#15803d,#22c55e)", glow: "rgba(34,197,94,0.15)" },
   withdrawal_success: { bar: "linear-gradient(90deg,#10b981,#34d399)", glow: "rgba(16,185,129,0.15)" },
   achievement_unlocked: { bar: "linear-gradient(90deg,#ec4899,#f59e0b)", glow: "rgba(236,72,153,0.12)" },
-  level_up: { bar: "linear-gradient(90deg,#06b6d4,#8b5cf6)", glow: "rgba(6,182,212,0.12)" },
+  level_up: { bar: "linear-gradient(90deg,#22c55e,#15803d)", glow: "rgba(34,197,94,0.12)" },
   login_streak: { bar: "linear-gradient(90deg,#ef4444,#fbbf24)", glow: "rgba(239,68,68,0.12)" },
   pool_streak: { bar: "linear-gradient(90deg,#f97316,#fbbf24)", glow: "rgba(249,115,22,0.12)" },
-  default: { bar: "linear-gradient(90deg,#06b6d4,#22d3ee)", glow: "rgba(6,182,212,0.12)" },
+  default: { bar: "linear-gradient(90deg,#22c55e,#4ade80)", glow: "rgba(34,197,94,0.12)" },
 };
 
 function pickAccent(type: string) {
@@ -92,7 +92,7 @@ export function ShareCardVisual({
             <p style={{ fontSize: 11, letterSpacing: "0.12em", color: "#94a3b8", fontWeight: 600 }}>{title}</p>
             <p style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>{String(d.date ?? "")}</p>
           </div>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "#22d3ee" }}>SECUREPOOL</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#4ade80" }}>SECUREPOOL</span>
         </div>
 
         <div style={{ textAlign: "center", marginTop: 16, marginBottom: 8 }}>
@@ -196,12 +196,12 @@ export function ShareCardVisual({
             marginTop: 18,
             padding: "12px 14px",
             borderRadius: 10,
-            background: "rgba(6,182,212,0.08)",
-            border: "1px solid rgba(6,182,212,0.2)",
+            background: "rgba(34,197,94,0.08)",
+            border: "1px solid rgba(34,197,94,0.2)",
           }}
         >
           <p style={{ fontSize: 12, color: "#94a3b8", textAlign: "center" }}>Join with my link</p>
-          <p style={{ fontSize: 11, color: "#22d3ee", textAlign: "center", wordBreak: "break-all", marginTop: 4 }}>
+          <p style={{ fontSize: 11, color: "#4ade80", textAlign: "center", wordBreak: "break-all", marginTop: 4 }}>
             {inviteUrl}
           </p>
         </div>
@@ -212,7 +212,7 @@ export function ShareCardVisual({
               width: 36,
               height: 36,
               borderRadius: 8,
-              background: "linear-gradient(135deg,#06b6d4,#8b5cf6)",
+              background: "linear-gradient(135deg,#22c55e,#15803d)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",

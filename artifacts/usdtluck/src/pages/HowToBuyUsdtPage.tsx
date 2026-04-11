@@ -20,11 +20,11 @@ export default function HowToBuyUsdtPage() {
         <ol className="text-sm space-y-3 list-decimal pl-4 text-muted-foreground leading-relaxed">
           <li>
             Binance app install karein:{" "}
-            <a href="https://apps.apple.com/app/binance/id1436799971" className="text-cyan-400 underline" target="_blank" rel="noopener noreferrer">
+            <a href="https://apps.apple.com/app/binance/id1436799971" className="text-emerald-400 underline" target="_blank" rel="noopener noreferrer">
               App Store
             </a>{" "}
             /{" "}
-            <a href="https://play.google.com/store/apps/details?id=com.binance.dev" className="text-cyan-400 underline" target="_blank" rel="noopener noreferrer">
+            <a href="https://play.google.com/store/apps/details?id=com.binance.dev" className="text-emerald-400 underline" target="_blank" rel="noopener noreferrer">
               Google Play
             </a>
           </li>

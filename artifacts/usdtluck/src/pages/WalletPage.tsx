@@ -422,10 +422,10 @@ export default function WalletPage() {
               <UsdtAmount amount={withdrawableBal} amountClassName="text-sm font-semibold tabular-nums text-emerald-100" />
               <p className="text-[10px] text-emerald-100/80 mt-1">Cash-out eligible</p>
             </div>
-            <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/[0.08] p-3">
-              <p className="text-[11px] text-cyan-300">Rewards</p>
-              <UsdtAmount amount={rewardsUsdt} amountClassName="text-sm font-semibold tabular-nums text-cyan-100" />
-              <p className="text-[10px] text-cyan-100/80 mt-1">Used in platform features</p>
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.08] p-3">
+              <p className="text-[11px] text-emerald-300">Rewards</p>
+              <UsdtAmount amount={rewardsUsdt} amountClassName="text-sm font-semibold tabular-nums text-emerald-100" />
+              <p className="text-[10px] text-emerald-100/80 mt-1">Used in platform features</p>
             </div>
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.08] p-3">
               <p className="text-[11px] text-amber-300">Locked / In-use</p>
@@ -494,7 +494,7 @@ export default function WalletPage() {
         {/* ── DEPOSIT TAB — guided wizard ── */}
         {tab === "deposit" && (
           <div className="p-5 space-y-5">
-            <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/15 px-4 py-3">
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/15 px-4 py-3">
               <p className="text-sm font-semibold text-foreground">Add money to your wallet</p>
               <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                 Har step ek-ek kar ke — USDT bhejna, screenshot, aur verification. Roman Urdu + English dono.

@@ -87,9 +87,9 @@ export default function LoginPage() {
       {/* Background glow orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-[0.08] blur-3xl"
-          style={{ background: "radial-gradient(circle, #06b6d4, transparent)" }} />
+          style={{ background: "radial-gradient(circle, #22c55e, transparent)" }} />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full opacity-[0.05] blur-3xl"
-          style={{ background: "radial-gradient(circle, #3b82f6, transparent)" }} />
+          style={{ background: "radial-gradient(circle, #166534, transparent)" }} />
       </div>
 
       <div className="relative z-10 w-full max-w-4xl">

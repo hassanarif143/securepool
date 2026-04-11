@@ -92,7 +92,7 @@ export default function LandingPage() {
         <div
           className="pointer-events-none absolute left-1/2 top-24 h-[420px] w-[420px] -translate-x-1/2 rounded-full opacity-[0.06]"
           style={{
-            background: "radial-gradient(circle, rgba(6,182,212,0.9) 0%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(34,197,94,0.55) 0%, transparent 70%)",
           }}
           aria-hidden
         />
@@ -109,7 +109,7 @@ export default function LandingPage() {
             Win USDT
             <br />
             <span
-              className="bg-gradient-to-r from-[#22d3ee] via-[#06b6d4] to-[#14b8a6] bg-clip-text text-transparent"
+              className="bg-gradient-to-r from-[#4ade80] via-[#22c55e] to-[#15803d] bg-clip-text text-transparent"
               style={{ WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
             >
               Every Day
@@ -126,9 +126,9 @@ export default function LandingPage() {
             <Link href="/pools" className="w-full max-w-sm sm:w-auto">
               <Button
                 size="lg"
-                className="landing-mono h-14 w-full rounded-[14px] bg-gradient-to-r from-cyan-500 to-teal-500 px-10 text-base font-bold text-white shadow-lg hover:from-cyan-400 hover:to-teal-400 sm:min-w-[280px]"
+                className="landing-mono h-14 w-full rounded-[14px] bg-gradient-to-r from-emerald-500 to-green-600 px-10 text-base font-bold text-white shadow-lg hover:from-emerald-400 hover:to-green-500 sm:min-w-[280px]"
                 style={{
-                  boxShadow: "0 4px 24px rgba(6,182,212,0.25)",
+                  boxShadow: "0 4px 24px rgba(34,197,94,0.25)",
                   animation: "landing-cta-glow 3s ease-in-out infinite",
                 }}
               >
@@ -151,7 +151,7 @@ export default function LandingPage() {
             ))}
           </div>
           <p className="mt-8">
-            <Link href="/how-it-works" className="text-sm font-semibold text-cyan-400/95 underline-offset-4 hover:underline">
+            <Link href="/how-it-works" className="text-sm font-semibold text-emerald-400/95 underline-offset-4 hover:underline">
               Full step-by-step guide →
             </Link>
           </p>
@@ -164,7 +164,7 @@ export default function LandingPage() {
 
       <MarketingMotionSection id="trust-proof" className="rounded-2xl py-16 sm:px-2" style={{ backgroundColor: SURFACE }}>
         <div className="mx-auto max-w-[900px]">
-          <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-teal-400">Verified Results</p>
+          <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400">Verified Results</p>
           <h2 className="landing-display mt-2 text-center text-2xl font-bold sm:text-[28px]">Real Winners. Real Payouts.</h2>
           <p className="mx-auto mt-2 max-w-md text-center text-sm text-[#94a3b8]">Don&apos;t trust us — verify yourself.</p>
 
@@ -181,7 +181,7 @@ export default function LandingPage() {
                     <span aria-hidden>{w.place === 1 ? "🥇" : w.place === 2 ? "🥈" : "🥉"}</span>
                     <span className="font-medium text-[#e2e8f0]">{maskWinnerName(w.userName)}</span>
                     <span className="text-[#64748b]">won</span>
-                    <span className="landing-mono font-semibold text-cyan-300">${Number(w.prize).toFixed(2)}</span>
+                    <span className="landing-mono font-semibold text-emerald-300">${Number(w.prize).toFixed(2)}</span>
                     <span className="text-xs text-[#64748b]">{timeAgoShort(w.awardedAt)}</span>
                     <span className="ml-auto rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
                       ● Verified
@@ -191,7 +191,7 @@ export default function LandingPage() {
               </ul>
             )}
             <div className="border-t border-white/[0.06] p-4 text-center">
-              <Link href="/winners" className="text-sm font-semibold text-cyan-400 hover:underline">
+              <Link href="/winners" className="text-sm font-semibold text-emerald-400 hover:underline">
                 View All Winners →
               </Link>
             </div>
@@ -230,7 +230,7 @@ export default function LandingPage() {
 
       <MarketingMotionSection id="faq" className="rounded-2xl py-16 sm:px-2" style={{ backgroundColor: SURFACE }}>
         <div className="mx-auto max-w-[720px]">
-          <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-violet-400">FAQ</p>
+          <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400">FAQ</p>
           <h2 className="landing-display mt-2 text-center text-2xl font-bold">Common Questions</h2>
           <LandingFaqAccordion />
         </div>
@@ -240,8 +240,8 @@ export default function LandingPage() {
 
       <style>{`
         @keyframes landing-cta-glow {
-          0%, 100% { box-shadow: 0 4px 24px rgba(6,182,212,0.25); }
-          50% { box-shadow: 0 6px 32px rgba(6,182,212,0.38); }
+          0%, 100% { box-shadow: 0 4px 24px rgba(34,197,94,0.25); }
+          50% { box-shadow: 0 6px 32px rgba(34,197,94,0.38); }
         }
         .landing-live-dot span:first-child {
           animation: landing-dot-pulse 2s ease-in-out infinite;

@@ -27,25 +27,25 @@ export function MarketingFooter() {
         </div>
         <div className="mt-8 text-center">
           <p className="landing-display text-lg font-black">
-            <span className="text-[#06b6d4]">SECURE</span>
+            <span className="text-[#22c55e]">SECURE</span>
             <span className="text-[#f0f0f0]">POOL</span>
           </p>
           <p className="mt-1 text-sm text-[#64748b]">Transparent USDT reward pools</p>
         </div>
         <div className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-[#94a3b8]">
-          <a href="https://t.me/SecurePoolOfficial" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400">
+          <a href="https://t.me/SecurePoolOfficial" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400">
             Telegram
           </a>
           <span className="text-[#475569]">·</span>
-          <a href="https://tiktok.com/@securepool" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400">
+          <a href="https://tiktok.com/@securepool" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400">
             TikTok
           </a>
           <span className="text-[#475569]">·</span>
-          <a href="https://x.com/SecurePoolHQ" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400">
+          <a href="https://x.com/SecurePoolHQ" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400">
             X
           </a>
           <span className="text-[#475569]">·</span>
-          <a href="https://youtube.com/@SecurePool" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400">
+          <a href="https://youtube.com/@SecurePool" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400">
             YouTube
           </a>
         </div>

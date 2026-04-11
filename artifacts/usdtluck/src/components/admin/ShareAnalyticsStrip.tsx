@@ -30,7 +30,7 @@ export function ShareAnalyticsStrip() {
       <div className="grid sm:grid-cols-3 gap-2">
         <div className="rounded-lg border p-2">
           <p className="text-muted-foreground">Cards generated</p>
-          <p className="font-semibold text-cyan-400">{data.cardsGenerated}</p>
+          <p className="font-semibold text-emerald-400">{data.cardsGenerated}</p>
         </div>
         <div className="rounded-lg border p-2">
           <p className="text-muted-foreground">Share events</p>

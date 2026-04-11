@@ -32,15 +32,15 @@ export default function HowItWorksPage() {
         <div
           className="pointer-events-none absolute left-1/2 top-20 h-[380px] w-[380px] -translate-x-1/2 rounded-full opacity-[0.06]"
           style={{
-            background: "radial-gradient(circle, rgba(6,182,212,0.9) 0%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(34,197,94,0.5) 0%, transparent 70%)",
           }}
           aria-hidden
         />
         <div className="relative mx-auto max-w-[900px] text-center">
-          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-400">Guided walkthrough</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-400">Guided walkthrough</p>
           <h1 className="landing-display mt-3 text-3xl font-black leading-[1.1] tracking-[-0.02em] text-[#f0f0f0] sm:text-4xl md:text-[2.75rem]">
             How{" "}
-            <span className="bg-gradient-to-r from-[#22d3ee] to-[#06b6d4] bg-clip-text text-transparent">SecurePool</span>{" "}
+            <span className="bg-gradient-to-r from-[#4ade80] to-[#15803d] bg-clip-text text-transparent">SecurePool</span>{" "}
             works
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-[#94a3b8] sm:text-[17px]">
@@ -50,8 +50,8 @@ export default function HowItWorksPage() {
             <Link href="/signup">
               <Button
                 size="lg"
-                className="landing-mono rounded-[14px] bg-gradient-to-r from-cyan-500 to-teal-500 px-8 font-bold text-white shadow-lg hover:from-cyan-400 hover:to-teal-400"
-                style={{ boxShadow: "0 4px 24px rgba(6,182,212,0.25)" }}
+                className="landing-mono rounded-[14px] bg-gradient-to-r from-emerald-500 to-green-600 px-8 font-bold text-white shadow-lg hover:from-emerald-400 hover:to-green-500"
+                style={{ boxShadow: "0 4px 24px rgba(34,197,94,0.25)" }}
               >
                 Sign up free
               </Button>
@@ -78,7 +78,7 @@ export default function HowItWorksPage() {
 
       <MarketingMotionSection id="fees" className="rounded-2xl py-16 sm:px-2" style={{ backgroundColor: SURFACE }}>
         <div className="mx-auto max-w-[900px]">
-          <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-400">Costs</p>
+          <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400">Costs</p>
           <h2 className="landing-display mt-2 text-center text-2xl font-bold text-[#f0f0f0] sm:text-[28px]">
             Platform fees &amp; refunds
           </h2>
@@ -93,7 +93,7 @@ export default function HowItWorksPage() {
 
       <MarketingMotionSection id="faq" className="rounded-2xl py-16 sm:px-2" style={{ backgroundColor: SURFACE }}>
         <div className="mx-auto max-w-[720px]">
-          <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-violet-400">FAQ</p>
+          <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400">FAQ</p>
           <h2 className="landing-display mt-2 text-center text-2xl font-bold">Common Questions</h2>
           <LandingFaqAccordion />
         </div>

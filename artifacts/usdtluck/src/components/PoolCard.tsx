@@ -46,7 +46,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
     if (fillPct >= 100) return { text: "✅ Pool full — draw starting soon!", className: "text-emerald-400 font-bold" };
     if (fillPct >= 80) return { text: `🔥 Almost full! Just ${spotsLeft} spot${spotsLeft === 1 ? "" : "s"} left!`, className: "text-orange-400 font-bold animate-pulse" };
     if (fillPct >= 60) return { text: `⚡ Only ${spotsLeft} spots left!`, className: "text-amber-300 font-semibold" };
-    if (fillPct >= 30) return { text: `${spotsLeft} spots remaining`, className: "text-cyan-200/90" };
+    if (fillPct >= 30) return { text: `${spotsLeft} spots remaining`, className: "text-emerald-200/90" };
     return { text: `${spotsLeft} spots open`, className: "text-slate-400" };
   })();
 
@@ -58,8 +58,8 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
         : fillPct >= 60
           ? "linear-gradient(90deg, #f59e0b, #eab308)"
           : fillPct >= 30
-            ? "linear-gradient(90deg, #06b6d4, #22d3ee)"
-            : "linear-gradient(90deg, #06b6d4, #14b8a6)";
+            ? "linear-gradient(90deg, #22c55e, #4ade80)"
+            : "linear-gradient(90deg, #16a34a, #22c55e)";
 
   const explainer = `💡 ${maxSeats} people join → pool fills → ${wc} winner${wc === 1 ? "" : "s"} picked automatically`;
 
@@ -70,7 +70,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
       } ${isFilledWait ? "shadow-emerald-500/10 ring-1 ring-emerald-500/25" : ""}`}
       style={{
         background: "linear-gradient(165deg, #0a0f1a 0%, #0d1526 100%)",
-        borderColor: "rgba(6, 182, 212, 0.22)",
+        borderColor: "rgba(34, 197, 94, 0.22)",
         boxShadow: "0 16px 48px -24px rgba(0,0,0,0.85)",
       }}
     >
@@ -78,8 +78,8 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
         className={`h-1 transition-opacity ${isFilledWait ? "animate-pulse" : ""}`}
         style={{
           background: isFilledWait
-            ? "linear-gradient(90deg, #10b981, #22d3ee, #10b981)"
-            : "linear-gradient(90deg, #06b6d4, #22d3ee, #10b981)",
+            ? "linear-gradient(90deg, #10b981, #4ade80, #10b981)"
+            : "linear-gradient(90deg, #22c55e, #4ade80, #10b981)",
         }}
       />
 
@@ -105,9 +105,9 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
         {/* Ticket price — hero */}
         <div
           className="rounded-xl border px-4 py-4 space-y-1"
-          style={{ borderColor: "rgba(6,182,212,0.35)", background: "linear-gradient(135deg, rgba(6,182,212,0.08), rgba(15,23,42,0.6))" }}
+          style={{ borderColor: "rgba(34,197,94,0.35)", background: "linear-gradient(135deg, rgba(34,197,94,0.08), rgba(15,23,42,0.6))" }}
         >
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/90">🎟️ Ticket price</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300/90">🎟️ Ticket price</p>
           <div className="flex flex-wrap items-baseline gap-3">
             <span className="text-3xl font-bold font-mono text-white tabular-nums">${roundPrizeUsdt(pool.entryFee)}</span>
             <span className="text-sm text-slate-400">
@@ -116,7 +116,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
           </div>
         </div>
 
-        <p className="text-[13px] leading-snug text-slate-300 border-l-2 border-cyan-500/50 pl-3">{explainer}</p>
+        <p className="text-[13px] leading-snug text-slate-300 border-l-2 border-emerald-500/50 pl-3">{explainer}</p>
 
         <div
           className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold font-mono"
@@ -155,9 +155,9 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
         />
 
         {/* Prizes */}
-        <div className="rounded-xl border border-violet-500/20 bg-violet-950/20 px-3 py-3 space-y-3">
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 px-3 py-3 space-y-3">
           <div className="flex justify-between items-center">
-            <p className="text-xs font-semibold text-violet-200">Prize breakdown</p>
+            <p className="text-xs font-semibold text-emerald-200">Prize breakdown</p>
             <p className="text-[11px] font-mono text-slate-400">
               Total{" "}
               <span className="text-amber-300 font-semibold">
@@ -226,11 +226,11 @@ function StatusPill({ status }: { status: string }) {
   if (status === "drawing")
     return <Badge className="bg-amber-500/15 text-amber-200 border-amber-500/35 text-[10px]">🎰 Drawing</Badge>;
   if (status === "completed")
-    return <Badge className="bg-violet-500/15 text-violet-200 border-violet-500/35 text-[10px]">🏆 Done</Badge>;
+    return <Badge className="bg-emerald-500/15 text-emerald-200 border-emerald-500/35 text-[10px]">🏆 Done</Badge>;
   if (status === "closed")
     return <Badge variant="outline" className="text-[10px] text-slate-400 border-slate-600">Closed</Badge>;
   if (status === "upcoming")
-    return <Badge className="bg-sky-500/15 text-sky-200 border-sky-500/30 text-[10px]">Upcoming</Badge>;
+    return <Badge className="bg-emerald-500/15 text-emerald-200 border-emerald-500/30 text-[10px]">Upcoming</Badge>;
   return <Badge variant="outline" className="text-[10px]">{status}</Badge>;
 }
 
@@ -273,7 +273,7 @@ function PoolCardTimer({
 
   if (status === "completed" || status === "closed") {
     return (
-      <div className="rounded-lg border border-violet-500/25 bg-violet-950/30 px-3 py-2 text-sm text-violet-100">
+      <div className="rounded-lg border border-emerald-500/25 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-100">
         ✅ Draw completed
       </div>
     );
@@ -296,7 +296,7 @@ function PoolCardTimer({
   if (status === "drawing") {
     return (
       <div className="rounded-lg border border-amber-500/40 bg-amber-950/30 px-3 py-3 flex items-center gap-3">
-        <div className="h-7 w-7 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" aria-hidden />
+        <div className="h-7 w-7 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" aria-hidden />
         <span className="text-sm font-semibold text-amber-100">🎰 Drawing winners…</span>
       </div>
     );
@@ -304,7 +304,7 @@ function PoolCardTimer({
 
   if ((status === "open" || status === "upcoming") && noTimeLimit) {
     return (
-      <div className="rounded-lg border border-cyan-500/25 bg-cyan-950/20 px-3 py-2 text-xs text-cyan-100">
+      <div className="rounded-lg border border-emerald-500/25 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-100">
         ⏰ Stays open until every seat is sold — then the draw runs automatically.
       </div>
     );
@@ -319,7 +319,7 @@ function PoolCardTimer({
       );
     const line = formatPoolCountdownLine(ms, status === "upcoming" ? "opens" : "closes");
     return (
-      <div className="rounded-lg border border-cyan-500/20 bg-slate-900/60 px-3 py-2 text-sm text-cyan-100">
+      <div className="rounded-lg border border-emerald-500/20 bg-slate-900/60 px-3 py-2 text-sm text-emerald-100">
         <span className="font-mono font-semibold text-white tabular-nums">
           {line.startsWith("⚡") ? line : <>⏰ {line}</>}
         </span>
@@ -370,7 +370,7 @@ function PoolCardActions({
       <Link href={`/pools/${poolId}`} className="w-full">
         <Button
           size="lg"
-          className="w-full min-h-12 font-semibold bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white border-0"
+          className="w-full min-h-12 font-semibold bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 text-white border-0"
         >
           View results
         </Button>
@@ -388,7 +388,7 @@ function PoolCardActions({
           <Button
             size="lg"
             variant="outline"
-            className="w-full min-h-12 border-cyan-500/40 text-cyan-200 hover:bg-cyan-500/10"
+            className="w-full min-h-12 border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10"
           >
             Watch live
           </Button>
@@ -404,7 +404,7 @@ function PoolCardActions({
           <Button
             size="lg"
             className="w-full min-h-12 font-semibold text-white border-0"
-            style={{ background: "linear-gradient(135deg, #06b6d4, #10b981)" }}
+            style={{ background: "linear-gradient(135deg, #22c55e, #15803d)" }}
           >
             {userJoined ? "🎟️ Buy more tickets" : "🎟️ Buy ticket"}
           </Button>

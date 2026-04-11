@@ -23,11 +23,11 @@ export type CelebrationPopupProps = {
 };
 
 const GOLD = "#FFD700";
-const CYAN = "#00D4FF";
+const BRAND_GREEN = "#22C55E";
 const ORANGE = "#FF6B35";
 const RED = "#FF4444";
-const GREEN = "#0CC0AA";
-const PURPLE = "#8B5CF6";
+const GREEN = "#16A34A";
+const FOREST_GREEN = "#15803D";
 
 function playCelebrationChime() {
   if (!getCelebrationSoundEnabled()) return;
@@ -73,7 +73,7 @@ function runConfettiWin(canvas: HTMLCanvasElement | null, stopAt: number) {
       particleCount: Math.floor(45 * sc),
       spread: 100,
       origin: { y: 0.35, x: ticks % 2 === 0 ? 0.2 : 0.8 },
-      colors: [GOLD, CYAN, "#fff8dc", "#22d3ee"],
+      colors: [GOLD, BRAND_GREEN, "#fff8dc", "#4ADE80"],
       gravity: 0.9,
       scalar: 1.1,
     });
@@ -82,7 +82,7 @@ function runConfettiWin(canvas: HTMLCanvasElement | null, stopAt: number) {
       angle: 90,
       spread: 55,
       origin: { y: 0.2, x: 0.5 },
-      colors: [GOLD, CYAN],
+      colors: [GOLD, BRAND_GREEN],
       startVelocity: 35,
       scalar: 0.9,
     });
@@ -160,7 +160,7 @@ function runConfettiReferral(canvas: HTMLCanvasElement | null, stopAt: number) {
       particleCount: Math.floor(28 * sc),
       spread: 65,
       origin: { x: Math.random() * 0.6 + 0.2, y: -0.05 },
-      colors: [CYAN, GREEN, GOLD],
+      colors: [BRAND_GREEN, GREEN, GOLD],
       gravity: 1.1,
       drift: Math.random() - 0.5,
     });
@@ -186,7 +186,7 @@ function runConfettiTier(canvas: HTMLCanvasElement | null, stopAt: number) {
       particleCount: Math.floor(32 * sc),
       spread: 80,
       origin: { y: 0.85, x: 0.5 },
-      colors: [GOLD, PURPLE, "#c4b5fd"],
+      colors: [GOLD, BRAND_GREEN, "#86EFAC"],
       startVelocity: 40 + t * 2,
     });
     if (Date.now() > stopAt || t > 12) {
@@ -209,7 +209,7 @@ function runConfettiDeposit(canvas: HTMLCanvasElement | null, stopAt: number) {
       particleCount: Math.floor(22 * sc),
       spread: 50,
       origin: { y: 0.6, x: 0.5 },
-      colors: [CYAN, "#ffffff", GREEN],
+      colors: [BRAND_GREEN, "#ffffff", GREEN],
     });
     if (Date.now() > stopAt) {
       clearInterval(id);
@@ -428,7 +428,7 @@ export function CelebrationPopup({
       >
         {usePhasedWinReveal && kind === "win" ? (
           <>
-            <p className="text-[11px] font-medium uppercase tracking-widest text-cyan-200/90 mb-2">Live draw reveal</p>
+            <p className="text-[11px] font-medium uppercase tracking-widest text-emerald-200/90 mb-2">Live draw reveal</p>
             <h2 id="celebration-title" className="text-xl sm:text-2xl font-black tracking-tight text-white mb-3 celebration-shimmer">
               {phase === "build" ? "Building the draw..." : phase === "select" ? "Selecting winner..." : "Winner revealed"}
             </h2>
@@ -444,7 +444,7 @@ export function CelebrationPopup({
                         isWinner
                           ? "border-[#D4A843] bg-[#D4A843]/15 scale-[1.05]"
                           : isActive
-                            ? "border-cyan-300 bg-cyan-300/10 scale-[1.03]"
+                            ? "border-emerald-300 bg-emerald-300/10 scale-[1.03]"
                             : "border-white/10 bg-white/5"
                       } ${phase === "build" ? "celebration-shimmer" : ""}`}
                     >
@@ -455,7 +455,7 @@ export function CelebrationPopup({
               </div>
               {phase !== "reveal" && (
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                  <div className="h-12 w-12 rounded-full border-2 border-cyan-300/30 border-t-cyan-300 animate-spin" />
+                  <div className="h-12 w-12 rounded-full border-2 border-emerald-300/30 border-t-emerald-300 animate-spin" />
                 </div>
               )}
             </div>
@@ -486,7 +486,7 @@ export function CelebrationPopup({
             )}
             {phase === "reveal" && poolId ? (
               <div className="mb-2">
-                <a href={`/provably-fair?pool=${poolId}`} className="text-xs text-cyan-300 hover:underline">
+                <a href={`/provably-fair?pool=${poolId}`} className="text-xs text-emerald-300 hover:underline">
                   View Draw Verification
                 </a>
               </div>
@@ -505,7 +505,7 @@ export function CelebrationPopup({
               <UsdtAmount amount={amount} amountClassName="text-3xl sm:text-4xl font-black tabular-nums mt-3 mb-1" />
             )}
             {place != null && (
-              <p className="text-sm text-cyan-300/90 font-semibold mb-2">
+              <p className="text-sm text-emerald-300/90 font-semibold mb-2">
                 {place === 1 ? "🥇 1st place" : place === 2 ? "🥈 2nd place" : "🥉 3rd place"}
               </p>
             )}
@@ -517,7 +517,7 @@ export function CelebrationPopup({
               className="h-full rounded-full celebration-progress-glow transition-all duration-700"
               style={{
                 width: `${Math.min(100, Math.max(0, progress * 100))}%`,
-                background: `linear-gradient(90deg, ${GOLD}, ${PURPLE})`,
+                background: `linear-gradient(90deg, ${GOLD}, ${FOREST_GREEN})`,
               }}
             />
           </div>
@@ -530,7 +530,7 @@ export function CelebrationPopup({
         <div className="flex flex-col sm:flex-row gap-2 mt-6">
           <Button
             className={`w-full font-bold bg-gradient-to-r hover:opacity-95 text-white border-0 ${
-              kind === "win" && phase === "reveal" ? "from-[#D4A843] to-amber-500 shadow-[0_0_24px_rgba(212,168,67,0.35)]" : "from-amber-500 to-cyan-600"
+              kind === "win" && phase === "reveal" ? "from-[#D4A843] to-amber-500 shadow-[0_0_24px_rgba(212,168,67,0.35)]" : "from-amber-500 to-emerald-600"
             }`}
             onClick={onClose}
           >

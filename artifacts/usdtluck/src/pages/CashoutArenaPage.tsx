@@ -424,7 +424,7 @@ export default function CashoutArenaPage() {
               <p className="font-medium mb-1">Last round replay</p>
               <div className="h-2 rounded bg-muted overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-cyan-500 to-indigo-400 transition-all duration-700"
+                  className="h-full bg-gradient-to-r from-emerald-500 to-green-400 transition-all duration-700"
                   style={{ width: `${Math.min(100, ((Number(data?.history?.[0]?.crashMultiplier ?? 1) - 1) / Math.max(0.2, historyTop - 1)) * 100)}%` }}
                 />
               </div>
@@ -460,11 +460,11 @@ export default function CashoutArenaPage() {
                 <span className="flex items-center gap-2"><ShieldCheck className={cn("h-4 w-4", shield && "animate-pulse")} /> Shield (1 crash protect)</span>
                 <input type="checkbox" checked={shield} disabled={!data?.boosts.shieldAvailable} onChange={(e) => setShield(e.target.checked)} />
               </label>
-              <label className={cn("flex items-center justify-between rounded-lg border p-2 transition-all", slowMotion && "border-cyan-400/60 bg-cyan-500/10 shadow-[0_0_20px_rgba(34,211,238,0.25)]")}>
+              <label className={cn("flex items-center justify-between rounded-lg border p-2 transition-all", slowMotion && "border-emerald-400/60 bg-emerald-500/10 shadow-[0_0_20px_rgba(34,197,94,0.25)]")}>
                 <span className="flex items-center gap-1"><Sparkles className={cn("h-3.5 w-3.5", slowMotion && "animate-pulse")} /> Slow Motion (+8%)</span>
                 <input type="checkbox" checked={slowMotion} onChange={(e) => { setSlowMotion(e.target.checked); if (e.target.checked) setDoubleBoost(false); }} />
               </label>
-              <label className={cn("flex items-center justify-between rounded-lg border p-2 transition-all", doubleBoost && "border-fuchsia-400/60 bg-fuchsia-500/10 shadow-[0_0_20px_rgba(232,121,249,0.25)]")}>
+              <label className={cn("flex items-center justify-between rounded-lg border p-2 transition-all", doubleBoost && "border-green-400/60 bg-green-500/10 shadow-[0_0_20px_rgba(74,222,128,0.25)]")}>
                 <span className="flex items-center gap-1"><Zap className={cn("h-3.5 w-3.5", doubleBoost && "animate-pulse")} /> Double Boost (1.4x-1.8x)</span>
                 <input type="checkbox" checked={doubleBoost} onChange={(e) => { setDoubleBoost(e.target.checked); if (e.target.checked) setSlowMotion(false); }} />
               </label>
@@ -472,7 +472,7 @@ export default function CashoutArenaPage() {
             <div className="rounded-lg border p-2 text-xs text-muted-foreground">
               Stake: <UsdtAmount amount={stake} amountClassName="text-xs text-muted-foreground" currencyClassName="text-[10px] text-[#64748b]" /> · Boost fee: <UsdtAmount amount={boostFee} amountClassName="text-xs text-muted-foreground" currencyClassName="text-[10px] text-[#64748b]" />
             </div>
-            <div className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 p-2 text-xs">
+            <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-2 text-xs">
               Auto preview payout: <strong>{autoPreviewPayout != null ? <UsdtAmount amount={autoPreviewPayout} amountClassName="text-xs font-semibold" currencyClassName="text-[10px] text-[#64748b]" /> : "set auto cashout"}</strong>
             </div>
             {showAutoHint ? (
@@ -497,10 +497,10 @@ export default function CashoutArenaPage() {
                 <div className="h-full bg-emerald-400 transition-all duration-500" style={{ width: `${streakPct}%` }} />
               </div>
             </div>
-            <div className="rounded-lg border border-violet-400/30 bg-violet-500/10 p-2">
+            <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-2">
               <p className="text-xs font-medium">Weekly mission: play {missionGoal} rounds</p>
-              <div className="mt-1 h-1.5 rounded bg-violet-100/20 overflow-hidden">
-                <div className="h-full bg-violet-400 transition-all duration-500" style={{ width: `${missionProgressPct}%` }} />
+              <div className="mt-1 h-1.5 rounded bg-emerald-100/20 overflow-hidden">
+                <div className="h-full bg-emerald-400 transition-all duration-500" style={{ width: `${missionProgressPct}%` }} />
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">{roundsPlayed}/{missionGoal} completed</p>
             </div>

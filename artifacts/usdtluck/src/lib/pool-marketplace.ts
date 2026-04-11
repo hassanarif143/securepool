@@ -28,7 +28,7 @@ export function poolTierBadge(pool: {
   const large = String(pool.poolType ?? "") === "large";
   if (large || fee >= 45) return { label: "Mega", emoji: "💎", color: "#a78bfa" };
   if (fee >= 25) return { label: "Premium", emoji: "🟡", color: "#fbbf24" };
-  if (fee >= 12) return { label: "Standard", emoji: "🔵", color: "#22d3ee" };
+  if (fee >= 12) return { label: "Standard", emoji: "🔵", color: "#4ade80" };
   return { label: "Starter", emoji: "🟢", color: "#34d399" };
 }
 

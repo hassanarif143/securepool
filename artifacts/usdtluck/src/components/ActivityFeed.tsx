@@ -15,7 +15,7 @@ function timeAgo(iso: string) {
 
 function dot(type: string) {
   if (type === "user_joined") return "bg-emerald-400";
-  if (type === "pool_filled") return "bg-sky-400";
+  if (type === "pool_filled") return "bg-emerald-400";
   if (type === "winner_drawn") return "bg-amber-400";
   if (type === "payout_sent") return "bg-emerald-500";
   return "bg-muted-foreground";

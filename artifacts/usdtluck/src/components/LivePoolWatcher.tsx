@@ -38,7 +38,7 @@ export function LivePoolWatcher() {
   if (rows.length === 0) return null;
 
   return (
-    <Card className="border-cyan-500/20">
+    <Card className="border-emerald-500/20">
       <CardHeader className="pb-2">
         <CardTitle className="text-base">Your open pools</CardTitle>
         <p className="text-xs text-muted-foreground font-normal">
@@ -65,7 +65,7 @@ export function LivePoolWatcher() {
               </div>
               <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-cyan-500 to-primary transition-all duration-500"
+                  className="h-full bg-gradient-to-r from-emerald-500 to-primary transition-all duration-500"
                   style={{ width: `${pct}%` }}
                 />
               </div>

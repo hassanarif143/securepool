@@ -997,7 +997,7 @@ export function PoolFactoryDashboard() {
                   <XAxis dataKey="hour" tick={{ fontSize: 10 }} />
                   <YAxis tick={{ fontSize: 10 }} />
                   <Tooltip />
-                  <Bar dataKey="count" fill="#06b6d4" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="count" fill="#22c55e" radius={[2, 2, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -1009,7 +1009,7 @@ export function PoolFactoryDashboard() {
                   <XAxis dataKey="day" tick={{ fontSize: 9 }} />
                   <YAxis tick={{ fontSize: 10 }} />
                   <Tooltip />
-                  <Line type="monotone" dataKey="revenue" stroke="hsl(188 94% 43%)" dot={false} strokeWidth={2} />
+                  <Line type="monotone" dataKey="revenue" stroke="hsl(142 71% 45%)" dot={false} strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
