@@ -7,7 +7,6 @@ import { apiUrl, apiAssetUrl, readApiErrorMessage } from "@/lib/api-base";
 import { DepositWizard } from "@/components/payments/DepositWizard";
 import { WithdrawalTracker } from "@/components/payments/WithdrawalTracker";
 import { TransactionStatusBadge } from "@/components/TransactionStatusBadge";
-import { TrustStrip } from "@/components/TrustStrip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -334,8 +333,6 @@ export default function WalletPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4 pb-10 md:pb-12">
-      <TrustStrip />
-
       {/* Balance hero — primary trust anchor */}
       <div className={`${box} overflow-hidden`}>
         <div

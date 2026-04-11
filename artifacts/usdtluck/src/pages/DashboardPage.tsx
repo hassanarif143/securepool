@@ -17,7 +17,6 @@ import { TransactionStatusBadge } from "@/components/TransactionStatusBadge";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Inbox } from "lucide-react";
-import { TrustStrip } from "@/components/TrustStrip";
 import { poolWinnerCount } from "@/lib/pool-winners";
 import { BalanceCard } from "@/components/dashboard/BalanceCard";
 import { UsdtAmount } from "@/components/UsdtAmount";
@@ -179,8 +178,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 sm:space-y-10 pb-12 max-w-6xl mx-auto">
-      {/* Subtle trust grid — above overview, low visual weight */}
-      <TrustStrip />
       {!user.cryptoAddress && (
         <div className="rounded-2xl border border-amber-500/35 bg-amber-500/[0.08] px-4 py-4 sm:px-5">
           <p className="text-sm font-semibold text-amber-200">Action required: Add your wallet address</p>

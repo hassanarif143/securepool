@@ -1627,35 +1627,6 @@ function CreatePoolTab() {
     platformFeePerJoinStr: "",
   });
   const [submitted, setSubmitted] = useState(false);
-  const [factoryLoading, setFactoryLoading] = useState<null | "small" | "large" | "delete" | "upcoming" | "activate">(null);
-  const [factoryFirstPct, setFactoryFirstPct] = useState("60");
-  const [factorySecondPct, setFactorySecondPct] = useState("30");
-  const [factoryThirdPct, setFactoryThirdPct] = useState("10");
-  const [factoryReview, setFactoryReview] = useState<{
-    kind: "small" | "large" | "upcoming";
-    endpoint: string;
-    title: string;
-    items: Array<{
-      title: string;
-      entryFee: number;
-      maxMembers: number;
-      winners: number;
-      platformFeeAmount: number;
-      totalPoolAmount: number;
-      prizePoolAmount: number;
-      prizes: number[];
-    }>;
-    totals: { pools: number; totalPoolAmount: number; totalPlatformFeeAmount: number; totalPrizePoolAmount: number };
-  } | null>(null);
-
-  const factoryDistributionPayload = (() => {
-    const first = Number(factoryFirstPct);
-    const second = Number(factorySecondPct);
-    const third = Number(factoryThirdPct);
-    if (![first, second, third].every((x) => Number.isFinite(x) && x >= 0)) return null;
-    if (first + second + third <= 0) return null;
-    return { firstPct: first, secondPct: second, thirdPct: third };
-  })();
 
   function setDuration(days: number) {
     const start = new Date();
@@ -1761,205 +1732,29 @@ function CreatePoolTab() {
     );
   }
 
-  async function seedDefaultPools() {
-    try {
-      const res = await fetch(apiUrl("/api/admin/pool/seed-defaults"), {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error(await readApiErrorMessage(res));
-      const data = await res.json();
-      toast({
-        title: "Default pools seeded",
-        description: `${data.created ?? 0} created (total blueprint ${data.total ?? 10}).`,
-      });
-      void queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
-    } catch (err: any) {
-      toast({ title: "Seed failed", description: err?.message, variant: "destructive" });
-    }
-  }
-
-  async function runFactoryAction(
-    kind: "small" | "large" | "delete" | "upcoming" | "activate",
-    endpoint: string,
-    successTitle: string,
-  ) {
-    if (kind === "delete" && !window.confirm("Delete all non-completed pools and refund participants?")) return;
-    if (kind === "activate" && !window.confirm("Activate all due upcoming pools now?")) return;
-    setFactoryLoading(kind);
-    try {
-      const shouldSendDistribution = kind === "small" || kind === "large" || kind === "upcoming";
-      const res = await fetch(apiUrl(endpoint), {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: shouldSendDistribution ? JSON.stringify(factoryDistributionPayload ?? {}) : undefined,
-      });
-      if (!res.ok) throw new Error(await readApiErrorMessage(res));
-      const j = await res.json().catch(() => ({}));
-      toast({ title: successTitle, description: typeof j.created === "number" ? `${j.created} pool(s) processed.` : undefined });
-      void queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
-    } catch (err: any) {
-      toast({ title: "Factory action failed", description: err?.message ?? "Request failed", variant: "destructive" });
-    } finally {
-      setFactoryLoading(null);
-    }
-  }
-
-  async function openFactoryReview(kind: "small" | "large" | "upcoming", endpoint: string, title: string) {
-    setFactoryLoading(kind);
-    try {
-      const params = new URLSearchParams({
-        type: kind,
-        firstPct: String(factoryDistributionPayload?.firstPct ?? 60),
-        secondPct: String(factoryDistributionPayload?.secondPct ?? 30),
-        thirdPct: String(factoryDistributionPayload?.thirdPct ?? 10),
-      });
-      const res = await fetch(apiUrl(`/api/admin/pool-factory/preview?${params.toString()}`), { credentials: "include" });
-      if (!res.ok) throw new Error(await readApiErrorMessage(res));
-      const preview = await res.json();
-      setFactoryReview({
-        kind,
-        endpoint,
-        title,
-        items: preview.items ?? [],
-        totals: preview.totals ?? { pools: 0, totalPoolAmount: 0, totalPlatformFeeAmount: 0, totalPrizePoolAmount: 0 },
-      });
-    } catch (err: any) {
-      toast({ title: "Preview failed", description: err?.message ?? "Failed to load preview", variant: "destructive" });
-    } finally {
-      setFactoryLoading(null);
-    }
-  }
-
   return (
-    <div className="mt-4">
-      <Dialog open={factoryReview != null} onOpenChange={(o) => !o && setFactoryReview(null)}>
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>{factoryReview?.title ?? "Factory Review"}</DialogTitle>
-            <DialogDescription>
-              Verify full profit/prize breakdown before publishing pools.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-              <div className="rounded-lg border p-2"><p className="text-muted-foreground">Pools</p><p className="font-semibold">{factoryReview?.totals.pools ?? 0}</p></div>
-              <div className="rounded-lg border p-2"><p className="text-muted-foreground">Total Pool</p><p className="font-semibold">{(factoryReview?.totals.totalPoolAmount ?? 0).toFixed(2)}</p></div>
-              <div className="rounded-lg border p-2"><p className="text-muted-foreground">Platform Fee</p><p className="font-semibold text-emerald-500">{(factoryReview?.totals.totalPlatformFeeAmount ?? 0).toFixed(2)}</p></div>
-              <div className="rounded-lg border p-2"><p className="text-muted-foreground">Prize Pool</p><p className="font-semibold">{(factoryReview?.totals.totalPrizePoolAmount ?? 0).toFixed(2)}</p></div>
-            </div>
-            <div className="space-y-2">
-              {(factoryReview?.items ?? []).map((item) => (
-                <div key={item.title} className="rounded-lg border p-2 text-xs">
-                  <p className="font-semibold">{item.title}</p>
-                  <p className="text-muted-foreground mt-1">
-                    Entry {item.entryFee} · Members {item.maxMembers} · Winners {item.winners} · Fee {item.platformFeeAmount.toFixed(2)} · Prize {item.prizePoolAmount.toFixed(2)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setFactoryReview(null)}>Cancel</Button>
-            <Button
-              onClick={() => {
-                if (!factoryReview) return;
-                setFactoryReview(null);
-                void runFactoryAction(factoryReview.kind, factoryReview.endpoint, `${factoryReview.title} published`);
-              }}
-            >
-              Verify & Publish
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+    <div className="mt-4 space-y-6">
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-sm">
+        <p className="text-sm font-semibold text-foreground">Pool templates</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Use templates for day-to-day pools. The form below is only for one-off custom pools.
+        </p>
+      </div>
 
       <ShareAnalyticsStrip />
       <PoolFactoryDashboard />
 
-      <div className="mb-4 rounded-2xl p-4 space-y-3" style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}>
-        <p className="text-sm font-semibold">Pool Factory Dashboard</p>
-        <p className="text-xs text-muted-foreground">One-click generation for small and large pools with transparent fee and prize logic.</p>
-        <div className="rounded-lg border p-3 space-y-2">
-          <p className="text-xs font-medium">Prize distribution control (percent)</p>
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <Label className="text-[11px] text-muted-foreground">1st %</Label>
-              <Input type="number" min="0" max="100" value={factoryFirstPct} onChange={(e) => setFactoryFirstPct(e.target.value)} />
-            </div>
-            <div>
-              <Label className="text-[11px] text-muted-foreground">2nd %</Label>
-              <Input type="number" min="0" max="100" value={factorySecondPct} onChange={(e) => setFactorySecondPct(e.target.value)} />
-            </div>
-            <div>
-              <Label className="text-[11px] text-muted-foreground">3rd %</Label>
-              <Input type="number" min="0" max="100" value={factoryThirdPct} onChange={(e) => setFactoryThirdPct(e.target.value)} />
-            </div>
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            Ratios are normalized automatically. Used for factory pools on preview + publish.
-          </p>
-          {!factoryDistributionPayload ? <p className="text-[11px] text-destructive">Enter valid non-negative percentages (sum must be greater than 0).</p> : null}
-        </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-2">
-          <Button
-            type="button"
-            onClick={() => void openFactoryReview("small", "/api/admin/pool-factory/generate-small", "Generate Small Pools")}
-            disabled={factoryLoading !== null || !factoryDistributionPayload}
-          >
-            {factoryLoading === "small" ? "Generating..." : "Generate Small Pools"}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => void openFactoryReview("large", "/api/admin/pool-factory/generate-large", "Generate Large Pools")}
-            disabled={factoryLoading !== null || !factoryDistributionPayload}
-            variant="outline"
-          >
-            {factoryLoading === "large" ? "Generating..." : "Generate Large Pools"}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => void openFactoryReview("upcoming", "/api/admin/pool-factory/create-upcoming", "Create Upcoming Pools")}
-            disabled={factoryLoading !== null || !factoryDistributionPayload}
-            variant="outline"
-          >
-            {factoryLoading === "upcoming" ? "Creating..." : "Create Upcoming Pools"}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => void runFactoryAction("activate", "/api/admin/pool-factory/activate-upcoming", "Upcoming pools activated")}
-            disabled={factoryLoading !== null}
-            variant="outline"
-          >
-            {factoryLoading === "activate" ? "Activating..." : "Auto-start Upcoming"}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => void runFactoryAction("delete", "/api/admin/pool-factory/delete-all", "Pools deleted")}
-            disabled={factoryLoading !== null}
-            variant="destructive"
-          >
-            {factoryLoading === "delete" ? "Deleting..." : "Delete All Pools"}
-          </Button>
-        </div>
-      </div>
-      <div className="mb-4 flex items-center justify-end">
-        <Button type="button" variant="outline" onClick={() => void seedDefaultPools()}>
-          Seed 10 Default Pools
-        </Button>
-      </div>
       <form onSubmit={handleSubmit}>
         <div className="grid lg:grid-cols-5 gap-6">
           {/* ── Left: Form ── */}
           <div className="lg:col-span-3 space-y-5">
 
             {/* Section: Basic Info */}
-            <div className="rounded-2xl p-5 space-y-4"
-              style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}>
+            <div className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs"
-                  style={{ background: "hsla(152,72%,44%,0.1)", border: "1px solid hsla(152,72%,44%,0.2)" }}>1</div>
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs bg-primary/15 border border-primary/25 text-primary">
+                  1
+                </div>
                 <p className="text-sm font-semibold">Basic Info</p>
               </div>
 
@@ -2089,8 +1884,7 @@ function CreatePoolTab() {
                 </p>
               </div>
 
-              <div className="rounded-xl px-3 py-3 space-y-2 text-xs"
-                style={{ background: "hsl(222,28%,11%)", border: "1px solid hsl(217,28%,16%)" }}>
+              <div className="rounded-xl border border-border bg-muted/30 px-3 py-3 space-y-2 text-xs">
                 <p className="font-semibold text-foreground/90">Fee preview (this entry price)</p>
                 <p className="text-muted-foreground leading-relaxed">
                   Fee per join: <UsdtAmount amount={platformFeePerJoin} amountClassName="text-primary font-mono font-semibold" currencyClassName="text-[10px] text-[#64748b]" />
@@ -2108,11 +1902,11 @@ function CreatePoolTab() {
             </div>
 
             {/* Section: Schedule */}
-            <div className="rounded-2xl p-5 space-y-4"
-              style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}>
+            <div className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs"
-                  style={{ background: "hsla(152,72%,44%,0.1)", border: "1px solid hsla(152,72%,44%,0.2)" }}>2</div>
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs bg-primary/15 border border-primary/25 text-primary">
+                  2
+                </div>
                 <p className="text-sm font-semibold">Schedule</p>
               </div>
 
@@ -2131,8 +1925,7 @@ function CreatePoolTab() {
                       key={preset.days}
                       type="button"
                       onClick={() => setDuration(preset.days)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                      style={{ background: "hsl(222,28%,12%)", color: "hsl(217,28%,65%)", border: "1px solid hsl(217,28%,18%)" }}
+                      className="px-3 py-1.5 rounded-xl text-xs font-medium border border-border bg-muted/40 text-muted-foreground transition-colors hover:bg-muted/60"
                     >
                       {preset.label}
                     </button>
@@ -2178,11 +1971,11 @@ function CreatePoolTab() {
             </div>
 
             {/* Section: Prizes */}
-            <div className="rounded-2xl p-5 space-y-4"
-              style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}>
+            <div className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs"
-                  style={{ background: "hsla(152,72%,44%,0.1)", border: "1px solid hsla(152,72%,44%,0.2)" }}>3</div>
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs bg-primary/15 border border-primary/25 text-primary">
+                  3
+                </div>
                 <p className="text-sm font-semibold">Prize Distribution</p>
               </div>
 
@@ -2232,12 +2025,7 @@ function CreatePoolTab() {
               </div>
             </div>
 
-            <Button
-              type="submit"
-              disabled={createPool.isPending || !form.title}
-              className="w-full h-11 font-bold text-base"
-              style={{ background: "hsl(152,72%,36%)", color: "white", boxShadow: "0 4px 16px hsla(152,72%,36%,0.3)" }}
-            >
+            <Button type="submit" disabled={createPool.isPending || !form.title} className="w-full h-12 rounded-2xl font-bold text-base shadow-md">
               {createPool.isPending ? "Creating Pool..." : "🎱 Create Pool"}
             </Button>
           </div>
@@ -2248,13 +2036,13 @@ function CreatePoolTab() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest px-1">Live Preview</p>
 
               {/* Preview card */}
-              <div className="rounded-2xl overflow-hidden"
-                style={{ background: "hsl(222,30%,9%)", border: "1px solid hsla(152,72%,44%,0.2)" }}>
+              <div className="rounded-2xl overflow-hidden border border-primary/25 bg-card shadow-sm">
                 <div className="p-4">
                   {/* Header */}
                   <div className="flex items-start gap-3 mb-4">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0"
-                      style={{ background: "hsla(152,72%,44%,0.08)", border: "1px solid hsla(152,72%,44%,0.2)" }}>🎱</div>
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 bg-primary/10 border border-primary/20">
+                      🎱
+                    </div>
                     <div className="flex-1">
                       <p className="font-bold">{form.title || <span className="text-muted-foreground italic text-sm">Pool title...</span>}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
@@ -2262,9 +2050,9 @@ function CreatePoolTab() {
                         {form.winnerCount === 1 ? "" : "s"}
                       </p>
                     </div>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
-                      style={{ background: "hsla(152,72%,44%,0.12)", color: "hsl(152,72%,55%)", border: "1px solid hsla(152,72%,44%,0.3)" }}>
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />Open
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border border-primary/30 bg-primary/10 text-primary">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Open
                     </span>
                   </div>
 

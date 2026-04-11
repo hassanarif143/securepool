@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getListPoolsQueryKey } from "@workspace/api-client-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -24,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { ChevronDown } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -49,7 +51,7 @@ type Dashboard = {
   stalePoolWarnings: number;
 };
 
-type TemplateRow = {
+type FullTemplate = {
   id: number;
   name: string;
   displayName: string | null;
@@ -58,7 +60,47 @@ type TemplateRow = {
   winnerCount: number;
   tierIcon: string | null;
   platformFeePct: string;
+  prizeDistribution?: Array<{ place: number; percentage: number }>;
+  durationHours?: number;
+  isActive?: boolean;
 };
+
+function formatPrizeSplit(
+  dist: Array<{ place: number; percentage: number }> | undefined,
+  winnerCount: number,
+): string {
+  if (!dist?.length) return "—";
+  return dist
+    .filter((d) => d.place <= winnerCount)
+    .sort((a, b) => a.place - b.place)
+    .map((d) => `${d.percentage}%`)
+    .join(" · ");
+}
+
+function buildPrizeDistribution(
+  wc: 1 | 2 | 3,
+  p1: string,
+  p2: string,
+  p3: string,
+):
+  | { ok: true; prizeDistribution: Array<{ place: number; percentage: number }> }
+  | { ok: false; message: string } {
+  if (wc === 1) {
+    return { ok: true, prizeDistribution: [{ place: 1, percentage: 100 }] };
+  }
+  const n1 = Number(p1);
+  const n2 = Number(p2);
+  const n3 = Number(p3);
+  const parts = wc === 2 ? [n1, n2] : [n1, n2, n3];
+  if (!parts.every((x) => Number.isFinite(x) && x >= 0)) {
+    return { ok: false, message: "Invalid prize percentages" };
+  }
+  const sum = parts.reduce((a, b) => a + b, 0);
+  if (Math.abs(sum - 100) > 0.02) {
+    return { ok: false, message: "Prize split must total 100%" };
+  }
+  return { ok: true, prizeDistribution: parts.map((percentage, i) => ({ place: i + 1, percentage })) };
+}
 
 type RotationRow = {
   template_id: number;
@@ -124,7 +166,7 @@ export function PoolFactoryDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [dash, setDash] = useState<Dashboard | null>(null);
-  const [templates, setTemplates] = useState<TemplateRow[]>([]);
+  const [templates, setTemplates] = useState<FullTemplate[]>([]);
   const [rotation, setRotation] = useState<RotationRow[]>([]);
   const [schedules, setSchedules] = useState<ScheduleRow[]>([]);
   const [audit, setAudit] = useState<Array<{ id: number; action_type: string; description: string | null; created_at: string }>>(
@@ -151,12 +193,44 @@ export function PoolFactoryDashboard() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePhrase, setDeletePhrase] = useState("");
   const [secTemplates, setSecTemplates] = useState(loadSectionOpen("templates", true));
-  const [secRotation, setSecRotation] = useState(loadSectionOpen("rotation", false));
+  const [secRotation, setSecRotation] = useState(loadSectionOpen("rotation", true));
   const [secSchedules, setSecSchedules] = useState(loadSectionOpen("schedules", false));
   const [secDead, setSecDead] = useState(loadSectionOpen("dead", false));
   const [secAnalytics, setSecAnalytics] = useState(loadSectionOpen("analytics", false));
   const [secAudit, setSecAudit] = useState(loadSectionOpen("audit", false));
   const [secDanger, setSecDanger] = useState(loadSectionOpen("danger", false));
+
+  const [editOpen, setEditOpen] = useState<FullTemplate | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    displayName: "",
+    ticketPrice: "",
+    totalTickets: 10,
+    winnerCount: 3 as 1 | 2 | 3,
+    platformFeePct: "10",
+    durationHours: 24,
+    isActive: true,
+    p1: "60",
+    p2: "30",
+    p3: "10",
+  });
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    name: "",
+    displayName: "",
+    ticketPrice: "10",
+    totalTickets: 50,
+    winnerCount: 3 as 1 | 2 | 3,
+    platformFeePct: "10",
+    durationHours: 24,
+    isActive: true,
+    p1: "60",
+    p2: "30",
+    p3: "10",
+    tierIcon: "🎱",
+    poolType: "small" as "small" | "large",
+  });
 
   const [newSched, setNewSched] = useState({
     templateId: "",
@@ -317,16 +391,137 @@ export function PoolFactoryDashboard() {
     }
   }
 
-  async function seedDefaults() {
+  function openEdit(t: FullTemplate) {
+    const dist = t.prizeDistribution ?? [];
+    const g = (place: number) => dist.find((d) => d.place === place)?.percentage;
+    const wc = Math.min(3, Math.max(1, t.winnerCount)) as 1 | 2 | 3;
+    let p1 = "60";
+    let p2 = "30";
+    let p3 = "10";
+    if (wc === 1) {
+      p1 = String(g(1) ?? 100);
+    } else if (wc === 2) {
+      p1 = String(g(1) ?? 60);
+      p2 = String(g(2) ?? 40);
+    } else {
+      p1 = String(g(1) ?? 60);
+      p2 = String(g(2) ?? 30);
+      p3 = String(g(3) ?? 10);
+    }
+    setEditForm({
+      name: t.name,
+      displayName: t.displayName ?? "",
+      ticketPrice: String(t.ticketPrice),
+      totalTickets: t.totalTickets,
+      winnerCount: wc,
+      platformFeePct: String(t.platformFeePct ?? "10"),
+      durationHours: t.durationHours ?? 24,
+      isActive: t.isActive !== false,
+      p1,
+      p2,
+      p3,
+    });
+    setEditOpen(t);
+  }
+
+  async function saveTemplate() {
+    if (!editOpen) return;
+    const built = buildPrizeDistribution(editForm.winnerCount, editForm.p1, editForm.p2, editForm.p3);
+    if (!built.ok) {
+      toast({ variant: "destructive", title: built.message });
+      return;
+    }
+    const { prizeDistribution } = built;
     setLoading(true);
     try {
-      const res = await adminFetch("POST", "/api/admin/pool/seed-defaults");
+      const res = await adminFetch("PATCH", `/api/admin/pool-factory-v2/templates/${editOpen.id}`, {
+        name: editForm.name.trim(),
+        displayName: editForm.displayName.trim() || null,
+        ticketPrice: Number(editForm.ticketPrice),
+        totalTickets: editForm.totalTickets,
+        winnerCount: editForm.winnerCount,
+        platformFeePct: Number(editForm.platformFeePct),
+        durationHours: editForm.durationHours,
+        isActive: editForm.isActive,
+        prizeDistribution,
+      });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
-      toast({ title: "Defaults seeded" });
+      toast({ title: "Template saved" });
+      setEditOpen(null);
+      void loadCore();
+    } catch (e: unknown) {
+      toast({ variant: "destructive", title: "Save failed", description: e instanceof Error ? e.message : "Error" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function resetCreateForm() {
+    setCreateForm({
+      name: "",
+      displayName: "",
+      ticketPrice: "10",
+      totalTickets: 50,
+      winnerCount: 3,
+      platformFeePct: "10",
+      durationHours: 24,
+      isActive: true,
+      p1: "60",
+      p2: "30",
+      p3: "10",
+      tierIcon: "🎱",
+      poolType: "small",
+    });
+  }
+
+  async function createTemplate() {
+    if (!createForm.name.trim()) {
+      toast({ variant: "destructive", title: "Internal name is required" });
+      return;
+    }
+    const built = buildPrizeDistribution(createForm.winnerCount, createForm.p1, createForm.p2, createForm.p3);
+    if (!built.ok) {
+      toast({ variant: "destructive", title: built.message });
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await adminFetch("POST", "/api/admin/pool-factory-v2/templates", {
+        name: createForm.name.trim(),
+        displayName: createForm.displayName.trim() || null,
+        ticketPrice: Number(createForm.ticketPrice),
+        totalTickets: createForm.totalTickets,
+        winnerCount: createForm.winnerCount,
+        platformFeePct: Number(createForm.platformFeePct),
+        durationHours: createForm.durationHours,
+        isActive: createForm.isActive,
+        prizeDistribution: built.prizeDistribution,
+        tierIcon: createForm.tierIcon.trim() ? createForm.tierIcon.trim().slice(0, 16) : null,
+        poolType: createForm.poolType,
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      toast({ title: "Template created" });
+      setCreateOpen(false);
+      resetCreateForm();
       void queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
       void loadCore();
     } catch (e: unknown) {
-      toast({ variant: "destructive", title: "Seed failed", description: e instanceof Error ? e.message : "Error" });
+      toast({ variant: "destructive", title: "Create failed", description: e instanceof Error ? e.message : "Error" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deleteTemplate(id: number) {
+    if (!window.confirm("Delete this template? It can only be removed if no pools reference it.")) return;
+    setLoading(true);
+    try {
+      const res = await adminFetch("DELETE", `/api/admin/pool-factory-v2/templates/${id}`);
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      toast({ title: "Template deleted" });
+      void loadCore();
+    } catch (e: unknown) {
+      toast({ variant: "destructive", title: "Delete failed", description: e instanceof Error ? e.message : "Error" });
     } finally {
       setLoading(false);
     }
@@ -365,66 +560,57 @@ export function PoolFactoryDashboard() {
   return (
     <div className="mb-6 space-y-4">
       {dash ? (
-        <div
-          className="rounded-2xl p-4 grid grid-cols-2 lg:grid-cols-5 gap-2 text-xs"
-          style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}
-        >
-          <div className="rounded-lg border p-2">
+        <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-sm grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+          <div className="rounded-xl border border-border bg-muted/30 p-3">
             <p className="text-muted-foreground">Active pools</p>
-            <p className="font-semibold text-cyan-400">
+            <p className="text-base font-semibold text-primary">
               {dash.activePools}/{dash.maxActivePools}
             </p>
           </div>
-          <div className="rounded-lg border p-2">
-            <p className="text-muted-foreground">Daily cap</p>
-            <p className="font-semibold">{dash.maxDailyPools} max/day</p>
+          <div className="rounded-xl border border-border bg-muted/30 p-3">
+            <p className="text-muted-foreground">Auto mode</p>
+            <p className="text-base font-semibold">{dash.autoMode ? "ON" : "OFF"}</p>
           </div>
-          <div className="rounded-lg border p-2">
+          <div className="rounded-xl border border-border bg-muted/30 p-3">
             <p className="text-muted-foreground">Revenue today</p>
-            <p className="font-semibold text-emerald-400">{dash.revenueToday.toFixed(2)} USDT</p>
+            <p className="text-base font-semibold text-emerald-500">{dash.revenueToday.toFixed(2)} USDT</p>
           </div>
-          <div className="rounded-lg border p-2">
-            <p className="text-muted-foreground">Auto rotation</p>
-            <p className="font-semibold">{dash.autoMode ? "ON" : "OFF"}</p>
-          </div>
-          <div className="rounded-lg border p-2 col-span-2 lg:col-span-1">
-            <p className="text-muted-foreground">Stale warnings</p>
-            <p className="font-semibold text-amber-400">{dash.stalePoolWarnings}</p>
+          <div className="rounded-xl border border-border bg-muted/30 p-3">
+            <p className="text-muted-foreground">Warnings</p>
+            <p className="text-base font-semibold text-amber-500">{dash.stalePoolWarnings}</p>
           </div>
         </div>
       ) : null}
 
-      <div
-        className="rounded-2xl p-4 space-y-2"
-        style={{ background: "hsl(222,30%,9%)", border: "1px solid hsl(217,28%,16%)" }}
-      >
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-sm space-y-3">
         <p className="text-sm font-semibold">Quick actions</p>
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-2">
-          <Button type="button" variant="default" className="min-h-[48px]" disabled={loading} onClick={() => void quick("/api/admin/pool-factory-v2/quick-actions/launch-daily-set", "Daily set launched")}>
-            Launch daily set
-          </Button>
-          <Button type="button" variant="outline" className="min-h-[48px]" disabled={loading} onClick={() => void quick("/api/admin/pool-factory-v2/quick-actions/quick-fill", "Quick fill pool")}>
-            Quick fill ($5)
-          </Button>
-          <Button type="button" variant="outline" className="min-h-[48px]" disabled={loading} onClick={() => void quick("/api/admin/pool-factory-v2/quick-actions/weekend-special", "Weekend pool")}>
-            Weekend special
-          </Button>
-          <Button type="button" variant="secondary" className="min-h-[48px]" disabled={loading} onClick={() => void quick("/api/admin/pool-factory-v2/quick-actions/clean-dead-pools", "Dead pool pass")}>
-            Clean dead pools
-          </Button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" variant="outline" disabled={loading} onClick={() => void loadCore()}>
-            Refresh all
+        <div className="grid sm:grid-cols-3 gap-3">
+          <Button
+            type="button"
+            variant="default"
+            className="min-h-12 rounded-xl"
+            disabled={loading}
+            onClick={() => void quick("/api/admin/pool-factory-v2/quick-actions/launch-daily-set", "Daily pools launched")}
+          >
+            Launch daily pools
           </Button>
           <Button
             type="button"
-            size="sm"
             variant="outline"
+            className="min-h-12 rounded-xl"
             disabled={loading}
-            onClick={() => void adminFetch("POST", "/api/admin/pool-factory-v2/rotation/run-now").then(() => loadCore())}
+            onClick={() => void quick("/api/admin/pool-factory-v2/quick-actions/quick-fill", "Quick pool created")}
           >
-            Run rotation now
+            Quick pool
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="min-h-12 rounded-xl"
+            disabled={loading}
+            onClick={() => void quick("/api/admin/pool-factory-v2/quick-actions/clean-dead-pools", "Dead pools cleaned")}
+          >
+            Clean dead pools
           </Button>
         </div>
       </div>
@@ -436,43 +622,100 @@ export function PoolFactoryDashboard() {
           saveSectionOpen("templates", o);
         }}
       >
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm font-semibold bg-[hsl(222,30%,11%)]">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-2xl border border-border bg-muted/30 px-4 py-3 text-sm font-semibold">
           Pool templates
           <ChevronDown className={`h-4 w-4 transition ${secTemplates ? "rotate-180" : ""}`} />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
-          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2">
+          <div className="flex justify-end mb-3">
+            <Button
+              type="button"
+              variant="default"
+              className="rounded-xl"
+              disabled={loading}
+              onClick={() => {
+                resetCreateForm();
+                setCreateOpen(true);
+              }}
+            >
+              New template
+            </Button>
+          </div>
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {templates.map((t) => {
               const price = parseFloat(String(t.ticketPrice));
               const feePct = parseFloat(String(t.platformFeePct ?? "10"));
               const total = price * t.totalTickets;
               const est = total * (feePct / 100);
+              const split = formatPrizeSplit(t.prizeDistribution, t.winnerCount);
               return (
-                <div key={t.id} className="rounded-lg border p-3 text-xs space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">{t.tierIcon ?? "🎱"}</span>
-                    <div>
-                      <p className="font-semibold">{t.displayName ?? t.name}</p>
-                      <p className="text-muted-foreground">
-                        Est. profit ~{est.toFixed(2)} USDT · {t.totalTickets} seats
-                      </p>
+                <div key={t.id} className="rounded-2xl border border-border bg-muted/20 p-4 text-xs space-y-3 shadow-sm">
+                  <div className="flex items-start gap-2">
+                    <span className="text-lg leading-none">{t.tierIcon ?? "🎱"}</span>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <p className="text-sm font-semibold text-foreground">{t.displayName ?? t.name}</p>
+                      <ul className="text-muted-foreground space-y-0.5">
+                        <li>Ticket: {price.toFixed(2)} USDT</li>
+                        <li>Seats: {t.totalTickets}</li>
+                        <li>Winners: {t.winnerCount}</li>
+                        <li>Prize split: {split}</li>
+                        <li className="text-emerald-500/90">Est. profit ~{est.toFixed(2)} USDT</li>
+                      </ul>
                     </div>
                   </div>
-                  <Button
-                    type="button"
-                    className="w-full min-h-[44px]"
-                    size="sm"
-                    disabled={loading || creatingId === t.id}
-                    onClick={() => void createFromTemplate(t.id)}
-                  >
-                    {creatingId === t.id ? "Creating…" : "Create pool"}
-                  </Button>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      type="button"
+                      className="w-full min-h-11 rounded-xl"
+                      size="sm"
+                      disabled={loading || creatingId === t.id}
+                      onClick={() => void createFromTemplate(t.id)}
+                    >
+                      {creatingId === t.id ? "Creating…" : "Create pool"}
+                    </Button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl"
+                        disabled={loading}
+                        onClick={() => openEdit(t)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="rounded-xl"
+                        disabled={loading}
+                        onClick={() => void deleteTemplate(t.id)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               );
             })}
           </div>
         </CollapsibleContent>
       </Collapsible>
+
+      {dash ? (
+        <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-sm flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold">Auto pool management</p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xl">
+              Turn rotation on per template below. The system creates pools as needed and keeps between min and max active pools.
+            </p>
+          </div>
+          <Badge variant={dash.autoMode ? "default" : "outline"} className="shrink-0 text-xs">
+            {dash.autoMode ? "ON" : "OFF"}
+          </Badge>
+        </div>
+      ) : null}
 
       <Collapsible
         open={secRotation}
@@ -481,8 +724,8 @@ export function PoolFactoryDashboard() {
           saveSectionOpen("rotation", o);
         }}
       >
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm font-semibold bg-[hsl(222,30%,11%)]">
-          Auto rotation
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-2xl border border-border bg-muted/30 px-4 py-3 text-sm font-semibold">
+          Auto mode (per template)
           <ChevronDown className={`h-4 w-4 transition ${secRotation ? "rotate-180" : ""}`} />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3 space-y-2 overflow-x-auto">
@@ -490,10 +733,10 @@ export function PoolFactoryDashboard() {
             <thead>
               <tr className="border-b">
                 <th className="text-left p-2">Template</th>
-                <th className="p-2">Active</th>
-                <th className="p-2">Min</th>
-                <th className="p-2">Max</th>
-                <th className="p-2">On fill</th>
+                <th className="p-2">On</th>
+                <th className="p-2">Min active</th>
+                <th className="p-2">Max active</th>
+                <th className="p-2">Auto-create</th>
                 <th className="p-2">Now</th>
               </tr>
             </thead>
@@ -547,7 +790,7 @@ export function PoolFactoryDashboard() {
           saveSectionOpen("schedules", o);
         }}
       >
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm font-semibold bg-[hsl(222,30%,11%)]">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-2xl border border-border bg-muted/30 px-4 py-3 text-sm font-semibold">
           Pool schedules
           <ChevronDown className={`h-4 w-4 transition ${secSchedules ? "rotate-180" : ""}`} />
         </CollapsibleTrigger>
@@ -658,7 +901,7 @@ export function PoolFactoryDashboard() {
           saveSectionOpen("dead", o);
         }}
       >
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm font-semibold bg-[hsl(222,30%,11%)]">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-2xl border border-border bg-muted/30 px-4 py-3 text-sm font-semibold">
           Dead pool rules (JSON)
           <ChevronDown className={`h-4 w-4 transition ${secDead ? "rotate-180" : ""}`} />
         </CollapsibleTrigger>
@@ -693,7 +936,7 @@ export function PoolFactoryDashboard() {
           saveSectionOpen("analytics", o);
         }}
       >
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm font-semibold bg-[hsl(222,30%,11%)]">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-2xl border border-border bg-muted/30 px-4 py-3 text-sm font-semibold">
           Analytics
           <ChevronDown className={`h-4 w-4 transition ${secAnalytics ? "rotate-180" : ""}`} />
         </CollapsibleTrigger>
@@ -766,7 +1009,7 @@ export function PoolFactoryDashboard() {
                   <XAxis dataKey="day" tick={{ fontSize: 9 }} />
                   <YAxis tick={{ fontSize: 10 }} />
                   <Tooltip />
-                  <Line type="monotone" dataKey="revenue" stroke="#34d399" dot={false} strokeWidth={2} />
+                  <Line type="monotone" dataKey="revenue" stroke="hsl(188 94% 43%)" dot={false} strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -781,7 +1024,7 @@ export function PoolFactoryDashboard() {
           saveSectionOpen("audit", o);
         }}
       >
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm font-semibold bg-[hsl(222,30%,11%)]">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-2xl border border-border bg-muted/30 px-4 py-3 text-sm font-semibold">
           Activity log
           <ChevronDown className={`h-4 w-4 transition ${secAudit ? "rotate-180" : ""}`} />
         </CollapsibleTrigger>
@@ -802,32 +1045,375 @@ export function PoolFactoryDashboard() {
           saveSectionOpen("danger", o);
         }}
       >
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-xl border border-red-900/50 px-3 py-2 text-sm font-semibold bg-red-950/20">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-2xl border border-destructive/40 px-4 py-3 text-sm font-semibold bg-destructive/10">
           Danger zone
           <ChevronDown className={`h-4 w-4 transition ${secDanger ? "rotate-180" : ""}`} />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3 flex flex-wrap gap-2">
-          <Button type="button" variant="destructive" onClick={() => setDeleteOpen(true)}>
+          <Button type="button" variant="destructive" className="rounded-xl" onClick={() => setDeleteOpen(true)}>
             Delete all pools
-          </Button>
-          <Button type="button" variant="outline" disabled={loading} onClick={() => void seedDefaults()}>
-            Seed default pools
           </Button>
         </CollapsibleContent>
       </Collapsible>
 
+      <Dialog
+        open={createOpen}
+        onOpenChange={(o) => {
+          setCreateOpen(o);
+          if (!o) resetCreateForm();
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>New template</DialogTitle>
+            <DialogDescription>
+              Creates a reusable blueprint. Prize percentages must total 100% when there are two or three winners.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="space-y-1.5">
+              <Label>Internal name</Label>
+              <Input
+                value={createForm.name}
+                onChange={(e) => setCreateForm((s) => ({ ...s, name: e.target.value }))}
+                placeholder="e.g. starter_evening"
+                className="rounded-xl"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Display name</Label>
+              <Input
+                value={createForm.displayName}
+                onChange={(e) => setCreateForm((s) => ({ ...s, displayName: e.target.value }))}
+                placeholder="Shown to players"
+                className="rounded-xl"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Pool type</Label>
+                <Select
+                  value={createForm.poolType}
+                  onValueChange={(v) => setCreateForm((s) => ({ ...s, poolType: v as "small" | "large" }))}
+                >
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="small">Small</SelectItem>
+                    <SelectItem value="large">Large</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Icon (emoji)</Label>
+                <Input
+                  value={createForm.tierIcon}
+                  onChange={(e) => setCreateForm((s) => ({ ...s, tierIcon: e.target.value }))}
+                  placeholder="🎱"
+                  maxLength={16}
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Ticket price (USDT)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={createForm.ticketPrice}
+                  onChange={(e) => setCreateForm((s) => ({ ...s, ticketPrice: e.target.value }))}
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Seats</Label>
+                <Input
+                  type="number"
+                  min="2"
+                  step="1"
+                  value={createForm.totalTickets}
+                  onChange={(e) =>
+                    setCreateForm((s) => ({ ...s, totalTickets: Math.max(2, parseInt(e.target.value, 10) || 2) }))
+                  }
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Winners</Label>
+                <Select
+                  value={String(createForm.winnerCount)}
+                  onValueChange={(v) =>
+                    setCreateForm((s) => ({ ...s, winnerCount: parseInt(v, 10) as 1 | 2 | 3 }))
+                  }
+                >
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1</SelectItem>
+                    <SelectItem value="2">2</SelectItem>
+                    <SelectItem value="3">3</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Platform fee %</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={createForm.platformFeePct}
+                  onChange={(e) => setCreateForm((s) => ({ ...s, platformFeePct: e.target.value }))}
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Duration (hours)</Label>
+              <Input
+                type="number"
+                min="1"
+                step="1"
+                value={createForm.durationHours}
+                onChange={(e) =>
+                  setCreateForm((s) => ({ ...s, durationHours: Math.max(1, parseInt(e.target.value, 10) || 1) }))
+                }
+                className="rounded-xl"
+              />
+            </div>
+            {createForm.winnerCount > 1 ? (
+              <div className="space-y-2">
+                <Label>Prize split (%)</Label>
+                <div
+                  className={
+                    createForm.winnerCount === 3 ? "grid grid-cols-3 gap-2" : "grid grid-cols-2 gap-2"
+                  }
+                >
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={createForm.p1}
+                    onChange={(e) => setCreateForm((s) => ({ ...s, p1: e.target.value }))}
+                    className="rounded-xl"
+                  />
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={createForm.p2}
+                    onChange={(e) => setCreateForm((s) => ({ ...s, p2: e.target.value }))}
+                    className="rounded-xl"
+                  />
+                  {createForm.winnerCount === 3 ? (
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={createForm.p3}
+                      onChange={(e) => setCreateForm((s) => ({ ...s, p3: e.target.value }))}
+                      className="rounded-xl"
+                    />
+                  ) : null}
+                </div>
+                <p className="text-[11px] text-muted-foreground">Must sum to 100.</p>
+              </div>
+            ) : null}
+            <div className="flex items-center gap-2 pt-1">
+              <Checkbox
+                id="tpl-create-active"
+                checked={createForm.isActive}
+                onCheckedChange={(c) => setCreateForm((s) => ({ ...s, isActive: Boolean(c) }))}
+              />
+              <Label htmlFor="tpl-create-active" className="font-normal cursor-pointer">
+                Template active
+              </Label>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" className="rounded-xl" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" className="rounded-xl" disabled={loading} onClick={() => void createTemplate()}>
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editOpen != null} onOpenChange={(o) => !o && setEditOpen(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit template</DialogTitle>
+            <DialogDescription>
+              Prize percentages must total 100% when there are two or three winners.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="space-y-1.5">
+              <Label>Internal name</Label>
+              <Input
+                value={editForm.name}
+                onChange={(e) => setEditForm((s) => ({ ...s, name: e.target.value }))}
+                className="rounded-xl"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Display name</Label>
+              <Input
+                value={editForm.displayName}
+                onChange={(e) => setEditForm((s) => ({ ...s, displayName: e.target.value }))}
+                placeholder="Shown to players"
+                className="rounded-xl"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Ticket price (USDT)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editForm.ticketPrice}
+                  onChange={(e) => setEditForm((s) => ({ ...s, ticketPrice: e.target.value }))}
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Seats</Label>
+                <Input
+                  type="number"
+                  min="2"
+                  step="1"
+                  value={editForm.totalTickets}
+                  onChange={(e) =>
+                    setEditForm((s) => ({ ...s, totalTickets: Math.max(2, parseInt(e.target.value, 10) || 2) }))
+                  }
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Winners</Label>
+                <Select
+                  value={String(editForm.winnerCount)}
+                  onValueChange={(v) =>
+                    setEditForm((s) => ({ ...s, winnerCount: parseInt(v, 10) as 1 | 2 | 3 }))
+                  }
+                >
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1</SelectItem>
+                    <SelectItem value="2">2</SelectItem>
+                    <SelectItem value="3">3</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Platform fee %</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={editForm.platformFeePct}
+                  onChange={(e) => setEditForm((s) => ({ ...s, platformFeePct: e.target.value }))}
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Duration (hours)</Label>
+              <Input
+                type="number"
+                min="1"
+                step="1"
+                value={editForm.durationHours}
+                onChange={(e) =>
+                  setEditForm((s) => ({ ...s, durationHours: Math.max(1, parseInt(e.target.value, 10) || 1) }))
+                }
+                className="rounded-xl"
+              />
+            </div>
+            {editForm.winnerCount > 1 ? (
+              <div className="space-y-2">
+                <Label>Prize split (%)</Label>
+                <div
+                  className={
+                    editForm.winnerCount === 3 ? "grid grid-cols-3 gap-2" : "grid grid-cols-2 gap-2"
+                  }
+                >
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={editForm.p1}
+                    onChange={(e) => setEditForm((s) => ({ ...s, p1: e.target.value }))}
+                    className="rounded-xl"
+                  />
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={editForm.p2}
+                    onChange={(e) => setEditForm((s) => ({ ...s, p2: e.target.value }))}
+                    className="rounded-xl"
+                  />
+                  {editForm.winnerCount === 3 ? (
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={editForm.p3}
+                      onChange={(e) => setEditForm((s) => ({ ...s, p3: e.target.value }))}
+                      className="rounded-xl"
+                    />
+                  ) : null}
+                </div>
+                <p className="text-[11px] text-muted-foreground">Must sum to 100.</p>
+              </div>
+            ) : null}
+            <div className="flex items-center gap-2 pt-1">
+              <Checkbox
+                id="tpl-active"
+                checked={editForm.isActive}
+                onCheckedChange={(c) => setEditForm((s) => ({ ...s, isActive: Boolean(c) }))}
+              />
+              <Label htmlFor="tpl-active" className="font-normal cursor-pointer">
+                Template active
+              </Label>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" className="rounded-xl" onClick={() => setEditOpen(null)}>
+              Cancel
+            </Button>
+            <Button type="button" className="rounded-xl" disabled={loading} onClick={() => void saveTemplate()}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent>
+        <DialogContent className="rounded-2xl">
           <DialogHeader>
             <DialogTitle>Delete all non-completed pools?</DialogTitle>
             <DialogDescription>Refunds participants. Type DELETE to confirm.</DialogDescription>
           </DialogHeader>
-          <Input value={deletePhrase} onChange={(e) => setDeletePhrase(e.target.value)} placeholder="DELETE" />
+          <Input value={deletePhrase} onChange={(e) => setDeletePhrase(e.target.value)} placeholder="DELETE" className="rounded-xl" />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+            <Button variant="outline" className="rounded-xl" onClick={() => setDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={() => void deleteAllPools()}>
+            <Button variant="destructive" className="rounded-xl" onClick={() => void deleteAllPools()}>
               Confirm delete
             </Button>
           </DialogFooter>
