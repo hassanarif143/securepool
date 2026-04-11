@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db, platformSettingsTable, usersTable } from "@workspace/db";
+import { logger } from "../lib/logger";
 
 /** Order matches pool entry band VIP (bronze = default). */
 export const POOL_VIP_ORDER = ["bronze", "silver", "gold", "platinum", "diamond"] as const;
@@ -17,8 +18,13 @@ export function poolVipMeetsMinimum(userTier: string | null | undefined, minTier
 export type MiniGamesAccessReason = null | "GAMES_DISABLED" | "GAMES_PREMIUM_REQUIRED";
 
 export async function getMiniGamesPlatformRow() {
-  const [row] = await db.select().from(platformSettingsTable).where(eq(platformSettingsTable.id, 1)).limit(1);
-  return row;
+  try {
+    const [row] = await db.select().from(platformSettingsTable).where(eq(platformSettingsTable.id, 1)).limit(1);
+    return row;
+  } catch (e) {
+    logger.warn({ err: e }, "[mini-games] platform_settings read failed; using defaults (run migration 0049?)");
+    return undefined;
+  }
 }
 
 export async function getMiniGamesAccess(userId: number): Promise<{

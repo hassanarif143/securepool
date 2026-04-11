@@ -103,7 +103,8 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-csrf-token"],
+    // `x-idempotency-key` is required for /api/games/* POSTs (idempotencyGuard); browsers block it if not allowed here.
+    allowedHeaders: ["Content-Type", "Authorization", "x-csrf-token", "x-idempotency-key"],
     optionsSuccessStatus: 204,
   }),
 );
