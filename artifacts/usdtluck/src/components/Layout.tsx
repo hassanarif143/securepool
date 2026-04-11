@@ -534,7 +534,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, isLoading } = useAuth();
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { loading: gamesLoading, cashoutArenaEnabled, scratchCardEnabled } = useGameAvailability(!!user);
+  const { loading: gamesLoading, miniGamesEnabled } = useGameAvailability(!!user);
   /* Close mobile menu on navigation */
   useEffect(() => { setMobileOpen(false); }, [location]);
 
@@ -553,8 +553,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/my-shares", label: "My Shares", icon: "📤" },
     { href: "/staking", label: "Staking", icon: "🔒" },
     { href: "/p2p", label: "P2P Trading", icon: "💱" },
-    ...(!gamesLoading && cashoutArenaEnabled ? [{ href: "/cashout-arena", label: "Cashout Arena", icon: "🚀" }] : []),
-    ...(!gamesLoading && scratchCardEnabled ? [{ href: "/scratch-card", label: "Scratch Card", icon: "🪙" }] : []),
+    ...(!gamesLoading && miniGamesEnabled ? [{ href: "/games", label: "Games", icon: "🎮" }] : []),
     { href: "/how-it-works", label: "How It Works", icon: "📘" },
     { href: "/provably-fair", label: "Provably Fair", icon: "🧪" },
     { href: "/reviews",    label: "Reviews",    icon: "💬" },

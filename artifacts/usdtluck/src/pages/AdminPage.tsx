@@ -20,6 +20,7 @@ import {
   getGetAdminDrawFinancialsQueryKey,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -255,94 +256,147 @@ function NumberField({ label, value, onChange }: { label: string; value: number;
 }
 
 function GamesTab() {
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [cashoutArenaEnabled, setCashoutArenaEnabled] = useState(true);
-  const [scratchCardEnabled, setScratchCardEnabled] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [platformEnabled, setPlatformEnabled] = useState(true);
+  const [premiumOnly, setPremiumOnly] = useState(false);
+  const [minPoolVipTier, setMinPoolVipTier] = useState("silver");
+  const [summary, setSummary] = useState<{
+    totalBets: number;
+    totalPayout: number;
+    platformProfit: number;
+    rounds: number;
+    roundsCompleted: number;
+    pendingScratchRounds: number;
+  } | null>(null);
 
   useEffect(() => {
     void (async () => {
       try {
-        const res = await fetch(apiUrl("/api/admin/games/settings"), { credentials: "include" });
-        if (!res.ok) throw new Error(await readApiErrorMessage(res));
-        const data = await res.json();
-        setCashoutArenaEnabled(data.cashoutArenaEnabled !== false);
-        setScratchCardEnabled(data.scratchCardEnabled !== false);
+        const sumRes = await fetch(apiUrl("/api/games/admin/summary"), { credentials: "include" });
+        if (sumRes.ok) setSummary(await sumRes.json());
+        else appToast.error({ title: "Stats unavailable", description: await readApiErrorMessage(sumRes) });
       } catch (err: any) {
-        appToast.error({ title: "Failed to load game settings", description: err?.message });
+        appToast.error({ title: "Failed to load mini games stats", description: err?.message });
+      }
+      try {
+        const setRes = await fetch(apiUrl("/api/games/admin/settings"), { credentials: "include" });
+        if (setRes.ok) {
+          const st = (await setRes.json()) as {
+            platformEnabled?: boolean;
+            premiumOnly?: boolean;
+            minPoolVipTier?: string;
+          };
+          setPlatformEnabled(st.platformEnabled !== false);
+          setPremiumOnly(!!st.premiumOnly);
+          setMinPoolVipTier(String(st.minPoolVipTier ?? "silver"));
+        }
+      } catch {
+        /* ignore */
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  async function save() {
-    setSaving(true);
+  async function saveGameFlags() {
+    setSavingSettings(true);
     try {
-      const res = await fetch(apiUrl("/api/admin/games/settings"), {
+      const res = await fetch(apiUrl("/api/games/admin/settings"), {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cashoutArenaEnabled, scratchCardEnabled }),
+        body: JSON.stringify({ platformEnabled, premiumOnly, minPoolVipTier }),
       });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
-      appToast.success({ title: "Game controls updated" });
+      void queryClient.invalidateQueries({ queryKey: ["games-state"] });
+      void queryClient.invalidateQueries({ queryKey: ["games-recent-wins"] });
+      appToast.success({ title: "Mini games settings saved" });
     } catch (err: any) {
       appToast.error({ title: "Save failed", description: err?.message });
     } finally {
-      setSaving(false);
+      setSavingSettings(false);
     }
   }
 
-  if (loading) return <p className="text-muted-foreground py-8 text-center">Loading game controls…</p>;
+  if (loading) return <p className="text-muted-foreground py-8 text-center">Loading mini games…</p>;
 
   return (
     <div className="space-y-4 mt-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Global Game Controls</CardTitle>
+          <CardTitle className="text-base">Platform flags</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Disable/enable entire games globally. Disabled games block all player API actions.
+            Master switch and premium-only mode (pool VIP tier from pool entry bands: bronze → diamond).
           </p>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="rounded-lg border border-border/60 bg-muted/20 p-3 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold">Cashout Arena</p>
-              <p className="text-xs text-muted-foreground">Controls access to `/cashout-arena` gameplay APIs.</p>
-            </div>
-            <Button
-              type="button"
-              variant={cashoutArenaEnabled ? "default" : "outline"}
-              className="min-w-[120px]"
-              onClick={() => setCashoutArenaEnabled((v) => !v)}
-            >
-              {cashoutArenaEnabled ? "Enabled" : "Disabled"}
-            </Button>
+        <CardContent className="space-y-4 max-w-lg">
+          <div className="flex items-center justify-between gap-4">
+            <Label htmlFor="mg-enabled" className="text-sm cursor-pointer">
+              Mini games enabled
+            </Label>
+            <Switch id="mg-enabled" checked={platformEnabled} onCheckedChange={setPlatformEnabled} />
           </div>
-
-          <div className="rounded-lg border border-border/60 bg-muted/20 p-3 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold">Scratch Card</p>
-              <p className="text-xs text-muted-foreground">Controls access to `/scratch-card` gameplay APIs.</p>
-            </div>
-            <Button
-              type="button"
-              variant={scratchCardEnabled ? "default" : "outline"}
-              className="min-w-[120px]"
-              onClick={() => setScratchCardEnabled((v) => !v)}
+          <div className="flex items-center justify-between gap-4">
+            <Label htmlFor="mg-premium" className="text-sm cursor-pointer">
+              Premium only (require min pool VIP)
+            </Label>
+            <Switch id="mg-premium" checked={premiumOnly} onCheckedChange={setPremiumOnly} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Minimum pool VIP tier</Label>
+            <select
+              id="mg-min-vip"
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+              value={minPoolVipTier}
+              onChange={(e) => setMinPoolVipTier(e.target.value)}
             >
-              {scratchCardEnabled ? "Enabled" : "Disabled"}
-            </Button>
+              {(["bronze", "silver", "gold", "platinum", "diamond"] as const).map((t) => (
+                <option key={t} value={t}>
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button type="button" size="sm" onClick={() => void saveGameFlags()} disabled={savingSettings}>
+            {savingSettings ? "Saving…" : "Save flags"}
+          </Button>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Mini Games (Spin / Pick / Scratch)</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Player hub: <code className="text-[11px]">/games</code> (Spin, Pick Box, Scratch). Legacy arena/scratch HTTP APIs are not mounted.
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+            <p className="text-xs text-muted-foreground">Total wagered (USDT)</p>
+            <p className="text-[11px] text-muted-foreground/80 mb-1">All stakes, including scratch not yet revealed</p>
+            <p className="text-lg font-mono font-semibold">{summary?.totalBets?.toFixed?.(2) ?? "—"}</p>
+          </div>
+          <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+            <p className="text-xs text-muted-foreground">Total paid out (settled)</p>
+            <p className="text-lg font-mono font-semibold">{summary?.totalPayout?.toFixed?.(2) ?? "—"}</p>
+          </div>
+          <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+            <p className="text-xs text-muted-foreground">Platform profit (settled stakes − payouts)</p>
+            <p className="text-lg font-mono font-semibold">{summary?.platformProfit?.toFixed?.(2) ?? "—"}</p>
+          </div>
+          <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+            <p className="text-xs text-muted-foreground">Rounds (all / completed)</p>
+            <p className="text-lg font-mono font-semibold">
+              {summary == null ? "—" : `${summary.rounds} / ${summary.roundsCompleted}`}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border/60 bg-muted/20 p-3 sm:col-span-2">
+            <p className="text-xs text-muted-foreground">Scratch cards awaiting reveal</p>
+            <p className="text-lg font-mono font-semibold">{summary?.pendingScratchRounds ?? "—"}</p>
           </div>
         </CardContent>
       </Card>
-
-      <div className="flex justify-end">
-        <Button onClick={() => void save()} disabled={saving}>
-          {saving ? "Saving..." : "Save game controls"}
-        </Button>
-      </div>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { db, auditLogsTable } from "@workspace/db";
 function inferEntityType(path: string): string {
   if (path.includes("/pools")) return "pool";
   if (path.includes("/p2p")) return "p2p";
-  if (path.includes("/cashout-arena") || path.includes("/scratch-card")) return "game";
+  if (path.includes("/games")) return "game";
   if (path.includes("/transactions") || path.includes("/wallet")) return "wallet";
   return "system";
 }

@@ -114,7 +114,7 @@ const panelHead =
 export default function DashboardPage() {
   const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
-  const { loading: gamesLoading, cashoutArenaEnabled, scratchCardEnabled, anyGameEnabled } = useGameAvailability(!!user);
+  const { loading: gamesLoading, miniGamesEnabled, anyGameEnabled } = useGameAvailability(!!user);
   const [myEntries, setMyEntries] = useState<any[]>([]);
   const [myEntriesError, setMyEntriesError] = useState(false);
   const [comeback, setComeback] = useState<ActiveCouponJson | null>(null);
@@ -281,14 +281,9 @@ export default function DashboardPage() {
                 <ArrowRight className="h-4 w-4 opacity-90" aria-hidden />
               </Link>
             </Button>
-            {!gamesLoading && cashoutArenaEnabled && (
+            {!gamesLoading && miniGamesEnabled && (
               <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[10rem]" asChild>
-                <Link href="/cashout-arena">Play Arena</Link>
-              </Button>
-            )}
-            {!gamesLoading && scratchCardEnabled && (
-              <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[10rem]" asChild>
-                <Link href="/scratch-card">Play Scratch Card</Link>
+                <Link href="/games">Play Games</Link>
               </Button>
             )}
             <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[9rem]" asChild>
@@ -361,16 +356,12 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            {cashoutArenaEnabled && (
-              <Link href="/cashout-arena" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
-                <p className="text-sm font-semibold">Cashout Arena</p>
-                <p className="text-xs text-muted-foreground mt-1">Time your cashout before crash for bigger multiplier.</p>
-              </Link>
-            )}
-            {scratchCardEnabled && (
-              <Link href="/scratch-card" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
-                <p className="text-sm font-semibold">Scratch Card</p>
-                <p className="text-xs text-muted-foreground mt-1">Scratch symbols and hit matches for instant payouts.</p>
+            {miniGamesEnabled && (
+              <Link href="/games" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors sm:col-span-2">
+                <p className="text-sm font-semibold">Mini Games</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Spin wheel, mystery boxes, and scratch cards — outcomes decided on the server.
+                </p>
               </Link>
             )}
           </div>

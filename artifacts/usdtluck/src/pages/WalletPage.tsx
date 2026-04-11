@@ -53,6 +53,9 @@ const TX_META: Record<string, { icon: string; label: string; sign: string; color
   cashout_shield_refund: { icon: "🛡", label: "Arena Shield Refund", sign: "+", color: "#34d399", isCredit: true },
   scratch_bet_lock: { icon: "🎫", label: "Scratch Card Stake", sign: "-", color: "#f59e0b", isCredit: false },
   scratch_payout_credit: { icon: "✨", label: "Scratch Card Win", sign: "+", color: "#10b981", isCredit: true },
+  game_bet: { icon: "🎮", label: "Mini game stake", sign: "-", color: "#f59e0b", isCredit: false },
+  game_win: { icon: "🏆", label: "Mini game win", sign: "+", color: "#10b981", isCredit: true },
+  game_loss: { icon: "🎲", label: "Mini game (no win)", sign: "", color: "#64748b", isCredit: false },
 };
 function txMeta(type: string) {
   return TX_META[type] ?? { icon: "—", label: type.replace(/_/g, " "), sign: "", color: "#64748b", isCredit: false };
@@ -87,6 +90,12 @@ function txExplain(tx: { txType: string; note?: string | null }) {
       return "Scratch Card started: stake (and boost fee) locked.";
     case "scratch_payout_credit":
       return "Scratch Card win: payout credited instantly.";
+    case "game_bet":
+      return "Mini game: stake debited from withdrawable balance.";
+    case "game_win":
+      return "Mini game win: payout credited to withdrawable balance.";
+    case "game_loss":
+      return "Mini game round settled with no payout.";
     default:
       return tx.note ?? "";
   }

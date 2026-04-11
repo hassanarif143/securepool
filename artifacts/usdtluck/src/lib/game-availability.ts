@@ -3,37 +3,42 @@ import { apiUrl } from "@/lib/api-base";
 
 type GameAvailability = {
   loading: boolean;
-  cashoutArenaEnabled: boolean;
-  scratchCardEnabled: boolean;
+  /** `platform_settings.mini_games_enabled` — show Games in nav when true. */
+  miniGamesEnabled: boolean;
+  /** User may open `/games` and play (tier + flags). */
+  canPlay: boolean;
 };
 
-async function isGameEnabled(
-  statePath: string,
-  disabledCode: string,
-): Promise<boolean> {
+async function fetchGamesAvailability(): Promise<{ platformEnabled: boolean; canPlay: boolean }> {
   try {
-    const res = await fetch(apiUrl(statePath), { credentials: "include" });
-    if (res.ok) return true;
-    const err = (await res.json().catch(() => ({}))) as { code?: string; error?: string };
-    const code = err.code ?? err.error ?? "";
-    if (code === disabledCode) return false;
-    return true;
+    const res = await fetch(apiUrl("/api/games/state"), { credentials: "include" });
+    if (!res.ok) return { platformEnabled: false, canPlay: false };
+    const data = (await res.json()) as {
+      platformEnabled?: boolean;
+      canPlay?: boolean;
+    };
+    return {
+      platformEnabled: data.platformEnabled !== false,
+      canPlay: data.canPlay === true,
+    };
   } catch {
-    // Keep game links visible on transient network errors.
-    return true;
+    return { platformEnabled: true, canPlay: true };
   }
 }
 
+/**
+ * `/games` visibility uses **platform** flag; the page itself handles premium lock.
+ */
 export function useGameAvailability(isAuthed: boolean): GameAvailability & { anyGameEnabled: boolean } {
   const [loading, setLoading] = useState<boolean>(isAuthed);
-  const [cashoutArenaEnabled, setCashoutArenaEnabled] = useState(true);
-  const [scratchCardEnabled, setScratchCardEnabled] = useState(true);
+  const [miniGamesEnabled, setMiniGamesEnabled] = useState(true);
+  const [canPlay, setCanPlay] = useState(true);
 
   useEffect(() => {
     if (!isAuthed) {
       setLoading(false);
-      setCashoutArenaEnabled(true);
-      setScratchCardEnabled(true);
+      setMiniGamesEnabled(true);
+      setCanPlay(true);
       return;
     }
 
@@ -41,14 +46,10 @@ export function useGameAvailability(isAuthed: boolean): GameAvailability & { any
     setLoading(true);
 
     void (async () => {
-      const [arena, scratch] = await Promise.all([
-        isGameEnabled("/api/cashout-arena/state", "CASHOUT_ARENA_DISABLED"),
-        isGameEnabled("/api/scratch-card/state", "SCRATCH_CARD_DISABLED"),
-      ]);
-
+      const { platformEnabled, canPlay: cp } = await fetchGamesAvailability();
       if (!active) return;
-      setCashoutArenaEnabled(arena);
-      setScratchCardEnabled(scratch);
+      setMiniGamesEnabled(platformEnabled);
+      setCanPlay(cp);
       setLoading(false);
     })();
 
@@ -57,10 +58,7 @@ export function useGameAvailability(isAuthed: boolean): GameAvailability & { any
     };
   }, [isAuthed]);
 
-  const anyGameEnabled = useMemo(
-    () => cashoutArenaEnabled || scratchCardEnabled,
-    [cashoutArenaEnabled, scratchCardEnabled],
-  );
+  const anyGameEnabled = useMemo(() => miniGamesEnabled, [miniGamesEnabled]);
 
-  return { loading, cashoutArenaEnabled, scratchCardEnabled, anyGameEnabled };
+  return { loading, miniGamesEnabled, canPlay, anyGameEnabled };
 }

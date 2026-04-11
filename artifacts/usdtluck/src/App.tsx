@@ -30,8 +30,9 @@ import StakingPage from "@/pages/StakingPage";
 import ReferralPage from "@/pages/ReferralPage";
 import MyTicketsPage from "@/pages/MyTicketsPage";
 import P2PTradingPage from "@/pages/P2PTradingPage";
-import CashoutArenaPage from "@/pages/CashoutArenaPage";
-import ScratchCardPage from "@/pages/ScratchCardPage";
+import CashoutArenaRedirect from "@/pages/CashoutArenaRedirect";
+import ScratchCardRedirect from "@/pages/ScratchCardRedirect";
+import GamesPage from "@/pages/GamesPage";
 import MySharesPage from "@/pages/MySharesPage";
 import RefRedirectPage from "@/pages/RefRedirectPage";
 import HowToBuyUsdtPage from "@/pages/HowToBuyUsdtPage";
@@ -206,14 +207,19 @@ function Router() {
             <P2PTradingPage />
           </RequireAuth>
         </Route>
+        <Route path="/games">
+          <RequireAuth>
+            <GamesPage />
+          </RequireAuth>
+        </Route>
         <Route path="/cashout-arena">
           <RequireAuth>
-            <CashoutArenaPage />
+            <CashoutArenaRedirect />
           </RequireAuth>
         </Route>
         <Route path="/scratch-card">
           <RequireAuth>
-            <ScratchCardPage />
+            <ScratchCardRedirect />
           </RequireAuth>
         </Route>
         <Route path="/my-shares">
