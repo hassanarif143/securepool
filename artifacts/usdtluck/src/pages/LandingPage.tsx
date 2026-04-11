@@ -6,14 +6,11 @@ import { useListPools, useListWinners } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { apiUrl } from "@/lib/api-base";
-import { LANDING_PKR_RATE, formatUsdtWithPkr } from "@/lib/landing-pkr";
-import { MarketingNav } from "@/components/marketing/MarketingNav";
-import { MarketingFooter } from "@/components/marketing/MarketingFooter";
-import { MarketingWhatsAppFab } from "@/components/marketing/MarketingWhatsAppFab";
 import { MarketingMotionSection } from "@/components/marketing/MarketingMotionSection";
 import { HowItWorksFourSteps } from "@/components/marketing/HowItWorksFourSteps";
 import { PoolTierCardsSection } from "@/components/marketing/PoolTierCards";
 import { LandingFaqAccordion } from "@/components/marketing/LandingFaqAccordion";
+import { MarketingWhatsAppFab } from "@/components/marketing/MarketingWhatsAppFab";
 
 const BRAND_BG = "#0a0f1a";
 const SURFACE = "#0f172a";
@@ -86,11 +83,12 @@ export default function LandingPage() {
   const openPoolsStat = activeCount;
 
   return (
-    <div className="landing-root min-h-screen pb-24 text-[#f0f0f0]" style={{ backgroundColor: BRAND_BG }}>
-      <MarketingNav variant="home" activePoolsCount={activeCount} minEntryUsdt={minEntry} />
-
+    <div
+      className="landing-root -mx-4 min-w-0 rounded-xl px-4 pb-8 text-[#f0f0f0] sm:-mx-6 sm:px-6 sm:pb-12 lg:-mx-8 lg:px-8"
+      style={{ backgroundColor: BRAND_BG }}
+    >
       {/* Hero */}
-      <section className="relative overflow-hidden px-4 pb-16 pt-28 sm:px-5 sm:pb-24 sm:pt-32">
+      <section className="relative overflow-hidden pb-12 pt-2 sm:pb-16 sm:pt-4">
         <div
           className="pointer-events-none absolute left-1/2 top-24 h-[420px] w-[420px] -translate-x-1/2 rounded-full opacity-[0.06]"
           style={{
@@ -160,11 +158,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <MarketingMotionSection id="how-it-works" className="px-4 py-16 sm:px-5">
+      <MarketingMotionSection id="how-it-works" className="py-16">
         <HowItWorksFourSteps />
       </MarketingMotionSection>
 
-      <MarketingMotionSection id="trust-proof" className="px-4 py-16 sm:px-5" style={{ backgroundColor: SURFACE }}>
+      <MarketingMotionSection id="trust-proof" className="rounded-2xl py-16 sm:px-2" style={{ backgroundColor: SURFACE }}>
         <div className="mx-auto max-w-[900px]">
           <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-teal-400">Verified Results</p>
           <h2 className="landing-display mt-2 text-center text-2xl font-bold sm:text-[28px]">Real Winners. Real Payouts.</h2>
@@ -230,7 +228,7 @@ export default function LandingPage() {
 
       <PoolTierCardsSection id="pool-tiers" />
 
-      <MarketingMotionSection id="faq" className="px-4 py-16 sm:px-5" style={{ backgroundColor: SURFACE }}>
+      <MarketingMotionSection id="faq" className="rounded-2xl py-16 sm:px-2" style={{ backgroundColor: SURFACE }}>
         <div className="mx-auto max-w-[720px]">
           <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-violet-400">FAQ</p>
           <h2 className="landing-display mt-2 text-center text-2xl font-bold">Common Questions</h2>
@@ -238,7 +236,6 @@ export default function LandingPage() {
         </div>
       </MarketingMotionSection>
 
-      <MarketingFooter />
       <MarketingWhatsAppFab />
 
       <style>{`

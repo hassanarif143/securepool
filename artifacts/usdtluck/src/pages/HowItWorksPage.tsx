@@ -1,29 +1,17 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { Link } from "wouter";
-import { useListPools } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { PlatformFeeRuleExplainer } from "@/components/PlatformFeeRuleExplainer";
-import { MarketingNav } from "@/components/marketing/MarketingNav";
-import { MarketingFooter } from "@/components/marketing/MarketingFooter";
-import { MarketingWhatsAppFab } from "@/components/marketing/MarketingWhatsAppFab";
 import { MarketingMotionSection } from "@/components/marketing/MarketingMotionSection";
 import { HowItWorksFourSteps } from "@/components/marketing/HowItWorksFourSteps";
 import { PoolTierCardsSection } from "@/components/marketing/PoolTierCards";
 import { LandingFaqAccordion } from "@/components/marketing/LandingFaqAccordion";
+import { MarketingWhatsAppFab } from "@/components/marketing/MarketingWhatsAppFab";
 
 const BRAND_BG = "#0a0f1a";
 const SURFACE = "#0f172a";
 
 export default function HowItWorksPage() {
-  const { data: pools } = useListPools();
-  const activePools = useMemo(() => pools?.filter((p) => p.status === "open") ?? [], [pools]);
-  const activeCount = activePools.length;
-  const minEntry = useMemo(() => {
-    const fees = activePools.map((p) => Number(p.entryFee) || 0).filter((n) => n > 0);
-    if (fees.length === 0) return 3;
-    return Math.min(...fees);
-  }, [activePools]);
-
   useEffect(() => {
     document.title = "How it works — SecurePool";
     const meta = document.querySelector('meta[name="description"]');
@@ -36,10 +24,11 @@ export default function HowItWorksPage() {
   }, []);
 
   return (
-    <div className="landing-root min-h-screen pb-24 text-[#f0f0f0]" style={{ backgroundColor: BRAND_BG }}>
-      <MarketingNav variant="guide" activePoolsCount={activeCount} minEntryUsdt={minEntry} />
-
-      <section className="relative overflow-hidden px-4 pb-14 pt-28 sm:px-5 sm:pb-20 sm:pt-32">
+    <div
+      className="landing-root -mx-4 min-w-0 rounded-xl px-4 pb-8 text-[#f0f0f0] sm:-mx-6 sm:px-6 sm:pb-12 lg:-mx-8 lg:px-8"
+      style={{ backgroundColor: BRAND_BG }}
+    >
+      <section className="relative overflow-hidden pb-12 pt-2 sm:pb-16 sm:pt-4">
         <div
           className="pointer-events-none absolute left-1/2 top-20 h-[380px] w-[380px] -translate-x-1/2 rounded-full opacity-[0.06]"
           style={{
@@ -55,8 +44,7 @@ export default function HowItWorksPage() {
             works
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-[#94a3b8] sm:text-[17px]">
-            Account, deposit, join a pool, draw, payout — plus fees and questions people ask first. Same look as our home page
-            so you never feel lost.
+            Account, deposit, join a pool, draw, payout — plus fees and questions people ask first.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Link href="/signup">
@@ -82,13 +70,13 @@ export default function HowItWorksPage() {
         </div>
       </section>
 
-      <MarketingMotionSection id="steps" className="px-4 py-12 sm:px-5 sm:py-16">
+      <MarketingMotionSection id="steps" className="py-12 sm:py-16">
         <HowItWorksFourSteps />
       </MarketingMotionSection>
 
       <PoolTierCardsSection />
 
-      <MarketingMotionSection id="fees" className="px-4 py-16 sm:px-5" style={{ backgroundColor: SURFACE }}>
+      <MarketingMotionSection id="fees" className="rounded-2xl py-16 sm:px-2" style={{ backgroundColor: SURFACE }}>
         <div className="mx-auto max-w-[900px]">
           <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-400">Costs</p>
           <h2 className="landing-display mt-2 text-center text-2xl font-bold text-[#f0f0f0] sm:text-[28px]">
@@ -103,7 +91,7 @@ export default function HowItWorksPage() {
         </div>
       </MarketingMotionSection>
 
-      <MarketingMotionSection id="faq" className="px-4 py-16 sm:px-5" style={{ backgroundColor: SURFACE }}>
+      <MarketingMotionSection id="faq" className="rounded-2xl py-16 sm:px-2" style={{ backgroundColor: SURFACE }}>
         <div className="mx-auto max-w-[720px]">
           <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-violet-400">FAQ</p>
           <h2 className="landing-display mt-2 text-center text-2xl font-bold">Common Questions</h2>
@@ -111,18 +99,7 @@ export default function HowItWorksPage() {
         </div>
       </MarketingMotionSection>
 
-      <MarketingFooter />
       <MarketingWhatsAppFab />
-
-      <style>{`
-        .landing-live-dot span:first-child {
-          animation: landing-dot-pulse 2s ease-in-out infinite;
-        }
-        @keyframes landing-dot-pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.4; transform: scale(1.1); }
-        }
-      `}</style>
     </div>
   );
 }

@@ -535,8 +535,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { loading: gamesLoading, cashoutArenaEnabled, scratchCardEnabled } = useGameAvailability(!!user);
-  const isGuestMarketing = !user && (location === "/" || location === "/how-it-works");
-
   /* Close mobile menu on navigation */
   useEffect(() => { setMobileOpen(false); }, [location]);
 
@@ -566,7 +564,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      {!isGuestMarketing ? (
       <div className="sticky top-0 z-50">
       <header className="border-b border-border bg-background/92 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -699,14 +696,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </header>
       </div>
-      ) : null}
 
       <main
-        className={`flex-1 w-full min-w-0 mx-auto ${
-          isGuestMarketing
-            ? "!max-w-none !px-0 !py-0"
-            : "max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-10"
-        } ${user ? "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""}`}
+        className={`flex-1 max-w-7xl w-full min-w-0 mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${
+          user ? "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""
+        }`}
       >
         {user ? <LiveJoinNotification /> : null}
         {user ? <SharePromptGate /> : null}
@@ -749,7 +743,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
       )}
 
-      {!isGuestMarketing ? <SiteFooter extraMobileBottomSpace={!!user} /> : null}
+      <SiteFooter extraMobileBottomSpace={!!user} />
     </div>
   );
 }
