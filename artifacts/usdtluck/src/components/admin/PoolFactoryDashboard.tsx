@@ -265,7 +265,7 @@ export function PoolFactoryDashboard() {
       }
     } catch (e: unknown) {
       toast({
-        title: "Pool Factory",
+        title: "Auto pools",
         description: e instanceof Error ? e.message : "Load failed",
         variant: "destructive",
       });

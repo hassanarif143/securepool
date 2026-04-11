@@ -18,7 +18,7 @@ type PublicStats = {
 };
 
 export default function PoolsPage() {
-  const { data: pools, isLoading } = useListPools();
+  const { data: pools, isLoading, isError, refetch } = useListPools();
   const [bannerOpen, setBannerOpen] = useState(false);
   const [howOpen, setHowOpen] = useState(false);
 
@@ -146,6 +146,15 @@ export default function PoolsPage() {
         </DialogContent>
       </Dialog>
 
+      {isError && (
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 max-w-4xl">
+          <p className="text-sm text-destructive-foreground">Something went wrong. Try again.</p>
+          <Button type="button" variant="outline" className="min-h-12 shrink-0 border-destructive/40" onClick={() => void refetch()}>
+            Retry
+          </Button>
+        </div>
+      )}
+
       <Tabs defaultValue="active" className="w-full">
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <Button
@@ -200,7 +209,7 @@ export default function PoolsPage() {
         ) : (
           <>
             <TabsContent value="active" className="mt-6">
-              <PoolGrid pools={openPools} empty="No pools open for tickets right now. Check back soon." />
+              <PoolGrid pools={openPools} empty="No active pools right now. Check back soon!" />
             </TabsContent>
             <TabsContent value="fast" className="mt-6">
               <PoolGrid pools={fillingFast} empty="No pools are filling fast yet (&gt;60%)." />

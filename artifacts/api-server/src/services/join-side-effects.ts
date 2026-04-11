@@ -1,5 +1,12 @@
 import { db, usersTable, poolsTable, referralsTable, transactionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { creditUserWithdrawableUsdt } from "../lib/credit-withdrawable-balance";
+import {
+  REFERRAL_TIER_MILESTONES,
+  parseMilestonesClaimed,
+  milestonesToJson,
+  type MilestoneKey,
+} from "../lib/user-balances";
 import { logActivity } from "./activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { type MysteryRewardRow } from "./mystery-reward-service";
@@ -183,15 +190,23 @@ async function maybeGrantReferralJoinBonus(referredUserId: number) {
     .where(eq(referralsTable.referredId, referredUserId))
     .limit(1);
   if (!ref || ref.bonusGiven) return;
-  await grantNonWithdrawableRewardPoints(
-    ref.referrerId,
-    Number(cfg.referralInviteUsdt ?? 2),
-    `Referral first pool join bonus credited (${Number(cfg.referralInviteUsdt ?? 2)} USDT non-withdrawable)`,
-  );
-  await db
-    .update(referralsTable)
-    .set({ bonusGiven: true, referredFirstTicket: true, status: "credited", creditedAt: new Date() })
-    .where(eq(referralsTable.id, ref.id));
+  const amount = Number(cfg.referralInviteUsdt ?? 2);
+  await db.transaction(async (tx) => {
+    await creditUserWithdrawableUsdt(tx, {
+      userId: ref.referrerId,
+      amount,
+      rewardNote: `[Referral] Friend bought their first pool ticket — ${amount} USDT`,
+      ledgerDescription: `Referral bonus — first ticket — ${amount} USDT (withdrawable)`,
+      referenceType: "referral_first_ticket",
+      referenceId: ref.id,
+    });
+    await tx
+      .update(referralsTable)
+      .set({ bonusGiven: true, referredFirstTicket: true, status: "credited", creditedAt: new Date() })
+      .where(eq(referralsTable.id, ref.id));
+  });
+
+  await maybeGrantReferralTierMilestones(ref.referrerId);
 
   void import("./share-card-service.js")
     .then((m) =>
@@ -204,6 +219,51 @@ async function maybeGrantReferralJoinBonus(referredUserId: number) {
         .catch(() => {}),
     )
     .catch(() => {});
+}
+
+async function maybeGrantReferralTierMilestones(referrerId: number) {
+  await db.transaction(async (tx) => {
+    const [u] = await tx.select().from(usersTable).where(eq(usersTable.id, referrerId)).limit(1);
+    if (!u) return;
+    const prev = u.totalSuccessfulReferrals ?? 0;
+    const next = prev + 1;
+    const claimed = parseMilestonesClaimed(u.referralMilestonesClaimed);
+    let addPoints = 0;
+    const newlyHit: { at: number; usdt: number }[] = [];
+
+    for (const m of REFERRAL_TIER_MILESTONES) {
+      const key = String(m.at) as MilestoneKey;
+      if (next >= m.at && !claimed[key]) {
+        claimed[key] = true;
+        addPoints += asUsdPoints(m.usdt);
+        newlyHit.push({ at: m.at, usdt: m.usdt });
+      }
+    }
+
+    const nextRewardPoints = (u.rewardPoints ?? 0) + addPoints;
+    const wd = parseFloat(String(u.withdrawableBalance ?? "0"));
+    const wallet = (nextRewardPoints / 300 + wd).toFixed(2);
+
+    await tx
+      .update(usersTable)
+      .set({
+        totalSuccessfulReferrals: next,
+        rewardPoints: nextRewardPoints,
+        walletBalance: wallet,
+        referralMilestonesClaimed: milestonesToJson(claimed),
+      })
+      .where(eq(usersTable.id, referrerId));
+
+    for (const m of newlyHit) {
+      await tx.insert(transactionsTable).values({
+        userId: referrerId,
+        txType: "reward",
+        amount: m.usdt.toFixed(2),
+        status: "completed",
+        note: `[Referral tier] ${m.at} successful referrals — ${m.usdt} USDT (tickets only)`,
+      });
+    }
+  });
 }
 
 const TICKET_BAND_LABELS: Record<string, string> = {

@@ -1,7 +1,7 @@
 /** SecurePool marketplace — display helpers (PKR is approximate for UX). */
 export const PKR_PER_USDT = Number(
-  typeof import.meta.env !== "undefined" ? (import.meta.env.VITE_PKR_PER_USDT ?? "278.5") : 278.5,
-) || 278.5;
+  typeof import.meta.env !== "undefined" ? (import.meta.env.VITE_PKR_PER_USDT ?? "278.6") : 278.6,
+) || 278.6;
 
 export function formatPkr(usdt: number): string {
   return Math.round(usdt * PKR_PER_USDT).toLocaleString("en-PK");

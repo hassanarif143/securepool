@@ -7,11 +7,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { apiUrl } from "@/lib/api-base";
+import { friendlyApiError, friendlyNetworkError } from "@/lib/user-facing-errors";
+import { Button } from "@/components/ui/button";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [inlineError, setInlineError] = useState<string | null>(null);
   const [, navigate] = useLocation();
   const search = useSearch();
   const { setUser } = useAuth();
@@ -24,6 +27,7 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setInlineError(null);
     setLoading(true);
     try {
       const csrfRes = await fetch(apiUrl("/api/auth/csrf-token"), { method: "GET", credentials: "include" });
@@ -51,11 +55,8 @@ export default function LoginPage() {
       })() : {};
 
       if (!res.ok) {
-        toast({
-          title: "Login failed",
-          description: (data as any).message ?? (data as any).error ?? "Invalid email or password",
-          variant: "destructive",
-        });
+        const rawMsg = String((data as { message?: string }).message ?? (data as { error?: string }).error ?? "");
+        setInlineError(friendlyApiError(res.status, rawMsg));
         return;
       }
 
@@ -74,12 +75,8 @@ export default function LoginPage() {
       setUser((data as any).user as any);
       toast({ title: "Welcome back!", description: `Logged in as ${(data as any).user?.name ?? "user"}` });
       navigate(nextPath);
-    } catch (err: any) {
-      toast({
-        title: "Login failed",
-        description: err?.message ?? "Network error",
-        variant: "destructive",
-      });
+    } catch (err: unknown) {
+      setInlineError(friendlyNetworkError(err));
     } finally {
       setLoading(false);
     }
@@ -89,8 +86,8 @@ export default function LoginPage() {
     <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center -mx-4 sm:-mx-6 lg:-mx-8 -my-8 px-4">
       {/* Background glow orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-[0.06] blur-3xl"
-          style={{ background: "radial-gradient(circle, #16a34a, transparent)" }} />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-[0.08] blur-3xl"
+          style={{ background: "radial-gradient(circle, #06b6d4, transparent)" }} />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full opacity-[0.05] blur-3xl"
           style={{ background: "radial-gradient(circle, #3b82f6, transparent)" }} />
       </div>
@@ -192,13 +189,13 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
                     required
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none transition-all"
+                    className="w-full min-h-12 pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none transition-all"
                     style={{
                       background: "hsl(224,30%,13%)",
                       border: "1px solid hsl(217,28%,20%)",
                       color: "hsl(210,40%,98%)",
                     }}
-                    onFocus={(e) => { e.target.style.borderColor = "hsla(152,72%,44%,0.5)"; e.target.style.boxShadow = "0 0 0 3px hsla(152,72%,44%,0.08)"; }}
+                    onFocus={(e) => { e.target.style.borderColor = "hsla(187, 91%, 41%, 0.55)"; e.target.style.boxShadow = "0 0 0 3px hsla(187, 91%, 41%, 0.12)"; }}
                     onBlur={(e) => { e.target.style.borderColor = "hsl(217,28%,20%)"; e.target.style.boxShadow = "none"; }}
                   />
                 </div>
@@ -223,19 +220,20 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
                     required
-                    className="w-full pl-10 pr-11 py-2.5 rounded-xl text-sm outline-none transition-all"
+                    className="w-full min-h-12 pl-10 pr-11 py-2.5 rounded-xl text-sm outline-none transition-all"
                     style={{
                       background: "hsl(224,30%,13%)",
                       border: "1px solid hsl(217,28%,20%)",
                       color: "hsl(210,40%,98%)",
                     }}
-                    onFocus={(e) => { e.target.style.borderColor = "hsla(152,72%,44%,0.5)"; e.target.style.boxShadow = "0 0 0 3px hsla(152,72%,44%,0.08)"; }}
+                    onFocus={(e) => { e.target.style.borderColor = "hsla(187, 91%, 41%, 0.55)"; e.target.style.boxShadow = "0 0 0 3px hsla(187, 91%, 41%, 0.12)"; }}
                     onBlur={(e) => { e.target.style.borderColor = "hsl(217,28%,20%)"; e.target.style.boxShadow = "none"; }}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute inset-y-0 right-3 flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute inset-y-0 right-3 flex items-center text-muted-foreground hover:text-foreground transition-colors min-h-12 min-w-11"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? (
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -249,37 +247,43 @@ export default function LoginPage() {
                     )}
                   </button>
                 </div>
+                <div className="flex justify-end pt-0.5">
+                  <span
+                    className="text-xs text-muted-foreground/70 cursor-not-allowed select-none"
+                    title="Coming soon"
+                  >
+                    Forgot password?
+                  </span>
+                </div>
               </div>
 
+              {inlineError ? (
+                <p className="text-sm text-destructive text-center" role="alert">
+                  {inlineError}
+                </p>
+              ) : null}
+
               {/* Sign in button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 rounded-xl font-semibold text-sm text-white transition-all mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{
-                  background: loading
-                    ? "hsl(152,50%,35%)"
-                    : "linear-gradient(135deg, #16a34a, #15803d)",
-                  boxShadow: loading ? "none" : "0 4px 16px rgba(22,163,74,0.35)",
-                }}
-              >
+              <Button type="submit" disabled={loading} size="lg" className="w-full min-h-12 mt-2">
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
                     Signing in…
                   </span>
-                ) : "Sign In"}
-              </button>
+                ) : (
+                  "Log in"
+                )}
+              </Button>
             </form>
 
             {/* Signup link */}
             <p className="text-center text-sm text-muted-foreground mt-5">
-              Don't have an account?{" "}
-              <Link href="/signup" className="font-medium hover:underline" style={{ color: "hsl(152,72%,55%)" }}>
-                Create one free
+              Don&apos;t have an account?{" "}
+              <Link href="/signup" className="font-medium text-primary hover:underline">
+                Sign up
               </Link>
             </p>
 

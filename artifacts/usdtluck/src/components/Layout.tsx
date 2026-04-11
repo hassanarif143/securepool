@@ -7,7 +7,6 @@ import { apiUrl } from "@/lib/api-base";
 import { useGameAvailability } from "@/lib/game-availability";
 import { LiveJoinNotification } from "@/components/LiveJoinNotification";
 import { SharePromptGate } from "@/components/share/SharePromptGate";
-import { LayoutDashboard, Layers, Shield, Trophy, Wallet } from "lucide-react";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import { SiteFooter } from "@/components/SiteFooter";
 import { cn } from "@/lib/utils";
@@ -244,27 +243,27 @@ function WalletDropdown({
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex items-center gap-2 rounded-xl px-3 py-1.5 transition-all border border-primary/25 focus:outline-none",
+          "flex items-center gap-2 rounded-xl px-3 min-h-12 py-2 transition-all border border-primary/25 focus:outline-none hover:bg-primary/15",
           open ? "bg-primary/15 border-primary/40" : "bg-primary/10"
         )}
       >
-        <div className="hidden md:flex items-center gap-2 text-xs leading-none">
-          <span className="inline-flex items-center gap-1 text-primary font-semibold tabular-nums">
-            <span aria-hidden>💼</span>{" "}
-            {isLoading ? "..." : <UsdtAmount amount={wd} amountClassName="text-primary font-semibold" currencyClassName="text-[10px] text-muted-foreground" />}
-          </span>
-          <span className="text-muted-foreground/60">|</span>
-          <span className="inline-flex items-center gap-1 text-primary font-semibold tabular-nums">
-            <span aria-hidden>🎁</span>{" "}
-            {isLoading ? "..." : <UsdtAmount amount={bonus} amountClassName="text-primary font-semibold" currencyClassName="text-[10px] text-muted-foreground" />}
-          </span>
-        </div>
-        <div className="md:hidden text-left">
-          <p className="text-xs font-bold text-primary leading-none tabular-nums">
-            {displayValue} <span className="font-normal text-[10px] opacity-70">USDT</span>
-          </p>
+        <div className="flex items-center gap-1.5 text-xs leading-none">
+          <span
+            aria-hidden
+            className="inline-flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]"
+          />
+          {isLoading ? (
+            <span className="text-muted-foreground tabular-nums">…</span>
+          ) : (
+            <UsdtAmount
+              amount={total}
+              amountClassName="text-emerald-400 font-bold tabular-nums"
+              currencyClassName="text-[10px] text-muted-foreground font-normal"
+            />
+          )}
         </div>
         <svg className={`w-3 h-3 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -540,15 +539,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   /* Close mobile menu on navigation */
   useEffect(() => { setMobileOpen(false); }, [location]);
 
-  /* Primary links — always visible in the top bar */
+  /* Center nav: Pools + Winners (Home via logo) */
   const primaryLinks = user ? [
-    { href: "/dashboard", label: "Dashboard", icon: "🏠" },
-    { href: "/pools",     label: "Pools",      icon: "🎱" },
-    { href: "/winners",   label: "Winners",    icon: "🏆" },
+    { href: "/pools", label: "Pools", icon: "🎱" },
+    { href: "/winners", label: "Winners", icon: "🏆" },
   ] : [];
 
   /* Secondary links — tucked into "More" dropdown on desktop */
   const secondaryLinks = user ? [
+    { href: "/dashboard", label: "Home", icon: "🏠" },
     { href: "/my-tickets", label: "My Tickets", icon: "🎟️" },
     { href: "/rewards", label: "Rewards", icon: "🎁" },
     { href: "/referral", label: "Referral", icon: "🔗" },
@@ -560,7 +559,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/how-it-works", label: "How It Works", icon: "📘" },
     { href: "/provably-fair", label: "Provably Fair", icon: "🧪" },
     { href: "/reviews",    label: "Reviews",    icon: "💬" },
-    ...(user.isAdmin ? [{ href: "/admin", label: "Admin Panel", icon: "⚙️" }] : []),
+    ...(user.isAdmin ? [{ href: "/admin", label: "Admin", icon: "⚙️" }] : []),
   ] : [];
 
 
@@ -711,35 +710,33 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {user && (
         <nav
-          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/96 backdrop-blur-md flex justify-evenly items-stretch min-h-[4.35rem] py-1.5 px-0.5 safe-area-pb touch-manipulation shadow-[0_-8px_32px_rgba(0,0,0,0.35)] transition-shadow"
-          aria-label="Primary"
+          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/96 backdrop-blur-md flex justify-between items-stretch min-h-[4.25rem] py-1 px-1 safe-area-pb touch-manipulation shadow-[0_-8px_32px_rgba(0,0,0,0.35)]"
+          aria-label="Main"
         >
           {(
             [
-              { href: "/dashboard", label: "Home", Icon: LayoutDashboard },
-              { href: "/wallet", label: "Wallet", Icon: Wallet },
-              { href: "/p2p", label: "P2P", Icon: Layers },
-              ...(!gamesLoading && cashoutArenaEnabled ? [{ href: "/cashout-arena", label: "Arena", Icon: Trophy }] as const : []),
-              ...(!gamesLoading && scratchCardEnabled ? [{ href: "/scratch-card", label: "Scratch", Icon: Trophy }] as const : []),
-              ...(user.isAdmin ? [{ href: "/admin", label: "Admin", Icon: Shield }] as const : []),
-              { href: "/winners", label: "Wins", Icon: Trophy },
+              { href: "/dashboard", label: "Home", icon: "🏠" },
+              { href: "/pools", label: "Pools", icon: "🎱" },
+              { href: "/wallet", label: "Wallet", icon: "💰" },
+              { href: "/profile", label: "Me", icon: "👤" },
             ] as const
           ).map((item) => {
             const active =
               item.href === "/dashboard"
-                ? location === "/dashboard"
+                ? location === "/dashboard" || location === "/"
                 : location.startsWith(item.href);
-            const Icon = item.Icon;
             return (
-              <Link key={item.href} href={item.href} className="flex-1 min-w-0 basis-0">
+              <Link key={item.href} href={item.href} className="flex-1 min-w-0 basis-0 max-w-[25%]">
                 <span
                   className={cn(
-                    "flex min-h-[3.35rem] min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[9px] sm:text-[10px] font-semibold tracking-tight transition-colors duration-200 active:scale-[0.97] touch-manipulation",
+                    "flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[10px] font-semibold tracking-tight transition-colors duration-200 active:scale-[0.98] touch-manipulation",
                     active ? "text-primary bg-primary/12" : "text-muted-foreground hover:text-foreground/90"
                   )}
                 >
-                  <Icon className="h-[1.15rem] w-[1.15rem] sm:h-5 sm:w-5 shrink-0" strokeWidth={active ? 2.25 : 2} aria-hidden />
-                  <span className="leading-tight text-center truncate w-full px-0.5">{item.label}</span>
+                  <span className="text-lg leading-none" aria-hidden>
+                    {item.icon}
+                  </span>
+                  <span className="leading-tight text-center truncate w-full">{item.label}</span>
                 </span>
               </Link>
             );

@@ -27,7 +27,7 @@ export function UsdtAmount({
         {prefix}
         {usdt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT
       </span>
-      <span className={cn("text-[12px] text-[#64748b]", currencyClassName)}>
+      <span className={cn("text-[12px] text-muted-foreground", currencyClassName)}>
         ≈{" "}
         {localValue.toLocaleString(undefined, {
           minimumFractionDigits: 0,

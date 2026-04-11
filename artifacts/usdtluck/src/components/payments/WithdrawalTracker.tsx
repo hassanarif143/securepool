@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import { cn } from "@/lib/utils";
+import { formatPkr } from "@/lib/pool-marketplace";
 
 type Tx = {
   id: number;
@@ -58,7 +59,7 @@ function WithdrawRow({ tx }: { tx: Tx }) {
       key: "sent",
       label: "USDT sent to your wallet",
       done: tx.status === "completed",
-      sub: tx.status === "completed" ? "Check your TRC20 wallet" : "Waiting",
+      sub: tx.status === "completed" ? "Check your USDT wallet" : "Waiting",
     },
   ];
 
@@ -75,8 +76,11 @@ function WithdrawRow({ tx }: { tx: Tx }) {
       </div>
 
       <p className="text-[11px] text-amber-100/85 rounded-lg border border-amber-500/25 bg-amber-950/20 px-3 py-2 leading-relaxed">
-        ⚠️ ~1 USDT network fee (blockchain, not SecurePool). Aapko takreeban{" "}
-        <strong>{receiveApprox.toFixed(2)} USDT</strong> mil sakte hain.
+        TRON charges ~1 USDT per transfer (not SecurePool). You should receive about{" "}
+        <strong>
+          {receiveApprox.toFixed(2)} USDT (≈ {formatPkr(receiveApprox)} PKR)
+        </strong>
+        .
       </p>
 
       <div className="relative pl-6 space-y-3">
@@ -106,7 +110,7 @@ function WithdrawRow({ tx }: { tx: Tx }) {
       {tx.status === "completed" && tronscan && (
         <Button type="button" variant="outline" size="sm" className="w-full min-h-10 text-xs" asChild>
           <a href={tronscan} target="_blank" rel="noopener noreferrer">
-            🔍 Verify on TronScan
+            View on TronScan
           </a>
         </Button>
       )}

@@ -15,7 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
 import confetti from "canvas-confetti";
-import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
+import { apiUrl } from "@/lib/api-base";
+import { friendlyApiError, friendlyErrorFromResponse, friendlyNetworkError } from "@/lib/user-facing-errors";
 import { platformFeeUsdtForPoolEntry } from "@/lib/platform-fee";
 import { PoolStatusBar } from "@/components/PoolStatusBar";
 
@@ -447,9 +448,12 @@ export default function PoolDetailPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const d = data as { message?: string; error?: string; code?: string };
-        const msg = d.message ?? d.error ?? "Could not join";
-        appToast.error({ title: "Could not join", description: msg });
+        const d = data as { message?: string; error?: string };
+        const raw = String(d.message ?? d.error ?? "").trim();
+        appToast.error({
+          title: "Could not join",
+          description: friendlyApiError(res.status, raw || "Request failed"),
+        });
         return;
       }
       const usedFree = Boolean((data as { usedFreeEntry?: boolean }).usedFreeEntry);
@@ -507,7 +511,7 @@ export default function PoolDetailPage() {
         .then((j) => setPoolDetails(j as PoolDetailsApi))
         .catch(() => {});
     } catch (e: unknown) {
-      appToast.error({ title: "Could not join", description: e instanceof Error ? e.message : "Network error" });
+      appToast.error({ title: "Could not join", description: friendlyNetworkError(e) });
     } finally {
       setJoining(false);
     }
@@ -533,7 +537,7 @@ export default function PoolDetailPage() {
         },
       });
       if (!res.ok) {
-        appToast.error({ title: "Could not exit pool", description: await readApiErrorMessage(res) });
+        appToast.error({ title: "Could not exit pool", description: await friendlyErrorFromResponse(res) });
         return;
       }
       const out = (await res.json()) as { refundAmount?: number; exitCharge?: number };
@@ -548,6 +552,8 @@ export default function PoolDetailPage() {
       ]);
       const detailsRes = await fetch(apiUrl(`/api/pools/details/${id}`), { credentials: "include" });
       if (detailsRes.ok) setPoolDetails((await detailsRes.json()) as PoolDetailsApi);
+    } catch (e: unknown) {
+      appToast.error({ title: "Could not exit pool", description: friendlyNetworkError(e) });
     } finally {
       setExiting(false);
     }

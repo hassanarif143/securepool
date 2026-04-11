@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
+import { apiUrl } from "@/lib/api-base";
+import { friendlyErrorFromResponse, friendlyNetworkError } from "@/lib/user-facing-errors";
 import { tronAddressQrUrl } from "@/lib/qr-data-url";
 import { SUPPORT_WHATSAPP_HREF } from "@/lib/support-links";
 import { parseDepositRejection } from "@/lib/payment-rejection-reasons";
@@ -229,7 +230,7 @@ export function DepositWizard({
       if (note.trim()) formData.append("note", note.trim());
 
       const res = await fetch(apiUrl("/api/transactions/deposit"), { method: "POST", credentials: "include", body: formData });
-      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      if (!res.ok) throw new Error(await friendlyErrorFromResponse(res));
       const j = (await res.json()) as { id: number };
       setActiveTxId(j.id);
       saveLs(j.id, 4);
@@ -238,7 +239,10 @@ export function DepositWizard({
       onFlowComplete();
       appToast.success({ title: "Proof submitted", description: "We're verifying your payment." });
     } catch (e: unknown) {
-      appToast.error({ title: "Submit failed", description: e instanceof Error ? e.message : "Error" });
+      appToast.error({
+        title: "Submit failed",
+        description: e instanceof Error ? e.message : friendlyNetworkError(e),
+      });
     } finally {
       setDepositLoading(false);
     }
@@ -258,7 +262,7 @@ export function DepositWizard({
   if (!hasCryptoAddress) {
     return (
       <div className="rounded-xl border border-yellow-500/35 bg-yellow-500/10 p-4 text-sm text-yellow-200">
-        Pehle Profile mein apna TRC20 wallet address add karein — phir deposit wizard open hoga.
+        Pehle Profile mein apna TRON (USDT) wallet address add karein — phir deposit wizard open hoga.
         <Button asChild className="mt-3 w-full min-h-12" variant="secondary">
           <Link href="/profile">Open Profile</Link>
         </Button>
@@ -289,14 +293,14 @@ export function DepositWizard({
         <div className="space-y-4">
           <div>
             <h3 className="text-lg font-semibold text-foreground">How will you send USDT?</h3>
-            <p className="text-xs text-muted-foreground mt-1">Choose your app — sirf instructions ke liye, sab TRC20 wallets kaam karte hain.</p>
+            <p className="text-xs text-muted-foreground mt-1">Choose your app — instructions only; any wallet that sends USDT on TRON works.</p>
           </div>
           <div className="grid gap-2">
             {(
               [
                 { id: "binance" as const, icon: "🟡", title: "Binance App", sub: "Pakistan mein sabse common — recommended", rec: true },
                 { id: "trust" as const, icon: "🔵", title: "Trust Wallet", sub: "Mobile wallet — easy for beginners" },
-                { id: "other" as const, icon: "📱", title: "Other wallet", sub: "Koi bhi app jo TRC20 / TRON support kare" },
+                { id: "other" as const, icon: "📱", title: "Other wallet", sub: "Any app that supports USDT on TRON" },
               ] as const
             ).map((c) => (
               <button
@@ -357,15 +361,15 @@ export function DepositWizard({
           {validAmt ? (
             <>
               <div className="rounded-xl border border-border/90 bg-card/40 p-4 space-y-3">
-                <p className="text-sm font-semibold text-center">
-                  Send exactly{" "}
-                  <span className="text-cyan-400 tabular-nums">
-                    {amtNum.toFixed(2)} USDT
-                  </span>{" "}
-                  to:
-                </p>
+                <div className="text-center space-y-1">
+                  <p className="text-sm font-semibold">Send exactly</p>
+                  <div className="flex justify-center">
+                    <UsdtAmount amount={amtNum} amountClassName="text-lg font-bold text-cyan-400 tabular-nums" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">to:</p>
+                </div>
                 <div className="flex justify-center">
-                  <img src={qrSrc} alt="QR code for TRC20 address" className="w-[220px] h-[220px] rounded-lg bg-white p-2" width={220} height={220} />
+                  <img src={qrSrc} alt="QR code for USDT deposit address" className="w-[220px] h-[220px] rounded-lg bg-white p-2" width={220} height={220} />
                 </div>
                 <code className="block text-center break-all font-mono text-[11px] text-foreground/90 px-1">{platformAddress}</code>
                 <div className="flex flex-wrap gap-2 justify-center">
@@ -383,12 +387,12 @@ export function DepositWizard({
                 <p className="font-bold text-amber-200">⚠️ IMPORTANT — pehle parh lein</p>
                 <ul className="space-y-1.5 text-amber-100/90 leading-relaxed">
                   <li>
-                    ✅ Network: <strong>TRC20 (TRON)</strong> — Binance mein &quot;TRON (TRC20)&quot; select karein.
+                    ✅ Network: <strong>TRON (USDT)</strong> — Binance mein withdrawal par TRON network select karein.
                   </li>
                   <li>
                     ✅ Amount: bilkul <strong>{amtNum.toFixed(2)} USDT</strong> — na zyada, na kam.
                   </li>
-                  <li>❌ Galat network = paisa recover nahi hota. Hamesha TRC20.</li>
+                  <li>❌ Galat network = paisa recover nahi hota. Yahan hamesha TRON (USDT) use karein.</li>
                 </ul>
               </div>
 

@@ -7,11 +7,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/Logo";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { apiUrl } from "@/lib/api-base";
-import { trc20ValidationMessage, TRC20_ADDRESS_REGEX } from "@/lib/trc20";
+import { friendlyApiError, friendlyNetworkError } from "@/lib/user-facing-errors";
+import { Button } from "@/components/ui/button";
 
 function PasswordStrength({ password }: { password: string }) {
   const checks = [
-    { label: "6+ characters", pass: password.length >= 6 },
+    { label: "6+ characters", pass: password.length >= 6 }, // matches API minimum
     { label: "Letter", pass: /[a-zA-Z]/.test(password) },
     { label: "Number", pass: /\d/.test(password) },
   ];
@@ -48,11 +49,11 @@ function PasswordStrength({ password }: { password: string }) {
 
 export default function SignupPage() {
   const [name, setName] = useState("");
-  const [cryptoAddress, setCryptoAddress] = useState("");
-  const [cryptoAddressConfirm, setCryptoAddressConfirm] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [referralCode, setReferralCode] = useState("");
   const [shareCardId, setShareCardId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -76,31 +77,19 @@ export default function SignupPage() {
     }
   }, [search]);
 
-  const addrPhase = trc20ValidationMessage(cryptoAddress);
-  const hasWalletInput = cryptoAddress.trim().length > 0 || cryptoAddressConfirm.trim().length > 0;
-  const addressesMatch =
-    cryptoAddress.trim() === cryptoAddressConfirm.trim() && cryptoAddress.trim().length > 0;
   const canSubmit = useMemo(() => {
     if (name.trim().length < 2 || !email.trim() || password.length < 6) return false;
-    if (hasWalletInput) {
-      if (!TRC20_ADDRESS_REGEX.test(cryptoAddress.trim())) return false;
-      if (cryptoAddress.trim() !== cryptoAddressConfirm.trim()) return false;
-    }
+    if (password !== confirmPassword) return false;
     return true;
-  }, [name, email, password, cryptoAddress, cryptoAddressConfirm, hasWalletInput]);
+  }, [name, email, password, confirmPassword]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) {
-      toast({
-        title: "Please check your form",
-        description: hasWalletInput
-          ? !TRC20_ADDRESS_REGEX.test(cryptoAddress.trim())
-            ? "Enter a valid TRC20 address (T + 33 letters/numbers)."
-            : "Both wallet fields must match exactly."
-          : "Please complete required fields.",
-        variant: "destructive",
-      });
+      let desc = "Please complete all required fields.";
+      if (password.length < 6) desc = "Password must be at least 6 characters.";
+      else if (password !== confirmPassword) desc = "Passwords don't match.";
+      toast({ title: "Please check your form", description: desc, variant: "destructive" });
       return;
     }
     setLoading(true);
@@ -124,8 +113,6 @@ export default function SignupPage() {
         },
         body: JSON.stringify({
           name,
-          cryptoAddress: cryptoAddress.trim() || undefined,
-          cryptoAddressConfirm: cryptoAddressConfirm.trim() || undefined,
           email,
           password,
           referralCode: referralCode || undefined,
@@ -137,9 +124,10 @@ export default function SignupPage() {
         try { return JSON.parse(raw); } catch { return { message: raw }; }
       })() : {};
       if (!res.ok) {
+        const rawMsg = String((data as { message?: string }).message ?? (data as { error?: string }).error ?? "");
         toast({
           title: "Signup failed",
-          description: (data as any).message ?? (data as any).error ?? "Could not create account",
+          description: friendlyApiError(res.status, rawMsg),
           variant: "destructive",
         });
         return;
@@ -167,10 +155,10 @@ export default function SignupPage() {
             : serverMessage ?? "You're signed in.",
       });
       navigate(nextPath);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Signup failed",
-        description: err?.message || "Network error",
+        description: friendlyNetworkError(err),
         variant: "destructive",
       });
     } finally {
@@ -187,8 +175,8 @@ export default function SignupPage() {
   };
 
   function onFocus(e: React.FocusEvent<HTMLInputElement>) {
-    e.target.style.borderColor = "hsla(152,72%,44%,0.5)";
-    e.target.style.boxShadow = "0 0 0 3px hsla(152,72%,44%,0.08)";
+    e.target.style.borderColor = "hsla(187, 91%, 41%, 0.55)";
+    e.target.style.boxShadow = "0 0 0 3px hsla(187, 91%, 41%, 0.12)";
   }
   function onBlur(e: React.FocusEvent<HTMLInputElement>) {
     e.target.style.borderColor = hasRefCode && e.target.id === "ref"
@@ -197,24 +185,12 @@ export default function SignupPage() {
     e.target.style.boxShadow = "none";
   }
 
-  function walletInputStyle(phase: ReturnType<typeof trc20ValidationMessage>): React.CSSProperties {
-    const b: React.CSSProperties = { ...inputBase };
-    if (phase === "valid") {
-      b.borderColor = "hsl(152,72%,44%)";
-      b.boxShadow = "0 0 0 1px hsla(152,72%,44%,0.35)";
-    } else if (phase === "invalid" || phase === "erc20_hint") {
-      b.borderColor = "hsl(0,65%,45%)";
-      b.boxShadow = "0 0 0 1px hsla(0,65%,45%,0.25)";
-    }
-    return b;
-  }
-
   return (
     <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center -mx-4 sm:-mx-6 lg:-mx-8 -my-8 px-4">
       {/* Glow orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/3 right-1/4 w-96 h-96 rounded-full opacity-[0.06] blur-3xl"
-          style={{ background: "radial-gradient(circle, #16a34a, transparent)" }} />
+        <div className="absolute top-1/3 right-1/4 w-96 h-96 rounded-full opacity-[0.08] blur-3xl"
+          style={{ background: "radial-gradient(circle, #06b6d4, transparent)" }} />
         <div className="absolute bottom-1/3 left-1/4 w-80 h-80 rounded-full opacity-[0.04] blur-3xl"
           style={{ background: "radial-gradient(circle, #a855f7, transparent)" }} />
       </div>
@@ -332,7 +308,7 @@ export default function SignupPage() {
                   <input id="name" type="text" autoComplete="name"
                     value={name} onChange={(e) => setName(e.target.value)}
                     placeholder="Your full name" required minLength={2}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none transition-all"
+                    className="w-full min-h-12 pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none transition-all"
                     style={inputBase} onFocus={onFocus} onBlur={onBlur} />
                 </div>
               </div>
@@ -349,96 +325,14 @@ export default function SignupPage() {
                   <input id="email" type="email" autoComplete="email"
                     value={email} onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com" required
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none transition-all"
+                    className="w-full min-h-12 pl-10 pr-4 py-2.5 rounded-xl text-sm outline-none transition-all"
                     style={inputBase} onFocus={onFocus} onBlur={onBlur} />
                 </div>
               </div>
 
-              {/* TRC20 wallet — optional at signup */}
-              <div className="rounded-xl px-3 py-2.5 mb-1"
-                style={{ background: "hsla(38,92%,50%,0.08)", border: "1px solid hsla(38,92%,50%,0.25)" }}>
-                <p className="text-xs leading-relaxed" style={{ color: "hsl(38,90%,62%)" }}>
-                  Wallet address is optional at signup. You can create your account now and add it later in Profile before deposit or withdraw.
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="cryptoAddress">
-                  Your TRC20 Wallet Address <span className="text-muted-foreground">(optional)</span>
-                </label>
-                <input
-                  id="cryptoAddress"
-                  type="text"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={cryptoAddress}
-                  onChange={(e) => setCryptoAddress(e.target.value)}
-                  placeholder="T..."
-                  maxLength={64}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all font-mono"
-                  style={walletInputStyle(addrPhase)}
-                  onFocus={onFocus}
-                  onBlur={onBlur}
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Your TRON wallet address starts with &apos;T&apos; and is 34 characters long.
-                </p>
-                {addrPhase === "erc20_hint" && (
-                  <p className="text-xs" style={{ color: "hsl(0,72%,55%)" }}>
-                    This looks like an ERC20 (Ethereum) address. Please enter a TRC20 (TRON) address starting with &apos;T&apos;.
-                  </p>
-                )}
-                {cryptoAddress.trim() && addrPhase === "invalid" && (
-                  <p className="text-xs flex items-center gap-1" style={{ color: "hsl(0,72%,55%)" }}>
-                    <span aria-hidden>✕</span> Invalid TRC20 address format
-                  </p>
-                )}
-                {addrPhase === "valid" && (
-                  <p className="text-xs flex items-center gap-1" style={{ color: "hsl(152,72%,55%)" }}>
-                    <span aria-hidden>✓</span> Valid TRC20 address
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium" htmlFor="cryptoAddressConfirm">
-                  Confirm your TRC20 Wallet Address <span className="text-muted-foreground">(if entered)</span>
-                </label>
-                <input
-                  id="cryptoAddressConfirm"
-                  type="text"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={cryptoAddressConfirm}
-                  onChange={(e) => setCryptoAddressConfirm(e.target.value)}
-                  placeholder="T..."
-                  maxLength={64}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all font-mono"
-                  style={walletInputStyle(
-                    cryptoAddressConfirm.trim() === ""
-                      ? "empty"
-                      : trc20ValidationMessage(cryptoAddressConfirm) === "erc20_hint"
-                        ? "erc20_hint"
-                        : !TRC20_ADDRESS_REGEX.test(cryptoAddressConfirm.trim())
-                          ? "invalid"
-                          : addressesMatch
-                            ? "valid"
-                            : "invalid",
-                  )}
-                  onFocus={onFocus}
-                  onBlur={onBlur}
-                />
-                {cryptoAddressConfirm.trim() &&
-                  TRC20_ADDRESS_REGEX.test(cryptoAddressConfirm.trim()) &&
-                  !addressesMatch && (
-                  <p className="text-xs" style={{ color: "hsl(0,72%,55%)" }}>Wallet addresses do not match</p>
-                )}
-                {cryptoAddressConfirm.trim() &&
-                  addressesMatch &&
-                  TRC20_ADDRESS_REGEX.test(cryptoAddress.trim()) && (
-                  <p className="text-xs flex items-center gap-1" style={{ color: "hsl(152,72%,55%)" }}>
-                    <span aria-hidden>✓</span> Addresses match
-                  </p>
-                )}
-              </div>
+              <p className="text-xs text-muted-foreground -mt-1 mb-1">
+                Add your USDT wallet address later in Profile — you need it only to deposit or withdraw.
+              </p>
 
               {/* Password */}
               <div className="space-y-1.5">
@@ -452,10 +346,11 @@ export default function SignupPage() {
                   <input id="password" type={showPassword ? "text" : "password"} autoComplete="new-password"
                     value={password} onChange={(e) => setPassword(e.target.value)}
                     placeholder="Min 6 characters" required minLength={6}
-                    className="w-full pl-10 pr-11 py-2.5 rounded-xl text-sm outline-none transition-all"
+                    className="w-full min-h-12 pl-10 pr-11 py-2.5 rounded-xl text-sm outline-none transition-all"
                     style={inputBase} onFocus={onFocus} onBlur={onBlur} />
                   <button type="button" onClick={() => setShowPassword((v) => !v)}
-                    className="absolute inset-y-0 right-3 flex items-center text-muted-foreground hover:text-foreground transition-colors">
+                    className="absolute inset-y-0 right-3 flex items-center text-muted-foreground hover:text-foreground transition-colors min-h-12 min-w-11"
+                    aria-label={showPassword ? "Hide password" : "Show password"}>
                     {showPassword ? (
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
@@ -471,12 +366,60 @@ export default function SignupPage() {
                 <PasswordStrength password={password} />
               </div>
 
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium" htmlFor="confirmPassword">Confirm password</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter your password"
+                    required
+                    minLength={6}
+                    className="w-full min-h-12 pl-10 pr-11 py-2.5 rounded-xl text-sm outline-none transition-all"
+                    style={inputBase}
+                    onFocus={onFocus}
+                    onBlur={onBlur}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    className="absolute inset-y-0 right-3 flex items-center text-muted-foreground hover:text-foreground transition-colors min-h-12 min-w-11"
+                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                  >
+                    {showConfirmPassword ? (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                {confirmPassword.length > 0 && password !== confirmPassword && (
+                  <p className="text-xs text-destructive">Passwords don&apos;t match</p>
+                )}
+              </div>
+
               {/* Referral code */}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium" htmlFor="ref">
                   Referral code
                   <span className="text-muted-foreground font-normal ml-1.5">(optional)</span>
                 </label>
+                <p className="text-xs text-muted-foreground leading-snug">
+                  Have a friend on SecurePool? Enter their code — you both earn 2 USDT!
+                </p>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                     <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -486,52 +429,48 @@ export default function SignupPage() {
                   <input id="ref" type="text" autoComplete="off"
                     value={referralCode} onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
                     placeholder="e.g. AB3XYZ89"
-                    className="w-full pl-10 pr-10 py-2.5 rounded-xl text-sm outline-none transition-all font-mono tracking-wider"
+                    className="w-full min-h-12 pl-10 pr-10 py-2.5 rounded-xl text-sm outline-none transition-all font-mono tracking-wider"
                     style={{
                       ...inputBase,
-                      ...(hasRefCode ? { borderColor: "hsla(152,72%,44%,0.4)" } : {}),
+                      ...(hasRefCode ? { borderColor: "hsla(187, 91%, 41%, 0.45)" } : {}),
                     }}
                     onFocus={onFocus} onBlur={onBlur} />
                   {hasRefCode && (
                     <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
-                        style={{ color: "hsl(152,72%,55%)" }}>
+                      <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
                   )}
                 </div>
                 {hasRefCode && (
-                  <p className="text-xs" style={{ color: "hsl(152,72%,55%)" }}>
-                    ✓ Referral linked — rewards apply after email verification and first pool entry
+                  <p className="text-xs text-primary">
+                    ✓ Code saved — your friend earns when you buy your first pool ticket.
                   </p>
                 )}
               </div>
 
               {/* Submit */}
-              <button type="submit" disabled={loading || !canSubmit}
-                className="w-full py-2.5 rounded-xl font-semibold text-sm text-white transition-all mt-1 disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{
-                  background: loading ? "hsl(152,50%,35%)" : "linear-gradient(135deg,#16a34a,#15803d)",
-                  boxShadow: loading ? "none" : "0 4px 16px rgba(22,163,74,0.35)",
-                }}>
+              <Button type="submit" disabled={loading || !canSubmit} size="lg" className="w-full min-h-12 mt-1">
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden>
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
                     Creating account…
                   </span>
-                ) : "Create Account — It's Free"}
-              </button>
+                ) : (
+                  "Create account"
+                )}
+              </Button>
             </form>
 
             {/* Sign in link */}
             <p className="text-center text-sm text-muted-foreground mt-5">
               Already have an account?{" "}
-              <Link href="/login" className="font-medium hover:underline" style={{ color: "hsl(152,72%,55%)" }}>
-                Sign in
+              <Link href="/login" className="font-medium text-primary hover:underline">
+                Log in
               </Link>
             </p>
 

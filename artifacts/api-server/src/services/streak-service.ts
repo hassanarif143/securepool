@@ -4,9 +4,13 @@ import { notifyUser } from "../lib/notify";
 import { logActivity } from "./activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { formatShareCardDisplayDate, onPoolStreakMilestone } from "./share-card-service";
+import { creditUserWithdrawableUsdt } from "../lib/credit-withdrawable-balance";
+import { STREAK_USDT_REWARDS } from "../lib/user-balances";
 
 const STREAK_GAP_DAYS = 7;
 const MS_DAY = 24 * 60 * 60 * 1000;
+
+const MILESTONE_STREAKS = [3, 5, 10, 20] as const;
 
 export type StreakUpdateResult = {
   currentStreak: number;
@@ -14,6 +18,17 @@ export type StreakUpdateResult = {
   lostPreviousStreak: number;
   milestone?: "3" | "5" | "10" | "20";
 };
+
+function parseStreakClaimed(raw: unknown): Record<string, boolean> {
+  const base: Record<string, boolean> = { "3": false, "5": false, "10": false, "20": false };
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const o = raw as Record<string, unknown>;
+    for (const k of Object.keys(base)) {
+      if (o[k] === true) base[k] = true;
+    }
+  }
+  return base;
+}
 
 /**
  * Call after a successful pool join (same transaction context as caller; uses its own updates).
@@ -53,14 +68,34 @@ export async function applyStreakOnPoolJoin(userId: number, joinerDisplayName: s
   const nextLongest = Math.max(longest, nextStreak);
   let milestone: StreakUpdateResult["milestone"];
 
-  await db
-    .update(usersTable)
-    .set({
-      currentStreak: nextStreak,
-      longestStreak: nextLongest,
-      lastPoolJoinedAt: now,
-    })
-    .where(eq(usersTable.id, userId));
+  let claimedNext = parseStreakClaimed(u.streakMilestonesClaimed);
+  const rewardUsd = STREAK_USDT_REWARDS[nextStreak as keyof typeof STREAK_USDT_REWARDS] ?? 0;
+  const mkey = String(nextStreak);
+  const isMilestoneStreak = (MILESTONE_STREAKS as readonly number[]).includes(nextStreak);
+
+  await db.transaction(async (tx) => {
+    if (isMilestoneStreak && rewardUsd > 0 && !claimedNext[mkey]) {
+      await creditUserWithdrawableUsdt(tx, {
+        userId,
+        amount: rewardUsd,
+        rewardNote: `[Streak] ${nextStreak} draws in a row — ${rewardUsd} USDT`,
+        ledgerDescription: `Draw streak milestone (${nextStreak}) — ${rewardUsd} USDT (withdrawable)`,
+        referenceType: "streak_milestone",
+        referenceId: null,
+      });
+      claimedNext = { ...claimedNext, [mkey]: true };
+    }
+
+    await tx
+      .update(usersTable)
+      .set({
+        currentStreak: nextStreak,
+        longestStreak: nextLongest,
+        lastPoolJoinedAt: now,
+        streakMilestonesClaimed: claimedNext,
+      })
+      .where(eq(usersTable.id, userId));
+  });
 
   const who = privacyDisplayName(joinerDisplayName);
 
@@ -79,7 +114,9 @@ export async function applyStreakOnPoolJoin(userId: number, joinerDisplayName: s
     void notifyUser(
       userId,
       "Streak milestone",
-      `${nextStreak}-pool streak unlocked.`,
+      rewardUsd > 0
+        ? `${nextStreak}-pool streak — ${rewardUsd} USDT added to your withdrawable balance.`
+        : `${nextStreak}-pool streak unlocked.`,
       "success",
     );
 

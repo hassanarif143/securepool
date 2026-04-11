@@ -4,6 +4,8 @@ import { useGetUserTransactions, getGetUserTransactionsQueryKey, getGetMeQueryKe
 import { useAuth } from "@/context/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiUrl, apiAssetUrl, readApiErrorMessage } from "@/lib/api-base";
+import { formatPkr } from "@/lib/pool-marketplace";
+import { friendlyApiError, friendlyNetworkError } from "@/lib/user-facing-errors";
 import { DepositWizard } from "@/components/payments/DepositWizard";
 import { WithdrawalTracker } from "@/components/payments/WithdrawalTracker";
 import { TransactionStatusBadge } from "@/components/TransactionStatusBadge";
@@ -18,7 +20,7 @@ import { UsdtAmount } from "@/components/UsdtAmount";
 
 /** USDT (TRC20) address users send deposits to — Deposit tab + copy button. */
 const PLATFORM_ADDRESS = "TBjGU8jfZvsfDVPpjJXVb47khVyKjQqjqp";
-const NETWORK = "TRC-20 (Tron)";
+const NETWORK = "TRON (USDT)";
 const MIN_WITHDRAW_USDT = 10;
 type WithdrawPinStatusApi = { hasWithdrawPin: boolean };
 
@@ -38,7 +40,7 @@ const TX_META: Record<string, { icon: string; label: string; sign: string; color
   pool_refund:      { icon: "↩", label: "Pool refund",  sign: "+", color: "#34d399", isCredit: true  },
   promo_credit:     { icon: "✦", label: "Credit",       sign: "+", color: "#10b981", isCredit: true  },
   withdrawal:       { icon: "↓", label: "Withdrawal",   sign: "-", color: "#f87171", isCredit: false },
-  pool_entry:       { icon: "◉", label: "Pool Entry",   sign: "-", color: "#f87171", isCredit: false },
+  pool_entry:       { icon: "◉", label: "Ticket",       sign: "-", color: "#f87171", isCredit: false },
   stake_lock:       { icon: "🔒", label: "Stake lock",   sign: "-", color: "#fbbf24", isCredit: false },
   stake_release:    { icon: "🔓", label: "Stake return", sign: "+", color: "#10b981", isCredit: true  },
   referral_bonus:   { icon: "⊕", label: "Referral",     sign: "+", color: "#10b981", isCredit: true  },
@@ -91,19 +93,19 @@ function txExplain(tx: { txType: string; note?: string | null }) {
 }
 
 function BlockchainFeeWarningBox() {
+  const feeUsdt = 1;
   return (
     <div
       className="rounded-xl border border-amber-400/45 bg-gradient-to-br from-amber-500/[0.14] to-amber-950/[0.35] px-4 py-3.5 text-left shadow-md shadow-amber-900/20"
       role="status"
     >
-      <p className="text-[11px] font-bold uppercase tracking-widest text-amber-200/95">Blockchain network fee</p>
+      <p className="text-[11px] font-bold uppercase tracking-widest text-amber-200/95">TRON network fee</p>
       <p className="mt-2 text-sm text-amber-50/90 leading-relaxed">
-        When you receive USDT, the blockchain network charges approximately <span className="font-semibold text-amber-100">1 USDT</span>{" "}
-        as a transaction fee. This is a standard crypto fee and is <span className="font-semibold text-amber-100">not</span> charged by
-        SecurePool.
+        The TRON network charges about <span className="font-semibold text-amber-100">~1 USDT (≈ {formatPkr(feeUsdt)} PKR)</span> per
+        transfer. This fee is <span className="font-semibold text-amber-100">not</span> from SecurePool.
       </p>
       <p className="mt-2.5 text-sm font-medium text-amber-200/95 leading-snug">
-        Example: You withdraw 10 USDT → You receive approximately 9 USDT after the network fee.
+        Example: withdraw 10 USDT (≈ {formatPkr(10)} PKR) → you receive about 9 USDT (≈ {formatPkr(9)} PKR) after the fee.
       </p>
     </div>
   );
@@ -134,7 +136,12 @@ export default function WalletPage() {
   const [hasWithdrawPin, setHasWithdrawPin] = useState(false);
   const [withdrawPinStatusLoading, setWithdrawPinStatusLoading] = useState(true);
 
-  const { data: transactions = [], isLoading: txsLoading } = useGetUserTransactions(user?.id ?? 0, {
+  const {
+    data: transactions = [],
+    isLoading: txsLoading,
+    isError: txsError,
+    refetch: refetchTxs,
+  } = useGetUserTransactions(user?.id ?? 0, {
     query: { enabled: !!user?.id, queryKey: getGetUserTransactionsQueryKey(user?.id ?? 0) },
   });
 
@@ -182,14 +189,29 @@ export default function WalletPage() {
     };
   }, [user?.id]);
 
+  const txArr = (transactions as any[]) ?? [];
+  const rejectedDeposit = useMemo(() => {
+    const rej = txArr.filter((t: any) => t.txType === "deposit" && t.status === "rejected");
+    if (rej.length === 0) return null;
+    rej.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return rej[0] as { id: number; note?: string | null };
+  }, [txArr]);
+
+  const onDepositFlowComplete = useCallback(() => {
+    const uid = user?.id;
+    if (!uid) return;
+    queryClient.invalidateQueries({ queryKey: getGetUserTransactionsQueryKey(uid) });
+    queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+  }, [queryClient, user?.id]);
+
   if (isLoading || !user) return null;
 
   const currentUser = user;
   const withdrawableBal = currentUser.withdrawableBalance ?? 0;
   const rewardsUsdt = Number((currentUser.rewardPoints ?? 0) as number) / 300;
   const lockedEstimated = Math.max(0, Number(currentUser.walletBalance ?? 0) - withdrawableBal - rewardsUsdt);
+  const totalWalletBal = Number(currentUser.walletBalance ?? 0);
 
-  const txArr = transactions as any[];
   const pendingDeposit = txArr.find((t) => t.txType === "deposit" && t.status === "pending");
   const pendingAll = txArr.filter((t) => t.status === "pending" || t.status === "under_review");
 
@@ -217,18 +239,6 @@ export default function WalletPage() {
   }
 
   const filteredTx = txArr.filter(matchesFilter);
-
-  const rejectedDeposit = useMemo(() => {
-    const rej = txArr.filter((t: any) => t.txType === "deposit" && t.status === "rejected");
-    if (rej.length === 0) return null;
-    rej.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    return rej[0] as { id: number; note?: string | null };
-  }, [txArr]);
-
-  const onDepositFlowComplete = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: getGetUserTransactionsQueryKey(currentUser.id) });
-    queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-  }, [queryClient, currentUser.id]);
 
   function openWithdrawConfirm(e: React.FormEvent) {
     e.preventDefault();
@@ -288,7 +298,12 @@ export default function WalletPage() {
           note,
         }),
       });
-      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      if (!res.ok) {
+        const raw = await readApiErrorMessage(res);
+        const e = new Error(raw) as Error & { status: number };
+        e.status = res.status;
+        throw e;
+      }
 
       const w0 = currentUser.withdrawableBalance ?? 0;
       setUser({
@@ -303,8 +318,9 @@ export default function WalletPage() {
       queryClient.invalidateQueries({ queryKey: getGetUserTransactionsQueryKey(currentUser.id) });
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       appToast.success({ title: "Withdrawal submitted", description: "Your request is pending admin review." });
-    } catch (err: any) {
-      const msg = String(err?.message ?? "Withdrawal failed");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const status = typeof err === "object" && err !== null && "status" in err ? (err as { status?: number }).status : undefined;
       if (msg.includes("WITHDRAW_PIN_NOT_SET")) {
         appToast.error({ title: "Set withdraw PIN first", description: "Open Profile and set your withdraw PIN before withdrawing." });
       } else if (msg.includes("INVALID_WITHDRAW_PIN")) {
@@ -316,8 +332,10 @@ export default function WalletPage() {
         });
       } else if (msg.includes("EMAIL_CONFIRMATION_MISMATCH")) {
         appToast.error({ title: "Email confirmation mismatch", description: "Enter the exact email of your account." });
+      } else if (typeof status === "number") {
+        appToast.error({ title: "Withdrawal failed", description: friendlyApiError(status, msg) });
       } else {
-        appToast.error({ title: "Withdrawal failed", description: msg });
+        appToast.error({ title: "Withdrawal failed", description: friendlyNetworkError(err) });
       }
     } finally {
       setWithdrawLoading(false);
@@ -331,8 +349,20 @@ export default function WalletPage() {
     { id: "history",  label: "≡ History"  },
   ] as const;
 
+  const withdrawAmt = parseFloat(amount || "0");
+  const receiveAfterFee = Math.max(0, withdrawAmt - 1);
+
   return (
     <div className="max-w-2xl mx-auto space-y-4 pb-10 md:pb-12">
+      {txsError && (
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p className="text-sm text-destructive-foreground">Something went wrong loading transactions. Try again.</p>
+          <Button type="button" variant="outline" className="min-h-12 shrink-0 border-destructive/40" onClick={() => void refetchTxs()}>
+            Retry
+          </Button>
+        </div>
+      )}
+
       {/* Balance hero — primary trust anchor */}
       <div className={`${box} overflow-hidden`}>
         <div
@@ -345,6 +375,15 @@ export default function WalletPage() {
           </span>
         </div>
         <div className="px-5 py-6 sm:px-7 sm:py-7 space-y-4">
+          <div className="rounded-xl border border-primary/25 bg-primary/[0.06] px-4 py-3">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-primary/90">Total balance</p>
+            <UsdtAmount
+              amount={totalWalletBal}
+              amountClassName="font-display text-2xl sm:text-3xl font-bold tabular-nums text-foreground"
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">Everything in your SecurePool wallet (withdrawable + ticket balance + locked).</p>
+          </div>
+
           <div className="rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-b from-emerald-500/[0.16] to-[hsl(222,28%,10%)] px-5 py-5 shadow-lg shadow-emerald-950/40">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
@@ -465,7 +504,7 @@ export default function WalletPage() {
               <div className="flex items-start gap-3 p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/8">
                 <span className="text-yellow-400 shrink-0 mt-0.5">⚠</span>
                 <p className="text-sm text-yellow-300">
-                  Pehle Profile mein apna TRC20 wallet address add karein — yeh aapki payout ke liye zaroori hai.
+                  Pehle Profile mein apna USDT wallet address (TRON) add karein — payout ke liye zaroori hai.
                   <Link href="/profile" className="font-semibold underline ml-1">
                     Profile
                   </Link>
@@ -557,20 +596,21 @@ export default function WalletPage() {
                   className="border-border/90 bg-muted/25 font-semibold tabular-nums"
                 />
                 <p className="text-[10px] text-muted-foreground">
-                  Minimum: {MIN_WITHDRAW_USDT} USDT · Withdrawable: {withdrawableBal.toFixed(2)} USDT
+                  Minimum: {MIN_WITHDRAW_USDT} USDT (≈ {formatPkr(MIN_WITHDRAW_USDT)} PKR) · Withdrawable:{" "}
+                  {withdrawableBal.toFixed(2)} USDT (≈ {formatPkr(withdrawableBal)} PKR)
                 </p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="withdraw-addr" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Destination address (TRC-20)
+                  Your USDT wallet (TRON network)
                 </Label>
                 <Input
                   id="withdraw-addr"
                   type="text"
                   value={withdrawWallet}
                   onChange={(e) => setWithdrawWallet(e.target.value)}
-                  placeholder={user.cryptoAddress ?? "Enter your USDT wallet address (TRC-20)"}
+                  placeholder={user.cryptoAddress ?? "Paste your USDT receive address"}
                   className="border-border/90 bg-muted/25 font-mono text-sm"
                 />
               </div>
@@ -650,7 +690,7 @@ export default function WalletPage() {
               onConfirm={() => void confirmWithdraw()}
               loading={withdrawLoading}
               title="Confirm withdrawal"
-              description={`You request ${parseFloat(amount || "0").toFixed(2)} USDT to ${withdrawWallet.slice(0, 8)}… (TRC-20). Estimated blockchain network fee is ~1 USDT, so expected receive is about ${Math.max(0, parseFloat(amount || "0") - 1).toFixed(2)} USDT.`}
+              description={`You request ${withdrawAmt.toFixed(2)} USDT (≈ ${formatPkr(withdrawAmt)} PKR) to ${withdrawWallet.slice(0, 8)}… The TRON network charges ~1 USDT — you should receive about ${receiveAfterFee.toFixed(2)} USDT (≈ ${formatPkr(receiveAfterFee)} PKR).`}
               confirmLabel="Confirm withdrawal"
             />
             {withdrawConfirmOpen && (
@@ -671,7 +711,7 @@ export default function WalletPage() {
                   <div key={t.id} className="flex items-center justify-between gap-2 text-xs rounded-lg border border-yellow-500/30 bg-yellow-500/8 px-3 py-2">
                     <span className="capitalize text-muted-foreground">{String(t.txType).replace("_", " ")}</span>
                     <TransactionStatusBadge status={t.status} compact />
-                    <UsdtAmount amount={parseFloat(t.amount)} amountClassName="font-mono font-bold tabular-nums text-yellow-100" currencyClassName="text-[10px] text-[#64748b]" />
+                    <UsdtAmount amount={parseFloat(t.amount)} amountClassName="font-mono font-bold tabular-nums text-yellow-100" currencyClassName="text-[10px] text-muted-foreground" />
                   </div>
                 ))}
               </div>
@@ -698,7 +738,7 @@ export default function WalletPage() {
                             : f === "credits"
                               ? "Credits"
                               : f === "pool_entry"
-                                ? "Pool Entries"
+                                ? "Tickets"
                                 : "Stake"}
                   </button>
                 ))}
@@ -742,7 +782,7 @@ export default function WalletPage() {
                 </span>
                 <p className="font-display text-sm font-semibold text-foreground">No transactions yet</p>
                 <p className="mt-1 max-w-sm text-xs text-muted-foreground leading-relaxed">
-                  Make your first deposit to fund your wallet — then join pools and track every movement here.
+                  No transactions yet. Make your first deposit to get started!
                 </p>
                 <Button className="mt-5 min-h-11 font-semibold shadow-md shadow-primary/20" asChild>
                   <Link href="/wallet?tab=deposit">Deposit now</Link>
@@ -780,7 +820,7 @@ export default function WalletPage() {
                             amount={parseFloat(tx.amount)}
                             prefix={meta.sign}
                             amountClassName="text-sm font-extrabold tabular-nums"
-                            currencyClassName="text-[10px] text-[#64748b]"
+                            currencyClassName="text-[10px] text-muted-foreground"
                             className="items-end"
                           />
                           {tx.screenshotUrl && (

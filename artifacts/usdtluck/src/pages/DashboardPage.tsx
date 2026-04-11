@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { apiUrl } from "@/lib/api-base";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
@@ -116,9 +116,10 @@ export default function DashboardPage() {
   const [, navigate] = useLocation();
   const { loading: gamesLoading, cashoutArenaEnabled, scratchCardEnabled, anyGameEnabled } = useGameAvailability(!!user);
   const [myEntries, setMyEntries] = useState<any[]>([]);
+  const [myEntriesError, setMyEntriesError] = useState(false);
   const [comeback, setComeback] = useState<ActiveCouponJson | null>(null);
 
-  const { data: pools, isLoading: poolsLoading } = useListPools();
+  const { data: pools, isLoading: poolsLoading, isError: poolsError, refetch: refetchPools } = useListPools();
   const { data: transactions } = useGetUserTransactions(user?.id ?? 0, {
     query: { enabled: !!user?.id, queryKey: getGetUserTransactionsQueryKey(user?.id ?? 0) },
   });
@@ -136,13 +137,23 @@ export default function DashboardPage() {
   const animWins = useAnimatedNumber(winCount);
   const animMyEntries = useAnimatedNumber(activeEntryCount);
 
-  useEffect(() => {
+  const loadMyEntries = useCallback(async () => {
     if (!user) return;
-    fetch(apiUrl("/api/pools/my-entries"), { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setMyEntries)
-      .catch(() => {});
+    setMyEntriesError(false);
+    try {
+      const r = await fetch(apiUrl("/api/pools/my-entries"), { credentials: "include" });
+      if (!r.ok) throw new Error(String(r.status));
+      const data = await r.json();
+      setMyEntries(Array.isArray(data) ? data : []);
+    } catch {
+      setMyEntriesError(true);
+      setMyEntries([]);
+    }
   }, [user]);
+
+  useEffect(() => {
+    void loadMyEntries();
+  }, [loadMyEntries]);
 
   useEffect(() => {
     if (!user) return;
@@ -175,16 +186,41 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 sm:space-y-10 pb-12 max-w-6xl mx-auto">
+      {poolsError && (
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p className="text-sm text-destructive-foreground">Something went wrong loading pools. Try again.</p>
+          <Button type="button" variant="outline" className="min-h-12 shrink-0 border-destructive/40" onClick={() => void refetchPools()}>
+            Retry
+          </Button>
+        </div>
+      )}
+      {poolsLoading && !pools && !poolsError && (
+        <div className="flex items-center justify-center gap-3 py-4 text-muted-foreground">
+          <span
+            className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
+            aria-hidden
+          />
+          <span className="text-sm">Loading pools…</span>
+        </div>
+      )}
+      {myEntriesError && (
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p className="text-sm text-destructive-foreground">Could not load your active pool entries.</p>
+          <Button type="button" variant="outline" className="min-h-12 shrink-0 border-destructive/40" onClick={() => void loadMyEntries()}>
+            Retry
+          </Button>
+        </div>
+      )}
       {!user.cryptoAddress && (
         <div className="rounded-2xl border border-amber-500/35 bg-amber-500/[0.08] px-4 py-4 sm:px-5">
           <p className="text-sm font-semibold text-amber-200">Action required: Add your wallet address</p>
           <p className="mt-1 text-xs text-amber-100/90 leading-relaxed">
-            Your signup is complete. To use deposit and withdrawal, add your TRC20 wallet address in Profile.
+            Your signup is complete. To deposit or withdraw, add your USDT wallet address in Profile (TRON network).
           </p>
           <div className="mt-3 grid gap-2 text-xs text-amber-100/90 sm:grid-cols-3">
             <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2">
               <p className="font-semibold">Step 1</p>
-              <p>Open Profile and save your TRC20 wallet address.</p>
+              <p>Open Profile and save your USDT wallet address.</p>
             </div>
             <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2">
               <p className="font-semibold">Step 2</p>

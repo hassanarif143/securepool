@@ -5,7 +5,7 @@ export type LocalCurrency = "PKR" | "INR" | "AED";
 const STORAGE_KEY = "securepool_currency_rates_v1";
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const FALLBACK_RATES: Record<LocalCurrency, number> = {
-  PKR: 278,
+  PKR: 278.6,
   INR: 83,
   AED: 3.67,
 };

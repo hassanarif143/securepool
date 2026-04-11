@@ -222,7 +222,7 @@ function StatusPill({ status }: { status: string }) {
   if (status === "open")
     return <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px]">🟢 Open</Badge>;
   if (status === "filled")
-    return <Badge className="bg-red-500/15 text-red-300 border-red-500/40 text-[10px] animate-pulse">🔴 Live</Badge>;
+    return <Badge className="bg-amber-500/15 text-amber-200 border-amber-500/35 text-[10px] animate-pulse">🔴 Drawing soon</Badge>;
   if (status === "drawing")
     return <Badge className="bg-amber-500/15 text-amber-200 border-amber-500/35 text-[10px]">🎰 Drawing</Badge>;
   if (status === "completed")
@@ -234,16 +234,21 @@ function StatusPill({ status }: { status: string }) {
   return <Badge variant="outline" className="text-[10px]">{status}</Badge>;
 }
 
-function formatDurationRemaining(ms: number): string {
+/** >12h: "Closes in 23h"; 1–12h: "5h 30m"; &lt;1h: "⚡ Closes in 45:23" */
+function formatPoolCountdownLine(ms: number, mode: "opens" | "closes"): string {
   if (ms <= 0) return "";
-  const s = Math.floor(ms / 1000);
-  const m = Math.floor(s / 60);
-  const h = Math.floor(m / 60);
-  const d = Math.floor(h / 24);
-  if (d > 0) return `${d}d ${h % 24}h`;
-  if (h > 0) return `${h}h ${m % 60}m`;
-  if (m > 0) return `${m}m`;
-  return `${s}s`;
+  const prefix = mode === "opens" ? "Opens in " : "Closes in ";
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (ms > 12 * 3600 * 1000) {
+    return `${prefix}${h}h`;
+  }
+  if (ms >= 3600 * 1000) {
+    return `${prefix}${h}h ${m}m`;
+  }
+  return `⚡ ${prefix}${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 function PoolCardTimer({
@@ -269,7 +274,7 @@ function PoolCardTimer({
   if (status === "completed" || status === "closed") {
     return (
       <div className="rounded-lg border border-violet-500/25 bg-violet-950/30 px-3 py-2 text-sm text-violet-100">
-        🏆 Draw completed — view results on the pool page
+        ✅ Draw completed
       </div>
     );
   }
@@ -282,7 +287,7 @@ function PoolCardTimer({
           <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
         </span>
         <span className="text-sm font-semibold text-red-100">
-          LIVE — Draw in <MmSs endIso={drawScheduledAt} />
+          🔴 Draw in <MmSs endIso={drawScheduledAt} />
         </span>
       </div>
     );
@@ -312,10 +317,12 @@ function PoolCardTimer({
       return (
         <div className="text-xs text-amber-300 border border-amber-500/30 rounded-lg px-3 py-2">⏰ Closing window ended — check pool status</div>
       );
+    const line = formatPoolCountdownLine(ms, status === "upcoming" ? "opens" : "closes");
     return (
       <div className="rounded-lg border border-cyan-500/20 bg-slate-900/60 px-3 py-2 text-sm text-cyan-100">
-        ⏰ {status === "upcoming" ? "Opens in " : "Closes in "}
-        <span className="font-mono font-semibold text-white tabular-nums">{formatDurationRemaining(ms)}</span>
+        <span className="font-mono font-semibold text-white tabular-nums">
+          {line.startsWith("⚡") ? line : <>⏰ {line}</>}
+        </span>
       </div>
     );
   }
@@ -365,7 +372,7 @@ function PoolCardActions({
           size="lg"
           className="w-full min-h-12 font-semibold bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white border-0"
         >
-          🔍 View results & verify
+          View results
         </Button>
       </Link>
     );
