@@ -85,6 +85,51 @@ router.get("/", (req, res, next) => void requireAdmin(req as AuthedRequest, res,
   res.json(txs.map(formatTx));
 });
 
+/** Single transaction for the logged-in user (polling deposit/withdraw status). */
+router.get("/my/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = getAuthedUserId(req);
+    if (!userId) {
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+    const txId = parseInt(String(req.params.id), 10);
+    if (isNaN(txId)) {
+      res.status(400).json({ error: "Invalid transaction ID" });
+      return;
+    }
+    const [row] = await db
+      .select({
+        id: transactionsTable.id,
+        txType: transactionsTable.txType,
+        amount: transactionsTable.amount,
+        status: transactionsTable.status,
+        note: transactionsTable.note,
+        screenshotUrl: transactionsTable.screenshotUrl,
+        createdAt: transactionsTable.createdAt,
+      })
+      .from(transactionsTable)
+      .where(and(eq(transactionsTable.id, txId), eq(transactionsTable.userId, userId)))
+      .limit(1);
+    if (!row) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.json({
+      id: row.id,
+      txType: row.txType,
+      amount: parseFloat(String(row.amount)),
+      status: row.status,
+      note: row.note,
+      screenshotUrl: row.screenshotUrl ?? null,
+      createdAt: row.createdAt,
+    });
+  } catch (err) {
+    logger.error({ err }, "GET /transactions/my/:id failed");
+    res.status(500).json({ error: "Failed to load transaction" });
+  }
+});
+
 router.post("/deposit", uploadScreenshot, async (req: Request, res: Response) => {
   try {
     const userId = getAuthedUserId(req);

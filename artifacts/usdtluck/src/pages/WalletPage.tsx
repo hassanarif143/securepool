@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useGetUserTransactions, getGetUserTransactionsQueryKey, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiUrl, apiAssetUrl, readApiErrorMessage } from "@/lib/api-base";
-import { DepositStepFlow } from "@/components/DepositStepFlow";
+import { DepositWizard } from "@/components/payments/DepositWizard";
+import { WithdrawalTracker } from "@/components/payments/WithdrawalTracker";
 import { TransactionStatusBadge } from "@/components/TransactionStatusBadge";
 import { TrustStrip } from "@/components/TrustStrip";
 import { Button } from "@/components/ui/button";
@@ -129,15 +130,10 @@ export default function WalletPage() {
   const [withdrawWallet, setWithdrawWallet] = useState(user?.cryptoAddress ?? "");
   const [withdrawPin, setWithdrawPin] = useState("");
   const [confirmEmail, setConfirmEmail] = useState(user?.email ?? "");
-  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
-  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
-  const [depositLoading, setDepositLoading] = useState(false);
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [withdrawConfirmOpen, setWithdrawConfirmOpen] = useState(false);
   const [hasWithdrawPin, setHasWithdrawPin] = useState(false);
   const [withdrawPinStatusLoading, setWithdrawPinStatusLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: transactions = [], isLoading: txsLoading } = useGetUserTransactions(user?.id ?? 0, {
     query: { enabled: !!user?.id, queryKey: getGetUserTransactionsQueryKey(user?.id ?? 0) },
@@ -223,48 +219,17 @@ export default function WalletPage() {
 
   const filteredTx = txArr.filter(matchesFilter);
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setScreenshotFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => setScreenshotPreview(ev.target?.result as string);
-    reader.readAsDataURL(file);
-  }
+  const rejectedDeposit = useMemo(() => {
+    const rej = txArr.filter((t: any) => t.txType === "deposit" && t.status === "rejected");
+    if (rej.length === 0) return null;
+    rej.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return rej[0] as { id: number; note?: string | null };
+  }, [txArr]);
 
-  async function handleDeposit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!currentUser.cryptoAddress) {
-      appToast.error({
-        title: "Wallet address required",
-        description: "Please add your TRC20 wallet address in Profile before deposit.",
-      });
-      return;
-    }
-    const val = parseFloat(amount);
-    if (!val || val <= 0) { appToast.error({ title: "Invalid amount" }); return; }
-    if (!screenshotFile) { appToast.error({ title: "Please upload your payment screenshot" }); return; }
-
-    setDepositLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append("amount", String(val));
-      formData.append("screenshot", screenshotFile);
-      if (note) formData.append("note", note);
-
-      const res = await fetch(apiUrl("/api/transactions/deposit"), { method: "POST", credentials: "include", body: formData });
-      if (!res.ok) throw new Error(await readApiErrorMessage(res));
-
-      setAmount(""); setNote(""); setScreenshotFile(null); setScreenshotPreview(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      queryClient.invalidateQueries({ queryKey: getGetUserTransactionsQueryKey(currentUser.id) });
-      appToast.success({ title: "Deposit submitted", description: "Your payment is under review. You'll be notified once it's approved." });
-    } catch (err: any) {
-      appToast.error({ title: "Deposit failed", description: err.message });
-    } finally {
-      setDepositLoading(false);
-    }
-  }
+  const onDepositFlowComplete = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: getGetUserTransactionsQueryKey(currentUser.id) });
+    queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+  }, [queryClient, currentUser.id]);
 
   function openWithdrawConfirm(e: React.FormEvent) {
     e.preventDefault();
@@ -358,13 +323,6 @@ export default function WalletPage() {
     } finally {
       setWithdrawLoading(false);
     }
-  }
-
-  function copyAddress() {
-    navigator.clipboard.writeText(PLATFORM_ADDRESS);
-    setCopied(true);
-    appToast.success({ title: "Address copied" });
-    setTimeout(() => setCopied(false), 2000);
   }
 
   /* ── Tab nav ── */
@@ -497,154 +455,43 @@ export default function WalletPage() {
           ))}
         </div>
 
-        {/* ── DEPOSIT TAB ── */}
+        {/* ── DEPOSIT TAB — guided wizard ── */}
         {tab === "deposit" && (
           <div className="p-5 space-y-5">
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/15 px-4 py-3">
+              <p className="text-sm font-semibold text-foreground">Add money to your wallet</p>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                Har step ek-ek kar ke — USDT bhejna, screenshot, aur verification. Roman Urdu + English dono.
+              </p>
+            </div>
             {!currentUser.cryptoAddress && (
               <div className="flex items-start gap-3 p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/8">
                 <span className="text-yellow-400 shrink-0 mt-0.5">⚠</span>
                 <p className="text-sm text-yellow-300">
-                  Before deposit, add your TRC20 wallet address in{" "}
-                  <Link href="/profile" className="font-semibold underline">
+                  Pehle Profile mein apna TRC20 wallet address add karein — yeh aapki payout ke liye zaroori hai.
+                  <Link href="/profile" className="font-semibold underline ml-1">
                     Profile
                   </Link>
-                  . This is required for security and payout verification.
                 </p>
               </div>
             )}
-
-            {/* Pending deposit banner */}
-            {pendingDeposit && (
-              <div className="flex items-start gap-3 p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/8">
-                <span className="text-yellow-400 text-lg shrink-0 mt-0.5">⏳</span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-sm text-yellow-300">Deposit Under Review</p>
-                  <p className="text-xs text-yellow-400/80 mt-0.5">
-                    Your deposit of{" "}
-                    <span className="font-bold">
-                      <UsdtAmount amount={parseFloat(pendingDeposit.amount)} amountClassName="font-bold text-yellow-200" currencyClassName="text-[10px] text-[#64748b]" />
-                    </span>{" "}
-                    is being verified by our admin team.
-                    You'll receive a notification once it's approved.
-                  </p>
-                  <p className="text-[10px] text-yellow-500/60 mt-1">Submitted {timeAgo(pendingDeposit.createdAt)}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Network warning */}
-            <div className="flex items-start gap-3 rounded-xl border border-red-500/25 bg-red-500/[0.08] p-4 ring-1 ring-red-500/10">
-              <span className="mt-0.5 shrink-0 text-red-400">⚠</span>
-              <div>
-                <p className="text-sm font-bold text-red-300">Send only USDT on {NETWORK}</p>
-                <p className="mt-0.5 text-xs text-red-400/85">
-                  Sending on the wrong network will result in permanent loss of funds. We cannot recover it.
-                </p>
-              </div>
-            </div>
-
-            <DepositStepFlow
+            <DepositWizard
               platformAddress={PLATFORM_ADDRESS}
-              network={NETWORK}
-              minDeposit="1 USDT"
-              copied={copied}
-              onCopy={copyAddress}
-            />
-
-            {/* Form */}
-            <form onSubmit={handleDeposit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="deposit-amount" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Amount sent (USDT)
-                </Label>
-                <Input
-                  id="deposit-amount"
-                  type="number"
-                  min="1"
-                  step="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="e.g. 50"
-                  required
-                  disabled={!!pendingDeposit}
-                  className="border-border/90 bg-muted/25 font-semibold tabular-nums disabled:opacity-40"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Payment screenshot <span className="text-destructive">*</span>
-                </Label>
-                <div
-                  className="cursor-pointer rounded-xl border-2 border-dashed border-border/90 bg-muted/20 p-5 text-center transition-colors duration-200 hover:border-primary/35 hover:bg-muted/30"
-                  onClick={() => !pendingDeposit && fileInputRef.current?.click()}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      if (!pendingDeposit) fileInputRef.current?.click();
+              networkLabel={NETWORK}
+              hasCryptoAddress={!!currentUser.cryptoAddress}
+              pendingDeposit={
+                pendingDeposit
+                  ? {
+                      id: pendingDeposit.id,
+                      amount: String(pendingDeposit.amount),
+                      createdAt: pendingDeposit.createdAt,
+                      status: pendingDeposit.status,
                     }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Upload payment screenshot"
-                >
-                  {screenshotPreview ? (
-                    <div className="space-y-2">
-                      <img src={screenshotPreview} alt="Preview" className="max-h-40 mx-auto rounded object-contain" />
-                      <p className="text-xs text-muted-foreground">{screenshotFile?.name}</p>
-                      {!pendingDeposit && (
-                        <button type="button" onClick={(e) => { e.stopPropagation(); setScreenshotFile(null); setScreenshotPreview(null); }}
-                          className="text-xs text-red-400 hover:underline">Remove</button>
-                      )}
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="text-3xl mb-2 opacity-30">📷</p>
-                      <p className="text-sm font-medium">Click to upload screenshot</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">JPG, PNG up to 10MB</p>
-                    </div>
-                  )}
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  required={!screenshotFile}
-                  disabled={!!pendingDeposit || !currentUser.cryptoAddress}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="deposit-note" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Transaction ID / note <span className="font-normal opacity-50">(optional)</span>
-                </Label>
-                <Input
-                  id="deposit-note"
-                  type="text"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="e.g. abc123def (helps us verify faster)"
-                  disabled={!!pendingDeposit}
-                  className="border-border/90 bg-muted/25 disabled:opacity-40"
-                />
-              </div>
-
-              {pendingDeposit ? (
-                <div className="w-full rounded-xl border border-yellow-500/35 bg-yellow-500/[0.08] py-3.5 text-center text-sm font-semibold text-yellow-300">
-                  Awaiting verification — please wait
-                </div>
-              ) : (
-                <Button
-                  type="submit"
-                  disabled={depositLoading || !currentUser.cryptoAddress}
-                  className="min-h-12 w-full font-semibold shadow-lg shadow-primary/25 transition-transform duration-200 active:scale-[0.99]"
-                >
-                  {depositLoading ? "Submitting…" : !currentUser.cryptoAddress ? "Add wallet in profile first" : "Submit deposit request"}
-                </Button>
-              )}
-            </form>
+                  : null
+              }
+              rejectedDeposit={rejectedDeposit}
+              onFlowComplete={onDepositFlowComplete}
+            />
           </div>
         )}
 
@@ -677,6 +524,8 @@ export default function WalletPage() {
             )}
 
             <BlockchainFeeWarningBox />
+
+            <WithdrawalTracker transactions={txArr as any} />
 
             {/* Info box */}
             <div className="p-4 rounded-lg border border-[hsl(217,28%,20%)]" style={{ background: "hsl(217,28%,10%)" }}>

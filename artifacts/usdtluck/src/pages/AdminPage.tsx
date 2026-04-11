@@ -62,6 +62,7 @@ import {
 } from "@/components/ui/select";
 import { PoolFactoryDashboard } from "@/components/admin/PoolFactoryDashboard";
 import { ShareAnalyticsStrip } from "@/components/admin/ShareAnalyticsStrip";
+import { DEPOSIT_REJECTION_OPTIONS } from "@/lib/payment-rejection-reasons";
 
 function parseSuperAdminIds(): number[] {
   const raw = import.meta.env.VITE_SUPER_ADMIN_IDS as string | undefined;
@@ -3546,6 +3547,9 @@ function PendingTransactionsTab() {
   const [pendingTxs, setPendingTxs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<number | null>(null);
+  const [rejectDialogTx, setRejectDialogTx] = useState<any>(null);
+  const [rejectKey, setRejectKey] = useState<string>("unclear_screenshot");
+  const [rejectCustom, setRejectCustom] = useState("");
   const { toast } = useToast();
 
   async function loadPending() {
@@ -3584,6 +3588,12 @@ function PendingTransactionsTab() {
   }
 
   async function handleAction(tx: any, action: "approve" | "reject") {
+    if (action === "reject") {
+      setRejectDialogTx(tx);
+      setRejectKey("unclear_screenshot");
+      setRejectCustom("");
+      return;
+    }
     setActing(tx.id);
     try {
       const res = await fetch(apiUrl(`/api/admin/transactions/${tx.id}/${action}`), {
@@ -3591,18 +3601,43 @@ function PendingTransactionsTab() {
         credentials: "include",
       });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
-      if (action === "approve") {
-        if (tx.txType === "withdraw") {
-          toast({ title: "Withdrawal approved ✓", description: "Now under review — mark complete when paid out." });
-        } else {
-          toast({ title: "Deposit approved ✓", description: "Wallet balance has been updated." });
-        }
+      if (tx.txType === "withdraw") {
+        toast({ title: "Withdrawal approved ✓", description: "Now under review — mark complete when paid out." });
       } else {
-        toast({ title: "Rejected", description: "Transaction rejected." });
+        toast({ title: "Deposit approved ✓", description: "Wallet balance has been updated." });
       }
       loadPending();
     } catch (e: any) {
       toast({ title: "Action failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setActing(null);
+    }
+  }
+
+  async function confirmReject() {
+    const tx = rejectDialogTx;
+    if (!tx) return;
+    setActing(tx.id);
+    try {
+      const body: Record<string, string> = {};
+      if (tx.txType === "deposit") {
+        body.reasonKey = rejectKey;
+        if (rejectKey === "other" || rejectCustom.trim()) body.reason = rejectCustom.trim();
+      } else if (rejectCustom.trim()) {
+        body.reason = rejectCustom.trim();
+      }
+      const res = await fetch(apiUrl(`/api/admin/transactions/${tx.id}/reject`), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      toast({ title: "Rejected", description: "User will see a clear message in-app." });
+      setRejectDialogTx(null);
+      loadPending();
+    } catch (e: any) {
+      toast({ title: "Reject failed", description: e?.message, variant: "destructive" });
     } finally {
       setActing(null);
     }
@@ -3616,6 +3651,48 @@ function PendingTransactionsTab() {
         <h2 className="font-semibold">Pending Deposits & Withdrawals</h2>
         <Button size="sm" variant="outline" onClick={loadPending}>Refresh</Button>
       </div>
+      <Dialog open={rejectDialogTx != null} onOpenChange={(o) => !o && setRejectDialogTx(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject transaction #{rejectDialogTx?.id}</DialogTitle>
+            <DialogDescription>
+              {rejectDialogTx?.txType === "deposit"
+                ? "Pick a reason — user ko friendly message jayega."
+                : "Optional note for the user (withdrawal)."}
+            </DialogDescription>
+          </DialogHeader>
+          {rejectDialogTx?.txType === "deposit" ? (
+            <div className="space-y-2">
+              <Label>Reason</Label>
+              <Select value={rejectKey} onValueChange={setRejectKey}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DEPOSIT_REJECTION_OPTIONS.map((o) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.adminLabel}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+          <div className="space-y-2">
+            <Label>{rejectDialogTx?.txType === "deposit" && rejectKey === "other" ? "Details (required for Other)" : "Extra note (optional)"}</Label>
+            <Textarea value={rejectCustom} onChange={(e) => setRejectCustom(e.target.value)} rows={3} placeholder="Additional context…" />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={() => setRejectDialogTx(null)}>
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" onClick={() => void confirmReject()} disabled={acting === rejectDialogTx?.id}>
+              Confirm reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {pendingTxs.length === 0 ? (
         <p className="text-muted-foreground text-center py-8">No pending requests</p>
       ) : pendingTxs.map((tx) => (

@@ -1934,9 +1934,22 @@ router.post("/transactions/:id/reject", async (req, res) => {
   if (!tx) { res.status(404).json({ error: "Transaction not found" }); return; }
   if (tx.status !== "pending" && tx.status !== "under_review") { res.status(400).json({ error: "Transaction is not pending/under_review" }); return; }
 
-  const reason = typeof req.body?.reason === "string" ? sanitizeText(req.body.reason, 200) : "";
+  const reasonLegacy = typeof req.body?.reason === "string" ? sanitizeText(req.body.reason, 500) : "";
+  const reasonKeyRaw = typeof req.body?.reasonKey === "string" ? req.body.reasonKey.trim() : "";
+  const { formatRejectedNote, userNotifyBodyForReject, isDepositRejectionKey } = await import("../lib/payment-rejection-reasons");
 
-  await db.update(transactionsTable).set({ status: "rejected", note: reason ? `${tx.note ?? ""} [reject_reason:${reason}]`.trim() : tx.note }).where(eq(transactionsTable.id, txId));
+  let nextNote = tx.note;
+  let notifyBody = reasonLegacy;
+
+  if (tx.txType === "deposit" && reasonKeyRaw && isDepositRejectionKey(reasonKeyRaw)) {
+    nextNote = formatRejectedNote(tx.note, reasonKeyRaw, reasonLegacy);
+    notifyBody = userNotifyBodyForReject(reasonKeyRaw, reasonLegacy);
+  } else if (reasonLegacy) {
+    nextNote = `${tx.note ?? ""} [reject_reason:${reasonLegacy}]`.trim();
+    notifyBody = reasonLegacy;
+  }
+
+  await db.update(transactionsTable).set({ status: "rejected", note: nextNote ?? tx.note }).where(eq(transactionsTable.id, txId));
 
   if (tx.txType === "withdraw") {
     const [user] = await db
@@ -1972,16 +1985,16 @@ router.post("/transactions/:id/reject", async (req, res) => {
 
   /* Notify user */
   try {
-    const title = tx.txType === "deposit" ? "Deposit Rejected" : "Withdrawal Rejected";
+    const title = tx.txType === "deposit" ? "Deposit could not be verified" : "Withdrawal Rejected";
     const notifMsg =
       tx.txType === "deposit"
-      ? `Your deposit of ${tx.amount} USDT was rejected. Please check your screenshot and try again, or contact support.`
-        : `Your withdrawal of ${tx.amount} USDT was rejected. ${reason ? `Reason: ${reason}. ` : ""}Your balance has been refunded.`;
+        ? `${notifyBody} — Deposit #${txId}. You can submit a new deposit from Wallet.`
+        : `Your withdrawal of ${tx.amount} USDT was rejected. ${notifyBody ? `${notifyBody} ` : ""}Your balance has been refunded.`;
     await notifyUser(tx.userId, title, notifMsg, "error");
   } catch {}
 
   if (tx.txType === "withdraw" && txUser?.email) {
-    void sendWithdrawalStatusEmail(txUser.email, tx.amount, "rejected", reason || undefined);
+    void sendWithdrawalStatusEmail(txUser.email, tx.amount, "rejected", notifyBody || undefined);
   }
 
   res.json({ message: "Transaction rejected" });

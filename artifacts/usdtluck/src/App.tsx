@@ -34,6 +34,7 @@ import CashoutArenaPage from "@/pages/CashoutArenaPage";
 import ScratchCardPage from "@/pages/ScratchCardPage";
 import MySharesPage from "@/pages/MySharesPage";
 import RefRedirectPage from "@/pages/RefRedirectPage";
+import HowToBuyUsdtPage from "@/pages/HowToBuyUsdtPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -221,6 +222,7 @@ function Router() {
           </RequireAuth>
         </Route>
         <Route path="/ref/:code" component={RefRedirectPage} />
+        <Route path="/how-to-buy-usdt" component={HowToBuyUsdtPage} />
         <Route path="/how-it-works" component={HowItWorksPage} />
         <Route path="/provably-fair" component={ProvablyFairPage} />
         <Route component={NotFound} />
