@@ -21,6 +21,7 @@ import { UsdtAmount } from "@/components/UsdtAmount";
 import { RewardsSummaryCard } from "@/components/rewards/RewardsSummaryCard";
 import { LiveWinnerTicker } from "@/components/winners/LiveWinnerTicker";
 import { useGameAvailability } from "@/lib/game-availability";
+import { premiumPanel, premiumPanelHead } from "@/lib/premium-panel";
 
 function greeting() {
   const h = new Date().getHours();
@@ -106,11 +107,6 @@ function rowTxMetaForDashboard(tx: { txType: string; note?: string | null }) {
   return txMeta(tx.txType);
 }
 
-const box =
-  "border border-[hsl(217,28%,18%)] bg-[hsl(222,30%,9%)] rounded-2xl shadow-lg shadow-black/25 ring-1 ring-white/[0.03]";
-const panelHead =
-  "flex flex-wrap items-center justify-between gap-2 px-4 py-3.5 border-b border-[hsl(217,28%,16%)] sm:px-5 bg-gradient-to-r from-[hsl(222,30%,11%)] to-[hsl(222,30%,10%)]";
-
 export default function DashboardPage() {
   const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
@@ -185,7 +181,8 @@ export default function DashboardPage() {
   const lockedEstimated = Math.max(0, Number(user.walletBalance ?? 0) - Number(user.withdrawableBalance ?? 0) - rewardsUsdt);
 
   return (
-    <div className="space-y-8 sm:space-y-10 pb-12 max-w-6xl mx-auto">
+    <div className="sp-ambient-bg relative min-h-[50vh] w-full">
+      <div className="mx-auto max-w-6xl space-y-8 px-4 pb-12 sm:space-y-10 sm:px-6">
       {poolsError && (
         <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <p className="text-sm text-destructive-foreground">Something went wrong loading pools. Try again.</p>
@@ -252,13 +249,14 @@ export default function DashboardPage() {
       ) : null}
 
       {/* Page intro */}
-      <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-br from-[hsl(222,30%,10%)] via-[hsl(222,30%,9%)] to-[hsl(224,30%,8%)] px-5 py-5 sm:px-6 sm:py-6 shadow-lg shadow-black/20 ring-1 ring-white/[0.04]">
-        <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-primary/5 blur-3xl pointer-events-none" aria-hidden />
+      <div className="relative overflow-hidden rounded-2xl border border-[rgba(0,229,204,0.14)] bg-gradient-to-br from-[rgba(0,229,204,0.07)] via-[rgba(8,11,20,0.92)] to-[rgba(6,8,15,0.98)] px-5 py-5 shadow-[0_16px_48px_rgba(0,0,0,0.28)] ring-1 ring-white/[0.06] sm:px-6 sm:py-6">
+        <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-[#00E5CC]/35 to-transparent" aria-hidden />
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#00E5CC]/[0.09] blur-3xl" aria-hidden />
         <div className="relative flex flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-1.5">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90">Overview</p>
-              <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#00E5CC]/90">Overview</p>
+              <h1 className="font-sp-display text-2xl font-bold tracking-tight text-sp-text sm:text-3xl">Dashboard</h1>
               <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
                 {greeting()}, {firstName}. Your balance, pools, and wallet activity in one place.
               </p>
@@ -282,7 +280,11 @@ export default function DashboardPage() {
               </Link>
             </Button>
             {!gamesLoading && miniGamesEnabled && (
-              <Button variant="outline" className="min-h-12 w-full border-border/90 font-medium sm:w-auto sm:min-w-[10rem]" asChild>
+              <Button
+                variant="outline"
+                className="min-h-12 w-full border-[rgba(0,229,204,0.25)] bg-[rgba(0,229,204,0.06)] font-medium text-[#00E5CC] hover:bg-[rgba(0,229,204,0.1)] sm:w-auto sm:min-w-[10rem]"
+                asChild
+              >
                 <Link href="/games">Play Games</Link>
               </Button>
             )}
@@ -296,8 +298,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-primary/20 bg-primary/[0.05] p-4 sm:p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary/90">Wallet Snapshot</p>
+      <div className="rounded-2xl border border-[rgba(0,229,204,0.12)] bg-[rgba(0,229,204,0.04)] p-4 shadow-inner ring-1 ring-white/[0.04] sm:p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#00E5CC]/90">Wallet Snapshot</p>
         <p className="text-xs text-muted-foreground mt-1">Simple balance view for non-technical users.</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3">
@@ -347,21 +349,39 @@ export default function DashboardPage() {
       <LiveWinnerTicker />
       <LivePoolWatcher />
       {!gamesLoading && anyGameEnabled && (
-        <div className={`${box} p-4 sm:p-5 space-y-3`}>
-          <div className="flex items-center justify-between gap-3">
+        <div className={`${premiumPanel} p-4 sm:p-5 space-y-4`}>
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90 mb-1">Games</p>
-              <h2 className="font-display text-lg sm:text-xl font-bold tracking-tight">Play and win</h2>
-              <p className="text-xs text-muted-foreground mt-1">Fast rounds with transparent wallet updates.</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#00E5CC]/90">Arcade</p>
+              <h2 className="font-sp-display text-lg font-bold tracking-tight text-sp-text sm:text-xl">Play and win</h2>
+              <p className="mt-1 text-xs text-muted-foreground">Full-screen games with the same provably fair engine as the hub.</p>
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-1">
             {miniGamesEnabled && (
-              <Link href="/games" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors sm:col-span-2">
-                <p className="text-sm font-semibold">Mini Games</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Spin wheel, mystery boxes, and scratch cards — outcomes decided on the server.
-                </p>
+              <Link
+                href="/games"
+                className="group relative block overflow-hidden rounded-xl border border-[rgba(0,229,204,0.18)] bg-gradient-to-br from-[rgba(0,229,204,0.1)] to-[rgba(139,92,246,0.05)] p-4 transition-all hover:border-[rgba(0,229,204,0.35)] hover:shadow-[0_12px_40px_rgba(0,229,204,0.12)]"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(0,229,204,0.15)] ring-1 ring-[rgba(0,229,204,0.28)]">
+                      <span className="text-xl" aria-hidden>
+                        🎮
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-sp-display text-base font-bold text-foreground">SecurePool Arcade</p>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                        Spin wheel, mystery boxes & scratch cards — tap to open the arcade.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-[#00E5CC] px-3 py-1.5 text-xs font-bold text-[#06080F] transition group-hover:brightness-110">
+                    Open
+                    <ArrowRight className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                  </span>
+                </div>
               </Link>
             )}
           </div>
@@ -378,8 +398,8 @@ export default function DashboardPage() {
 
       {/* PRIMARY: Balance + actions + quick numbers */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className={`md:col-span-2 ${box} overflow-hidden`}>
-          <div className={panelHead}>
+        <div className={`md:col-span-2 ${premiumPanel} overflow-hidden`}>
+          <div className={premiumPanelHead}>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Wallet balance</p>
             </div>
@@ -393,11 +413,8 @@ export default function DashboardPage() {
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300">Live wallet</span>
                 </div>
-                <p
-                  className="font-display text-4xl sm:text-5xl lg:text-[3.25rem] font-extrabold tabular-nums tracking-tight"
-                  style={{ color: "hsl(152,72%,56%)" }}
-                >
-                  <UsdtAmount amount={animBalance} amountClassName="font-display text-4xl sm:text-5xl lg:text-[3.25rem] font-extrabold tabular-nums tracking-tight text-emerald-400" />
+                <p className="text-4xl sm:text-5xl lg:text-[3.25rem] font-extrabold tabular-nums tracking-tight text-emerald-400">
+                  <UsdtAmount amount={animBalance} amountClassName="font-sp-mono text-4xl sm:text-5xl lg:text-[3.25rem] font-extrabold tabular-nums tracking-tight text-emerald-400" />
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Available in-app balance for pool entries and wallet actions.
@@ -471,7 +488,7 @@ export default function DashboardPage() {
           ].map((s) => (
             <Link key={s.label} href={s.href}>
               <div
-                className={`${box} px-4 py-4 flex items-center justify-between h-full min-h-[4.5rem] cursor-pointer transition-all hover:border-primary/25 hover:bg-white/[0.02] group`}
+                className={`${premiumPanel} px-4 py-4 flex items-center justify-between h-full min-h-[4.5rem] cursor-pointer transition-all hover:border-primary/25 hover:bg-white/[0.02] group`}
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="text-2xl shrink-0 opacity-90" aria-hidden>
@@ -480,7 +497,7 @@ export default function DashboardPage() {
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{s.label}</p>
                     <p className="text-xs text-muted-foreground/80 mt-0.5">{s.sub}</p>
-                    <p className={`font-display text-2xl font-bold tabular-nums mt-0.5 ${s.accent ? "text-emerald-400" : "text-foreground"}`}>
+                    <p className={`font-sp-mono text-2xl font-bold tabular-nums mt-0.5 ${s.accent ? "text-emerald-400" : "text-foreground"}`}>
                       {s.value}
                     </p>
                   </div>
@@ -494,10 +511,10 @@ export default function DashboardPage() {
 
       {/* Pools + activity — main content */}
       <div className="grid gap-4 lg:grid-cols-5">
-        <div className={`lg:col-span-3 ${box} overflow-hidden`}>
-          <div className={panelHead}>
+        <div className={`lg:col-span-3 ${premiumPanel} overflow-hidden`}>
+          <div className={premiumPanelHead}>
             <div className="flex items-center gap-2">
-              <h2 className="font-display text-sm sm:text-base font-semibold">Open pools</h2>
+              <h2 className="font-sp-display text-sm sm:text-base font-semibold">Open pools</h2>
               {activePools.length > 0 && (
                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
                   {activePools.length} open
@@ -547,7 +564,7 @@ export default function DashboardPage() {
                     <div className="p-4 sm:p-5">
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div>
-                          <p className="font-display font-semibold text-sm sm:text-base leading-snug">{pool.title}</p>
+                          <p className="font-sp-display font-semibold text-sm sm:text-base leading-snug">{pool.title}</p>
                           <p className="text-[11px] text-muted-foreground mt-1">
                             <span className="text-emerald-400 font-medium">Live</span>
                             {hoursLeft > 0 ? ` · ${hoursLeft}h left` : " · Closing soon"}
@@ -605,9 +622,9 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className={`lg:col-span-2 ${box} overflow-hidden flex flex-col min-h-[280px]`}>
-          <div className={panelHead}>
-            <h2 className="font-display text-sm sm:text-base font-semibold">Wallet activity</h2>
+        <div className={`lg:col-span-2 ${premiumPanel} overflow-hidden flex flex-col min-h-[280px]`}>
+          <div className={premiumPanelHead}>
+            <h2 className="font-sp-display text-sm sm:text-base font-semibold">Wallet activity</h2>
             <Link href="/wallet" className="text-xs font-medium text-primary hover:underline">
               Full history
             </Link>
@@ -670,10 +687,10 @@ export default function DashboardPage() {
       </div>
 
       {activeJoined.length > 0 && (
-        <div id="active-entries" className={`${box} overflow-hidden`}>
-          <div className={panelHead}>
+        <div id="active-entries" className={`${premiumPanel} overflow-hidden`}>
+          <div className={premiumPanelHead}>
             <div className="flex items-center gap-2">
-              <h2 className="font-display text-sm sm:text-base font-semibold">Your active entries</h2>
+              <h2 className="font-sp-display text-sm sm:text-base font-semibold">Your active entries</h2>
               <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/12 text-emerald-400 border border-emerald-500/20">
                 {activeJoined.length}
               </span>
@@ -717,11 +734,11 @@ export default function DashboardPage() {
       )}
 
       {/* Secondary: community — below the fold */}
-      <div className={`${box} p-4 sm:p-5 space-y-4`}>
+      <div className={`${premiumPanel} p-4 sm:p-5 space-y-4`}>
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90 mb-1">Quick actions</p>
-            <h2 className="font-display text-lg sm:text-xl font-bold tracking-tight">What to do next</h2>
+            <h2 className="font-sp-display text-lg sm:text-xl font-bold tracking-tight">What to do next</h2>
             <p className="text-xs text-muted-foreground mt-1">Simple shortcuts to continue from your current progress.</p>
           </div>
           <Link href="/winners" className="text-xs font-medium text-primary hover:underline whitespace-nowrap">
@@ -755,11 +772,11 @@ export default function DashboardPage() {
         <ActivityFeed limit={12} />
       </div>
 
-      <div className={`${box} overflow-hidden`}>
-        <div className={panelHead}>
-          <h2 className="font-display text-sm sm:text-base font-semibold">How it works</h2>
+      <div className={`${premiumPanel} overflow-hidden`}>
+        <div className={premiumPanelHead}>
+          <h2 className="font-sp-display text-sm sm:text-base font-semibold">How it works</h2>
         </div>
-        <div className="grid divide-y divide-[hsl(217,28%,16%)] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        <div className="grid divide-y divide-white/[0.08] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           {[
             {
               title: "1. Add balance",
@@ -781,16 +798,17 @@ export default function DashboardPage() {
               <span className="text-lg" aria-hidden>
                 {s.icon}
               </span>
-              <p className="font-display font-semibold text-sm mb-1.5 mt-2">{s.title}</p>
+              <p className="font-sp-display font-semibold text-sm mb-1.5 mt-2">{s.title}</p>
               <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
             </div>
           ))}
         </div>
         <div className="px-4 pb-4 sm:px-5">
-          <p className="text-xs text-muted-foreground rounded-lg border border-[hsl(217,28%,19%)] px-3 py-2.5" style={{ background: "hsl(217,28%,11%)" }}>
+          <p className="rounded-lg border border-white/[0.08] bg-[rgba(6,8,15,0.6)] px-3 py-2.5 text-xs text-muted-foreground">
             <span className="font-medium text-foreground">Cancelled pools:</span> entry fees are refunded to your wallet. Everything is listed in your transaction history.
           </p>
         </div>
+      </div>
       </div>
     </div>
   );

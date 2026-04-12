@@ -19,6 +19,7 @@ import { ConfirmActionModal } from "@/components/feedback/ConfirmActionModal";
 import { appToast } from "@/components/feedback/AppToast";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import { cn } from "@/lib/utils";
+import { premiumPanel, premiumPanelHead } from "@/lib/premium-panel";
 
 /** USDT (TRC20) address users send deposits to — Deposit tab + copy button. */
 const PLATFORM_ADDRESS = "TBjGU8jfZvsfDVPpjJXVb47khVyKjQqjqp";
@@ -127,10 +128,6 @@ function BlockchainFeeWarningBox() {
     </div>
   );
 }
-
-const box =
-  "rounded-2xl border border-[hsl(217,28%,18%)] bg-[hsl(222,30%,9%)] shadow-xl shadow-black/25 ring-1 ring-white/[0.03]";
-const headerBar = "px-5 py-3 border-b border-[hsl(217,28%,16%)]";
 
 /* ══════════════════════════════════════════ */
 export default function WalletPage() {
@@ -387,7 +384,8 @@ export default function WalletPage() {
   const receiveAfterFee = Math.max(0, withdrawAmt - 1);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4 pb-10 md:pb-12">
+    <div className="sp-ambient-bg relative min-h-[50vh] w-full">
+      <div className="mx-auto max-w-2xl space-y-4 px-4 pb-10 sm:px-6 md:pb-12">
       {txsError && (
         <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <p className="text-sm text-destructive-foreground">Something went wrong loading transactions. Try again.</p>
@@ -398,11 +396,9 @@ export default function WalletPage() {
       )}
 
       {/* Balance hero — primary trust anchor */}
-      <div className={`${box} overflow-hidden`}>
-        <div
-          className={`${headerBar} flex flex-wrap items-center justify-between gap-2 bg-gradient-to-r from-[hsl(222,30%,11%)] to-[hsl(222,30%,9.5%)]`}
-        >
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Wallet</p>
+      <div className={`${premiumPanel} overflow-hidden`}>
+        <div className={cn(premiumPanelHead, "items-center")}>
+          <p className="font-sp-display text-[11px] font-semibold uppercase tracking-widest text-[#00E5CC]/85">Wallet</p>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/[0.08] px-2.5 py-1 text-[10px] font-medium text-emerald-300/95">
             <Shield className="h-3 w-3" aria-hidden />
             Reviewed deposits
@@ -413,7 +409,7 @@ export default function WalletPage() {
             <p className="text-[11px] font-bold uppercase tracking-widest text-primary/90">Total balance</p>
             <UsdtAmount
               amount={totalAnim}
-              amountClassName="font-display text-2xl sm:text-3xl font-bold tabular-nums text-foreground"
+              amountClassName="font-sp-mono text-2xl font-bold tabular-nums text-foreground sm:text-3xl"
             />
             <p className="text-[11px] text-muted-foreground mt-1">Everything in your SecurePool wallet (withdrawable + ticket balance + locked).</p>
           </div>
@@ -425,7 +421,7 @@ export default function WalletPage() {
                 <div className="mt-1 flex flex-wrap items-baseline gap-2">
                   <UsdtAmount
                     amount={withdrawableAnim}
-                    amountClassName="font-display text-4xl font-black tabular-nums tracking-tight text-emerald-300 sm:text-[2.85rem]"
+                    amountClassName="font-sp-mono text-4xl font-black tabular-nums tracking-tight text-emerald-300 sm:text-[2.85rem]"
                   />
                 </div>
                 <p className="mt-2 text-xs text-emerald-100/75 leading-relaxed max-w-md">
@@ -489,8 +485,8 @@ export default function WalletPage() {
         </div>
       </div>
 
-      <div className={`${box} overflow-hidden`}>
-        <div className={headerBar}>
+      <div className={`${premiumPanel} overflow-hidden`}>
+        <div className={premiumPanelHead}>
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Finance transparency</p>
         </div>
         <div className="px-5 py-4 space-y-3 text-xs text-muted-foreground">
@@ -502,8 +498,8 @@ export default function WalletPage() {
       </div>
 
       {/* Tab bar */}
-      <div className={`${box} overflow-hidden`}>
-        <div className="flex border-b border-[hsl(217,28%,16%)]">
+      <div className={`${premiumPanel} overflow-hidden`}>
+        <div className="flex border-b border-white/[0.08]">
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -862,7 +858,7 @@ export default function WalletPage() {
                 <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-border/80 bg-card text-muted-foreground">
                   <Inbox className="h-7 w-7" strokeWidth={1.5} aria-hidden />
                 </span>
-                <p className="font-display text-sm font-semibold text-foreground">No transactions yet</p>
+                <p className="font-sp-display text-sm font-semibold text-foreground">No transactions yet</p>
                 <p className="mt-1 max-w-sm text-xs text-muted-foreground leading-relaxed">
                   No transactions yet. Make your first deposit to get started!
                 </p>
@@ -923,14 +919,15 @@ export default function WalletPage() {
       </div>
 
       {/* Safety note */}
-      <div className={`${box} rounded-xl overflow-hidden`}>
+      <div className={`${premiumPanel} overflow-hidden`}>
         <div className="flex items-start gap-3 px-5 py-4">
-          <span className="text-sm shrink-0 mt-0.5">🛡</span>
+          <span className="mt-0.5 shrink-0 text-sm">🛡</span>
           <p className="text-xs text-muted-foreground leading-relaxed">
             <span className="font-semibold text-foreground">All transactions are logged and audited.</span>{" "}
             Deposit approval typically takes 1–6 hours. If you have questions about a deposit, contact support with your transaction ID.
           </p>
         </div>
+      </div>
       </div>
     </div>
   );
