@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { X, Sparkles, Package, Ticket, TrendingUp } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
@@ -58,14 +58,13 @@ const TAB_BY_GAME: Record<Exclude<ModalGame, null>, string> = {
 export default function GamesPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const [loc, navigate] = useLocation();
+  const [, navigate] = useLocation();
+  const search = useSearch();
   const [modal, setModal] = useState<ModalGame>(null);
   const [streakDays, setStreakDays] = useState(0);
 
-  const tabParam = useMemo(() => {
-    const q = loc.includes("?") ? loc.split("?")[1] ?? "" : "";
-    return new URLSearchParams(q).get("tab");
-  }, [loc]);
+  /** Wouter's `useLocation()[0]` is pathname-only; query must come from `useSearch()`. */
+  const tabParam = useMemo(() => new URLSearchParams(search).get("tab"), [search]);
 
   useEffect(() => {
     setStreakDays(readStreak().days);
@@ -93,7 +92,12 @@ export default function GamesPage() {
   const balanceRaw = user?.withdrawableBalance ?? 0;
   const balanceAnim = useAnimatedNumber(balanceRaw, 500);
 
-  const { data: gameState, isLoading: stateLoading } = useQuery({
+  const {
+    data: gameState,
+    isLoading: stateLoading,
+    isError: stateError,
+    error: stateQueryError,
+  } = useQuery({
     queryKey: ["games-state"],
     queryFn: fetchGamesState,
     staleTime: 60_000,
@@ -167,6 +171,21 @@ export default function GamesPage() {
 
         {stateLoading ? (
           <p className="text-center text-sp-text-dim py-16">Loading arcade…</p>
+        ) : stateError ? (
+          <div className="rounded-3xl border border-destructive/30 bg-destructive/10 p-8 text-center space-y-3 max-w-xl mx-auto">
+            <h2 className="font-sp-display text-xl font-bold text-sp-text">Could not load games</h2>
+            <p className="text-sm text-sp-text-dim">
+              {stateQueryError instanceof Error ? stateQueryError.message : "Check your connection and try again."}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-white/15"
+              onClick={() => void qc.invalidateQueries({ queryKey: ["games-state"] })}
+            >
+              Retry
+            </Button>
+          </div>
         ) : !playAllowed ? (
           <div className="rounded-3xl border border-amber-500/25 bg-gradient-to-br from-amber-950/40 to-sp-deep p-8 text-center space-y-4 max-w-xl mx-auto">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-200/90">Premium arcade</p>
@@ -319,7 +338,7 @@ export default function GamesPage() {
                       w.payout >= 10 ? "text-[#FFD700]" : "text-sp-text-dim",
                     )}
                   >
-                    <span className="truncate text-sp-text/90">{formatPlayerWinLine(w.userLabel, w.gameType, w.payout)}</span>
+                    <span className="truncate text-sp-text opacity-90">{formatPlayerWinLine(w.userLabel, w.gameType, w.payout)}</span>
                     <span className="shrink-0 font-sp-mono text-xs text-sp-text-dim">{timeAgo(w.createdAt)}</span>
                   </li>
                 ))}
@@ -339,6 +358,9 @@ export default function GamesPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="game-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeModal();
+          }}
         >
           <div className="relative w-full max-w-[420px] rounded-3xl border border-sp-border bg-gradient-to-b from-sp-card to-[rgba(6,8,15,0.98)] p-6 sm:p-7 shadow-2xl">
             <button

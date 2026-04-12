@@ -12,6 +12,8 @@ export type ScratchCardProps = {
 export default function ScratchCard({ balance, allowedBets, onBalanceUpdate, onPlayComplete }: ScratchCardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const resultRef = useRef<ArcadePlaySuccess | null>(null);
+  /** Sync lock — `betDeducted` state updates async; without this, rapid strokes can call `arcadePlay` twice. */
+  const roundLockRef = useRef(false);
   const [currentBet, setCurrentBet] = useState(allowedBets[0] ?? 1);
   const [betDeducted, setBetDeducted] = useState(false);
   const [revealed, setRevealed] = useState(false);
@@ -61,6 +63,7 @@ export default function ScratchCard({ balance, allowedBets, onBalanceUpdate, onP
     ctx.fillText("SCRATCH HERE", canvas.width / 2, canvas.height / 2 + 6);
 
     canvas.style.display = "block";
+    roundLockRef.current = false;
     setBetDeducted(false);
     setRevealed(false);
     setProgress(0);
@@ -80,16 +83,18 @@ export default function ScratchCard({ balance, allowedBets, onBalanceUpdate, onP
       const ctx = canvas?.getContext("2d");
       if (!canvas || !ctx) return;
 
-      if (!betDeducted) {
+      if (!betDeducted && !roundLockRef.current) {
         if (balance < currentBet) {
           window.alert("Insufficient balance!");
           return;
         }
+        roundLockRef.current = true;
         setBetDeducted(true);
         setPendingApi(true);
         const response = await arcadePlay("scratch_card", currentBet);
         setPendingApi(false);
         if (!response.success) {
+          roundLockRef.current = false;
           setBetDeducted(false);
           window.alert(response.error || "Something went wrong");
           return;
