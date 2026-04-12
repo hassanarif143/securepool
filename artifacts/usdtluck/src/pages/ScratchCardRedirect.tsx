@@ -5,7 +5,7 @@ import { useLocation } from "wouter";
 export default function ScratchCardRedirect() {
   const [, navigate] = useLocation();
   useEffect(() => {
-    navigate("/games?tab=scratch", { replace: true });
+    navigate("/games/scratch-card", { replace: true });
   }, [navigate]);
   return null;
 }

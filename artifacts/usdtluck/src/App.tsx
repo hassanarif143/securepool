@@ -33,6 +33,7 @@ import P2PTradingPage from "@/pages/P2PTradingPage";
 import CashoutArenaRedirect from "@/pages/CashoutArenaRedirect";
 import ScratchCardRedirect from "@/pages/ScratchCardRedirect";
 import GamesPage from "@/pages/GamesPage";
+import { SpinWheelGamePage, MysteryBoxGamePage, ScratchCardGamePage } from "@/pages/arcade-game-pages";
 import MySharesPage from "@/pages/MySharesPage";
 import RefRedirectPage from "@/pages/RefRedirectPage";
 import HowToBuyUsdtPage from "@/pages/HowToBuyUsdtPage";
@@ -205,6 +206,21 @@ function Router() {
         <Route path="/p2p">
           <RequireAuth>
             <P2PTradingPage />
+          </RequireAuth>
+        </Route>
+        <Route path="/games/spin-wheel">
+          <RequireAuth>
+            <SpinWheelGamePage />
+          </RequireAuth>
+        </Route>
+        <Route path="/games/mystery-box">
+          <RequireAuth>
+            <MysteryBoxGamePage />
+          </RequireAuth>
+        </Route>
+        <Route path="/games/scratch-card">
+          <RequireAuth>
+            <ScratchCardGamePage />
           </RequireAuth>
         </Route>
         <Route path="/games">

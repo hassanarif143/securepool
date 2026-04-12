@@ -2,7 +2,7 @@
 export const GAME_LABEL: Record<string, string> = {
   spin_wheel: "Spin Wheel",
   mystery_box: "Mystery Box",
-  scratch_card: "Scratch Card",
+  scratch_card: "Scratch & Win",
 };
 
 export function formatPlayerWinLine(userLabel: string, gameType: string, payout: number): string {

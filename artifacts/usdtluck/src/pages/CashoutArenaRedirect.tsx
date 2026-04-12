@@ -5,7 +5,7 @@ import { useLocation } from "wouter";
 export default function CashoutArenaRedirect() {
   const [, navigate] = useLocation();
   useEffect(() => {
-    navigate("/games?tab=spin", { replace: true });
+    navigate("/games/spin-wheel", { replace: true });
   }, [navigate]);
   return null;
 }

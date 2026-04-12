@@ -112,7 +112,7 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
   const conic = `conic-gradient(${SEGMENTS.map((s, i) => `${s.color} ${i * SEGMENT_ANGLE}deg ${(i + 1) * SEGMENT_ANGLE}deg`).join(", ")})`;
 
   return (
-    <div className="relative flex flex-col items-center">
+    <div className="relative flex min-h-[420px] flex-col items-center">
       <h2 className="font-sp-display text-[22px] font-bold text-sp-text">Spin Wheel</h2>
       <p className="mb-1 text-xs text-sp-text-dim">Spin to win up to 3× your bet</p>
 

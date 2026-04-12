@@ -111,7 +111,7 @@ export default function MysteryBox({ balance, allowedBets, onBalanceUpdate, onPl
   );
 
   return (
-    <div className="relative flex flex-col items-center">
+    <div className="relative flex min-h-[420px] flex-col items-center">
       <h2 className="font-sp-display text-[22px] font-bold text-sp-text">Mystery Box</h2>
       <p className="mb-1 text-xs text-sp-text-dim">One box hides a reward — choose wisely</p>
 
