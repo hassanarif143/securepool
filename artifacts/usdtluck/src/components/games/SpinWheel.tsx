@@ -11,15 +11,16 @@ export type SpinWheelProps = {
   onPlayComplete?: () => void;
 };
 
+/** Wedge fill vs label are separate — never use the same hex for both (was unreadable). */
 const SEGMENTS = [
-  { label: "0x", type: "loss" as const, color: "#FF4757" },
-  { label: "1.5x", type: "small_win" as const, color: "#00E5CC" },
-  { label: "0x", type: "loss" as const, color: "#FF4757" },
-  { label: "0x", type: "loss" as const, color: "#FF4757" },
-  { label: "3x", type: "big_win" as const, color: "#FFD700" },
-  { label: "0x", type: "loss" as const, color: "#FF4757" },
-  { label: "1.5x", type: "small_win" as const, color: "#00E5CC" },
-  { label: "0x", type: "loss" as const, color: "#FF4757" },
+  { label: "0×", type: "loss" as const, fill: "#9B1C2E", labelColor: "#FFFFFF" },
+  { label: "1.5×", type: "small_win" as const, fill: "#0D9488", labelColor: "#F0FDFA" },
+  { label: "0×", type: "loss" as const, fill: "#9B1C2E", labelColor: "#FFFFFF" },
+  { label: "0×", type: "loss" as const, fill: "#7F1D1D", labelColor: "#FECACA" },
+  { label: "3×", type: "big_win" as const, fill: "#B45309", labelColor: "#FFFBEB" },
+  { label: "0×", type: "loss" as const, fill: "#9B1C2E", labelColor: "#FFFFFF" },
+  { label: "1.5×", type: "small_win" as const, fill: "#0F766E", labelColor: "#ECFDF5" },
+  { label: "0×", type: "loss" as const, fill: "#7F1D1D", labelColor: "#FECACA" },
 ];
 
 const SEGMENT_ANGLE = 360 / 8;
@@ -109,12 +110,27 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
     }
   }, [spinning, balance, currentBet, gate, onBalanceUpdate, onPlayComplete]);
 
-  const conic = `conic-gradient(${SEGMENTS.map((s, i) => `${s.color} ${i * SEGMENT_ANGLE}deg ${(i + 1) * SEGMENT_ANGLE}deg`).join(", ")})`;
+  const conic = `conic-gradient(${SEGMENTS.map((s, i) => `${s.fill} ${i * SEGMENT_ANGLE}deg ${(i + 1) * SEGMENT_ANGLE}deg`).join(", ")})`;
 
   return (
     <div className="relative flex min-h-[420px] flex-col items-center">
       <h2 className="font-sp-display text-[22px] font-bold text-sp-text">Spin Wheel</h2>
       <p className="mb-1 text-xs text-sp-text-dim">Spin to win up to 3× your bet</p>
+
+      <div className="mb-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[10px] text-sp-text-dim">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-[#9B1C2E] ring-1 ring-white/20" aria-hidden />
+          No win (0×)
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-[#0D9488] ring-1 ring-white/20" aria-hidden />
+          Win 1.5×
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-[#B45309] ring-1 ring-white/20" aria-hidden />
+          Win 3×
+        </span>
+      </div>
 
       <div className="relative my-5 h-[280px] w-[280px]">
         <div
@@ -130,20 +146,29 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
           }}
         >
           <div className="absolute inset-0 rounded-full" style={{ background: conic }} />
-          {SEGMENTS.map((seg, i) => (
-            <div
-              key={i}
-              className="absolute left-1/2 top-1/2 w-1/2 origin-left"
-              style={{ transform: `rotate(${i * SEGMENT_ANGLE + SEGMENT_ANGLE / 2}deg)` }}
-            >
-              <span
-                className="absolute right-5 top-[-7px] whitespace-nowrap font-sp-mono text-[9px] font-bold"
-                style={{ color: seg.color }}
+          {SEGMENTS.map((seg, i) => {
+            const wedgeRotate = i * SEGMENT_ANGLE + SEGMENT_ANGLE / 2;
+            /* Bottom half of wheel: flip label so it reads upright on mobile */
+            const flip = i >= 4 ? 180 : 0;
+            return (
+              <div
+                key={i}
+                className="absolute left-1/2 top-1/2 w-1/2 origin-left"
+                style={{ transform: `rotate(${wedgeRotate}deg)` }}
               >
-                {seg.label}
-              </span>
-            </div>
-          ))}
+                <span
+                  className="absolute right-5 top-[-8px] whitespace-nowrap font-sp-mono text-[10px] font-extrabold tracking-tight"
+                  style={{
+                    color: seg.labelColor,
+                    transform: `rotate(${flip}deg)`,
+                    textShadow: "0 1px 2px rgba(0,0,0,0.75), 0 0 1px rgba(0,0,0,0.9)",
+                  }}
+                >
+                  {seg.label}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         <button
