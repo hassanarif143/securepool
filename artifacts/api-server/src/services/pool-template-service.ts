@@ -1,6 +1,7 @@
 import { db, poolsTable, poolTemplatesTable, pool as pgPool } from "@workspace/db";
-import { eq, and, inArray, sql, gte, asc } from "drizzle-orm";
+import { eq, and, inArray, sql, gte, asc, desc } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { logPoolLifecycle } from "./pool-lifecycle-log";
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -49,6 +50,24 @@ export async function createPoolFromTemplate(templateId: number, opts: { autoCre
     throw e;
   }
 
+  const cooldownH = Number(t.cooldownHours ?? 0);
+  if (cooldownH > 0) {
+    const [lastPool] = await db
+      .select({ createdAt: poolsTable.createdAt })
+      .from(poolsTable)
+      .where(eq(poolsTable.templateId, templateId))
+      .orderBy(desc(poolsTable.createdAt))
+      .limit(1);
+    if (lastPool?.createdAt) {
+      const hours = (Date.now() - new Date(lastPool.createdAt).getTime()) / 3_600_000;
+      if (hours < cooldownH) {
+        const e = new Error("TEMPLATE_COOLDOWN");
+        (e as { code?: string }).code = "TEMPLATE_COOLDOWN";
+        throw e;
+      }
+    }
+  }
+
   const dayStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
   const createdToday = await countPoolsCreatedSince(dayStart);
   if (createdToday >= MAX_DAILY_POOLS) {
@@ -69,7 +88,7 @@ export async function createPoolFromTemplate(templateId: number, opts: { autoCre
 
   const ticketPrice = parseFloat(String(t.ticketPrice));
   const totalTickets = t.totalTickets;
-  const wc = Math.min(3, Math.max(1, t.winnerCount));
+  const wc = Math.min(3, Math.max(1, Number(t.winnerCount ?? 3)));
   const dist = (t.prizeDistribution as Array<{ place: number; percentage: number }>) ?? [];
   const feePct = parseFloat(String(t.platformFeePct));
   const totalPoolAmount = round2(ticketPrice * totalTickets);
@@ -127,7 +146,16 @@ export async function createPoolFromTemplate(templateId: number, opts: { autoCre
     templateId,
     autoCreated: opts.autoCreated ?? false,
   });
+  void logPoolLifecycle(created.id, templateId, "created", {
+    templateName: t.name,
+    autoCreated: Boolean(opts.autoCreated),
+  });
   return created.id;
+}
+
+function isWeekendKarachi(): boolean {
+  const w = new Date().toLocaleDateString("en-US", { timeZone: "Asia/Karachi", weekday: "long" });
+  return w === "Friday" || w === "Saturday" || w === "Sunday";
 }
 
 /** Ensure min active pools per enabled rotation config (runs on interval / after pool completes). */
@@ -159,6 +187,51 @@ export async function runPoolRotationMaintenance(): Promise<void> {
         const code = (err as { code?: string })?.code ?? "";
         if (code === "MAX_ACTIVE_POOLS") break;
         logger.warn({ err, templateId: cfg.template_id }, "[rotation] create failed");
+        break;
+      }
+    }
+  }
+
+  const { rows: directTemplates } = await pgPool.query<{
+    id: number;
+    min_active_pools: number;
+    max_active_pools: number;
+    schedule_type: string | null;
+  }>(
+    `SELECT id, min_active_pools, max_active_pools, schedule_type
+     FROM pool_templates t
+     WHERE COALESCE(t.is_active, TRUE) = TRUE
+       AND COALESCE(t.auto_recreate, TRUE) = TRUE
+       AND NOT EXISTS (
+         SELECT 1 FROM auto_rotation_config r WHERE r.template_id = t.id AND COALESCE(r.enabled, FALSE) = TRUE
+       )`,
+  );
+
+  for (const row of directTemplates) {
+    const st = String(row.schedule_type ?? "always_on");
+    if (st === "weekend" && !isWeekendKarachi()) continue;
+
+    const [{ c: n }] = await db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(poolsTable)
+      .where(
+        and(
+          eq(poolsTable.templateId, row.id),
+          inArray(poolsTable.status, ["open", "filled", "drawing"]),
+        ),
+      );
+    const count = Number(n ?? 0);
+    const minA = Math.max(1, Number(row.min_active_pools ?? 1));
+    const maxA = Math.max(minA, Number(row.max_active_pools ?? 3));
+    if (count >= minA) continue;
+    const need = Math.min(minA - count, maxA - count);
+    for (let i = 0; i < need; i++) {
+      try {
+        await createPoolFromTemplate(row.id, { autoCreated: true });
+      } catch (err) {
+        const code = (err as { code?: string })?.code ?? "";
+        if (code === "MAX_ACTIVE_POOLS" || code === "TEMPLATE_COOLDOWN" || code === "MAX_DAILY_POOLS") break;
+        logger.warn({ err, templateId: row.id }, "[rotation] template-direct create failed");
         break;
       }
     }

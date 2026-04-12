@@ -8,6 +8,7 @@ import { schedulePoolAutoDrawJob } from "./lib/pool-auto-draw-scheduler";
 import { scheduleEngagementJobs } from "./lib/engagement-scheduler";
 import { schedulePoolFactoryJobs } from "./lib/pool-factory-scheduler";
 import { assertSecurityStartupRequirements } from "./lib/security";
+import { ensureSmartPoolTemplates } from "./services/seed-smart-pool-templates";
 
 process.on("unhandledRejection", (reason: unknown) => {
   logger.warn({ reason }, "[process] unhandledRejection");
@@ -44,6 +45,9 @@ async function main() {
     }
 
     logger.info({ port }, "Server listening");
+    void ensureSmartPoolTemplates().catch((err: unknown) =>
+      logger.warn({ err }, "[seed] ensureSmartPoolTemplates failed"),
+    );
     scheduleExpiredPoolJob();
     schedulePoolAutoDrawJob();
     scheduleEngagementJobs();

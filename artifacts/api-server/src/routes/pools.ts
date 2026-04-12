@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   db,
   poolsTable,
+  poolTemplatesTable,
   poolParticipantsTable,
   usersTable,
   transactionsTable,
@@ -70,6 +71,7 @@ import {
   formatLuckyNumberDisplay,
 } from "../services/lucky-pool-ticket-service";
 import { makeServerSeed, hashServerSeed } from "../lib/provably-fair";
+import { logPoolLifecycle } from "../services/pool-lifecycle-log";
 
 const JoinPoolBody = z.object({
   useFreeEntry: z.boolean().optional(),
@@ -84,6 +86,20 @@ const DistributeRewardsBody = z.object({
 function getDrawDelayMinutes(): number {
   const n = Math.floor(Number(process.env.DRAW_DELAY_MINUTES ?? "10"));
   return Math.min(120, Math.max(1, Number.isFinite(n) ? n : 10));
+}
+
+async function getDrawDelayMinutesForPool(pool: typeof poolsTable.$inferSelect): Promise<number> {
+  const fallback = getDrawDelayMinutes();
+  if (!pool.templateId) return fallback;
+  const [t] = await db
+    .select({ drawDelayMinutes: poolTemplatesTable.drawDelayMinutes })
+    .from(poolTemplatesTable)
+    .where(eq(poolTemplatesTable.id, pool.templateId))
+    .limit(1);
+  if (t?.drawDelayMinutes != null && Number.isFinite(Number(t.drawDelayMinutes))) {
+    return Math.min(120, Math.max(1, Number(t.drawDelayMinutes)));
+  }
+  return fallback;
 }
 
 const poolAutoDrawInFlight = new Set<number>();
@@ -1163,6 +1179,8 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
     return;
   }
 
+  const drawDelayMin = await getDrawDelayMinutesForPool(pool);
+
   const totalTickets = getTotalTickets(pool);
   const ticketsNow = await countPoolTickets(poolId);
   const slotsLeft = totalTickets - ticketsNow;
@@ -1386,7 +1404,7 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
         poolBecameFilled = true;
         poolUpd.status = "filled";
         poolUpd.filledAt = new Date();
-        poolUpd.drawScheduledAt = new Date(Date.now() + getDrawDelayMinutes() * 60_000);
+        poolUpd.drawScheduledAt = new Date(Date.now() + drawDelayMin * 60_000);
       }
       await trx.update(poolsTable).set(poolUpd).where(eq(poolsTable.id, poolId));
     });
@@ -1409,8 +1427,35 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
     throw err;
   }
 
+  const soldAfterJoin = await countPoolTickets(poolId);
+  const totalT = getTotalTickets(pool);
+  if (totalT > 0) {
+    const prevRatio = ticketsNow / totalT;
+    const newRatio = soldAfterJoin / totalT;
+    if (prevRatio < 0.8 && newRatio >= 0.8 && soldAfterJoin < totalT) {
+      void logPoolLifecycle(poolId, pool.templateId ?? null, "almost_full", {
+        sold: soldAfterJoin,
+        total: totalT,
+      });
+      const holders80 = await db
+        .select({ userId: poolParticipantsTable.userId })
+        .from(poolParticipantsTable)
+        .where(eq(poolParticipantsTable.poolId, poolId));
+      const left = totalT - soldAfterJoin;
+      for (const h of holders80) {
+        void notifyUser(
+          h.userId,
+          "Spots almost gone",
+          `Only ${left} spot(s) left in "${pool.title}" — join now!`,
+          "POOL_almost_full",
+          poolId,
+        );
+      }
+    }
+  }
+
   if (poolBecameFilled) {
-    const delayMin = getDrawDelayMinutes();
+    const delayMin = drawDelayMin;
     const msg = `🎉 Pool ${pool.title} is now FULL! Winner will be announced in ${delayMin} minutes. Stay tuned!`;
     const holders = await db
       .select({ userId: poolParticipantsTable.userId })
@@ -1424,6 +1469,8 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
       pool.title,
       `<p><b>${msg}</b></p><p>All times are UTC.</p>`,
     );
+    void logPoolLifecycle(poolId, pool.templateId ?? null, "filled", { delayMinutes: delayMin });
+    void logPoolLifecycle(poolId, pool.templateId ?? null, "draw_scheduled", { delayMinutes: delayMin });
   }
 
   const txAmountStr = useFreeEntry ? "0" : netDue.toFixed(2);
@@ -2220,6 +2267,8 @@ async function finalizePoolDistribution(
     metadata: { drawCompleted: true, totalLoserRefunds: financial.totalLoserRefunds, source },
   });
 
+  void logPoolLifecycle(poolId, pool.templateId ?? null, "draw_completed", { source });
+
   void sendAdminDrawFinancialSummaryEmail({
     poolId,
     poolTitle: pool.title,
@@ -2382,6 +2431,7 @@ export async function runDuePoolAutoDraws(): Promise<void> {
     if (poolAutoDrawInFlight.has(p.id)) continue;
     poolAutoDrawInFlight.add(p.id);
     try {
+      void logPoolLifecycle(p.id, p.templateId ?? null, "draw_started", {});
       await db.update(poolsTable).set({ status: "drawing" }).where(eq(poolsTable.id, p.id));
       await autoDistributePoolFill(p.id);
     } catch (err) {

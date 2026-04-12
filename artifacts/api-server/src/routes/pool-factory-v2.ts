@@ -58,6 +58,19 @@ router.get("/dashboard", async (_req, res) => {
   });
 });
 
+router.get("/lifecycle", async (_req, res) => {
+  const { rows } = await pgPool.query(
+    `SELECT l.id, l.pool_id AS "poolId", l.template_id AS "templateId", l.event, l.details, l.created_at AS "createdAt",
+            p.title AS "poolTitle", t.name AS "templateName"
+     FROM pool_lifecycle_log l
+     LEFT JOIN pools p ON p.id = l.pool_id
+     LEFT JOIN pool_templates t ON t.id = l.template_id
+     ORDER BY l.created_at DESC
+     LIMIT 80`,
+  );
+  res.json({ events: rows });
+});
+
 router.get("/templates", async (_req, res) => {
   const rows = await db.select().from(poolTemplatesTable).orderBy(asc(poolTemplatesTable.sortOrder));
   res.json(rows);
@@ -81,6 +94,20 @@ router.post("/templates", async (req, res) => {
       .values({
         name: String(body.name ?? "").slice(0, 100),
         displayName: body.displayName != null ? String(body.displayName).slice(0, 100) : null,
+        slug: body.slug != null ? String(body.slug).slice(0, 64) : null,
+        description: body.description != null ? String(body.description).slice(0, 2000) : null,
+        category: body.category != null ? String(body.category).slice(0, 32) : null,
+        scheduleType: body.scheduleType != null ? String(body.scheduleType).slice(0, 24) : "always_on",
+        drawDelayMinutes:
+          body.drawDelayMinutes != null && body.drawDelayMinutes !== ""
+            ? Math.min(120, Math.max(1, Math.floor(Number(body.drawDelayMinutes))))
+            : null,
+        autoRecreate: body.autoRecreate !== false,
+        minActivePools: Math.max(1, Math.floor(Number(body.minActivePools ?? 1))),
+        maxActivePools: Math.max(1, Math.floor(Number(body.maxActivePools ?? 3))),
+        cooldownHours: Math.max(0, Math.floor(Number(body.cooldownHours ?? 0))),
+        badgeText: body.badgeText != null ? String(body.badgeText).slice(0, 40) : null,
+        badgeColor: body.badgeColor != null ? String(body.badgeColor).slice(0, 24) : null,
         ticketPrice: String(Number(body.ticketPrice ?? 0).toFixed(2)),
         totalTickets: Math.max(2, Math.floor(Number(body.totalTickets ?? 10))),
         winnerCount: Math.min(3, Math.max(1, Math.floor(Number(body.winnerCount ?? 3)))),
@@ -128,6 +155,22 @@ router.patch("/templates/:id", async (req, res) => {
   if (body.isActive !== undefined) patch.isActive = Boolean(body.isActive);
   if (body.sortOrder != null) patch.sortOrder = Math.floor(Number(body.sortOrder));
   if (body.poolType != null) patch.poolType = body.poolType === "large" ? "large" : "small";
+  if (body.slug !== undefined) patch.slug = body.slug == null ? null : String(body.slug).slice(0, 64);
+  if (body.description !== undefined) patch.description = body.description == null ? null : String(body.description).slice(0, 2000);
+  if (body.category !== undefined) patch.category = body.category == null ? null : String(body.category).slice(0, 32);
+  if (body.scheduleType !== undefined) patch.scheduleType = String(body.scheduleType ?? "always_on").slice(0, 24);
+  if (body.drawDelayMinutes !== undefined) {
+    patch.drawDelayMinutes =
+      body.drawDelayMinutes == null || body.drawDelayMinutes === ""
+        ? null
+        : Math.min(120, Math.max(1, Math.floor(Number(body.drawDelayMinutes))));
+  }
+  if (body.autoRecreate !== undefined) patch.autoRecreate = Boolean(body.autoRecreate);
+  if (body.minActivePools != null) patch.minActivePools = Math.max(1, Math.floor(Number(body.minActivePools)));
+  if (body.maxActivePools != null) patch.maxActivePools = Math.max(1, Math.floor(Number(body.maxActivePools)));
+  if (body.cooldownHours != null) patch.cooldownHours = Math.max(0, Math.floor(Number(body.cooldownHours)));
+  if (body.badgeText !== undefined) patch.badgeText = body.badgeText == null ? null : String(body.badgeText).slice(0, 40);
+  if (body.badgeColor !== undefined) patch.badgeColor = body.badgeColor == null ? null : String(body.badgeColor).slice(0, 24);
 
   await db.update(poolTemplatesTable).set(patch as any).where(eq(poolTemplatesTable.id, id));
   await insertAuditLog("template_updated", `Template ${id} updated`, { templateId: id }, adminId);

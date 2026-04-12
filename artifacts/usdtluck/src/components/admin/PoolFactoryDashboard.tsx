@@ -55,6 +55,11 @@ type FullTemplate = {
   id: number;
   name: string;
   displayName: string | null;
+  slug?: string | null;
+  badgeText?: string | null;
+  badgeColor?: string | null;
+  drawDelayMinutes?: number | null;
+  scheduleType?: string | null;
   ticketPrice: string;
   totalTickets: number;
   winnerCount: number;
@@ -63,6 +68,16 @@ type FullTemplate = {
   prizeDistribution?: Array<{ place: number; percentage: number }>;
   durationHours?: number;
   isActive?: boolean;
+};
+
+type LifecycleRow = {
+  id: number;
+  event: string;
+  poolId?: number;
+  createdAt: string;
+  poolTitle?: string | null;
+  templateName?: string | null;
+  details?: unknown;
 };
 
 function formatPrizeSplit(
@@ -193,6 +208,8 @@ export function PoolFactoryDashboard() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePhrase, setDeletePhrase] = useState("");
   const [secTemplates, setSecTemplates] = useState(loadSectionOpen("templates", true));
+  const [secLifecycle, setSecLifecycle] = useState(loadSectionOpen("lifecycle", true));
+  const [lifecycleEvents, setLifecycleEvents] = useState<LifecycleRow[]>([]);
   const [secRotation, setSecRotation] = useState(loadSectionOpen("rotation", true));
   const [secSchedules, setSecSchedules] = useState(loadSectionOpen("schedules", false));
   const [secDead, setSecDead] = useState(loadSectionOpen("dead", false));
@@ -244,13 +261,14 @@ export function PoolFactoryDashboard() {
   const loadCore = useCallback(async () => {
     setLoading(true);
     try {
-      const [dRes, tRes, rRes, sRes, aRes, deadRes] = await Promise.all([
+      const [dRes, tRes, rRes, sRes, aRes, deadRes, lifeRes] = await Promise.all([
         fetch(apiUrl("/api/admin/pool-factory-v2/dashboard"), { credentials: "include" }),
         fetch(apiUrl("/api/admin/pool-factory-v2/templates"), { credentials: "include" }),
         fetch(apiUrl("/api/admin/pool-factory-v2/rotation"), { credentials: "include" }),
         fetch(apiUrl("/api/admin/pool-factory-v2/schedules"), { credentials: "include" }),
         fetch(apiUrl("/api/admin/pool-factory-v2/audit?limit=50"), { credentials: "include" }),
         fetch(apiUrl("/api/admin/pool-factory-v2/dead-pool-config"), { credentials: "include" }),
+        fetch(apiUrl("/api/admin/pool-factory-v2/lifecycle"), { credentials: "include" }),
       ]);
       if (!dRes.ok) throw new Error(await readApiErrorMessage(dRes));
       if (!tRes.ok) throw new Error(await readApiErrorMessage(tRes));
@@ -262,6 +280,10 @@ export function PoolFactoryDashboard() {
       if (deadRes.ok) {
         const j = await deadRes.json();
         setDeadJson(JSON.stringify(j, null, 2));
+      }
+      if (lifeRes.ok) {
+        const lj = (await lifeRes.json()) as { events?: LifecycleRow[] };
+        setLifecycleEvents(lj.events ?? []);
       }
     } catch (e: unknown) {
       toast({
@@ -616,6 +638,58 @@ export function PoolFactoryDashboard() {
       </div>
 
       <Collapsible
+        open={secLifecycle}
+        onOpenChange={(o) => {
+          setSecLifecycle(o);
+          saveSectionOpen("lifecycle", o);
+        }}
+      >
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-2xl border border-border bg-muted/30 px-4 py-3 text-sm font-semibold">
+          Pool lifecycle (automation log)
+          <ChevronDown className={`h-4 w-4 transition ${secLifecycle ? "rotate-180" : ""}`} />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <p className="text-xs text-muted-foreground mb-2">
+            Recent create / fill / schedule / draw events from the smart pool engine.
+          </p>
+          <div className="rounded-xl border border-border overflow-x-auto max-h-72 overflow-y-auto text-xs">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b border-border bg-muted/40 text-left">
+                  <th className="p-2 font-medium">Time</th>
+                  <th className="p-2 font-medium">Event</th>
+                  <th className="p-2 font-medium">Pool</th>
+                  <th className="p-2 font-medium">Template</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lifecycleEvents.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="p-3 text-muted-foreground">
+                      No events yet (or migration not applied).
+                    </td>
+                  </tr>
+                ) : (
+                  lifecycleEvents.map((ev) => (
+                    <tr key={ev.id} className="border-b border-border/60">
+                      <td className="p-2 whitespace-nowrap text-muted-foreground">
+                        {new Date(ev.createdAt).toLocaleString()}
+                      </td>
+                      <td className="p-2 font-mono">{ev.event}</td>
+                      <td className="p-2">
+                        {ev.poolId != null ? `#${ev.poolId} ${ev.poolTitle ? `— ${ev.poolTitle}` : ""}` : "—"}
+                      </td>
+                      <td className="p-2">{ev.templateName ?? "—"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      <Collapsible
         open={secTemplates}
         onOpenChange={(o) => {
           setSecTemplates(o);
@@ -653,10 +727,18 @@ export function PoolFactoryDashboard() {
                   <div className="flex items-start gap-2">
                     <span className="text-lg leading-none">{t.tierIcon ?? "🎱"}</span>
                     <div className="min-w-0 flex-1 space-y-1">
-                      <p className="text-sm font-semibold text-foreground">{t.displayName ?? t.name}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-foreground">{t.displayName ?? t.name}</p>
+                        {t.badgeText ? (
+                          <Badge variant="secondary" className="text-[10px]">
+                            {t.badgeText}
+                          </Badge>
+                        ) : null}
+                      </div>
                       <ul className="text-muted-foreground space-y-0.5">
                         <li>Ticket: {price.toFixed(2)} USDT</li>
                         <li>Seats: {t.totalTickets}</li>
+                        <li>Draw delay: {t.drawDelayMinutes != null ? `${t.drawDelayMinutes} min` : "Server default"}</li>
                         <li>Winners: {t.winnerCount}</li>
                         <li>Prize split: {split}</li>
                         <li className="text-emerald-500/90">Est. profit ~{est.toFixed(2)} USDT</li>
