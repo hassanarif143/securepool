@@ -8,7 +8,7 @@ import { schedulePoolAutoDrawJob } from "./lib/pool-auto-draw-scheduler";
 import { scheduleEngagementJobs } from "./lib/engagement-scheduler";
 import { schedulePoolFactoryJobs } from "./lib/pool-factory-scheduler";
 import { assertSecurityStartupRequirements } from "./lib/security";
-import { ensureSmartPoolTemplates } from "./services/seed-smart-pool-templates";
+import { ensureSmartPoolTemplates } from "./services/pool-lifecycle";
 
 process.on("unhandledRejection", (reason: unknown) => {
   logger.warn({ reason }, "[process] unhandledRejection");
@@ -51,6 +51,7 @@ async function main() {
     scheduleExpiredPoolJob();
     schedulePoolAutoDrawJob();
     scheduleEngagementJobs();
+    /* Pool automation map: `src/services/pool-lifecycle.ts` — rotation + schedules + dead-pool live in pool-factory-scheduler */
     schedulePoolFactoryJobs();
   });
 }
