@@ -85,6 +85,20 @@ const loginLimiter = rateLimit({
     if (email) return email;
     return ipKeyGenerator(req.ip ?? "127.0.0.1");
   },
+  /** Admin accounts: allow repeated logins during testing (no lockout from this limiter). */
+  skip: async (req) => {
+    const email = typeof (req.body as any)?.email === "string" ? (req.body as any).email.toLowerCase().trim() : "";
+    if (!email) return false;
+    try {
+      const r = await dbPool.query<{ is_admin: boolean }>(
+        `SELECT COALESCE(is_admin, false) AS is_admin FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+        [email],
+      );
+      return r.rows[0]?.is_admin === true;
+    } catch {
+      return false;
+    }
+  },
 });
 
 const signupLimiter = rateLimit({
@@ -360,7 +374,9 @@ router.post("/login", loginLimiter, async (req, res) => {
   const valid = await verifyAndUpgradePassword(user.id, user.password_hash, password);
   if (!valid) {
     logger.warn({ email, userId: user.id, ip: req.ip }, "Failed login attempt — bad password");
-    await applyRiskDelta(user.id, 2);
+    if (!user.is_admin) {
+      await applyRiskDelta(user.id, 2);
+    }
     await logSecurityEvent({
       userId: user.id,
       eventType: "auth.login_failed_bad_password",
@@ -415,14 +431,16 @@ router.post("/login", loginLimiter, async (req, res) => {
     userAgent: req.get("user-agent") ?? "",
   });
   if (device.isNewDevice && !device.trusted) {
-    await applyRiskDelta(user.id, 6);
+    if (!user.is_admin) {
+      await applyRiskDelta(user.id, 6);
+    }
     await logSecurityEvent({
       userId: user.id,
       eventType: "auth.new_device_login",
       severity: "warn",
       ipAddress: extractClientIp(req.ip),
       endpoint: `${req.baseUrl}${req.path}`,
-      details: { trusted: false },
+      details: { trusted: false, admin: user.is_admin },
     });
   }
 
