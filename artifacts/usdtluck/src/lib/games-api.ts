@@ -11,6 +11,7 @@ const FRIENDLY_GAME_ERRORS: Record<string, string> = {
   USE_MULTI_ENDPOINT: "Use the dedicated flow for this game.",
   LUCKY_NUMBERS_REQUIRED: "Pick three numbers from 1–9.",
   RATE_LIMITED: "Too many requests — wait a few seconds.",
+  SERVER_ERROR: "Something went wrong on the server while playing. If it keeps happening after a refresh, contact support.",
   ROUND_NOT_FOUND: "That Mega Draw round was not found.",
   INVALID_ROUND_ID: "Enter a valid round id.",
   "Invalid CSRF token": "Session security check failed. Refresh the page and try again.",
