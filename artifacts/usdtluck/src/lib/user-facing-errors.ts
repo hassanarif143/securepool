@@ -27,7 +27,15 @@ export function friendlyApiError(status: number, rawMessage: string): string {
     }
     return "Please log in to continue.";
   }
-  if (status === 403) return "You don't have permission for this.";
+  if (status === 403) {
+    if (low.includes("suspended")) {
+      return m.length > 0 && m.length < 220 ? m : "This account is suspended.";
+    }
+    if (low.includes("demo")) {
+      return m.length > 0 && m.length < 220 ? m : "Demo accounts cannot sign in.";
+    }
+    return "You don't have permission for this.";
+  }
   if (status === 404) return "We couldn't find that. It may have been removed.";
   if (status === 409 || low.includes("already") || low.includes("duplicate")) {
     if (low.includes("email") || low.includes("account with this email")) return "This email is already registered.";
