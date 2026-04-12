@@ -33,3 +33,4 @@ export * from "./scratchCard";
 export * from "./security";
 export * from "./shareCards";
 export * from "./miniGames";
+export * from "./miniGameBonusClaims";

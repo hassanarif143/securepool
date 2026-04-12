@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db, platformSettingsTable } from "@workspace/db";
 import { getAuthedUserId, requireAdmin, requireAuth, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
-import { strictFinancialLimiter } from "../middleware/security-rate-limit";
+import { miniGamesMutationLimiter } from "../middleware/security-rate-limit";
 import { idempotencyGuard } from "../middleware/idempotency";
 import { getRewardConfig } from "../lib/reward-config";
 import { getDrawDesiredProfitUsdt } from "../services/admin-wallet-service";
@@ -14,12 +14,14 @@ import {
   STAKE_MIN,
   adminMiniGamesSummary,
   completeScratchRound,
+  getGamesActivitySnapshot,
   listRecentWins,
   playPickBox,
   playSpin,
   startScratchRound,
 } from "../services/mini-games-service";
 import { assertMiniGamesPlayAllowed, getMiniGamesAccess, getMiniGamesPlatformRow } from "../services/mini-games-policy";
+import { claimDailyLoginBonus, getGamesEngagementState } from "../services/mini-games-engagement-service";
 
 const router: IRouter = Router();
 router.use((req, res, next) => requireAuth(req as AuthedRequest, res, next));
@@ -40,6 +42,8 @@ function mapErr(e: unknown): { status: number; error: string } {
     ROUND_PERSIST_FAILED: 500,
     GAMES_DISABLED: 403,
     GAMES_PREMIUM_REQUIRED: 403,
+    NO_DAILY_CHECKIN: 400,
+    ALREADY_CLAIMED: 400,
   };
   return { status: table[m] ?? 500, error: m };
 }
@@ -97,9 +101,60 @@ router.get("/recent-wins", async (req, res) => {
   }
 });
 
+router.get("/bonuses/state", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  if (!(await assertEmailVerified(res, userId))) return;
+  try {
+    await assertMiniGamesPlayAllowed(userId);
+    const state = await getGamesEngagementState(userId);
+    return res.json(state);
+  } catch (e) {
+    const { status, error } = mapErr(e);
+    return res.status(status).json({ error });
+  }
+});
+
+router.post("/bonuses/claim-daily-login", miniGamesMutationLimiter, async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  if (!(await assertEmailVerified(res, userId))) return;
+  try {
+    await assertMiniGamesPlayAllowed(userId);
+    const r = await claimDailyLoginBonus(userId);
+    if (!r.ok) return res.status(400).json({ error: r.error });
+    return res.json({ ok: true, amount: r.amount });
+  } catch (e) {
+    const { status, error } = mapErr(e);
+    return res.status(status).json({ error });
+  }
+});
+
+router.get("/activity", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const row = await getMiniGamesPlatformRow();
+    if (row && row.miniGamesEnabled === false) {
+      return res.json({
+        playsLast10Minutes: 0,
+        pendingScratchRounds: 0,
+        lastWinAmount: null,
+        lastWinGameType: null,
+        lastWinAt: null,
+      });
+    }
+    const snap = await getGamesActivitySnapshot();
+    return res.json(snap);
+  } catch (e) {
+    const { status, error } = mapErr(e);
+    return res.status(status).json({ error });
+  }
+});
+
 const SpinBody = z.object({ stake: z.coerce.number().min(1).max(50) });
 
-router.post("/spin", strictFinancialLimiter, idempotencyGuard, async (req, res) => {
+router.post("/spin", miniGamesMutationLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;
@@ -130,7 +185,7 @@ const PickBody = z
     }
   });
 
-router.post("/pick-box", strictFinancialLimiter, idempotencyGuard, async (req, res) => {
+router.post("/pick-box", miniGamesMutationLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;
@@ -149,7 +204,7 @@ router.post("/pick-box", strictFinancialLimiter, idempotencyGuard, async (req, r
 
 const ScratchStartBody = z.object({ stake: z.coerce.number().min(1).max(50) });
 
-router.post("/scratch/start", strictFinancialLimiter, idempotencyGuard, async (req, res) => {
+router.post("/scratch/start", miniGamesMutationLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;
@@ -170,7 +225,7 @@ const ScratchCompleteBody = z.object({
   scratchPercent: z.coerce.number().min(SCRATCH_MIN_PERCENT).max(100),
 });
 
-router.post("/scratch/complete", strictFinancialLimiter, idempotencyGuard, async (req, res) => {
+router.post("/scratch/complete", miniGamesMutationLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;

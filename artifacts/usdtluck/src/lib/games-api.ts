@@ -12,6 +12,9 @@ const FRIENDLY_GAME_ERRORS: Record<string, string> = {
   INSUFFICIENT_BALANCE: "Not enough withdrawable balance.",
   INVALID_STAKE: "Invalid stake amount.",
   SCRATCH_ROUND_PENDING: "Finish or wait for your current scratch card first.",
+  RATE_LIMITED: "Too many requests — wait a few seconds.",
+  NO_DAILY_CHECKIN: "Check in today first (open the app home or rewards calendar), then claim here.",
+  ALREADY_CLAIMED: "Already claimed today.",
   "Invalid CSRF token": "Session security check failed. Refresh the page and try again.",
   "Invalid origin or referer": "Request blocked. Refresh the page and try again.",
 };
@@ -152,5 +155,48 @@ export async function fetchRecentGameWins(): Promise<{
   wins: { userLabel: string; gameType: string; payout: number; createdAt: string }[];
 }> {
   const res = await gamesFetch(apiUrl("/api/games/recent-wins"), { credentials: "include" });
+  return readGamesJson(res);
+}
+
+export type GamesActivityResponse = {
+  playsLast10Minutes: number;
+  pendingScratchRounds: number;
+  lastWinAmount: number | null;
+  lastWinGameType: string | null;
+  lastWinAt: string | null;
+};
+
+export async function fetchGamesActivity(): Promise<GamesActivityResponse> {
+  const res = await gamesFetch(apiUrl("/api/games/activity"), { credentials: "include" });
+  return readGamesJson<GamesActivityResponse>(res);
+}
+
+export type GamesBonusesState = {
+  streakDays: number;
+  today: string;
+  dailyLogin: { eligible: boolean; claimed: boolean; amount: number };
+  firstPlay: { claimed: boolean; amountPreview: number };
+  lucky: { claimedToday: boolean; chanceApprox: number; amount: number };
+  constants: {
+    loginUsdt: number;
+    firstPlayBaseUsdt: number;
+    streakExtraCapUsdt: number;
+    luckyUsdt: number;
+  };
+};
+
+export async function fetchGamesBonusesState(): Promise<GamesBonusesState> {
+  const res = await gamesFetch(apiUrl("/api/games/bonuses/state"), { credentials: "include" });
+  return readGamesJson<GamesBonusesState>(res);
+}
+
+export async function claimGamesDailyLogin(): Promise<{ ok: boolean; amount: number }> {
+  const csrf = await csrfHeaders();
+  const res = await gamesFetch(apiUrl("/api/games/bonuses/claim-daily-login"), {
+    method: "POST",
+    credentials: "include",
+    headers: { ...csrf, "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
   return readGamesJson(res);
 }

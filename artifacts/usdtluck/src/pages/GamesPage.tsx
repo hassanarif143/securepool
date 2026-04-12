@@ -2,14 +2,29 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, useMotionValue, animate } from "framer-motion";
 import confetti from "canvas-confetti";
+import { Loader2 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
+import { appToast } from "@/components/feedback/AppToast";
+import { apiUrl } from "@/lib/api-base";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useGameActionGate } from "@/hooks/useGameActionGate";
+import { useAnimatedNumber } from "@/hooks/useAnimatedNumber";
+import {
+  GAME_LABEL,
+  bumpLocalPlayStreak,
+  formatPlayerWinLine,
+  postAnimationSuspenseMs,
+  sleep,
+} from "@/lib/games-ui";
 import {
   MIN_SCRATCH_PERCENT,
+  claimGamesDailyLogin,
   completeScratch,
+  fetchGamesActivity,
+  fetchGamesBonusesState,
   fetchGamesState,
   fetchRecentGameWins,
   postPickBox,
@@ -58,7 +73,8 @@ export default function GamesPage() {
     if (tabParam === "pick" || tabParam === "scratch" || tabParam === "spin") setTab(tabParam);
   }, [tabParam]);
 
-  const balance = user?.withdrawableBalance ?? 0;
+  const balanceRaw = user?.withdrawableBalance ?? 0;
+  const balance = useAnimatedNumber(balanceRaw, 500);
   const [stake, setStake] = useState(2);
   const [soundOn, setSoundOn] = useState(() => localStorage.getItem("games_sound") !== "0");
 
@@ -88,6 +104,52 @@ export default function GamesPage() {
   const playAllowed =
     gameState != null && gameState.platformEnabled !== false && gameState.canPlay === true;
 
+  const { data: activity } = useQuery({
+    queryKey: ["games-activity"],
+    queryFn: fetchGamesActivity,
+    enabled: playAllowed,
+    staleTime: 12_000,
+    refetchInterval: 20_000,
+    retry: 1,
+  });
+
+  const { data: bonuses, isLoading: bonusesLoading } = useQuery({
+    queryKey: ["games-bonuses"],
+    queryFn: fetchGamesBonusesState,
+    enabled: playAllowed && !!user?.id,
+    staleTime: 25_000,
+    refetchInterval: 55_000,
+    retry: 1,
+  });
+
+  const [claimLoginBusy, setClaimLoginBusy] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id || !playAllowed) return;
+    void fetch(apiUrl("/api/user/daily-login"), { method: "POST", credentials: "include" })
+      .then(() => {
+        void qc.invalidateQueries({ queryKey: ["games-bonuses"] });
+      })
+      .catch(() => {});
+  }, [user?.id, playAllowed, qc]);
+
+  const claimDailyLogin = useCallback(async () => {
+    setClaimLoginBusy(true);
+    try {
+      const r = await claimGamesDailyLogin();
+      appToast.success({
+        title: "Daily bonus claimed",
+        description: `+$${r.amount.toFixed(2)} USDT added to your withdrawable balance.`,
+      });
+      void qc.invalidateQueries({ queryKey: ["games-bonuses"] });
+      void qc.invalidateQueries({ queryKey: getGetMeQueryKey() });
+    } catch (e) {
+      appToast.error({ title: "Could not claim", description: e instanceof Error ? e.message : "Try again." });
+    } finally {
+      setClaimLoginBusy(false);
+    }
+  }, [qc]);
+
   const stakeOptions = useMemo(() => {
     const min = gameState?.stakeMin ?? 1;
     const max = gameState?.stakeMax ?? 50;
@@ -102,6 +164,7 @@ export default function GamesPage() {
 
   const refreshGamesFeed = useCallback(() => {
     void qc.invalidateQueries({ queryKey: ["games-recent-wins"] });
+    void qc.invalidateQueries({ queryKey: ["games-bonuses"] });
   }, [qc]);
 
   return (
@@ -165,6 +228,93 @@ export default function GamesPage() {
         </div>
       ) : (
         <>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Live activity</p>
+          <p className="text-slate-200 mt-1">
+            {activity != null ? (
+              <>
+                <span className="font-mono text-[#00FFB2] tabular-nums">{activity.playsLast10Minutes}</span> completed plays
+                (last 10 min)
+                {activity.pendingScratchRounds > 0 ? (
+                  <>
+                    {" "}
+                    ·{" "}
+                    <span className="text-amber-200/90 font-mono tabular-nums">{activity.pendingScratchRounds}</span> scratch
+                    round{activity.pendingScratchRounds !== 1 ? "s" : ""} open
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <span className="text-slate-500">Syncing…</span>
+            )}
+          </p>
+          {activity?.lastWinAmount != null ? (
+            <p className="text-xs text-slate-500 mt-1">
+              Last win:{" "}
+              <span className="text-[#00FFB2] font-mono">${activity.lastWinAmount.toFixed(2)}</span>
+              {activity.lastWinGameType ? (
+                <span> · {GAME_LABEL[activity.lastWinGameType] ?? activity.lastWinGameType}</span>
+              ) : null}
+            </p>
+          ) : null}
+        </div>
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm space-y-1">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Trust & transparency</p>
+          <p className="text-slate-300 text-xs leading-relaxed">
+            Results are generated on the server; the app only shows animations. Stakes debit and wins credit run through the same ledger as the rest of your wallet.
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-violet-500/25 bg-violet-950/30 px-4 py-4 space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-violet-300/90">Bonuses and play streak</p>
+            <p className="text-lg text-white font-black font-mono tabular-nums mt-0.5">
+              {bonusesLoading ? "…" : `${bonuses?.streakDays ?? 0}d`}{" "}
+              <span className="text-xs font-normal text-slate-500">consecutive days with a completed game</span>
+            </p>
+          </div>
+          {bonuses?.dailyLogin.eligible && !bonuses.dailyLogin.claimed ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled={claimLoginBusy}
+              onClick={() => void claimDailyLogin()}
+              className="bg-violet-600 hover:bg-violet-500 text-white shrink-0"
+            >
+              {claimLoginBusy ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Claiming…
+                </span>
+              ) : (
+                `Claim +$${bonuses.dailyLogin.amount.toFixed(2)} login bonus`
+              )}
+            </Button>
+          ) : bonuses?.dailyLogin.claimed ? (
+            <span className="text-[11px] text-emerald-400/90 font-medium">Daily login bonus claimed today</span>
+          ) : (
+            <span className="text-[11px] text-slate-500 max-w-xs leading-snug">
+              Open the app once today (check-in), then the claim button appears here.
+            </span>
+          )}
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 text-[11px] text-slate-400 leading-snug border-t border-white/5 pt-3">
+          <p>
+            <span className="text-slate-300 font-semibold">First play today:</span> up to{" "}
+            <span className="text-[#00FFB2] font-mono">${bonuses?.firstPlay?.amountPreview != null ? bonuses.firstPlay.amountPreview.toFixed(2) : "—"}</span> USDT
+            credited automatically on your first completed round (streak adds extra, capped).
+          </p>
+          <p>
+            <span className="text-slate-300 font-semibold">Lucky drop:</span> small chance after each round for +$
+            {bonuses?.lucky?.amount != null ? bonuses.lucky.amount.toFixed(2) : "—"} USDT, once per day max
+            {bonuses?.lucky.claimedToday ? " (received today)" : ""}.
+          </p>
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Game type">
         {(["spin", "pick", "scratch"] as const).map((t) => (
           <button
@@ -201,8 +351,10 @@ export default function GamesPage() {
               setStake={setStake}
               soundOn={soundOn}
               onDone={() => {
+                bumpLocalPlayStreak();
                 refreshUser();
                 refreshGamesFeed();
+                void qc.invalidateQueries({ queryKey: ["games-activity"] });
               }}
             />
           ) : tab === "pick" ? (
@@ -213,8 +365,10 @@ export default function GamesPage() {
               setStake={setStake}
               soundOn={soundOn}
               onDone={() => {
+                bumpLocalPlayStreak();
                 refreshUser();
                 refreshGamesFeed();
+                void qc.invalidateQueries({ queryKey: ["games-activity"] });
               }}
             />
           ) : (
@@ -226,8 +380,10 @@ export default function GamesPage() {
               setStake={setStake}
               soundOn={soundOn}
               onDone={() => {
+                bumpLocalPlayStreak();
                 refreshUser();
                 refreshGamesFeed();
+                void qc.invalidateQueries({ queryKey: ["games-activity"] });
               }}
             />
           )}
@@ -242,10 +398,10 @@ export default function GamesPage() {
               recent?.wins.map((w, i) => (
                 <li
                   key={`${w.createdAt}-${i}`}
-                  className="flex justify-between gap-2 border-b border-white/[0.04] pb-2 last:border-0"
+                  className="flex flex-col gap-0.5 border-b border-white/[0.04] pb-2 last:border-0"
                 >
-                  <span className="text-slate-400 truncate">{w.userLabel}</span>
-                  <span className="font-mono text-[#00FFB2] shrink-0">+${w.payout.toFixed(2)}</span>
+                  <span className="text-slate-300 text-[13px] leading-tight">{formatPlayerWinLine(w.userLabel, w.gameType, w.payout)}</span>
+                  <span className="text-[10px] text-slate-500">{new Date(w.createdAt).toLocaleTimeString()}</span>
                 </li>
               ))
             )}
@@ -274,7 +430,10 @@ function SpinSection({
   onDone: () => void;
 }) {
   const rot = useMotionValue(0);
+  const gate = useGameActionGate();
   const [spinning, setSpinning] = useState(false);
+  const [suspenseRevealing, setSuspenseRevealing] = useState(false);
+  const [fx, setFx] = useState<"none" | "win" | "loss">("none");
   const [msg, setMsg] = useState<string | null>(null);
   const insufficient = stake > balance + 1e-9;
   const run = async () => {
@@ -282,36 +441,46 @@ function SpinSection({
       setMsg("Insufficient withdrawable balance for this stake.");
       return;
     }
+    if (!gate.tryEnter()) return;
     setMsg(null);
+    setFx("none");
     setSpinning(true);
+    setSuspenseRevealing(false);
     try {
       const r = await postSpin(stake, idem());
       const segmentAngle = 360 / SEGMENTS;
       const targetCenter = r.segmentIndex * segmentAngle + segmentAngle / 2;
       const spins = 5;
       const dest = rot.get() + spins * 360 + (360 - targetCenter);
+      const animDurationSec = Math.min(5, Math.max(2.5, r.spinDurationMs / 1000));
       await animate(rot, dest, {
-        duration: Math.min(5, Math.max(2.5, r.spinDurationMs / 1000)),
+        duration: animDurationSec,
         ease: [0.15, 0.85, 0.2, 1],
       });
-      if (r.payout > 0.009) {
-        confetti({ particleCount: r.payout >= stake * 2 ? 140 : 70, spread: 80, origin: { y: 0.35 } });
+      setSuspenseRevealing(true);
+      await sleep(postAnimationSuspenseMs(animDurationSec * 1000));
+      setSuspenseRevealing(false);
+      const won = r.payout > 0.009;
+      setFx(won ? "win" : "loss");
+      if (won) {
+        confetti({ particleCount: r.payout >= stake * 2 ? 160 : 95, spread: 88, origin: { y: 0.34 } });
+        confetti({ particleCount: 40, spread: 50, origin: { y: 0.32 }, scalar: 0.75 });
         if (soundOn) playWinSound();
-      } else {
-        if (soundOn) {
-          try {
-            navigator.vibrate?.(40);
-          } catch {
-            /* ignore */
-          }
+      } else if (soundOn) {
+        try {
+          navigator.vibrate?.(42);
+        } catch {
+          /* ignore */
         }
       }
-      setMsg(r.payout > 0.009 ? `You won $${r.payout.toFixed(2)} USDT!` : "No win this time — try again.");
+      setMsg(won ? `You won $${r.payout.toFixed(2)} USDT!` : "No win this time — try again.");
       onDone();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Spin failed");
+      setFx("none");
     } finally {
       setSpinning(false);
+      gate.exit();
     }
   };
 
@@ -325,15 +494,33 @@ function SpinSection({
         <div className="pointer-events-none absolute -top-3 left-1/2 z-20 -translate-x-1/2 text-2xl drop-shadow-lg">
           ▼
         </div>
-        <div className="relative h-72 w-72 sm:h-80 sm:w-80">
+        <motion.div
+          className="relative h-72 w-72 sm:h-80 sm:w-80"
+          animate={fx === "loss" ? { x: [0, -7, 7, -5, 5, 0] } : fx === "win" ? { scale: [1, 1.02, 1] } : {}}
+          transition={{ duration: fx === "loss" ? 0.45 : 0.55 }}
+        >
+          {fx === "loss" ? (
+            <div
+              className="absolute inset-[-6px] z-30 rounded-full bg-black/50 pointer-events-none ring-1 ring-white/10"
+              aria-hidden
+            />
+          ) : null}
+          {fx === "win" ? (
+            <motion.div
+              className="absolute inset-[-4px] z-0 rounded-full pointer-events-none"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0, 1, 0.75] }}
+              transition={{ duration: 1.1 }}
+              style={{
+                boxShadow: "0 0 60px 18px rgba(0,255,178,0.35), inset 0 0 40px rgba(0,255,178,0.12)",
+              }}
+            />
+          ) : null}
           <div
-            className="absolute inset-0 rounded-full border-4 border-[#00FFB2]/30 shadow-[0_0_60px_-12px_rgba(0,255,178,0.35)]"
+            className="absolute inset-0 rounded-full border-4 border-[#00FFB2]/30 shadow-[0_0_60px_-12px_rgba(0,255,178,0.35)] z-[1]"
             style={{ background: "radial-gradient(circle at 50% 40%, rgba(0,255,178,0.08), transparent 55%)" }}
           />
-          <motion.div
-            className="absolute inset-2 rounded-full overflow-hidden"
-            style={{ rotate: rot }}
-          >
+          <motion.div className="absolute inset-2 rounded-full overflow-hidden z-[2]" style={{ rotate: rot }}>
             <div
               className="h-full w-full rounded-full"
               style={{
@@ -346,21 +533,33 @@ function SpinSection({
               }}
             />
           </motion.div>
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[5]">
             <div className="h-24 w-24 rounded-full bg-[#0b0f1a]/95 border border-white/10 flex items-center justify-center shadow-xl pointer-events-auto">
               <Button
                 type="button"
                 size="lg"
                 disabled={spinning || insufficient}
-                onClick={run}
-                className="rounded-full h-16 w-16 font-black text-xs uppercase tracking-wide bg-gradient-to-br from-[#00FFB2] to-emerald-700 text-black hover:opacity-95"
+                onClick={() => void run()}
+                className="rounded-full h-16 w-16 font-black text-xs uppercase tracking-wide bg-gradient-to-br from-[#00FFB2] to-emerald-700 text-black hover:opacity-95 disabled:opacity-60"
               >
-                {spinning ? "…" : "Spin"}
+                {spinning ? (
+                  <span className="flex flex-col items-center gap-1">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="text-[9px] leading-none">Wait</span>
+                  </span>
+                ) : (
+                  "Spin"
+                )}
               </Button>
             </div>
           </div>
-        </div>
-        {msg ? <p className="text-center text-sm text-slate-300">{msg}</p> : null}
+        </motion.div>
+        {suspenseRevealing ? (
+          <p className="text-center text-sm font-medium text-[#00FFB2]/90 animate-pulse">Revealing result…</p>
+        ) : null}
+        {msg ? (
+          <p className={cn("text-center text-sm", fx === "win" ? "text-[#00FFB2] font-semibold" : "text-slate-300")}>{msg}</p>
+        ) : null}
       </div>
     </div>
   );
@@ -381,9 +580,12 @@ function PickSection({
   soundOn: boolean;
   onDone: () => void;
 }) {
+  const gate = useGameActionGate();
   const [boxes, setBoxes] = useState<3 | 5>(5);
   const [picked, setPicked] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [suspenseRevealing, setSuspenseRevealing] = useState(false);
+  const [fx, setFx] = useState<"none" | "win" | "loss">("none");
   const [reveal, setReveal] = useState<{ winning: number; win: boolean; payout: number } | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const insufficient = stake > balance + 1e-9;
@@ -393,15 +595,23 @@ function PickSection({
       setMsg("Insufficient withdrawable balance for this stake.");
       return;
     }
+    if (!gate.tryEnter()) return;
     setBusy(true);
     setMsg(null);
+    setFx("none");
     setPicked(idx);
     setReveal(null);
     try {
       const r = await postPickBox(stake, boxes, idx, idem());
+      setSuspenseRevealing(true);
+      await sleep(postAnimationSuspenseMs(750));
+      setSuspenseRevealing(false);
       setReveal({ winning: r.winningIndex, win: r.isWin, payout: r.payout });
-      if (r.isWin && r.payout > 0.009) {
-        confetti({ particleCount: 90, spread: 70, origin: { y: 0.45 } });
+      const won = r.isWin && r.payout > 0.009;
+      setFx(won ? "win" : "loss");
+      if (won) {
+        confetti({ particleCount: 100, spread: 72, origin: { y: 0.45 } });
+        confetti({ particleCount: 36, spread: 48, origin: { y: 0.42 }, scalar: 0.8 });
         if (soundOn) playWinSound();
       } else if (soundOn) navigator.vibrate?.(35);
       setMsg(r.isWin ? `Won $${r.payout.toFixed(2)} USDT` : "Not this box — try again.");
@@ -409,8 +619,10 @@ function PickSection({
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Error");
       setPicked(null);
+      setFx("none");
     } finally {
       setBusy(false);
+      gate.exit();
     }
   };
 
@@ -421,41 +633,96 @@ function PickSection({
         <p className="text-center text-sm text-amber-300/90">Stake exceeds your withdrawable balance.</p>
       ) : null}
       <div className="flex gap-2 justify-center">
-        <Button type="button" size="sm" variant={boxes === 3 ? "default" : "outline"} onClick={() => { setBoxes(3); setReveal(null); setPicked(null); }}>
+        <Button
+          type="button"
+          size="sm"
+          variant={boxes === 3 ? "default" : "outline"}
+          disabled={busy}
+          onClick={() => {
+            setBoxes(3);
+            setReveal(null);
+            setPicked(null);
+            setFx("none");
+          }}
+        >
           3 boxes
         </Button>
-        <Button type="button" size="sm" variant={boxes === 5 ? "default" : "outline"} onClick={() => { setBoxes(5); setReveal(null); setPicked(null); }}>
+        <Button
+          type="button"
+          size="sm"
+          variant={boxes === 5 ? "default" : "outline"}
+          disabled={busy}
+          onClick={() => {
+            setBoxes(5);
+            setReveal(null);
+            setPicked(null);
+            setFx("none");
+          }}
+        >
           5 boxes
         </Button>
       </div>
-      <p className="text-center text-sm text-slate-400 animate-pulse">Choose wisely…</p>
-      <div className={cn("grid gap-3 justify-center", boxes === 3 ? "grid-cols-3 max-w-md mx-auto" : "grid-cols-5 max-w-2xl mx-auto")}>
-        {Array.from({ length: boxes }, (_, i) => (
-          <button
-            key={i}
-            type="button"
-            disabled={busy || insufficient}
-            onClick={() => play(i)}
-            className={cn(
-              "aspect-square rounded-2xl border-2 text-lg font-black transition-all min-h-[72px]",
-              "border-[#00FFB2]/25 bg-gradient-to-br from-white/[0.06] to-transparent hover:border-[#00FFB2]/60 hover:shadow-[0_0_24px_-6px_rgba(0,255,178,0.45)]",
-              picked === i && reveal?.win ? "ring-2 ring-[#00FFB2] scale-105" : "",
-              picked === i && reveal && !reveal.win ? "opacity-70 shake-anim" : "",
-            )}
-          >
-            ?
-          </button>
-        ))}
-      </div>
-      {msg ? <p className="text-center text-sm">{msg}</p> : null}
-      <style>{`
-        @keyframes shake-pick {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-6px); }
-          75% { transform: translateX(6px); }
-        }
-        .shake-anim { animation: shake-pick 0.35s ease-in-out 2; }
-      `}</style>
+      <p className="text-center text-sm text-slate-400">{!picked ? "Choose wisely…" : null}</p>
+      <motion.div
+        className="relative mx-auto max-w-2xl"
+        animate={fx === "loss" ? { x: [0, -8, 8, -5, 5, 0] } : fx === "win" ? { scale: [1, 1.015, 1] } : {}}
+        transition={{ duration: fx === "loss" ? 0.48 : 0.55 }}
+      >
+        {fx === "loss" ? (
+          <div className="absolute inset-[-4px] z-20 rounded-3xl bg-black/45 pointer-events-none ring-1 ring-white/10" aria-hidden />
+        ) : null}
+        {fx === "win" ? (
+          <motion.div
+            className="absolute inset-[-6px] z-0 rounded-3xl pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 1, 0.8] }}
+            transition={{ duration: 1 }}
+            style={{
+              boxShadow: "0 0 50px 16px rgba(0,255,178,0.32), inset 0 0 30px rgba(0,255,178,0.1)",
+            }}
+          />
+        ) : null}
+        <div
+          className={cn(
+            "relative z-[1] grid gap-3 justify-center",
+            boxes === 3 ? "grid-cols-3 max-w-md mx-auto" : "grid-cols-5 max-w-2xl mx-auto",
+          )}
+        >
+          {Array.from({ length: boxes }, (_, i) => {
+            const isWinning = !!reveal && reveal.winning === i;
+            const isPicked = picked === i;
+            const showSpinner = isPicked && busy && !reveal;
+            return (
+              <button
+                key={i}
+                type="button"
+                disabled={busy || insufficient}
+                onClick={() => void play(i)}
+                className={cn(
+                  "aspect-square rounded-2xl border-2 text-lg font-black transition-all min-h-[72px] flex items-center justify-center",
+                  "border-[#00FFB2]/25 bg-gradient-to-br from-white/[0.06] to-transparent hover:border-[#00FFB2]/60 hover:shadow-[0_0_24px_-6px_rgba(0,255,178,0.45)] disabled:opacity-60",
+                  isPicked && reveal?.win ? "ring-2 ring-[#00FFB2] scale-105 shadow-[0_0_28px_-8px_rgba(0,255,178,0.5)]" : "",
+                  isWinning && reveal && !reveal.win ? "ring-1 ring-emerald-500/40" : "",
+                  isPicked && reveal && !reveal.win ? "opacity-75" : "",
+                )}
+              >
+                {showSpinner ? <Loader2 className="h-7 w-7 animate-spin text-[#00FFB2]" /> : reveal ? (isWinning ? "★" : isPicked ? "×" : "·") : "?"}
+              </button>
+            );
+          })}
+        </div>
+      </motion.div>
+      {suspenseRevealing ? (
+        <p className="text-center text-sm font-medium text-[#00FFB2]/90 animate-pulse">Revealing result…</p>
+      ) : busy && picked !== null && !reveal ? (
+        <p className="text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Processing…
+        </p>
+      ) : null}
+      {msg ? (
+        <p className={cn("text-center text-sm", fx === "win" ? "text-[#00FFB2] font-semibold" : "text-slate-300")}>{msg}</p>
+      ) : null}
     </div>
   );
 }
@@ -477,10 +744,14 @@ function ScratchSection({
   soundOn: boolean;
   onDone: () => void;
 }) {
+  const gate = useGameActionGate();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [roundId, setRoundId] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [suspenseRevealing, setSuspenseRevealing] = useState(false);
+  const [dwellAfterReveal, setDwellAfterReveal] = useState(false);
+  const [fx, setFx] = useState<"none" | "win" | "loss">("none");
   const [msg, setMsg] = useState<string | null>(null);
   const scratchedRef = useRef(0);
   const insufficient = stake > balance + 1e-9;
@@ -490,8 +761,10 @@ function ScratchSection({
       setMsg("Insufficient withdrawable balance for this stake.");
       return;
     }
+    if (!gate.tryEnter()) return;
     setBusy(true);
     setMsg(null);
+    setFx("none");
     setProgress(0);
     scratchedRef.current = 0;
     try {
@@ -502,6 +775,7 @@ function ScratchSection({
       setMsg(e instanceof Error ? e.message : "Could not start");
     } finally {
       setBusy(false);
+      gate.exit();
     }
   };
 
@@ -531,7 +805,7 @@ function ScratchSection({
   }, [roundId, paintCover]);
 
   const onPointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!roundId) return;
+    if (!roundId || dwellAfterReveal) return;
     const c = canvasRef.current;
     const ctx = c?.getContext("2d");
     if (!c || !ctx) return;
@@ -550,53 +824,100 @@ function ScratchSection({
 
   const finish = async () => {
     if (!roundId) return;
+    if (!gate.tryEnter()) return;
     setBusy(true);
+    setFx("none");
     try {
       const r = await completeScratch(roundId, Math.max(scratchMinPercent, Math.round(progress)), idem());
-      if (r.payout > 0.009) {
-        confetti({ particleCount: 100, spread: 75, origin: { y: 0.5 } });
+      setSuspenseRevealing(true);
+      await sleep(postAnimationSuspenseMs(500));
+      setSuspenseRevealing(false);
+      const won = r.payout > 0.009;
+      setFx(won ? "win" : "loss");
+      if (won) {
+        confetti({ particleCount: 110, spread: 78, origin: { y: 0.5 } });
+        confetti({ particleCount: 40, spread: 50, origin: { y: 0.48 }, scalar: 0.75 });
         if (soundOn) playWinSound();
         setMsg(`You won $${r.payout.toFixed(2)} USDT`);
       } else {
         setMsg("No win — try another card.");
         if (soundOn) navigator.vibrate?.(30);
       }
-      setRoundId(null);
       onDone();
+      setBusy(false);
+      setDwellAfterReveal(true);
+      await sleep(1700);
+      setRoundId(null);
+      setFx("none");
+      setDwellAfterReveal(false);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Complete failed");
+      setFx("none");
     } finally {
       setBusy(false);
+      gate.exit();
     }
   };
 
   return (
-    <div className="space-y-6" aria-busy={busy}>
-      <StakeRow options={stakeOptions} stake={stake} setStake={setStake} disabled={busy || !!roundId} />
+    <div className="space-y-6" aria-busy={busy || dwellAfterReveal}>
+      <StakeRow options={stakeOptions} stake={stake} setStake={setStake} disabled={busy || !!roundId || dwellAfterReveal} />
       {insufficient && !roundId ? (
         <p className="text-center text-sm text-amber-300/90">Stake exceeds your withdrawable balance.</p>
       ) : null}
       {!roundId ? (
         <div className="text-center">
-          <Button type="button" size="lg" onClick={start} disabled={busy || insufficient} className="bg-gradient-to-r from-[#00FFB2] to-emerald-700 text-black font-bold">
-            Buy card & reveal
+          <Button
+            type="button"
+            size="lg"
+            onClick={() => void start()}
+            disabled={busy || insufficient}
+            className="bg-gradient-to-r from-[#00FFB2] to-emerald-700 text-black font-bold min-w-[200px] disabled:opacity-60"
+          >
+            {busy ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Processing…
+              </span>
+            ) : (
+              "Buy card & reveal"
+            )}
           </Button>
         </div>
       ) : (
         <div className="space-y-3 max-w-md mx-auto">
-          <div className="relative rounded-2xl overflow-hidden border border-[#00FFB2]/25 bg-[#022c22]/40">
+          <motion.div
+            className="relative rounded-2xl overflow-hidden border border-[#00FFB2]/25 bg-[#022c22]/40"
+            animate={fx === "loss" ? { x: [0, -6, 6, -4, 4, 0] } : fx === "win" ? { scale: [1, 1.02, 1] } : {}}
+            transition={{ duration: fx === "loss" ? 0.45 : 0.5 }}
+          >
+            {fx === "loss" ? (
+              <div className="absolute inset-0 z-20 bg-black/45 pointer-events-none" aria-hidden />
+            ) : null}
+            {fx === "win" ? (
+              <motion.div
+                className="absolute inset-0 z-10 pointer-events-none"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 1, 0.75] }}
+                transition={{ duration: 1 }}
+                style={{ boxShadow: "inset 0 0 50px rgba(0,255,178,0.25)" }}
+              />
+            ) : null}
             <canvas
               ref={canvasRef}
               width={320}
               height={180}
-              className="w-full touch-none cursor-crosshair block"
+              className={cn(
+                "w-full touch-none block relative z-[1]",
+                busy || dwellAfterReveal ? "cursor-wait pointer-events-none opacity-80" : "cursor-crosshair",
+              )}
               onPointerDown={onPointer}
               onPointerMove={(e) => e.buttons === 1 && onPointer(e)}
             />
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[2]">
               <p className="text-3xl font-black text-[#00FFB2]/20 select-none">$</p>
             </div>
-          </div>
+          </motion.div>
           <div className="space-y-1">
             <div className="h-2 rounded-full bg-white/10 overflow-hidden">
               <div className="h-full bg-[#00FFB2] transition-all" style={{ width: `${Math.min(100, progress)}%` }} />
@@ -605,12 +926,29 @@ function ScratchSection({
               Scratch at least {scratchMinPercent}% to settle ({Math.round(progress)}%)
             </p>
           </div>
-          <Button type="button" onClick={finish} disabled={busy || progress < scratchMinPercent} className="w-full">
-            Reveal result
+          <Button
+            type="button"
+            onClick={() => void finish()}
+            disabled={busy || dwellAfterReveal || suspenseRevealing || progress < scratchMinPercent}
+            className="w-full disabled:opacity-60"
+          >
+            {busy ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Processing…
+              </span>
+            ) : (
+              "Reveal result"
+            )}
           </Button>
         </div>
       )}
-      {msg ? <p className="text-center text-sm text-slate-300">{msg}</p> : null}
+      {suspenseRevealing ? (
+        <p className="text-center text-sm font-medium text-[#00FFB2]/90 animate-pulse">Revealing result…</p>
+      ) : null}
+      {msg ? (
+        <p className={cn("text-center text-sm", fx === "win" ? "text-[#00FFB2] font-semibold" : "text-slate-300")}>{msg}</p>
+      ) : null}
     </div>
   );
 }

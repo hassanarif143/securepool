@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import {
   useGetDashboardStats,
@@ -262,6 +262,7 @@ function GamesTab() {
   const [platformEnabled, setPlatformEnabled] = useState(true);
   const [premiumOnly, setPremiumOnly] = useState(false);
   const [minPoolVipTier, setMinPoolVipTier] = useState("silver");
+  const [summaryUpdatedAt, setSummaryUpdatedAt] = useState<Date | null>(null);
   const [summary, setSummary] = useState<{
     totalBets: number;
     totalPayout: number;
@@ -271,15 +272,25 @@ function GamesTab() {
     pendingScratchRounds: number;
   } | null>(null);
 
+  const refreshSummary = useCallback(async (silent: boolean) => {
+    try {
+      const sumRes = await fetch(apiUrl("/api/games/admin/summary"), { credentials: "include" });
+      if (sumRes.ok) {
+        setSummary(await sumRes.json());
+        setSummaryUpdatedAt(new Date());
+      } else if (!silent) {
+        appToast.error({ title: "Stats unavailable", description: await readApiErrorMessage(sumRes) });
+      }
+    } catch (err: unknown) {
+      if (!silent) {
+        appToast.error({ title: "Failed to load mini games stats", description: err instanceof Error ? err.message : String(err) });
+      }
+    }
+  }, []);
+
   useEffect(() => {
     void (async () => {
-      try {
-        const sumRes = await fetch(apiUrl("/api/games/admin/summary"), { credentials: "include" });
-        if (sumRes.ok) setSummary(await sumRes.json());
-        else appToast.error({ title: "Stats unavailable", description: await readApiErrorMessage(sumRes) });
-      } catch (err: any) {
-        appToast.error({ title: "Failed to load mini games stats", description: err?.message });
-      }
+      await refreshSummary(false);
       try {
         const setRes = await fetch(apiUrl("/api/games/admin/settings"), { credentials: "include" });
         if (setRes.ok) {
@@ -298,7 +309,14 @@ function GamesTab() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [refreshSummary]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void refreshSummary(true);
+    }, 20_000);
+    return () => clearInterval(id);
+  }, [refreshSummary]);
 
   async function saveGameFlags() {
     setSavingSettings(true);
@@ -368,7 +386,8 @@ function GamesTab() {
         <CardHeader>
           <CardTitle className="text-base">Mini Games (Spin / Pick / Scratch)</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Player hub: <code className="text-[11px]">/games</code> (Spin, Pick Box, Scratch). Legacy arena/scratch HTTP APIs are not mounted.
+            Player hub: <code className="text-[11px]">/games</code> (Spin, Pick Box, Scratch). Stats refresh every 20s
+            {summaryUpdatedAt ? ` · last sync ${summaryUpdatedAt.toLocaleTimeString()}` : ""}.
           </p>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -395,6 +414,20 @@ function GamesTab() {
             <p className="text-xs text-muted-foreground">Scratch cards awaiting reveal</p>
             <p className="text-lg font-mono font-semibold">{summary?.pendingScratchRounds ?? "—"}</p>
           </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Risk and abuse visibility</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Deep fraud scoring is not wired here yet — use Users for blocks, device trust, and feature toggles.
+          </p>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground space-y-2">
+          <p>
+            Mini game POSTs are rate-limited and idempotent server-side; watch wager/payout drift in the stats above for unusual spikes.
+          </p>
+          <p className="text-xs">Future: velocity alerts, linked multi-account flags, and exportable suspicion logs.</p>
         </CardContent>
       </Card>
     </div>

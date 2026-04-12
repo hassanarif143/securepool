@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useAnimatedNumber } from "@/hooks/useAnimatedNumber";
 import { Link, useLocation, useSearch } from "wouter";
 import { useGetUserTransactions, getGetUserTransactionsQueryKey, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
@@ -17,6 +18,7 @@ import { ArrowRight, Inbox, Shield } from "lucide-react";
 import { ConfirmActionModal } from "@/components/feedback/ConfirmActionModal";
 import { appToast } from "@/components/feedback/AppToast";
 import { UsdtAmount } from "@/components/UsdtAmount";
+import { cn } from "@/lib/utils";
 
 /** USDT (TRC20) address users send deposits to — Deposit tab + copy button. */
 const PLATFORM_ADDRESS = "TBjGU8jfZvsfDVPpjJXVb47khVyKjQqjqp";
@@ -70,6 +72,12 @@ function rowTxMeta(tx: { txType: string; note?: string | null }) {
     return { ...txMeta("promo_credit"), label: "Reward" };
   }
   return txMeta(tx.txType);
+}
+
+function gameStepMeta(txType: string): { step: string; dot: string } {
+  if (txType === "game_bet") return { step: "Stake (bet)", dot: "bg-amber-500" };
+  if (txType === "game_win") return { step: "Win (payout)", dot: "bg-emerald-500" };
+  return { step: "Settled (no win)", dot: "bg-slate-500" };
 }
 
 function txExplain(tx: { txType: string; note?: string | null }) {
@@ -133,7 +141,7 @@ export default function WalletPage() {
 
   const [tab, setTab] = useState<"deposit" | "withdraw" | "history">("deposit");
   const [txFilter, setTxFilter] = useState<
-    "all" | "deposit" | "withdraw" | "reward" | "pool_entry" | "stake" | "credits"
+    "all" | "deposit" | "withdraw" | "reward" | "pool_entry" | "stake" | "credits" | "games"
   >("all");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -213,16 +221,21 @@ export default function WalletPage() {
     queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
   }, [queryClient, user?.id]);
 
-  if (isLoading || !user) return null;
+  const wdTarget = user?.withdrawableBalance ?? 0;
+  const rewardsTarget = Number((user?.rewardPoints ?? 0) as number) / 300;
+  const totalTarget = Number(user?.walletBalance ?? 0);
+  const lockedTarget = user ? Math.max(0, totalTarget - wdTarget - rewardsTarget) : 0;
+  const withdrawableAnim = useAnimatedNumber(wdTarget, 480);
+  const totalAnim = useAnimatedNumber(totalTarget, 480);
+  const rewardsAnim = useAnimatedNumber(rewardsTarget, 480);
+  const lockedAnim = useAnimatedNumber(lockedTarget, 480);
 
-  const currentUser = user;
-  const withdrawableBal = currentUser.withdrawableBalance ?? 0;
-  const rewardsUsdt = Number((currentUser.rewardPoints ?? 0) as number) / 300;
-  const lockedEstimated = Math.max(0, Number(currentUser.walletBalance ?? 0) - withdrawableBal - rewardsUsdt);
-  const totalWalletBal = Number(currentUser.walletBalance ?? 0);
-
-  const pendingDeposit = txArr.find((t) => t.txType === "deposit" && t.status === "pending");
-  const pendingAll = txArr.filter((t) => t.status === "pending" || t.status === "under_review");
+  const gameLedgerTxs = useMemo(() => {
+    const gameTypes = new Set(["game_bet", "game_win", "game_loss"]);
+    return [...txArr]
+      .filter((t: { txType: string }) => gameTypes.has(t.txType))
+      .sort((a: { createdAt: string }, b: { createdAt: string }) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [txArr]);
 
   function matchesFilter(t: any) {
     if (txFilter === "all") return true;
@@ -244,10 +257,22 @@ export default function WalletPage() {
     }
     if (txFilter === "pool_entry") return t.txType === "pool_entry";
     if (txFilter === "stake") return t.txType === "stake_lock" || t.txType === "stake_release";
+    if (txFilter === "games") return t.txType === "game_bet" || t.txType === "game_win" || t.txType === "game_loss";
     return true;
   }
 
   const filteredTx = txArr.filter(matchesFilter);
+
+  if (isLoading || !user) return null;
+
+  const currentUser = user;
+  const withdrawableBal = currentUser.withdrawableBalance ?? 0;
+  const rewardsUsdt = Number((currentUser.rewardPoints ?? 0) as number) / 300;
+  const lockedEstimated = Math.max(0, Number(currentUser.walletBalance ?? 0) - withdrawableBal - rewardsUsdt);
+  const totalWalletBal = Number(currentUser.walletBalance ?? 0);
+
+  const pendingDeposit = txArr.find((t) => t.txType === "deposit" && t.status === "pending");
+  const pendingAll = txArr.filter((t) => t.status === "pending" || t.status === "under_review");
 
   function openWithdrawConfirm(e: React.FormEvent) {
     e.preventDefault();
@@ -387,7 +412,7 @@ export default function WalletPage() {
           <div className="rounded-xl border border-primary/25 bg-primary/[0.06] px-4 py-3">
             <p className="text-[11px] font-bold uppercase tracking-widest text-primary/90">Total balance</p>
             <UsdtAmount
-              amount={totalWalletBal}
+              amount={totalAnim}
               amountClassName="font-display text-2xl sm:text-3xl font-bold tabular-nums text-foreground"
             />
             <p className="text-[11px] text-muted-foreground mt-1">Everything in your SecurePool wallet (withdrawable + ticket balance + locked).</p>
@@ -399,7 +424,7 @@ export default function WalletPage() {
                 <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-200/90">Withdrawable balance</p>
                 <div className="mt-1 flex flex-wrap items-baseline gap-2">
                   <UsdtAmount
-                    amount={withdrawableBal}
+                    amount={withdrawableAnim}
                     amountClassName="font-display text-4xl font-black tabular-nums tracking-tight text-emerald-300 sm:text-[2.85rem]"
                   />
                 </div>
@@ -428,17 +453,17 @@ export default function WalletPage() {
           <div className="grid gap-2 sm:grid-cols-3">
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.08] p-3">
               <p className="text-[11px] text-emerald-300">Withdrawable</p>
-              <UsdtAmount amount={withdrawableBal} amountClassName="text-sm font-semibold tabular-nums text-emerald-100" />
+              <UsdtAmount amount={withdrawableAnim} amountClassName="text-sm font-semibold tabular-nums text-emerald-100" />
               <p className="text-[10px] text-emerald-100/80 mt-1">Cash-out eligible</p>
             </div>
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.08] p-3">
               <p className="text-[11px] text-emerald-300">Rewards</p>
-              <UsdtAmount amount={rewardsUsdt} amountClassName="text-sm font-semibold tabular-nums text-emerald-100" />
+              <UsdtAmount amount={rewardsAnim} amountClassName="text-sm font-semibold tabular-nums text-emerald-100" />
               <p className="text-[10px] text-emerald-100/80 mt-1">Used in platform features</p>
             </div>
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.08] p-3">
               <p className="text-[11px] text-amber-300">Locked / In-use</p>
-              <UsdtAmount amount={lockedEstimated} amountClassName="text-sm font-semibold tabular-nums text-amber-100" />
+              <UsdtAmount amount={lockedAnim} amountClassName="text-sm font-semibold tabular-nums text-amber-100" />
               <p className="text-[10px] text-amber-100/80 mt-1">Temporarily unavailable</p>
             </div>
           </div>
@@ -725,9 +750,55 @@ export default function WalletPage() {
                 ))}
               </div>
             )}
+            {gameLedgerTxs.length > 0 && (
+              <div className="px-4 py-4 border-b border-[hsl(217,28%,14%)]" style={{ background: "hsl(222,30%,10%)" }}>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Mini games — recent flow</p>
+                <p className="text-[11px] text-muted-foreground/90 mt-1 leading-snug">
+                  Each round posts a stake, then a win or no-win line. Newest first.
+                </p>
+                <ol className="mt-4 space-y-0 relative">
+                  {gameLedgerTxs.slice(0, 14).map((tx: { id: number; txType: string; createdAt: string; amount: string; status: string; note?: string | null }, i: number) => {
+                    const gm = gameStepMeta(tx.txType);
+                    const isLast = i === Math.min(gameLedgerTxs.length, 14) - 1;
+                    return (
+                      <li key={tx.id} className="relative flex gap-3 pl-1">
+                        {!isLast ? (
+                          <span
+                            className="absolute left-[7px] top-[14px] bottom-0 w-px bg-[hsl(217,28%,22%)]"
+                            aria-hidden
+                          />
+                        ) : null}
+                        <span className={cn("relative z-[1] mt-1 h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-[hsl(222,30%,10%)]", gm.dot)} />
+                        <div className="min-w-0 flex-1 pb-4">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[11px] font-bold text-foreground">{gm.step}</span>
+                            <TransactionStatusBadge status={tx.status} compact />
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{timeAgo(tx.createdAt)}</p>
+                          {tx.note ? (
+                            <p className="text-[10px] text-muted-foreground/85 mt-1 line-clamp-2">{tx.note}</p>
+                          ) : null}
+                          <div className="mt-1.5 text-right sm:text-left">
+                            <UsdtAmount
+                              amount={parseFloat(tx.amount)}
+                              prefix={tx.txType === "game_bet" ? "-" : tx.txType === "game_win" ? "+" : ""}
+                              amountClassName={cn(
+                                "text-xs font-bold tabular-nums",
+                                tx.txType === "game_win" ? "text-emerald-300" : tx.txType === "game_bet" ? "text-amber-200" : "text-slate-400",
+                              )}
+                              currencyClassName="text-[10px] text-muted-foreground"
+                            />
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-[hsl(217,28%,14%)]" style={{ background: "hsl(222,30%,10%)" }}>
               <div className="flex flex-wrap gap-2">
-                {(["all", "deposit", "withdraw", "reward", "credits", "pool_entry", "stake"] as const).map((f) => (
+                {(["all", "deposit", "withdraw", "reward", "credits", "pool_entry", "stake", "games"] as const).map((f) => (
                   <button
                     key={f}
                     type="button"
@@ -748,7 +819,9 @@ export default function WalletPage() {
                               ? "Credits"
                               : f === "pool_entry"
                                 ? "Tickets"
-                                : "Stake"}
+                                : f === "stake"
+                                  ? "Stake"
+                                  : "Mini games"}
                   </button>
                 ))}
               </div>

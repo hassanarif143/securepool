@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { db, miniGameRoundsTable, transactionsTable, usersTable } from "@workspace/db";
 import { mirrorAvailableFromUser } from "./user-wallet-service";
+import { processPostRoundEngagement } from "./mini-games-engagement-service";
 
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -114,7 +115,8 @@ export async function playSpin(userId: number, stake: number, idempotencyKey: st
   spinDurationMs: number;
 }> {
   assertStake(stake);
-  return db.transaction(async (tx) => {
+  let engagementRoundId: number | null = null;
+  const out = await db.transaction(async (tx) => {
     await lockMini(tx);
     if (idempotencyKey) {
       const [existing] = await tx
@@ -164,6 +166,7 @@ export async function playSpin(userId: number, stake: number, idempotencyKey: st
       await logGameLoss(tx, userId, `Spin wheel — no win (round #${row.id})`);
     }
 
+    engagementRoundId = row.id;
     return {
       roundId: row.id,
       tier,
@@ -173,6 +176,10 @@ export async function playSpin(userId: number, stake: number, idempotencyKey: st
       spinDurationMs,
     };
   });
+  if (engagementRoundId != null) {
+    void processPostRoundEngagement(userId, engagementRoundId).catch(() => {});
+  }
+  return out;
 }
 
 export async function playPickBox(
@@ -193,7 +200,8 @@ export async function playPickBox(
   if (!PICK_BOX_OPTIONS.includes(boxCount as (typeof PICK_BOX_OPTIONS)[number])) throw new Error("INVALID_BOX_COUNT");
   if (!Number.isInteger(pickedIndex) || pickedIndex < 0 || pickedIndex >= boxCount) throw new Error("INVALID_PICK");
 
-  return db.transaction(async (tx) => {
+  let engagementRoundId: number | null = null;
+  const pickOut = await db.transaction(async (tx) => {
     await lockMini(tx);
     if (idempotencyKey) {
       const [existing] = await tx
@@ -249,6 +257,7 @@ export async function playPickBox(
       await logGameLoss(tx, userId, `Pick box — no win (round #${row.id})`);
     }
 
+    engagementRoundId = row.id;
     return {
       roundId: row.id,
       tier,
@@ -258,6 +267,10 @@ export async function playPickBox(
       isWin,
     };
   });
+  if (engagementRoundId != null) {
+    void processPostRoundEngagement(userId, engagementRoundId).catch(() => {});
+  }
+  return pickOut;
 }
 
 export async function startScratchRound(userId: number, stake: number, idempotencyKey: string | null): Promise<{
@@ -325,7 +338,8 @@ export async function completeScratchRound(
     throw new Error("INVALID_SCRATCH_PROGRESS");
   }
 
-  return db.transaction(async (tx) => {
+  let engagementRoundId: number | null = null;
+  const scratchOut = await db.transaction(async (tx) => {
     await lockMini(tx);
     const [round] = await tx
       .select()
@@ -355,8 +369,43 @@ export async function completeScratchRound(
       await logGameLoss(tx, userId, `Scratch card — no win (round #${roundId})`);
     }
 
+    engagementRoundId = roundId;
     return { payout, tier, multiplier: mult };
   });
+  if (engagementRoundId != null) {
+    void processPostRoundEngagement(userId, engagementRoundId).catch(() => {});
+  }
+  return scratchOut;
+}
+
+/** Lightweight stats for trust / activity UI (no new tables). */
+export async function getGamesActivitySnapshot(): Promise<{
+  playsLast10Minutes: number;
+  pendingScratchRounds: number;
+  lastWinAmount: number | null;
+  lastWinGameType: string | null;
+  lastWinAt: string | null;
+}> {
+  const since = new Date(Date.now() - 10 * 60 * 1000);
+  const [playRow] = await db
+    .select({ c: sql<string>`count(*)::text` })
+    .from(miniGameRoundsTable)
+    .where(and(eq(miniGameRoundsTable.status, "completed"), gte(miniGameRoundsTable.createdAt, since)));
+
+  const [pendRow] = await db
+    .select({ c: sql<string>`count(*)::text` })
+    .from(miniGameRoundsTable)
+    .where(and(eq(miniGameRoundsTable.gameType, "scratch"), eq(miniGameRoundsTable.status, "pending")));
+
+  const recent = await listRecentWins(1);
+  const last = recent[0];
+  return {
+    playsLast10Minutes: Math.floor(toNum(playRow?.c)),
+    pendingScratchRounds: Math.floor(toNum(pendRow?.c)),
+    lastWinAmount: last ? last.payout : null,
+    lastWinGameType: last?.gameType ?? null,
+    lastWinAt: last?.createdAt ?? null,
+  };
 }
 
 export async function listRecentWins(limit = 20): Promise<
