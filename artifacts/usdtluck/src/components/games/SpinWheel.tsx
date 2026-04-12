@@ -25,6 +25,20 @@ const SEGMENTS = [
 
 const SEGMENT_ANGLE = 360 / 8;
 const ANIM_MS = 4200;
+const WHEEL_PX = 280;
+const WHEEL_R = WHEEL_PX / 2;
+/** Distance from center to label (inside colored ring, above hub) */
+const LABEL_RADIUS_PX = 102;
+
+/** Bisector angle (deg clockwise from top); labels placed on circle, always horizontal. */
+function labelPositionPx(i: number): { x: number; y: number } {
+  const bisectorDeg = i * SEGMENT_ANGLE + SEGMENT_ANGLE / 2;
+  const t = (bisectorDeg * Math.PI) / 180;
+  return {
+    x: WHEEL_R + LABEL_RADIUS_PX * Math.sin(t),
+    y: WHEEL_R - LABEL_RADIUS_PX * Math.cos(t),
+  };
+}
 
 export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPlayComplete }: SpinWheelProps) {
   const gate = useGameActionGate();
@@ -147,20 +161,21 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
         >
           <div className="absolute inset-0 rounded-full" style={{ background: conic }} />
           {SEGMENTS.map((seg, i) => {
-            const wedgeRotate = i * SEGMENT_ANGLE + SEGMENT_ANGLE / 2;
-            /* Bottom half of wheel: flip label so it reads upright on mobile */
-            const flip = i >= 4 ? 180 : 0;
+            const { x, y } = labelPositionPx(i);
             return (
               <div
                 key={i}
-                className="absolute left-1/2 top-1/2 w-1/2 origin-left"
-                style={{ transform: `rotate(${wedgeRotate}deg)` }}
+                className="pointer-events-none absolute z-[5]"
+                style={{
+                  left: `${x}px`,
+                  top: `${y}px`,
+                  transform: "translate(-50%, -50%)",
+                }}
               >
                 <span
-                  className="absolute right-5 top-[-8px] whitespace-nowrap font-sp-mono text-[10px] font-extrabold tracking-tight"
+                  className="block whitespace-nowrap font-sp-mono text-[10px] font-extrabold tracking-tight"
                   style={{
                     color: seg.labelColor,
-                    transform: `rotate(${flip}deg)`,
                     textShadow: "0 1px 2px rgba(0,0,0,0.75), 0 0 1px rgba(0,0,0,0.9)",
                   }}
                 >
