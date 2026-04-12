@@ -2179,6 +2179,32 @@ router.post("/users/:id/unblock", async (req, res) => {
   return res.json({ message: "User unblocked" });
 });
 
+router.post("/users/:id/reset-risk", async (req, res) => {
+  const targetId = parseInt(req.params.id);
+  if (isNaN(targetId)) return res.status(400).json({ error: "Invalid user ID" });
+
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+  if (!target) return res.status(404).json({ error: "User not found" });
+
+  await db
+    .update(usersTable)
+    .set({
+      riskScore: 0,
+      riskLevel: "low",
+      updatedAt: new Date(),
+    })
+    .where(eq(usersTable.id, targetId));
+
+  await logAction(
+    getAdminId(req),
+    "user",
+    targetId,
+    "reset_risk",
+    `Reset risk to low for ${target.name} <${target.email}>`,
+  );
+  return res.json({ message: "Risk reset to low", riskScore: 0, riskLevel: "low" });
+});
+
 router.post("/users/:id/arena-disable", async (req, res) => {
   const targetId = parseInt(req.params.id);
   if (isNaN(targetId)) return res.status(400).json({ error: "Invalid user ID" });
