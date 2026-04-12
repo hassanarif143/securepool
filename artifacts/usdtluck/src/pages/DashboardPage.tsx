@@ -238,7 +238,7 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-      {user.riskLevel && user.riskLevel !== "low" ? (
+      {user.riskLevel && user.riskLevel !== "low" && !user.isAdmin ? (
         <div className="rounded-2xl border border-red-500/35 bg-red-500/[0.08] px-4 py-4 sm:px-5">
           <p className="text-sm font-semibold text-red-200">Suspicious activity detected</p>
           <p className="mt-1 text-xs text-red-100/90 leading-relaxed">
