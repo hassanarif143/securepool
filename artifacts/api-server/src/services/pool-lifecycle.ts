@@ -3,7 +3,7 @@
  *
  * **Do not** start a second cron stack here; scheduling is centralized in `src/index.ts`:
  * - `schedulePoolFactoryJobs()` — rotation, schedule ticks, dead-pool (`lib/pool-factory-scheduler.ts`)
- * - `schedulePoolAutoDrawJob()` — due fills → draw (`lib/pool-auto-draw-scheduler.ts` → `runDuePoolAutoDraws` in `routes/pools.ts`)
+ * - `schedulePoolAutoDrawJob()` — due fills → draw (`lib/pool-auto-draw-scheduler.ts` → `runDuePoolAutoDraws`, re-exported below)
  * - `scheduleExpiredPoolJob()` — end-time settlement (`lib/pool-auto-close.ts`)
  *
  * **Join / fill:** `POST /pools/:id/join` schedules `draw_scheduled_at` using per-template `draw_delay_minutes` when set.
@@ -23,3 +23,6 @@ export {
   getMaxActivePoolsLimit,
   getMaxDailyPoolsLimit,
 } from "./pool-template-service";
+
+/** Implemented in `routes/pools.ts` (draw + wallet); exported here for one import path. */
+export { runDuePoolAutoDraws } from "../routes/pools";

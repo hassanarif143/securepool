@@ -4,7 +4,7 @@ import { logger } from "./logger";
 export function schedulePoolAutoDrawJob(): void {
   const tick = async () => {
     try {
-      const { runDuePoolAutoDraws } = await import("../routes/pools.js");
+      const { runDuePoolAutoDraws } = await import("../services/pool-lifecycle.js");
       await runDuePoolAutoDraws();
     } catch (err) {
       logger.warn({ err }, "[pool-auto-draw] tick failed");
