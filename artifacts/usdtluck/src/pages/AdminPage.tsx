@@ -386,7 +386,7 @@ function GamesTab() {
         <CardHeader>
           <CardTitle className="text-base">SecurePool Arcade</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Player hub: <code className="text-[11px]">/games</code> — spin wheel, mystery box, scratch card. Each play settles
+            Player hub: <code className="text-[11px]">/games</code> — Risk Wheel, Treasure Hunt, Lucky Numbers, Hi-Lo, Mega Draw. Each play settles
             immediately server-side. Stats refresh every 20s
             {summaryUpdatedAt ? ` · last sync ${summaryUpdatedAt.toLocaleTimeString()}` : ""}.
           </p>

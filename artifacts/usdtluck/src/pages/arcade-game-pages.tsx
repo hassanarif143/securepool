@@ -4,10 +4,18 @@ export function SpinWheelGamePage() {
   return <ArcadeGamePlay game="spin" />;
 }
 
-export function MysteryBoxGamePage() {
+export function TreasureHuntGamePage() {
   return <ArcadeGamePlay game="box" />;
 }
 
-export function ScratchCardGamePage() {
+export function LuckyNumbersGamePage() {
   return <ArcadeGamePlay game="scratch" />;
+}
+
+export function HiLoGamePage() {
+  return <ArcadeGamePlay game="hilo" />;
+}
+
+export function MegaDrawGamePage() {
+  return <ArcadeGamePlay game="mega" />;
 }

@@ -8,7 +8,11 @@ const FRIENDLY_GAME_ERRORS: Record<string, string> = {
   IDEMPOTENCY_IN_PROGRESS: "Previous play is still processing — wait a moment and try again.",
   INSUFFICIENT_BALANCE: "Not enough withdrawable balance.",
   INVALID_BET: "Bet must be 1, 2, or 5 USDT.",
+  USE_MULTI_ENDPOINT: "Use the dedicated flow for this game.",
+  LUCKY_NUMBERS_REQUIRED: "Pick three numbers from 1–9.",
   RATE_LIMITED: "Too many requests — wait a few seconds.",
+  ROUND_NOT_FOUND: "That Mega Draw round was not found.",
+  INVALID_ROUND_ID: "Enter a valid round id.",
   "Invalid CSRF token": "Session security check failed. Refresh the page and try again.",
   "Invalid origin or referer": "Request blocked. Refresh the page and try again.",
 };
@@ -73,6 +77,14 @@ export async function fetchGamesState(): Promise<GamesStateResponse> {
   return readGamesJson<GamesStateResponse>(res);
 }
 
+export type RiskWheelPayload = {
+  landedSegment: number;
+  nearMiss: boolean;
+  nearMissSegment: number;
+  nearMissLabel: string;
+  segments: readonly string[];
+};
+
 export type PlayResult = {
   success: boolean;
   roundId: number;
@@ -80,17 +92,170 @@ export type PlayResult = {
   multiplier: number;
   winAmount: number;
   newBalance: number;
+  riskWheel?: RiskWheelPayload;
+  luckyNumbers?: {
+    winningNumbers: number[];
+    matchCount: number;
+    userNumbers: [number, number, number];
+  };
 };
 
-export async function postPlay(gameType: "spin_wheel" | "mystery_box" | "scratch_card", betAmount: number, idempotencyKey: string): Promise<PlayResult> {
+export type ArcadeGameType =
+  | "spin_wheel"
+  | "risk_wheel"
+  | "mystery_box"
+  | "treasure_hunt"
+  | "scratch_card"
+  | "lucky_numbers";
+
+export async function postPlay(
+  gameType: ArcadeGameType,
+  betAmount: number,
+  idempotencyKey: string,
+  luckyNumbers?: [number, number, number],
+): Promise<PlayResult> {
   const csrf = await csrfHeaders();
+  const body: Record<string, unknown> = { gameType, betAmount };
+  if (luckyNumbers) body.luckyNumbers = luckyNumbers;
   const res = await gamesFetch(apiUrl("/api/games/play"), {
     method: "POST",
     credentials: "include",
     headers: { ...csrf, "Content-Type": "application/json", "x-idempotency-key": idempotencyKey },
-    body: JSON.stringify({ gameType, betAmount }),
+    body: JSON.stringify(body),
   });
   return readGamesJson<PlayResult>(res);
+}
+
+export async function postTreasureStart(betAmount: number, idempotencyKey: string): Promise<{
+  success: boolean;
+  gameId: number;
+  boxCount: number;
+  maxPicks: number;
+  newBalance: number;
+}> {
+  const csrf = await csrfHeaders();
+  const res = await gamesFetch(apiUrl("/api/games/treasure-hunt/start"), {
+    method: "POST",
+    credentials: "include",
+    headers: { ...csrf, "Content-Type": "application/json", "x-idempotency-key": idempotencyKey },
+    body: JSON.stringify({ betAmount }),
+  });
+  return readGamesJson(res);
+}
+
+export async function postTreasurePick(gameId: number, boxIndex: number): Promise<Record<string, unknown>> {
+  const csrf = await csrfHeaders();
+  const res = await gamesFetch(apiUrl("/api/games/treasure-hunt/pick"), {
+    method: "POST",
+    credentials: "include",
+    headers: { ...csrf, "Content-Type": "application/json" },
+    body: JSON.stringify({ gameId, boxIndex }),
+  });
+  return readGamesJson(res);
+}
+
+export async function postTreasureCashout(gameId: number): Promise<Record<string, unknown>> {
+  const csrf = await csrfHeaders();
+  const res = await gamesFetch(apiUrl("/api/games/treasure-hunt/cashout"), {
+    method: "POST",
+    credentials: "include",
+    headers: { ...csrf, "Content-Type": "application/json" },
+    body: JSON.stringify({ gameId }),
+  });
+  return readGamesJson(res);
+}
+
+export async function postHiloStart(betAmount: number, idempotencyKey: string): Promise<Record<string, unknown>> {
+  const csrf = await csrfHeaders();
+  const res = await gamesFetch(apiUrl("/api/games/hilo/start"), {
+    method: "POST",
+    credentials: "include",
+    headers: { ...csrf, "Content-Type": "application/json", "x-idempotency-key": idempotencyKey },
+    body: JSON.stringify({ betAmount }),
+  });
+  return readGamesJson(res);
+}
+
+export async function postHiloGuess(gameId: number, guess: "higher" | "lower"): Promise<Record<string, unknown>> {
+  const csrf = await csrfHeaders();
+  const res = await gamesFetch(apiUrl("/api/games/hilo/guess"), {
+    method: "POST",
+    credentials: "include",
+    headers: { ...csrf, "Content-Type": "application/json" },
+    body: JSON.stringify({ gameId, guess }),
+  });
+  return readGamesJson(res);
+}
+
+export async function postHiloCashout(gameId: number): Promise<Record<string, unknown>> {
+  const csrf = await csrfHeaders();
+  const res = await gamesFetch(apiUrl("/api/games/hilo/cashout"), {
+    method: "POST",
+    credentials: "include",
+    headers: { ...csrf, "Content-Type": "application/json" },
+    body: JSON.stringify({ gameId }),
+  });
+  return readGamesJson(res);
+}
+
+export async function fetchMegaDrawCurrent(): Promise<{
+  success: boolean;
+  round: {
+    id: number;
+    roundNumber: number;
+    displayJackpot: number;
+    drawAt: string | null;
+    totalTickets: number;
+    capTickets: number;
+  };
+  myTickets: { id: number; ticketNumber: string; createdAt: string }[];
+}> {
+  const res = await gamesFetch(apiUrl("/api/games/mega-draw/current"), { credentials: "include" });
+  return readGamesJson(res);
+}
+
+export async function fetchMegaDrawResults(roundId: number): Promise<{
+  success: boolean;
+  round: {
+    id: number;
+    roundNumber: number;
+    status: string;
+    winningNumber: string | null;
+    totalTickets: number;
+    totalPool: number;
+    jackpotPool: number;
+    totalPaidOut: number;
+    drawAt: string | null;
+    drawnAt: string | null;
+    createdAt: string;
+  };
+  myTickets: {
+    id: number;
+    ticketNumber: string;
+    matchCount: number | null;
+    winAmount: number;
+    createdAt: string;
+  }[];
+  matchCounts: { match4: number; match3: number; match2: number; match1: number; match0: number };
+}> {
+  const res = await gamesFetch(apiUrl(`/api/games/mega-draw/results/${roundId}`), { credentials: "include" });
+  return readGamesJson(res);
+}
+
+export async function postMegaDrawBuy(ticketNumbers: string[], idempotencyKey: string): Promise<{
+  success: boolean;
+  roundId: number;
+  bought: number;
+  newBalance: number;
+}> {
+  const csrf = await csrfHeaders();
+  const res = await gamesFetch(apiUrl("/api/games/mega-draw/buy"), {
+    method: "POST",
+    credentials: "include",
+    headers: { ...csrf, "Content-Type": "application/json", "x-idempotency-key": idempotencyKey },
+    body: JSON.stringify({ ticketNumbers }),
+  });
+  return readGamesJson(res);
 }
 
 export async function fetchRecentGameWins(): Promise<{

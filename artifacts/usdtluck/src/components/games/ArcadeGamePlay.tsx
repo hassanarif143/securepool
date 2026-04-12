@@ -3,21 +3,31 @@ import { Button } from "@/components/ui/button";
 import { useGamesArcadeAccess } from "@/hooks/useGamesArcadeAccess";
 import { GamePlayShell } from "@/components/games/GamePlayShell";
 import SpinWheel from "@/components/games/SpinWheel";
-import MysteryBox from "@/components/games/MysteryBox";
-import ScratchCard from "@/components/games/ScratchCard";
+import TreasureHunt from "@/components/games/TreasureHunt";
+import LuckyNumbers from "@/components/games/LuckyNumbers";
+import HiLoCards from "@/components/games/HiLoCards";
+import MegaDraw from "@/components/games/MegaDraw";
 
 const META = {
   spin: {
-    title: "Spin Wheel",
-    subtitle: "Spin to win up to 3× your bet — provably fair outcomes.",
+    title: "Risk Wheel",
+    subtitle: "Stop the wheel at the right moment — outcomes are decided on the server.",
   },
   box: {
-    title: "Mystery Box",
-    subtitle: "Pick a box — instant reveal with real odds.",
+    title: "Treasure Hunt",
+    subtitle: "Pick boxes, dodge bombs, and cash out when you like.",
   },
   scratch: {
-    title: "Scratch & Win",
-    subtitle: "Scratch the foil to reveal your prize.",
+    title: "Lucky Numbers",
+    subtitle: "Pick three numbers — match for up to 10×.",
+  },
+  hilo: {
+    title: "Hi-Lo Cards",
+    subtitle: "Higher or lower — cash out before you bust.",
+  },
+  mega: {
+    title: "Mega Draw",
+    subtitle: "Daily lottery with a growing jackpot.",
   },
 } as const;
 
@@ -98,9 +108,13 @@ export function ArcadeGamePlay({ game }: { game: ArcadeGameKind }) {
       {game === "spin" ? (
         <SpinWheel balance={balanceRaw} allowedBets={allowedBets} onBalanceUpdate={onBalanceUpdate} onPlayComplete={onPlayComplete} />
       ) : game === "box" ? (
-        <MysteryBox balance={balanceRaw} allowedBets={allowedBets} onBalanceUpdate={onBalanceUpdate} onPlayComplete={onPlayComplete} />
+        <TreasureHunt balance={balanceRaw} allowedBets={allowedBets} onBalanceUpdate={onBalanceUpdate} onPlayComplete={onPlayComplete} />
+      ) : game === "scratch" ? (
+        <LuckyNumbers balance={balanceRaw} allowedBets={allowedBets} onBalanceUpdate={onBalanceUpdate} onPlayComplete={onPlayComplete} />
+      ) : game === "hilo" ? (
+        <HiLoCards balance={balanceRaw} allowedBets={allowedBets} onBalanceUpdate={onBalanceUpdate} onPlayComplete={onPlayComplete} />
       ) : (
-        <ScratchCard balance={balanceRaw} allowedBets={allowedBets} onBalanceUpdate={onBalanceUpdate} onPlayComplete={onPlayComplete} />
+        <MegaDraw balance={balanceRaw} onBalanceUpdate={onBalanceUpdate} />
       )}
     </GamePlayShell>
   );

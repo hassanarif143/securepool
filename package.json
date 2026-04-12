@@ -10,7 +10,8 @@
     "dev:stack": "sh ./scripts/dev-stack.sh",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
-    "migrate:sql": "pnpm --filter @workspace/api-server run migrate:sql"
+    "migrate:sql": "pnpm --filter @workspace/api-server run migrate:sql",
+    "set-user-password": "node ./artifacts/api-server/scripts/set-user-password.mjs"
   },
   "private": true,
   "devDependencies": {

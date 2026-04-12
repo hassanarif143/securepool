@@ -8,6 +8,7 @@ import {
   timestamp,
   date,
   unique,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
@@ -26,6 +27,8 @@ export const arcadeRoundsTable = pgTable(
     profitForPlatform: numeric("profit_for_platform", { precision: 10, scale: 2 }).notNull().default("0"),
     serverSeed: varchar("server_seed", { length: 64 }).notNull(),
     resultHash: varchar("result_hash", { length: 64 }).notNull(),
+    /** Optional JSON: lucky-numbers picks, risk wheel extras reference, etc. */
+    payload: jsonb("payload").$type<Record<string, unknown> | null>(),
     idempotencyKey: text("idempotency_key"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

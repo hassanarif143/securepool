@@ -33,7 +33,13 @@ import P2PTradingPage from "@/pages/P2PTradingPage";
 import CashoutArenaRedirect from "@/pages/CashoutArenaRedirect";
 import ScratchCardRedirect from "@/pages/ScratchCardRedirect";
 import GamesPage from "@/pages/GamesPage";
-import { SpinWheelGamePage, MysteryBoxGamePage, ScratchCardGamePage } from "@/pages/arcade-game-pages";
+import {
+  SpinWheelGamePage,
+  TreasureHuntGamePage,
+  LuckyNumbersGamePage,
+  HiLoGamePage,
+  MegaDrawGamePage,
+} from "@/pages/arcade-game-pages";
 import MySharesPage from "@/pages/MySharesPage";
 import RefRedirectPage from "@/pages/RefRedirectPage";
 import HowToBuyUsdtPage from "@/pages/HowToBuyUsdtPage";
@@ -215,12 +221,22 @@ function Router() {
         </Route>
         <Route path="/games/mystery-box">
           <RequireAuth>
-            <MysteryBoxGamePage />
+            <TreasureHuntGamePage />
           </RequireAuth>
         </Route>
         <Route path="/games/scratch-card">
           <RequireAuth>
-            <ScratchCardGamePage />
+            <LuckyNumbersGamePage />
+          </RequireAuth>
+        </Route>
+        <Route path="/games/hi-lo">
+          <RequireAuth>
+            <HiLoGamePage />
+          </RequireAuth>
+        </Route>
+        <Route path="/games/mega-draw">
+          <RequireAuth>
+            <MegaDrawGamePage />
           </RequireAuth>
         </Route>
         <Route path="/games">

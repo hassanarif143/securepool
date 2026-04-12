@@ -34,3 +34,5 @@ export * from "./scratchCard";
 export * from "./security";
 export * from "./shareCards";
 export * from "./arcadeGames";
+export * from "./arcadeSessions";
+export * from "./megaDraw";

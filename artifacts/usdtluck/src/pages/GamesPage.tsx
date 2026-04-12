@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useSearch } from "wouter";
-import { Sparkles, Package, Ticket } from "lucide-react";
+import { Sparkles, Package, Ticket, Diamond, Layers, Crown } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,8 @@ export default function GamesPage() {
     if (tab === "spin") void navigate("/games/spin-wheel", { replace: true });
     else if (tab === "pick") void navigate("/games/mystery-box", { replace: true });
     else if (tab === "scratch") void navigate("/games/scratch-card", { replace: true });
+    else if (tab === "hilo" || tab === "hi-lo") void navigate("/games/hi-lo", { replace: true });
+    else if (tab === "mega") void navigate("/games/mega-draw", { replace: true });
   }, [search, navigate]);
 
   useEffect(() => {
@@ -158,42 +160,78 @@ export default function GamesPage() {
             </div>
 
             <div>
-              <h2 className="mb-4 font-sp-display text-xs font-bold uppercase tracking-[0.2em] text-sp-text-dim">Games</h2>
-              <div className="grid gap-4 md:grid-cols-3">
+              <h2 className="mb-4 font-sp-display text-xs font-bold uppercase tracking-[0.2em] text-sp-text-dim">Quick play</h2>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <GameHubCard
                   href="/games/spin-wheel"
                   accent="cyan"
                   badge={{ label: "Popular", className: "bg-[#FF4757]/20 text-[#FF8A95]" }}
                   icon={<Sparkles className="h-6 w-6 text-[#00E5CC]" />}
                   iconClass="bg-gradient-to-br from-[#00E5CC]/35 to-[#00B89C]/10"
-                  title="Spin Wheel"
-                  description="Classic wheel with multipliers — fast rounds, instant results."
-                  stats="Entry 1–5 USDT · Max win 3×"
-                  highlight="⚡ Instant"
+                  title="Risk Wheel"
+                  description="Auto-spinning wheel — tap STOP to land. Near-miss feedback on close calls."
+                  stats="Entry 1–5 USDT · Max 3×"
+                  highlight="⚡ Stop"
                 />
                 <GameHubCard
                   href="/games/mystery-box"
                   accent="violet"
-                  badge={{ label: "New", className: "bg-[#8B5CF6]/25 text-[#C4B5FD]" }}
-                  icon={<Package className="h-6 w-6 text-[#A78BFA]" />}
+                  badge={{ label: "Strategy", className: "bg-[#8B5CF6]/25 text-[#C4B5FD]" }}
+                  icon={<Diamond className="h-6 w-6 text-[#A78BFA]" />}
                   iconClass="bg-gradient-to-br from-[#8B5CF6]/40 to-[#8B5CF6]/10"
-                  title="Mystery Box"
-                  description="Pick a box — instant reveal. Every pick uses the same fair engine."
-                  stats="Entry 1–5 USDT · Max win 3×"
-                  highlight="🎯 Skill"
+                  title="Treasure Hunt"
+                  description="Five boxes, three picks — avoid the bomb and cash out anytime."
+                  stats="Entry 1–5 USDT · Max ~6.5×"
+                  highlight="💎 Boxes"
                 />
                 <GameHubCard
                   href="/games/scratch-card"
                   accent="gold"
-                  badge={{ label: "Classic", className: "bg-[#FFD700]/20 text-[#FDE047]" }}
+                  badge={{ label: "Lottery", className: "bg-[#FFD700]/20 text-[#FDE047]" }}
                   icon={<Ticket className="h-6 w-6 text-[#FFD700]" />}
                   iconClass="bg-gradient-to-br from-[#FFD700]/30 to-[#FFD700]/5"
-                  title="Scratch & Win"
-                  description="Scratch the foil to uncover your prize — tactile and satisfying."
-                  stats="Entry 1–5 USDT · Max win 3×"
-                  highlight="✨ Interactive"
+                  title="Lucky Numbers"
+                  description="Pick three numbers 1–9 — draw reveals matches up to 10×."
+                  stats="Entry 1–5 USDT · Max 10×"
+                  highlight="🔢 Pick 3"
+                />
+                <GameHubCard
+                  href="/games/hi-lo"
+                  accent="cyan"
+                  badge={{ label: "Quick", className: "bg-[#00E5CC]/20 text-[#99F6E4]" }}
+                  icon={<Layers className="h-6 w-6 text-[#00E5CC]" />}
+                  iconClass="bg-gradient-to-br from-[#00E5CC]/30 to-[#00B89C]/10"
+                  title="Hi-Lo Cards"
+                  description="Guess higher or lower — ladder multipliers up to 5×, cash out anytime."
+                  stats="Entry 1–5 USDT · Max 5×"
+                  highlight="🃏 Cards"
                 />
               </div>
+            </div>
+
+            <div>
+              <h2 className="mb-4 font-sp-display text-xs font-bold uppercase tracking-[0.2em] text-sp-text-dim">Jackpot</h2>
+              <Link
+                href="/games/mega-draw"
+                className="block overflow-hidden rounded-2xl border-2 border-[#FFD700]/40 bg-gradient-to-br from-amber-950/60 via-sp-deep to-sp-deep p-6 shadow-[0_0_48px_rgba(255,215,0,0.12)] transition hover:border-[#FFD700]/70"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-xl bg-[#FFD700]/15 p-2">
+                      <Crown className="h-8 w-8 text-[#FFD700]" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber-200/90">Mega Draw</p>
+                      <p className="font-sp-display text-xl font-bold text-white">Daily lottery</p>
+                      <p className="mt-1 max-w-xl text-sm text-sp-text-dim">
+                        2 USDT per ticket · 4-digit picks · scheduled draw & cap trigger. Growing jackpot display in-game.
+                      </p>
+                      <p className="mt-2 text-xs font-mono text-[#FFD700]/90">Ticket 2 USDT · tiers up to jackpot</p>
+                    </div>
+                  </div>
+                  <Package className="h-10 w-10 shrink-0 text-[#FFD700]/40" aria-hidden />
+                </div>
+              </Link>
             </div>
 
             <RecentWinsFeed wins={wins} />

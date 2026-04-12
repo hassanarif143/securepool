@@ -7,6 +7,7 @@ import { scheduleExpiredPoolJob } from "./lib/pool-auto-close";
 import { schedulePoolAutoDrawJob } from "./lib/pool-auto-draw-scheduler";
 import { scheduleEngagementJobs } from "./lib/engagement-scheduler";
 import { schedulePoolFactoryJobs } from "./lib/pool-factory-scheduler";
+import { scheduleMegaDrawJob } from "./lib/mega-draw-scheduler";
 import { assertSecurityStartupRequirements } from "./lib/security";
 import { ensureSmartPoolTemplates } from "./services/pool-lifecycle";
 
@@ -53,6 +54,7 @@ async function main() {
     scheduleEngagementJobs();
     /* Pool automation map: `src/services/pool-lifecycle.ts` — rotation + schedules + dead-pool live in pool-factory-scheduler */
     schedulePoolFactoryJobs();
+    scheduleMegaDrawJob();
   });
 }
 

@@ -3,7 +3,9 @@
  * Set a user's password directly in Postgres (bcrypt, same rounds as the API).
  * Use when login returns "Wrong email or password" and you control DATABASE_URL (e.g. Railway).
  *
- *   DATABASE_URL=... NEW_PASSWORD='YourNewPass123' node ./scripts/set-user-password.mjs you@example.com
+ *   From repo root:
+ *   DATABASE_URL=... NEW_PASSWORD='YourNewPass123' pnpm run set-user-password -- you@example.com
+ *   From artifacts/api-server:
  *   DATABASE_URL=... NEW_PASSWORD='...' node ./scripts/set-user-password.mjs you@example.com --unblock
  *
  * Password must be at least 6 characters (same rule as signup).

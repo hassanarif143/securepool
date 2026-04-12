@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useGameActionGate } from "@/hooks/useGameActionGate";
-import { postAnimationSuspenseMs, sleep } from "@/lib/games-ui";
-import { arcadePlay } from "@/lib/games-play-ui";
+import { postAnimationSuspenseMs } from "@/lib/games-ui";
+import { arcadePlay, type ArcadePlaySuccess } from "@/lib/games-play-ui";
 import { fireConfetti } from "./confetti";
 
 export type SpinWheelProps = {
@@ -11,7 +11,6 @@ export type SpinWheelProps = {
   onPlayComplete?: () => void;
 };
 
-/** Wedge fill vs label are separate — never use the same hex for both (was unreadable). */
 const SEGMENTS = [
   { label: "0×", type: "loss" as const, fill: "#9B1C2E", labelColor: "#FFFFFF" },
   { label: "1.5×", type: "small_win" as const, fill: "#0D9488", labelColor: "#F0FDFA" },
@@ -24,13 +23,10 @@ const SEGMENTS = [
 ];
 
 const SEGMENT_ANGLE = 360 / 8;
-const ANIM_MS = 4200;
 const WHEEL_PX = 280;
 const WHEEL_R = WHEEL_PX / 2;
-/** Distance from center to label (inside colored ring, above hub) */
 const LABEL_RADIUS_PX = 102;
 
-/** Bisector angle (deg clockwise from top); labels placed on circle, always horizontal. */
 function labelPositionPx(i: number): { x: number; y: number } {
   const bisectorDeg = i * SEGMENT_ANGLE + SEGMENT_ANGLE / 2;
   const t = (bisectorDeg * Math.PI) / 180;
@@ -40,96 +36,136 @@ function labelPositionPx(i: number): { x: number; y: number } {
   };
 }
 
+function resolveLandingIndex(res: ArcadePlaySuccess): number {
+  if (res.riskWheel) return res.riskWheel.landedSegment;
+  if (res.resultType === "big_win") return 4;
+  if (res.resultType === "small_win") return Math.random() > 0.5 ? 1 : 6;
+  const loseSegments = [0, 2, 3, 5, 7];
+  return loseSegments[Math.floor(Math.random() * loseSegments.length)] ?? 0;
+}
+
 export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPlayComplete }: SpinWheelProps) {
   const gate = useGameActionGate();
-  const [spinning, setSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
+  const [autoSpinning, setAutoSpinning] = useState(false);
+  const [landing, setLanding] = useState(false);
+  const [pendingRound, setPendingRound] = useState<ArcadePlaySuccess | null>(null);
   const [currentBet, setCurrentBet] = useState(allowedBets[0] ?? 1);
+  const transitionMs = 3000;
+  const spinRafRef = useRef<number | null>(null);
 
   useEffect(() => {
     setCurrentBet((prev) => (allowedBets.includes(prev) ? prev : allowedBets[0] ?? 1));
   }, [allowedBets]);
+
   const [result, setResult] = useState<{
     type: "bigwin" | "win" | "loss";
     emoji: string;
     text: string;
     amount: string;
     amountClass: string;
+    nearMiss?: string;
   } | null>(null);
 
   const bets = [1, 2, 5].filter((b) => allowedBets.includes(b));
 
-  const handleSpin = useCallback(async () => {
-    if (spinning || balance < currentBet || !gate.tryEnter()) return;
-    setSpinning(true);
+  const busy = autoSpinning || landing || !!pendingRound;
+
+  const handlePlay = useCallback(async () => {
+    if (busy || balance < currentBet || !gate.tryEnter()) return;
     setResult(null);
-
     const response = await arcadePlay("spin_wheel", currentBet);
-
     if (!response.success) {
-      setSpinning(false);
       gate.exit();
       window.alert(response.error || "Something went wrong");
       return;
     }
+    setPendingRound(response);
+    setAutoSpinning(true);
+  }, [busy, balance, currentBet, gate]);
 
-    let targetIndex: number;
-    if (response.resultType === "big_win") {
-      targetIndex = 4;
-    } else if (response.resultType === "small_win") {
-      targetIndex = Math.random() > 0.5 ? 1 : 6;
-    } else {
-      const loseSegments = [0, 2, 3, 5, 7];
-      targetIndex = loseSegments[Math.floor(Math.random() * loseSegments.length)] ?? 0;
+  const handleStop = useCallback(() => {
+    if (!pendingRound || !autoSpinning) return;
+    if (spinRafRef.current != null) {
+      cancelAnimationFrame(spinRafRef.current);
+      spinRafRef.current = null;
     }
-
+    setAutoSpinning(false);
+    const targetIndex = resolveLandingIndex(pendingRound);
     const targetCenter = targetIndex * SEGMENT_ANGLE + SEGMENT_ANGLE / 2;
-    const extraSpins = 5 + Math.floor(Math.random() * 3);
+    const extraSpins = 4 + Math.floor(Math.random() * 2);
     setRotation((prev) => prev + extraSpins * 360 + (360 - targetCenter));
+    setLanding(true);
+  }, [pendingRound, autoSpinning]);
 
-    await sleep(ANIM_MS);
-    await sleep(postAnimationSuspenseMs(ANIM_MS));
+  useEffect(() => {
+    if (!autoSpinning) return;
+    const step = () => {
+      setRotation((r) => r + 3.2);
+      spinRafRef.current = requestAnimationFrame(step);
+    };
+    spinRafRef.current = requestAnimationFrame(step);
+    return () => {
+      if (spinRafRef.current != null) cancelAnimationFrame(spinRafRef.current);
+      spinRafRef.current = null;
+    };
+  }, [autoSpinning]);
 
-    setSpinning(false);
-    gate.exit();
-    onBalanceUpdate(response.newBalance);
-    onPlayComplete?.();
+  useEffect(() => {
+    if (!landing || !pendingRound) return;
+    const pr = pendingRound;
+    const t = window.setTimeout(() => {
+      setLanding(false);
+      setPendingRound(null);
+      gate.exit();
+      onBalanceUpdate(pr.newBalance);
+      onPlayComplete?.();
 
-    if (response.resultType === "big_win") {
-      fireConfetti(true);
-      setResult({
-        type: "bigwin",
-        emoji: "🏆",
-        text: "JACKPOT!",
-        amount: `+${response.winAmount.toFixed(2)} USDT`,
-        amountClass: "text-[#FFD700] drop-shadow-[0_0_20px_rgba(255,215,0,0.4)]",
-      });
-    } else if (response.resultType === "small_win") {
-      fireConfetti(false);
-      setResult({
-        type: "win",
-        emoji: "✨",
-        text: "Nice Win!",
-        amount: `+${response.winAmount.toFixed(2)} USDT`,
-        amountClass: "text-[#00E5CC] drop-shadow-[0_0_15px_rgba(0,229,204,0.3)]",
-      });
-    } else {
-      setResult({
-        type: "loss",
-        emoji: "😔",
-        text: "Try Again",
-        amount: `-${currentBet.toFixed(2)} USDT`,
-        amountClass: "text-[#FF4757]",
-      });
-    }
-  }, [spinning, balance, currentBet, gate, onBalanceUpdate, onPlayComplete]);
+      const nm =
+        pr.riskWheel?.nearMiss && pr.resultType === "loss"
+          ? `So close! One slot from ${pr.riskWheel.nearMissLabel}!`
+          : undefined;
+
+      if (pr.resultType === "big_win") {
+        fireConfetti(true);
+        setResult({
+          type: "bigwin",
+          emoji: "🏆",
+          text: "JACKPOT!",
+          amount: `+${pr.winAmount.toFixed(2)} USDT`,
+          amountClass: "text-[#FFD700] drop-shadow-[0_0_20px_rgba(255,215,0,0.4)]",
+          nearMiss: nm,
+        });
+      } else if (pr.resultType === "small_win") {
+        fireConfetti(false);
+        setResult({
+          type: "win",
+          emoji: "✨",
+          text: "Nice Win!",
+          amount: `+${pr.winAmount.toFixed(2)} USDT`,
+          amountClass: "text-[#00E5CC] drop-shadow-[0_0_15px_rgba(0,229,204,0.3)]",
+          nearMiss: nm,
+        });
+      } else {
+        setResult({
+          type: "loss",
+          emoji: "😔",
+          text: "Try Again",
+          amount: `-${currentBet.toFixed(2)} USDT`,
+          amountClass: "text-[#FF4757]",
+          nearMiss: nm,
+        });
+      }
+    }, transitionMs + postAnimationSuspenseMs(transitionMs));
+    return () => window.clearTimeout(t);
+  }, [landing, pendingRound, gate, onBalanceUpdate, onPlayComplete, currentBet]);
 
   const conic = `conic-gradient(${SEGMENTS.map((s, i) => `${s.fill} ${i * SEGMENT_ANGLE}deg ${(i + 1) * SEGMENT_ANGLE}deg`).join(", ")})`;
 
   return (
     <div className="relative flex min-h-[420px] flex-col items-center">
-      <h2 className="font-sp-display text-[22px] font-bold text-sp-text">Spin Wheel</h2>
-      <p className="mb-1 text-xs text-sp-text-dim">Spin to win up to 3× your bet</p>
+      <h2 className="font-sp-display text-[22px] font-bold text-sp-text">Risk Wheel</h2>
+      <p className="mb-1 text-xs text-sp-text-dim">Play — wheel spins — tap STOP to land</p>
 
       <div className="mb-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[10px] text-sp-text-dim">
         <span className="inline-flex items-center gap-1.5">
@@ -156,7 +192,8 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
           className="absolute inset-0 rounded-full border-[3px] border-[rgba(0,229,204,0.2)] shadow-[0_0_40px_rgba(0,229,204,0.1),inset_0_0_30px_rgba(0,0,0,0.5)]"
           style={{
             transform: `rotate(${rotation}deg)`,
-            transition: spinning ? "transform 4.2s cubic-bezier(0.17, 0.67, 0.12, 0.99)" : "none",
+            transition: landing ? `transform ${transitionMs}ms cubic-bezier(0.12, 0.75, 0.15, 1)` : "none",
+            transformOrigin: "center center",
           }}
         >
           <div className="absolute inset-0 rounded-full" style={{ background: conic }} />
@@ -186,14 +223,26 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
           })}
         </div>
 
-        <button
-          type="button"
-          onClick={() => void handleSpin()}
-          disabled={spinning || balance < currentBet}
-          className="absolute left-1/2 top-1/2 z-20 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-[#00E5CC] to-[#00B89C] font-sp-display text-[11px] font-extrabold uppercase tracking-wide text-[#06080F] shadow-[0_4px_20px_rgba(0,229,204,0.4)] transition-all duration-200 hover:scale-105 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {spinning ? "…" : "SPIN"}
-        </button>
+        {!autoSpinning && !pendingRound ? (
+          <button
+            type="button"
+            onClick={() => void handlePlay()}
+            disabled={busy || balance < currentBet}
+            className="absolute left-1/2 top-1/2 z-20 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-[#00E5CC] to-[#00B89C] font-sp-display text-[11px] font-extrabold uppercase tracking-wide text-[#06080F] shadow-[0_4px_20px_rgba(0,229,204,0.4)] transition-all duration-200 hover:scale-105 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            PLAY
+          </button>
+        ) : autoSpinning ? (
+          <button
+            type="button"
+            onClick={handleStop}
+            className="absolute left-1/2 top-1/2 z-20 flex h-[76px] w-[76px] -translate-x-1/2 -translate-y-1/2 animate-pulse items-center justify-center rounded-full bg-gradient-to-br from-[#FF6B6B] to-[#C0392B] font-sp-display text-[11px] font-extrabold uppercase tracking-wide text-white shadow-[0_4px_24px_rgba(255,80,80,0.45)]"
+          >
+            STOP
+          </button>
+        ) : (
+          <div className="absolute left-1/2 top-1/2 z-20 h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/40" />
+        )}
       </div>
 
       <div className="mb-4">
@@ -203,8 +252,8 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
             <button
               key={bet}
               type="button"
-              onClick={() => !spinning && setCurrentBet(bet)}
-              disabled={spinning}
+              onClick={() => !busy && setCurrentBet(bet)}
+              disabled={busy}
               className={`rounded-[10px] px-5 py-2.5 font-sp-mono text-sm font-semibold transition-all duration-200 ${
                 currentBet === bet
                   ? "border border-[#00E5CC] bg-[rgba(0,229,204,0.15)] text-[#00E5CC] shadow-[0_0_12px_rgba(0,229,204,0.15)]"
@@ -218,9 +267,12 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
       </div>
 
       {result ? (
-        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#06080F]/[0.88] backdrop-blur-lg">
+        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 rounded-3xl bg-[#06080F]/[0.88] backdrop-blur-lg px-4">
           <div className={`text-5xl ${result.type !== "loss" ? "animate-sp-bounce-in" : ""}`}>{result.emoji}</div>
           <div className="text-center text-[22px] font-bold text-sp-text">{result.text}</div>
+          {result.nearMiss ? (
+            <p className="max-w-sm text-center text-sm font-semibold text-amber-300/95 animate-pulse">{result.nearMiss}</p>
+          ) : null}
           <div className={`font-sp-mono text-[28px] font-extrabold ${result.amountClass}`}>{result.amount}</div>
           <button
             type="button"
