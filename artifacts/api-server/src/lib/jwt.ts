@@ -28,7 +28,11 @@ export function getJwtSecret(): string {
     return explicit;
   }
 
-  const session = process.env.SESSION_SECRET?.trim();
+  /** Must match the dev default in `app.ts` when SESSION_SECRET is unset (non-production). */
+  let session = process.env.SESSION_SECRET?.trim();
+  if (!session && process.env.NODE_ENV !== "production") {
+    session = "local-dev-only-insecure-session-secret";
+  }
   if (!session) {
     throw new Error("JWT_SECRET or SESSION_SECRET environment variable is required");
   }

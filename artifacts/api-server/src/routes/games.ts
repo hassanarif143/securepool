@@ -9,19 +9,17 @@ import { idempotencyGuard } from "../middleware/idempotency";
 import { getRewardConfig } from "../lib/reward-config";
 import { getDrawDesiredProfitUsdt } from "../services/admin-wallet-service";
 import {
-  SCRATCH_MIN_PERCENT,
-  STAKE_MAX,
-  STAKE_MIN,
-  adminMiniGamesSummary,
-  completeScratchRound,
-  getGamesActivitySnapshot,
-  listRecentWins,
-  playPickBox,
-  playSpin,
-  startScratchRound,
-} from "../services/mini-games-service";
+  GAME_CONFIG,
+  adminArcadeSummary,
+  getArcadeActivitySnapshot,
+  getArcadePlatformDaily,
+  getArcadeUserHistory,
+  getArcadeUserStats,
+  listArcadeRecentWins,
+  playArcadeGame,
+  type ArcadeGameType,
+} from "../services/arcade-engine";
 import { assertMiniGamesPlayAllowed, getMiniGamesAccess, getMiniGamesPlatformRow } from "../services/mini-games-policy";
-import { claimDailyLoginBonus, getGamesEngagementState } from "../services/mini-games-engagement-service";
 
 const router: IRouter = Router();
 router.use((req, res, next) => requireAuth(req as AuthedRequest, res, next));
@@ -31,19 +29,8 @@ function mapErr(e: unknown): { status: number; error: string } {
   const table: Record<string, number> = {
     USER_NOT_FOUND: 404,
     INSUFFICIENT_BALANCE: 400,
-    INVALID_STAKE: 400,
-    INVALID_BOX_COUNT: 400,
-    INVALID_PICK: 400,
-    INVALID_SCRATCH_PROGRESS: 400,
-    ROUND_NOT_FOUND: 404,
-    INVALID_ROUND: 400,
-    ALREADY_SETTLED: 400,
-    SCRATCH_ROUND_PENDING: 400,
-    ROUND_PERSIST_FAILED: 500,
     GAMES_DISABLED: 403,
     GAMES_PREMIUM_REQUIRED: 403,
-    NO_DAILY_CHECKIN: 400,
-    ALREADY_CLAIMED: 400,
   };
   return { status: table[m] ?? 500, error: m };
 }
@@ -74,10 +61,10 @@ router.get("/state", async (req, res) => {
       poolVipTier: access.poolVipTier,
       canPlay: access.canPlay,
       reason: access.reason,
-      games: access.canPlay ? (["spin", "pick_box", "scratch"] as const) : [],
-      minScratchPercent: SCRATCH_MIN_PERCENT,
-      stakeMin: STAKE_MIN,
-      stakeMax: STAKE_MAX,
+      games: access.canPlay ? (["spin_wheel", "mystery_box", "scratch_card"] as const) : [],
+      allowedBets: [...GAME_CONFIG.allowedBets],
+      stakeMin: Math.min(...GAME_CONFIG.allowedBets),
+      stakeMax: Math.max(...GAME_CONFIG.allowedBets),
     });
   } catch (e) {
     const { status, error } = mapErr(e);
@@ -93,37 +80,8 @@ router.get("/recent-wins", async (req, res) => {
     if (row && row.miniGamesEnabled === false) {
       return res.json({ wins: [] });
     }
-    const wins = await listRecentWins(24);
+    const wins = await listArcadeRecentWins(24);
     return res.json({ wins });
-  } catch (e) {
-    const { status, error } = mapErr(e);
-    return res.status(status).json({ error });
-  }
-});
-
-router.get("/bonuses/state", async (req, res) => {
-  const userId = getAuthedUserId(req);
-  if (!userId) return res.status(401).json({ error: "Unauthorized" });
-  if (!(await assertEmailVerified(res, userId))) return;
-  try {
-    await assertMiniGamesPlayAllowed(userId);
-    const state = await getGamesEngagementState(userId);
-    return res.json(state);
-  } catch (e) {
-    const { status, error } = mapErr(e);
-    return res.status(status).json({ error });
-  }
-});
-
-router.post("/bonuses/claim-daily-login", miniGamesMutationLimiter, async (req, res) => {
-  const userId = getAuthedUserId(req);
-  if (!userId) return res.status(401).json({ error: "Unauthorized" });
-  if (!(await assertEmailVerified(res, userId))) return;
-  try {
-    await assertMiniGamesPlayAllowed(userId);
-    const r = await claimDailyLoginBonus(userId);
-    if (!r.ok) return res.status(400).json({ error: r.error });
-    return res.json({ ok: true, amount: r.amount });
   } catch (e) {
     const { status, error } = mapErr(e);
     return res.status(status).json({ error });
@@ -144,7 +102,7 @@ router.get("/activity", async (req, res) => {
         lastWinAt: null,
       });
     }
-    const snap = await getGamesActivitySnapshot();
+    const snap = await getArcadeActivitySnapshot();
     return res.json(snap);
   } catch (e) {
     const { status, error } = mapErr(e);
@@ -152,88 +110,97 @@ router.get("/activity", async (req, res) => {
   }
 });
 
-const SpinBody = z.object({ stake: z.coerce.number().min(1).max(50) });
+const PlayBody = z.object({
+  gameType: z.enum(["spin_wheel", "mystery_box", "scratch_card"]),
+  betAmount: z.coerce.number(),
+});
 
-router.post("/spin", miniGamesMutationLimiter, idempotencyGuard, async (req, res) => {
+router.post("/play", miniGamesMutationLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;
-  const parsed = SpinBody.safeParse(req.body ?? {});
+  const parsed = PlayBody.safeParse(req.body ?? {});
   if (!parsed.success) return jsonBodyError(res, parsed);
+  const bet = parsed.data.betAmount;
+  if (!Number.isFinite(bet) || bet <= 0) {
+    return res.status(400).json({ error: "INVALID_BET" });
+  }
+  if (!Number.isInteger(bet) || !GAME_CONFIG.allowedBets.includes(bet as (typeof GAME_CONFIG.allowedBets)[number])) {
+    return res.status(400).json({ error: "INVALID_BET" });
+  }
   try {
     await assertMiniGamesPlayAllowed(userId);
-    const out = await playSpin(userId, parsed.data.stake, idemKey(req as AuthedRequest));
-    return res.json(out);
+    const out = await playArcadeGame(userId, parsed.data.gameType as ArcadeGameType, bet, idemKey(req as AuthedRequest));
+    if (!out.ok) {
+      const code = out.error;
+      const status = code === "INSUFFICIENT_BALANCE" ? 400 : 400;
+      return res.status(status).json({ error: code });
+    }
+    return res.json({
+      success: true,
+      roundId: out.roundId,
+      resultType: out.resultType,
+      multiplier: out.multiplier,
+      winAmount: out.winAmount,
+      newBalance: out.withdrawableBalance,
+    });
   } catch (e) {
     const { status, error } = mapErr(e);
     return res.status(status).json({ error });
   }
 });
 
-const PickBody = z
-  .object({
-    stake: z.coerce.number().min(1).max(50),
-    boxCount: z.coerce.number().int(),
-    pickedIndex: z.coerce.number().int().min(0),
-  })
-  .superRefine((val, ctx) => {
-    if (val.boxCount !== 3 && val.boxCount !== 5) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "INVALID_BOX_COUNT" });
-    }
-    if (val.pickedIndex < 0 || val.pickedIndex >= val.boxCount) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "INVALID_PICK" });
-    }
+router.get("/config", async (_req, res) => {
+  return res.json({
+    allowedBets: GAME_CONFIG.allowedBets,
+    games: [
+      {
+        type: "spin_wheel",
+        name: "Spin Wheel",
+        description: "Spin to win up to 3×",
+        maxMultiplier: 3,
+        icon: "🎡",
+      },
+      {
+        type: "mystery_box",
+        name: "Mystery Box",
+        description: "Pick a box, reveal the prize",
+        maxMultiplier: 3,
+        icon: "📦",
+      },
+      {
+        type: "scratch_card",
+        name: "Scratch & Win",
+        description: "Scratch to reveal",
+        maxMultiplier: 3,
+        icon: "🎫",
+      },
+    ],
   });
+});
 
-router.post("/pick-box", miniGamesMutationLimiter, idempotencyGuard, async (req, res) => {
+router.get("/my-stats", async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;
-  const parsed = PickBody.safeParse(req.body ?? {});
-  if (!parsed.success) return jsonBodyError(res, parsed);
-  const { stake, boxCount, pickedIndex } = parsed.data;
   try {
     await assertMiniGamesPlayAllowed(userId);
-    const out = await playPickBox(userId, stake, boxCount, pickedIndex, idemKey(req as AuthedRequest));
-    return res.json(out);
+    const stats = await getArcadeUserStats(userId);
+    return res.json({ stats });
   } catch (e) {
     const { status, error } = mapErr(e);
     return res.status(status).json({ error });
   }
 });
 
-const ScratchStartBody = z.object({ stake: z.coerce.number().min(1).max(50) });
-
-router.post("/scratch/start", miniGamesMutationLimiter, idempotencyGuard, async (req, res) => {
+router.get("/my-history", async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;
-  const parsed = ScratchStartBody.safeParse(req.body ?? {});
-  if (!parsed.success) return jsonBodyError(res, parsed);
   try {
     await assertMiniGamesPlayAllowed(userId);
-    const out = await startScratchRound(userId, parsed.data.stake, idemKey(req as AuthedRequest));
-    return res.status(201).json(out);
-  } catch (e) {
-    const { status, error } = mapErr(e);
-    return res.status(status).json({ error });
-  }
-});
-
-const ScratchCompleteBody = z.object({
-  roundId: z.coerce.number().int().positive(),
-  scratchPercent: z.coerce.number().min(SCRATCH_MIN_PERCENT).max(100),
-});
-
-router.post("/scratch/complete", miniGamesMutationLimiter, idempotencyGuard, async (req, res) => {
-  const userId = getAuthedUserId(req);
-  if (!userId) return res.status(401).json({ error: "Unauthorized" });
-  if (!(await assertEmailVerified(res, userId))) return;
-  const parsed = ScratchCompleteBody.safeParse(req.body ?? {});
-  if (!parsed.success) return jsonBodyError(res, parsed);
-  try {
-    const out = await completeScratchRound(userId, parsed.data.roundId, parsed.data.scratchPercent);
-    return res.json(out);
+    const history = await getArcadeUserHistory(userId, 50);
+    return res.json({ history });
   } catch (e) {
     const { status, error } = mapErr(e);
     return res.status(status).json({ error });
@@ -242,8 +209,19 @@ router.post("/scratch/complete", miniGamesMutationLimiter, idempotencyGuard, asy
 
 router.get("/admin/summary", (req, res, next) => void requireAdmin(req as AuthedRequest, res, next), async (_req, res) => {
   try {
-    const summary = await adminMiniGamesSummary();
+    const summary = await adminArcadeSummary();
     return res.json(summary);
+  } catch (e) {
+    const { status, error } = mapErr(e);
+    return res.status(status).json({ error });
+  }
+});
+
+router.get("/admin/platform-daily", (req, res, next) => void requireAdmin(req as AuthedRequest, res, next), async (req, res) => {
+  try {
+    const days = Math.min(90, Math.max(1, parseInt(String(req.query.days ?? "30"), 10) || 30));
+    const rows = await getArcadePlatformDaily(days);
+    return res.json({ daily: rows });
   } catch (e) {
     const { status, error } = mapErr(e);
     return res.status(status).json({ error });

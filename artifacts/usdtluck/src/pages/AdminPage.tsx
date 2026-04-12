@@ -269,7 +269,6 @@ function GamesTab() {
     platformProfit: number;
     rounds: number;
     roundsCompleted: number;
-    pendingScratchRounds: number;
   } | null>(null);
 
   const refreshSummary = useCallback(async (silent: boolean) => {
@@ -283,7 +282,7 @@ function GamesTab() {
       }
     } catch (err: unknown) {
       if (!silent) {
-        appToast.error({ title: "Failed to load mini games stats", description: err instanceof Error ? err.message : String(err) });
+        appToast.error({ title: "Failed to load arcade stats", description: err instanceof Error ? err.message : String(err) });
       }
     }
   }, []);
@@ -330,7 +329,8 @@ function GamesTab() {
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
       void queryClient.invalidateQueries({ queryKey: ["games-state"] });
       void queryClient.invalidateQueries({ queryKey: ["games-recent-wins"] });
-      appToast.success({ title: "Mini games settings saved" });
+      void queryClient.invalidateQueries({ queryKey: ["games-activity"] });
+      appToast.success({ title: "Arcade settings saved" });
     } catch (err: any) {
       appToast.error({ title: "Save failed", description: err?.message });
     } finally {
@@ -338,7 +338,7 @@ function GamesTab() {
     }
   }
 
-  if (loading) return <p className="text-muted-foreground py-8 text-center">Loading mini games…</p>;
+  if (loading) return <p className="text-muted-foreground py-8 text-center">Loading arcade…</p>;
 
   return (
     <div className="space-y-4 mt-4">
@@ -352,7 +352,7 @@ function GamesTab() {
         <CardContent className="space-y-4 max-w-lg">
           <div className="flex items-center justify-between gap-4">
             <Label htmlFor="mg-enabled" className="text-sm cursor-pointer">
-              Mini games enabled
+              Arcade enabled
             </Label>
             <Switch id="mg-enabled" checked={platformEnabled} onCheckedChange={setPlatformEnabled} />
           </div>
@@ -384,35 +384,30 @@ function GamesTab() {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Mini Games (Spin / Pick / Scratch)</CardTitle>
+          <CardTitle className="text-base">SecurePool Arcade</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Player hub: <code className="text-[11px]">/games</code> (Spin, Pick Box, Scratch). Stats refresh every 20s
+            Player hub: <code className="text-[11px]">/games</code> — spin wheel, mystery box, scratch card. Each play settles
+            immediately server-side. Stats refresh every 20s
             {summaryUpdatedAt ? ` · last sync ${summaryUpdatedAt.toLocaleTimeString()}` : ""}.
           </p>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
             <p className="text-xs text-muted-foreground">Total wagered (USDT)</p>
-            <p className="text-[11px] text-muted-foreground/80 mb-1">All stakes, including scratch not yet revealed</p>
+            <p className="text-[11px] text-muted-foreground/80 mb-1">Sum of all arcade stakes</p>
             <p className="text-lg font-mono font-semibold">{summary?.totalBets?.toFixed?.(2) ?? "—"}</p>
           </div>
           <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-            <p className="text-xs text-muted-foreground">Total paid out (settled)</p>
+            <p className="text-xs text-muted-foreground">Total paid out</p>
             <p className="text-lg font-mono font-semibold">{summary?.totalPayout?.toFixed?.(2) ?? "—"}</p>
           </div>
           <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-            <p className="text-xs text-muted-foreground">Platform profit (settled stakes − payouts)</p>
+            <p className="text-xs text-muted-foreground">Platform profit (stakes − payouts)</p>
             <p className="text-lg font-mono font-semibold">{summary?.platformProfit?.toFixed?.(2) ?? "—"}</p>
           </div>
           <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-            <p className="text-xs text-muted-foreground">Rounds (all / completed)</p>
-            <p className="text-lg font-mono font-semibold">
-              {summary == null ? "—" : `${summary.rounds} / ${summary.roundsCompleted}`}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border/60 bg-muted/20 p-3 sm:col-span-2">
-            <p className="text-xs text-muted-foreground">Scratch cards awaiting reveal</p>
-            <p className="text-lg font-mono font-semibold">{summary?.pendingScratchRounds ?? "—"}</p>
+            <p className="text-xs text-muted-foreground">Rounds played</p>
+            <p className="text-lg font-mono font-semibold">{summary == null ? "—" : String(summary.rounds)}</p>
           </div>
         </CardContent>
       </Card>
@@ -425,7 +420,8 @@ function GamesTab() {
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
           <p>
-            Mini game POSTs are rate-limited and idempotent server-side; watch wager/payout drift in the stats above for unusual spikes.
+            Arcade <code className="text-[11px]">POST /api/games/play</code> is rate-limited and idempotent; watch wager and payout
+            drift in the stats above for unusual spikes.
           </p>
           <p className="text-xs">Future: velocity alerts, linked multi-account flags, and exportable suspicion logs.</p>
         </CardContent>

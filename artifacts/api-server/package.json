@@ -17,7 +17,11 @@
     "migrate:0012": "node ./scripts/run-migration-0012.mjs",
     "migrate:0013": "node ./scripts/run-migration-0013.mjs",
     "cleanup:fresh-testing": "node ./scripts/run-fresh-testing-cleanup.mjs",
-    "migrate:sql": "node ./scripts/run-pending-migrations.mjs"
+    "migrate:sql": "node ./scripts/run-pending-migrations.mjs",
+    "smoke:arcade-db": "node ./scripts/smoke-arcade-db.mjs",
+    "smoke:arcade-http": "node ./scripts/smoke-arcade-http.mjs",
+    "smoke:arcade-http:public": "ARCADE_SMOKE_PUBLIC_ONLY=1 node ./scripts/smoke-arcade-http.mjs",
+    "smoke:arcade-http:e2e": "ARCADE_SMOKE_DEV_RESET_ADMIN=1 ARCADE_SMOKE_SKIP_PLAY=1 node ./scripts/smoke-arcade-http.mjs"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
