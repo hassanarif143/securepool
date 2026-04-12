@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiUrl } from "@/lib/api-base";
+import { premiumPanel } from "@/lib/premium-panel";
 
 const BANNER_KEY = "securepool_pools_onboarding_dismissed";
 
@@ -61,7 +62,8 @@ export default function PoolsPage() {
   }
 
   return (
-    <div className="min-h-screen -mx-4 px-4 sm:-mx-6 sm:px-6 py-6 sm:py-10 space-y-8 bg-background">
+    <div className="sp-ambient-bg relative min-h-screen w-full">
+      <div className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:px-6 sm:py-10">
       {bannerOpen && (
         <div
           className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/50 to-slate-900/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3"
@@ -86,10 +88,10 @@ export default function PoolsPage() {
         </div>
       )}
 
-      <div className="space-y-4 max-w-4xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-emerald-400/90">Live draws</p>
-        <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white">🎱 Live Pools</h1>
-        <p className="text-base text-slate-400 leading-relaxed max-w-2xl">
+      <div className="max-w-4xl space-y-4">
+        <p className="font-sp-display text-[11px] font-semibold uppercase tracking-[0.28em] text-[#00E5CC]/90">Live draws</p>
+        <h1 className="font-sp-display text-3xl font-bold tracking-tight text-sp-text sm:text-4xl">🎱 Live Pools</h1>
+        <p className="max-w-2xl text-base leading-relaxed text-sp-text-dim">
           Buy a ticket → Pool fills → Winners picked automatically → Winnings to your wallet
         </p>
 
@@ -115,7 +117,7 @@ export default function PoolsPage() {
       <Dialog open={howOpen} onOpenChange={setHowOpen}>
         <DialogContent className="sm:max-w-md border-emerald-500/20 bg-[#0d1526] text-slate-100">
           <DialogHeader>
-            <DialogTitle className="font-display text-xl text-emerald-100">How it works</DialogTitle>
+            <DialogTitle className="font-sp-display text-xl text-emerald-100">How it works</DialogTitle>
           </DialogHeader>
           <ol className="space-y-4 text-sm text-slate-300">
             <li className="flex gap-3">
@@ -167,7 +169,9 @@ export default function PoolsPage() {
             How it works
           </Button>
         </div>
-        <TabsList className="w-full h-auto flex flex-wrap justify-start gap-2 p-2 bg-slate-900/80 border border-slate-700/60 rounded-xl">
+        <TabsList
+          className={`${premiumPanel} flex h-auto w-full flex-wrap justify-start gap-2 p-2 !shadow-none`}
+        >
           <TabsTrigger
             value="active"
             className="data-[state=active]:bg-emerald-600/30 data-[state=active]:text-emerald-100 rounded-lg"
@@ -226,13 +230,14 @@ export default function PoolsPage() {
           </>
         )}
       </Tabs>
+      </div>
     </div>
   );
 }
 
 function PoolGrid({ pools, empty }: { pools: Pool[]; empty: string }) {
   if (pools.length === 0) {
-    return <p className="text-slate-500 text-center py-12">{empty}</p>;
+    return <p className="py-12 text-center text-sp-text-dim">{empty}</p>;
   }
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
@@ -245,11 +250,11 @@ function PoolGrid({ pools, empty }: { pools: Pool[]; empty: string }) {
 
 function QuickStat({ icon, label, value, accent }: { icon: string; label: string; value: string; accent: string }) {
   return (
-    <div className={`rounded-xl border px-3 py-3 ${accent}`} style={{ background: "rgba(15,23,42,0.5)" }}>
-      <p className="text-[10px] uppercase tracking-wide text-slate-500 flex items-center gap-1">
+    <div className={`rounded-xl border border-white/[0.08] bg-[rgba(10,14,24,0.55)] px-3 py-3 shadow-inner backdrop-blur-sm ring-1 ring-white/[0.04] ${accent}`}>
+      <p className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-sp-text-dim">
         <span aria-hidden>{icon}</span> {label}
       </p>
-      <p className="text-sm font-semibold tabular-nums font-mono mt-1 text-white">{value}</p>
+      <p className="mt-1 font-sp-mono text-sm font-semibold tabular-nums text-sp-text">{value}</p>
     </div>
   );
 }

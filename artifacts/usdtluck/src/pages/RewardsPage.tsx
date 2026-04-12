@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { RewardsSummaryCard } from "@/components/rewards/RewardsSummaryCard";
 import { MilestoneProgressCard } from "@/components/rewards/MilestoneProgressCard";
 import { CelebrationLayer } from "@/components/celebration/CelebrationLayer";
+import { premiumPanel } from "@/lib/premium-panel";
 
 const MILESTONES = [
   { joins: 5, rewardUsdt: 2 },
@@ -34,46 +35,50 @@ export default function RewardsPage() {
   const nextMilestone = MILESTONES.find((m) => joins < m.joins) ?? null;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-5">
-      <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">Rewards center</p>
-        <h1 className="text-2xl font-bold mt-1">Your rewards and tier</h1>
-        <p className="text-sm text-muted-foreground mt-2">
-          All rewards on this page are non-withdrawable. They stay in your in-app rewards balance.
-        </p>
-      </div>
-
-      <RewardsSummaryCard nonWithdrawableUsdt={Number(rewardUsdt)} tier={user.tier ?? "bronze"} poolJoinCount={joins} />
-
-      <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
-        <h2 className="text-lg font-semibold">Referral reward</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          You get 2 USDT non-withdrawable reward when your referred friend joins their first pool.
-        </p>
-      </div>
-
-      <MilestoneProgressCard milestones={MILESTONES} currentJoins={joins} />
-
-      {nextMilestone ? (
-        <CelebrationLayer
-          level="small"
-          message={`Next reward at ${nextMilestone.joins} joins. You need ${nextMilestone.joins - joins} more join${nextMilestone.joins - joins === 1 ? "" : "s"}.`}
-        />
-      ) : (
-        <CelebrationLayer level="medium" message="You completed all active milestone rewards." />
-      )}
-
-      <div className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6">
-        <h2 className="text-lg font-semibold">Tier rules</h2>
-        <div className="mt-2 space-y-1">
-          {tierByTicketPriceInfo().map((line) => (
-            <p key={line} className="text-sm text-muted-foreground">{line}</p>
-          ))}
+    <div className="sp-ambient-bg relative min-h-[50vh] w-full">
+      <div className="mx-auto max-w-4xl space-y-5 px-4 pb-10 sm:px-6 sm:pb-12">
+        <div className={`${premiumPanel} p-5 sm:p-6`}>
+          <p className="font-sp-display text-[10px] font-semibold uppercase tracking-[0.22em] text-[#00E5CC]/90">Rewards center</p>
+          <h1 className="mt-2 font-sp-display text-2xl font-bold tracking-tight text-sp-text sm:text-3xl">Your rewards and tier</h1>
+          <p className="mt-2 text-sm leading-relaxed text-sp-text-dim">
+            All rewards on this page are non-withdrawable. They stay in your in-app rewards balance.
+          </p>
         </div>
-        <div className="mt-4">
-          <Button asChild>
-            <Link href="/pools">Join pools to progress</Link>
-          </Button>
+
+        <RewardsSummaryCard nonWithdrawableUsdt={Number(rewardUsdt)} tier={user.tier ?? "bronze"} poolJoinCount={joins} />
+
+        <div className={`${premiumPanel} p-5 sm:p-6`}>
+          <h2 className="font-sp-display text-lg font-semibold text-sp-text">Referral reward</h2>
+          <p className="mt-1 text-sm text-sp-text-dim">
+            You get 2 USDT non-withdrawable reward when your referred friend joins their first pool.
+          </p>
+        </div>
+
+        <MilestoneProgressCard milestones={MILESTONES} currentJoins={joins} />
+
+        {nextMilestone ? (
+          <CelebrationLayer
+            level="small"
+            message={`Next reward at ${nextMilestone.joins} joins. You need ${nextMilestone.joins - joins} more join${nextMilestone.joins - joins === 1 ? "" : "s"}.`}
+          />
+        ) : (
+          <CelebrationLayer level="medium" message="You completed all active milestone rewards." />
+        )}
+
+        <div className={`${premiumPanel} p-5 sm:p-6`}>
+          <h2 className="font-sp-display text-lg font-semibold text-sp-text">Tier rules</h2>
+          <div className="mt-2 space-y-1">
+            {tierByTicketPriceInfo().map((line) => (
+              <p key={line} className="text-sm text-sp-text-dim">
+                {line}
+              </p>
+            ))}
+          </div>
+          <div className="mt-4">
+            <Button asChild>
+              <Link href="/pools">Join pools to progress</Link>
+            </Button>
+          </div>
         </div>
       </div>
     </div>
