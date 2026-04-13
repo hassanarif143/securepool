@@ -1053,11 +1053,16 @@ router.patch("/:poolId", (req, res, next) => void requireAdmin(req as AuthedRequ
     res.status(404).json({ error: "Pool not found" });
     return;
   }
+  const existingTickets = await countPoolTickets(poolId);
 
   const parse = UpdatePoolBody.safeParse(req.body);
   if (!parse.success) {
     res.status(400).json({ error: "Validation error" });
     return;
+  }
+
+  function round2(n: number): number {
+    return Math.round(n * 100) / 100;
   }
 
   const updates: Partial<typeof poolsTable.$inferInsert> = {};
@@ -1110,6 +1115,47 @@ router.patch("/:poolId", (req, res, next) => void requireAdmin(req as AuthedRequ
         ? Math.min(priceForMode, Number(((priceForMode * Math.max(0, value)) / 100).toFixed(2)))
         : Math.min(priceForMode, Math.max(0, value));
     updates.platformFeePerJoin = String(resolved);
+  }
+
+  // Profit-based edit (recalculates fee + prizes). Only allowed for open pools with zero tickets sold.
+  if (rawBody.profitPercent != null && Number.isFinite(Number(rawBody.profitPercent))) {
+    if (existingPool.status !== "open") {
+      res.status(400).json({ error: "Profit can only be adjusted while the pool is open." });
+      return;
+    }
+    if (existingTickets > 0) {
+      res.status(400).json({ error: `Pool already has ${existingTickets} ticket(s). Profit cannot be changed after entries exist.` });
+      return;
+    }
+
+    const pct = Math.min(80, Math.max(0, Number(rawBody.profitPercent)));
+    const winnerCount = (updates.winnerCount ?? existingPool.winnerCount ?? 3) as 1 | 2 | 3;
+    const ticketPrice = Number(updates.ticketPrice ?? existingPool.ticketPrice ?? existingPool.entryFee);
+    const totalTickets = Number(updates.totalTickets ?? existingPool.totalTickets ?? existingPool.maxUsers);
+
+    const totalRevenue = round2(Math.max(0, ticketPrice) * Math.max(1, Math.floor(totalTickets)));
+    const desiredFeeAmount = round2(totalRevenue * (pct / 100));
+    const rawFeePerJoin = totalTickets > 0 ? desiredFeeAmount / totalTickets : 0;
+    const safeFeePerJoin = Math.min(Math.max(0.01, rawFeePerJoin), ticketPrice);
+    const feeAmount = round2(safeFeePerJoin * totalTickets);
+    const prizePool = round2(Math.max(0, totalRevenue - feeAmount));
+
+    const split = winnerCount === 1 ? [100] : winnerCount === 2 ? [65, 35] : [55, 30, 15];
+    const weights = split.slice(0, winnerCount);
+    const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
+    const desired = weights.map((w) => round2((prizePool * w) / weightSum));
+    const p1 = round2((desired[0] ?? 0) + (prizePool - round2((desired[0] ?? 0) + (desired[1] ?? 0) + (desired[2] ?? 0))));
+    const p2 = desired[1] ?? 0;
+    const p3 = desired[2] ?? 0;
+
+    updates.platformFeePerJoin = String(round2(safeFeePerJoin));
+    (updates as any).totalPoolAmount = String(totalRevenue.toFixed(2));
+    (updates as any).platformFeeAmount = String(feeAmount.toFixed(2));
+    (updates as any).profitPercent = String(round2(totalRevenue > 0 ? (feeAmount / totalRevenue) * 100 : 0).toFixed(2));
+    updates.prizeFirst = String(p1.toFixed(2));
+    updates.prizeSecond = String(p2.toFixed(2));
+    updates.prizeThird = String(p3.toFixed(2));
+    (updates as any).prizeDistribution = split;
   }
   if (parse.data.winnerCount != null && [1, 2, 3].includes(parse.data.winnerCount)) {
     if (existingPool.status === "completed") {

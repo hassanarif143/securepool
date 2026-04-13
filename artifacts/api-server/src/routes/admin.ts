@@ -786,12 +786,19 @@ const AdminPoolCreateBody = z.object({
   feeValue: z.number().nonnegative().optional(),
   startTime: z.string().datetime(),
   endTime: z.string().datetime(),
-  prizeFirst: z.number().nonnegative(),
-  prizeSecond: z.number().nonnegative(),
-  prizeThird: z.number().nonnegative(),
+  // Optional when profitPercent is provided (server auto-calculates prizes).
+  prizeFirst: z.number().nonnegative().optional(),
+  prizeSecond: z.number().nonnegative().optional(),
+  prizeThird: z.number().nonnegative().optional(),
   minPoolVipTier: z.enum(["bronze", "silver", "gold", "diamond"]).optional(),
   winnerCount: z.number().int().min(1).max(3).optional(),
   platformFeePerJoin: z.number().nonnegative().optional(),
+  /** Platform profit percent of total revenue. If set, server computes fee + prizes. */
+  profitPercent: z.number().min(0).max(80).optional(),
+  /** Optional custom prizes override; must sum to prize pool (post-fee). */
+  customPrizes: z.array(z.number().nonnegative()).max(3).optional(),
+  drawDelayMinutes: z.number().int().min(0).max(24 * 60).optional(),
+  autoRecreate: z.boolean().optional(),
 });
 
 function computePerTicketFeeFromMode(ticketPrice: number, mode?: "fixed" | "percent", value?: number): number | null {
@@ -1280,22 +1287,83 @@ router.post("/pool/create", async (req, res) => {
   const body = parsed.data;
   const ticketPrice = body.ticketPrice ?? body.entryFee;
   const totalTickets = body.totalTickets ?? body.maxUsers;
-  const rawPlatformFeePerJoin =
-    body.platformFeePerJoin ??
-    computePerTicketFeeFromMode(ticketPrice, body.feeMode, body.feeValue);
-  const platformFeePerJoin = ensurePositivePlatformFeePerJoin(
-    ticketPrice,
-    totalTickets,
-    rawPlatformFeePerJoin ?? platformFeePerJoinUsdt(ticketPrice, null),
-  );
+  const winnerCount = (body.winnerCount ?? 3) as 1 | 2 | 3;
+
   const totalPoolAmount = round2(ticketPrice * totalTickets);
-  const platformFeeAmount = round2(platformFeePerJoin * totalTickets);
+
+  const hasExplicitFee =
+    body.platformFeePerJoin != null ||
+    (body.feeMode != null && body.feeValue != null && Number.isFinite(body.feeValue));
+
+  let desiredProfitPct: number | null =
+    body.profitPercent != null && Number.isFinite(body.profitPercent) ? Math.max(0, body.profitPercent) : null;
+
+  // Safety default: if no profit% and no explicit fee override, use global default profit%.
+  if (desiredProfitPct == null && !hasExplicitFee) {
+    const [row] = await db.select().from(platformSettingsTable).where(eq(platformSettingsTable.id, 1)).limit(1);
+    const dppRaw = row?.defaultPoolProfitPercent != null ? Number(row.defaultPoolProfitPercent) : 15;
+    if (Number.isFinite(dppRaw) && dppRaw >= 0 && dppRaw <= 80) desiredProfitPct = dppRaw;
+  }
+
+  let platformFeePerJoin: number;
+  let platformFeeAmount: number;
+  let profitPercentActual: number;
+
+  if (desiredProfitPct != null) {
+    const desiredFeeAmount = round2(totalPoolAmount * (desiredProfitPct / 100));
+    const rawPerJoin = totalTickets > 0 ? desiredFeeAmount / totalTickets : 0;
+    platformFeePerJoin = ensurePositivePlatformFeePerJoin(ticketPrice, totalTickets, rawPerJoin);
+    platformFeeAmount = round2(platformFeePerJoin * totalTickets);
+    profitPercentActual = totalPoolAmount > 0 ? (platformFeeAmount / totalPoolAmount) * 100 : 0;
+  } else {
+    const rawPlatformFeePerJoin =
+      body.platformFeePerJoin ??
+      computePerTicketFeeFromMode(ticketPrice, body.feeMode, body.feeValue) ??
+      platformFeePerJoinUsdt(ticketPrice, null);
+    platformFeePerJoin = ensurePositivePlatformFeePerJoin(ticketPrice, totalTickets, rawPlatformFeePerJoin);
+    platformFeeAmount = round2(platformFeePerJoin * totalTickets);
+    profitPercentActual = totalPoolAmount > 0 ? (platformFeeAmount / totalPoolAmount) * 100 : 0;
+  }
+
   const prizeBudget = Math.max(0, round2(totalPoolAmount - platformFeeAmount));
-  const normalizedPrizes = normalizePrizePlanForProfit(
-    body.winnerCount ?? 3,
-    [body.prizeFirst, body.prizeSecond, body.prizeThird],
-    prizeBudget,
-  );
+
+  const defaultSplit: number[] =
+    winnerCount === 1 ? [100] : winnerCount === 2 ? [65, 35] : [55, 30, 15];
+
+  const fixedCustom =
+    body.customPrizes?.length && body.customPrizes.some((x) => Number.isFinite(x))
+      ? body.customPrizes.map((x) => round2(Math.max(0, x)))
+      : null;
+
+  let normalizedPrizes: [number, number, number];
+  if (fixedCustom) {
+    const filled = [
+      fixedCustom[0] ?? 0,
+      fixedCustom[1] ?? 0,
+      fixedCustom[2] ?? 0,
+    ] as [number, number, number];
+    const sum = round2(filled[0] + filled[1] + filled[2]);
+    if (Math.abs(sum - prizeBudget) > 0.01) {
+      res.status(400).json({ error: `Custom prizes must sum to ${prizeBudget.toFixed(2)} USDT` });
+      return;
+    }
+    normalizedPrizes = normalizePrizePlanForProfit(winnerCount, filled, prizeBudget);
+  } else if (body.prizeFirst != null || body.prizeSecond != null || body.prizeThird != null) {
+    normalizedPrizes = normalizePrizePlanForProfit(
+      winnerCount,
+      [body.prizeFirst ?? 0, body.prizeSecond ?? 0, body.prizeThird ?? 0],
+      prizeBudget,
+    );
+  } else {
+    const weights = defaultSplit.slice(0, winnerCount);
+    const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
+    const desired = weights.map((w) => round2((prizeBudget * w) / weightSum));
+    const filled = [desired[0] ?? 0, desired[1] ?? 0, desired[2] ?? 0] as [number, number, number];
+    // Absorb rounding into 1st prize so prize sum matches prizeBudget exactly.
+    const sum = round2(filled[0] + filled[1] + filled[2]);
+    filled[0] = round2(filled[0] + (prizeBudget - sum));
+    normalizedPrizes = normalizePrizePlanForProfit(winnerCount, filled, prizeBudget);
+  }
   const [created] = await db
     .insert(poolsTable)
     .values({
@@ -1316,11 +1384,15 @@ router.post("/pool/create", async (req, res) => {
       prizeSecond: normalizedPrizes[1].toFixed(2),
       prizeThird: normalizedPrizes[2].toFixed(2),
       minPoolVipTier: body.minPoolVipTier ?? "bronze",
-      winnerCount: body.winnerCount ?? 3,
+      winnerCount,
       platformFeePerJoin: platformFeePerJoin.toFixed(2),
       totalPoolAmount: totalPoolAmount.toFixed(2),
       platformFeeAmount: platformFeeAmount.toFixed(2),
-      prizeDistribution: body.winnerCount === 1 ? [100] : body.winnerCount === 2 ? [70, 30] : [60, 30, 10],
+      profitPercent: round2(profitPercentActual).toFixed(2),
+      drawDelayMinutes: body.drawDelayMinutes ?? null,
+      autoRecreate: body.autoRecreate ?? true,
+      prizeDistribution:
+        winnerCount === 1 ? [100] : winnerCount === 2 ? [65, 35] : [55, 30, 15],
       poolType: "small",
       currentMembers: 0,
       isFrozen: false,
@@ -2736,11 +2808,15 @@ router.get("/finance/draws/:poolId", async (req, res) => {
 
 router.get("/finance/settings", async (_req, res) => {
   const drawDesiredProfitUsdt = await getDrawDesiredProfitUsdt();
-  res.json({ drawDesiredProfitUsdt });
+  const [row] = await db.select().from(platformSettingsTable).where(eq(platformSettingsTable.id, 1)).limit(1);
+  const defaultPoolProfitPercent =
+    row?.defaultPoolProfitPercent != null ? parseFloat(String(row.defaultPoolProfitPercent)) : 15;
+  res.json({ drawDesiredProfitUsdt, defaultPoolProfitPercent });
 });
 
 const PatchFinanceSettings = z.object({
   drawDesiredProfitUsdt: z.number().nonnegative(),
+  defaultPoolProfitPercent: z.number().min(0).max(80).optional(),
 });
 
 router.patch("/finance/settings", async (req, res) => {
@@ -2750,14 +2826,23 @@ router.patch("/finance/settings", async (req, res) => {
     return;
   }
   const v = String(parsed.data.drawDesiredProfitUsdt);
+  const dpp =
+    parsed.data.defaultPoolProfitPercent != null && Number.isFinite(parsed.data.defaultPoolProfitPercent)
+      ? String(parsed.data.defaultPoolProfitPercent)
+      : undefined;
   await db
     .insert(platformSettingsTable)
-    .values({ id: 1, drawDesiredProfitUsdt: v, updatedAt: new Date() })
+    .values({
+      id: 1,
+      drawDesiredProfitUsdt: v,
+      ...(dpp != null ? { defaultPoolProfitPercent: dpp } : {}),
+      updatedAt: new Date(),
+    })
     .onConflictDoUpdate({
       target: platformSettingsTable.id,
-      set: { drawDesiredProfitUsdt: v, updatedAt: new Date() },
+      set: { drawDesiredProfitUsdt: v, ...(dpp != null ? { defaultPoolProfitPercent: dpp } : {}), updatedAt: new Date() },
     });
-  res.json({ drawDesiredProfitUsdt: parsed.data.drawDesiredProfitUsdt });
+  res.json({ drawDesiredProfitUsdt: parsed.data.drawDesiredProfitUsdt, ...(dpp != null ? { defaultPoolProfitPercent: parseFloat(dpp) } : {}) });
 });
 
 router.get("/rewards/config", async (_req, res) => {

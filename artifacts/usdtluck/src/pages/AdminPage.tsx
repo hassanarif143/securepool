@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import { useLocation } from "wouter";
 import {
   useGetDashboardStats,
   useListAdminUsers,
   useListPools,
-  useCreatePool,
   useUpdatePool,
   useListTransactions,
   useGetAdminFinanceOverview,
@@ -441,8 +440,12 @@ function FinanceTab() {
   });
   const patchFin = usePatchAdminFinanceSettings();
   const [profitInput, setProfitInput] = useState("");
+  const [defaultProfitPctInput, setDefaultProfitPctInput] = useState("15");
   useEffect(() => {
     if (finSettings != null) setProfitInput(String(finSettings.drawDesiredProfitUsdt));
+    if (finSettings != null && (finSettings as any).defaultPoolProfitPercent != null) {
+      setDefaultProfitPctInput(String((finSettings as any).defaultPoolProfitPercent));
+    }
   }, [finSettings]);
 
   const [ledgerType, setLedgerType] = useState<"all" | "deposit" | "withdrawal" | "platform_fee" | "bonus">("all");
@@ -474,8 +477,13 @@ function FinanceTab() {
       toast({ title: "Invalid value", variant: "destructive" });
       return;
     }
+    const dpp = parseFloat(defaultProfitPctInput);
+    if (Number.isNaN(dpp) || dpp < 0 || dpp > 80) {
+      toast({ title: "Invalid default profit %", description: "Use a number between 0 and 80.", variant: "destructive" });
+      return;
+    }
     patchFin.mutate(
-      { data: { drawDesiredProfitUsdt: n } },
+      { data: { drawDesiredProfitUsdt: n, defaultPoolProfitPercent: dpp } as any },
       {
         onSuccess: () => {
           toast({ title: "Settings saved" });
@@ -490,7 +498,16 @@ function FinanceTab() {
 
   const perDrawSafe = overview?.perDraw ?? [];
   const activeUsersSafe = overview?.activeUsersByDay ?? [];
-  const maxBar = Math.max(1, ...perDrawSafe.map((d) => Math.max(financeOverviewNum(d.totalRevenue), financeOverviewNum(d.totalPrizes))));
+  const maxBar = Math.max(
+    1,
+    ...perDrawSafe.map((d) =>
+      Math.max(
+        financeOverviewNum(d.totalRevenue),
+        financeOverviewNum(d.totalPrizes),
+        financeOverviewNum(d.platformFee),
+      ),
+    ),
+  );
 
   if (ovLoading || !overview) {
     return <p className="text-muted-foreground py-8 text-center">Loading finance overview...</p>;
@@ -502,6 +519,10 @@ function FinanceTab() {
   const fees = financeOverviewNum(overview.totalPlatformFees);
   const todayD = financeOverviewNum(overview.todayDeposits);
   const todayW = financeOverviewNum(overview.todayWithdrawals);
+  const drawTotalRevenue = perDrawSafe.reduce((a, d) => a + financeOverviewNum(d.totalRevenue), 0);
+  const drawTotalPrizes = perDrawSafe.reduce((a, d) => a + financeOverviewNum(d.totalPrizes), 0);
+  const drawTotalProfit = perDrawSafe.reduce((a, d) => a + financeOverviewNum(d.platformFee), 0);
+  const drawAvgProfit = perDrawSafe.length > 0 ? drawTotalProfit / perDrawSafe.length : 0;
 
   return (
     <div className="space-y-6 mt-4">
@@ -521,6 +542,22 @@ function FinanceTab() {
         ))}
       </div>
 
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: "Draw revenue (last 24)", value: <UsdtAmount amount={drawTotalRevenue} amountClassName="text-lg font-bold mt-1" /> },
+          { label: "Draw prizes (last 24)", value: <UsdtAmount amount={drawTotalPrizes} amountClassName="text-lg font-bold mt-1" /> },
+          { label: "Draw profit (last 24)", value: <UsdtAmount amount={drawTotalProfit} amountClassName="text-lg font-bold mt-1 text-emerald-500" /> },
+          { label: "Avg profit / draw", value: <UsdtAmount amount={drawAvgProfit} amountClassName="text-lg font-bold mt-1" /> },
+        ].map((c: { label: string; value: ReactNode }) => (
+          <Card key={c.label} className="border-border/60">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">{c.label}</p>
+              <div>{c.value}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       <div className="grid sm:grid-cols-2 gap-3">
         <Card>
           <CardContent className="p-4 text-sm">
@@ -531,7 +568,7 @@ function FinanceTab() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Draw economics default</CardTitle>
+            <CardTitle className="text-sm">Defaults</CardTitle>
             <p className="text-xs text-muted-foreground font-normal">
               Used for minimum participants: ceil((prizes + this target) / list entry fee), min 3.
             </p>
@@ -545,6 +582,18 @@ function FinanceTab() {
                 onChange={(e) => setProfitInput(e.target.value)}
                 type="number"
                 min={0}
+                step={1}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Default pool profit (%)</Label>
+              <Input
+                className="h-9 w-36"
+                value={defaultProfitPctInput}
+                onChange={(e) => setDefaultProfitPctInput(e.target.value)}
+                type="number"
+                min={0}
+                max={80}
                 step={1}
               />
             </div>
@@ -575,25 +624,46 @@ function FinanceTab() {
                   <span className="font-medium truncate pr-2">{d.poolTitle}</span>
                   <span className="text-muted-foreground shrink-0 text-xs">Pool #{d.poolId}</span>
                 </div>
-                <div className="flex gap-4 items-end h-16">
-                  <div className="flex-1 flex flex-col justify-end gap-1">
-                    <span className="text-[10px] text-muted-foreground">Revenue</span>
-                    <div
-                      className="rounded bg-emerald-500/80 min-h-[4px] w-full"
-                      style={{ height: `${Math.max(8, (financeOverviewNum(d.totalRevenue) / maxBar) * 100)}%` }}
-                    />
-                    <span className="text-xs font-semibold">{financeOverviewNum(d.totalRevenue).toFixed(2)}</span>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-3 gap-3 items-end">
+                    <div className="flex flex-col justify-end gap-1">
+                      <span className="text-[10px] text-muted-foreground">Revenue</span>
+                      <div
+                        className="rounded bg-cyan-500/80 min-h-[4px] w-full"
+                        style={{ height: `${Math.max(8, (financeOverviewNum(d.totalRevenue) / maxBar) * 100)}%` }}
+                      />
+                      <span className="text-xs font-semibold">{financeOverviewNum(d.totalRevenue).toFixed(2)} USDT</span>
+                    </div>
+                    <div className="flex flex-col justify-end gap-1">
+                      <span className="text-[10px] text-muted-foreground">Prizes</span>
+                      <div
+                        className="rounded bg-amber-500/80 min-h-[4px] w-full"
+                        style={{ height: `${Math.max(8, (financeOverviewNum(d.totalPrizes) / maxBar) * 100)}%` }}
+                      />
+                      <span className="text-xs font-semibold">{financeOverviewNum(d.totalPrizes).toFixed(2)} USDT</span>
+                    </div>
+                    <div className="flex flex-col justify-end gap-1">
+                      <span className="text-[10px] text-muted-foreground">Profit</span>
+                      <div
+                        className="rounded bg-emerald-500/90 min-h-[4px] w-full"
+                        style={{ height: `${Math.max(8, (financeOverviewNum(d.platformFee) / maxBar) * 100)}%` }}
+                      />
+                      <span className="text-xs font-semibold text-emerald-400">{financeOverviewNum(d.platformFee).toFixed(2)} USDT</span>
+                    </div>
                   </div>
-                  <div className="flex-1 flex flex-col justify-end gap-1">
-                    <span className="text-[10px] text-muted-foreground">Prizes</span>
-                    <div
-                      className="rounded bg-amber-500/80 min-h-[4px] w-full"
-                      style={{ height: `${Math.max(8, (financeOverviewNum(d.totalPrizes) / maxBar) * 100)}%` }}
-                    />
-                    <span className="text-xs font-semibold">{financeOverviewNum(d.totalPrizes).toFixed(2)}</span>
-                  </div>
-                  <div className="text-right text-xs text-muted-foreground w-24">
-                    Fee: <span className="text-foreground font-medium">{financeOverviewNum(d.platformFee).toFixed(2)}</span>
+                  <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                    <span className="rounded-full border border-border/60 bg-muted/30 px-2 py-0.5">
+                      Profit:{" "}
+                      <span className="text-foreground font-medium">
+                        {financeOverviewNum(d.totalRevenue) > 0
+                          ? ((financeOverviewNum(d.platformFee) / financeOverviewNum(d.totalRevenue)) * 100).toFixed(1)
+                          : "0.0"}
+                        %
+                      </span>
+                    </span>
+                    <span className="rounded-full border border-border/60 bg-muted/30 px-2 py-0.5">
+                      Tickets: <span className="text-foreground font-medium">{financeOverviewNum(d.ticketsSold, 0)}</span>
+                    </span>
                   </div>
                 </div>
               </button>
@@ -899,6 +969,8 @@ function PoolsTab() {
   const [editNoTimeLimit, setEditNoTimeLimit] = useState(false);
   const [editPlatformFeePerJoin, setEditPlatformFeePerJoin] = useState("");
   const [initialPlatformFeePerJoin, setInitialPlatformFeePerJoin] = useState("");
+  const [editProfitPercent, setEditProfitPercent] = useState("15");
+  const [initialProfitPercent, setInitialProfitPercent] = useState("15");
   const [editWinnerCount, setEditWinnerCount] = useState<1 | 2 | 3>(3);
   const [editTicketPrice, setEditTicketPrice] = useState("");
   const [editTotalTickets, setEditTotalTickets] = useState("");
@@ -945,6 +1017,11 @@ function PoolsTab() {
     const s = raw.trim();
     setEditPlatformFeePerJoin(s);
     setInitialPlatformFeePerJoin(s);
+    const total = Number((pool as any).totalPoolAmount ?? 0);
+    const fee = Number((pool as any).platformFeeAmount ?? 0);
+    const pct = total > 0 ? ((fee / total) * 100).toFixed(1) : "15";
+    setEditProfitPercent(pct);
+    setInitialProfitPercent(pct);
     setEditWinnerCount(poolWinnerCount(pool));
     setEditTicketPrice(String((pool as any).ticketPrice ?? pool.entryFee));
     setEditTotalTickets(String((pool as any).totalTickets ?? pool.maxUsers));
@@ -1000,6 +1077,17 @@ function PoolsTab() {
       if (Number.isInteger(cd) && cd >= 0) data.cooldownPeriodDays = cd;
       const cw = parseFloat(editCooldownWeight);
       if (Number.isFinite(cw) && cw >= 0.01 && cw <= 1) data.cooldownWeight = cw;
+
+      const ppCur = editProfitPercent.trim();
+      const ppInit = initialProfitPercent.trim();
+      if (ppCur !== ppInit && ppCur !== "") {
+        const pp = parseFloat(ppCur);
+        if (!Number.isFinite(pp) || pp < 0) {
+          toast({ title: "Invalid profit %", description: "Enter a valid percentage (e.g. 15).", variant: "destructive" });
+          return;
+        }
+        data.profitPercent = pp;
+      }
       await updatePool.mutateAsync({ poolId, data });
       toast({ title: "Pool updated" });
       setEditingId(null);
@@ -1388,6 +1476,29 @@ function PoolsTab() {
                       Override per-join fee for this pool only. Clear the field and save to use the default formula again.
                     </p>
                   </div>
+                  <div className="rounded-xl border border-border bg-muted/20 p-3">
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">Adjust profit % (open pools only)</Label>
+                    <div className="grid grid-cols-[1fr,86px] gap-2 items-center">
+                      <Input
+                        type="range"
+                        min="5"
+                        max="40"
+                        step="1"
+                        value={parseInt(editProfitPercent || "15", 10) || 15}
+                        onChange={(e) => setEditProfitPercent(e.target.value)}
+                        className="h-9"
+                      />
+                      <Input
+                        value={editProfitPercent}
+                        onChange={(e) => setEditProfitPercent(e.target.value)}
+                        className="h-9"
+                        inputMode="decimal"
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      This recalculates fee + prizes. For transparency, it’s blocked once any ticket is sold.
+                    </p>
+                  </div>
                   <div>
                     <Label className="text-xs text-muted-foreground mb-1.5 block">Winners for this draw</Label>
                     <Select
@@ -1675,9 +1786,11 @@ function PoolsTab() {
 }
 
 function CreatePoolTab() {
-  const createPool = useCreatePool();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: finSettings } = useGetAdminFinanceSettings({
+    query: { queryKey: getGetAdminFinanceSettingsQueryKey() },
+  });
 
   function localDatetimeValue(date: Date) {
     const dt = new Date(date);
@@ -1689,27 +1802,71 @@ function CreatePoolTab() {
   const defaultEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   const [form, setForm] = useState({
-    title: "",
-    entryFee: 10,
-    maxUsers: 50,
-    ticketPrice: 10,
-    totalTickets: 50,
-    maxTicketsPerUser: "",
-    allowMultiWin: false,
-    cooldownPeriodDays: 7,
-    cooldownWeight: 0.2,
-    feeMode: "fixed" as "fixed" | "percent",
-    feeValue: 2,
+    preset: "custom" as
+      | "custom"
+      | "starter"
+      | "lite"
+      | "blitz"
+      | "standard"
+      | "pro"
+      | "mega"
+      | "jackpot",
+    title: "Custom Pool",
+    ticketPrice: 5,
+    totalTickets: 8,
+    winnerCount: 3 as 1 | 2 | 3,
+    profitPercent: 15,
     startTime: localDatetimeValue(now),
     endTime: localDatetimeValue(defaultEnd),
     noTimeLimit: false,
-    prizeFirst: 100,
-    prizeSecond: 50,
-    prizeThird: 30,
-    winnerCount: 3 as 1 | 2 | 3,
-    platformFeePerJoinStr: "",
+    drawDelayMinutes: 5,
+    autoRecreate: true,
+    customPrizeSplit: false,
+    p1: 55,
+    p2: 30,
+    p3: 15,
   });
   const [, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    const dpp = (finSettings as any)?.defaultPoolProfitPercent;
+    if (dpp == null) return;
+    const n = Number(dpp);
+    if (!Number.isFinite(n) || n < 0 || n > 80) return;
+    setForm((f) => (f.preset === "custom" ? { ...f, profitPercent: Math.round(n) } : f));
+  }, [finSettings]);
+
+  type PresetKey = "starter" | "lite" | "blitz" | "standard" | "pro" | "mega" | "jackpot";
+  const presets: Record<PresetKey, { title: string; ticketPrice: number; totalTickets: number; winnerCount: 1 | 2 | 3; profitPercent: number }> =
+    useMemo(
+      () => ({
+        starter: { title: "Starter Pool", ticketPrice: 2, totalTickets: 10, winnerCount: 3, profitPercent: 15 },
+        lite: { title: "Lite Pool", ticketPrice: 3, totalTickets: 10, winnerCount: 3, profitPercent: 15 },
+        blitz: { title: "Blitz Pool", ticketPrice: 5, totalTickets: 8, winnerCount: 2, profitPercent: 15 },
+        standard: { title: "Standard Pool", ticketPrice: 10, totalTickets: 10, winnerCount: 3, profitPercent: 15 },
+        pro: { title: "Pro Pool", ticketPrice: 25, totalTickets: 10, winnerCount: 3, profitPercent: 15 },
+        mega: { title: "Mega Pool", ticketPrice: 50, totalTickets: 10, winnerCount: 3, profitPercent: 20 },
+        jackpot: { title: "Jackpot Pool", ticketPrice: 10, totalTickets: 20, winnerCount: 1, profitPercent: 20 },
+      }),
+      [],
+    );
+
+  function applyPreset(key: PresetKey) {
+    const p = presets[key];
+    setForm((f) => ({
+      ...f,
+      preset: key,
+      title: p.title,
+      ticketPrice: p.ticketPrice,
+      totalTickets: p.totalTickets,
+      winnerCount: p.winnerCount as 1 | 2 | 3,
+      profitPercent: p.profitPercent,
+      customPrizeSplit: false,
+      p1: p.winnerCount === 1 ? 100 : p.winnerCount === 2 ? 65 : 55,
+      p2: p.winnerCount === 1 ? 0 : p.winnerCount === 2 ? 35 : 30,
+      p3: p.winnerCount === 3 ? 15 : 0,
+    }));
+  }
 
   function setDuration(days: number) {
     const start = new Date();
@@ -1717,102 +1874,98 @@ function CreatePoolTab() {
     setForm((f) => ({ ...f, startTime: localDatetimeValue(start), endTime: localDatetimeValue(end), noTimeLimit: false }));
   }
 
-  const totalPrize = poolPaidPrizeTotal(form);
-  const poolRevenue = (form.ticketPrice || 0) * (form.totalTickets || 0);
-  const entryForFee = form.ticketPrice || 0;
-  const customFeeRaw = form.platformFeePerJoinStr.trim();
-  const parsedCustomFee = customFeeRaw === "" ? null : parseFloat(customFeeRaw);
-  const platformFeePerJoin =
-    parsedCustomFee != null && Number.isFinite(parsedCustomFee)
-      ? Math.min(entryForFee, Math.max(0, parsedCustomFee))
-      : platformFeeUsdtForPoolEntry(entryForFee);
-  const netToPoolPerTicket = Math.max(0, entryForFee - platformFeePerJoin);
-  const maxNetCollected = netToPoolPerTicket * (form.totalTickets || 0);
-  const totalPlatformFeesIfFull = platformFeePerJoin * (form.totalTickets || 0);
-  const estimatedPoolMargin = maxNetCollected - totalPrize;
+  const poolRevenue = Math.max(0, (form.ticketPrice || 0) * (form.totalTickets || 0));
+  const platformFeeAmount = Math.max(0, Number((poolRevenue * (Math.max(0, form.profitPercent) / 100)).toFixed(2)));
+  const prizePool = Math.max(0, Number((poolRevenue - platformFeeAmount).toFixed(2)));
+
+  const defaultSplit = form.winnerCount === 1 ? [100, 0, 0] : form.winnerCount === 2 ? [65, 35, 0] : [55, 30, 15];
+  const split = form.customPrizeSplit
+    ? [form.p1, form.p2, form.p3]
+    : defaultSplit;
+
+  const safeSplit = split.map((x) => (Number.isFinite(x) && x >= 0 ? x : 0));
+  const splitSum = safeSplit.slice(0, form.winnerCount).reduce((a, b) => a + b, 0) || 1;
+  const desiredPrizes = safeSplit.slice(0, form.winnerCount).map((pct) => Number(((prizePool * pct) / splitSum).toFixed(2)));
+  const filledPrizes = [
+    desiredPrizes[0] ?? 0,
+    desiredPrizes[1] ?? 0,
+    desiredPrizes[2] ?? 0,
+  ].map((x) => Number.isFinite(x) ? x : 0) as [number, number, number];
+  // absorb rounding into 1st so sum matches prizePool
+  const prizesSum = Number((filledPrizes[0] + filledPrizes[1] + filledPrizes[2]).toFixed(2));
+  filledPrizes[0] = Number((filledPrizes[0] + (prizePool - prizesSum)).toFixed(2));
+  const totalPrize = Number((filledPrizes[0] + filledPrizes[1] + filledPrizes[2]).toFixed(2));
+  const estimatedPoolMargin = Number((poolRevenue - totalPrize).toFixed(2));
   const durationMs = form.noTimeLimit ? 0 : new Date(form.endTime).getTime() - new Date(form.startTime).getTime();
   const durationDays = Math.max(0, Math.round(durationMs / 86400000));
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitted(true);
-    let optionalPlatformFee: number | undefined;
-    const fs = form.platformFeePerJoinStr.trim();
-    if (fs !== "") {
-      const n = parseFloat(fs);
-      if (!Number.isFinite(n) || n < 0) {
-        toast({ title: "Invalid platform fee", description: "Enter a non-negative number or leave empty.", variant: "destructive" });
-        setSubmitted(false);
-        return;
-      }
-      if (n > form.ticketPrice) {
-        toast({ title: "Fee too high", description: "Per-join fee cannot exceed the list entry fee.", variant: "destructive" });
-        setSubmitted(false);
-        return;
-      }
-      optionalPlatformFee = n;
-    }
     const endIso = form.noTimeLimit
       ? new Date("2099-12-31T23:59:59.000Z").toISOString()
       : new Date(form.endTime).toISOString();
-    createPool.mutate(
-      {
-        data: {
+
+    try {
+      // CSRF token (same approach as PoolFactoryDashboard)
+      const csrfRes = await fetch(apiUrl("/api/auth/csrf-token"), { credentials: "include" });
+      const csrfData = await csrfRes.json().catch(() => ({}));
+      const token = (csrfData as { csrfToken?: string }).csrfToken;
+
+      const res = await fetch(apiUrl("/api/admin/pool/create"), {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "x-csrf-token": token } : {}),
+        },
+        body: JSON.stringify({
           title: form.title,
           entryFee: form.ticketPrice,
           maxUsers: form.totalTickets,
           ticketPrice: form.ticketPrice,
           totalTickets: form.totalTickets,
-          maxTicketsPerUser: form.maxTicketsPerUser.trim() === "" ? null : parseInt(form.maxTicketsPerUser, 10),
-          allowMultiWin: form.allowMultiWin,
-          cooldownPeriodDays: form.cooldownPeriodDays,
-          cooldownWeight: form.cooldownWeight,
-          feeMode: form.feeMode,
-          feeValue: form.feeValue,
+          winnerCount: form.winnerCount,
+          profitPercent: form.profitPercent,
           startTime: new Date(form.startTime).toISOString(),
           endTime: endIso,
-          prizeFirst: form.prizeFirst,
-          prizeSecond: form.prizeSecond,
-          prizeThird: form.prizeThird,
-          winnerCount: form.winnerCount,
-          ...(optionalPlatformFee !== undefined ? { platformFeePerJoin: optionalPlatformFee } : {}),
-        } as any,
-      },
-      {
-        onSuccess: () => {
-          toast({ title: "🎉 Pool created successfully!" });
-          queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
-          const now2 = new Date();
-          const end2 = new Date(now2.getTime() + 7 * 24 * 60 * 60 * 1000);
-          setForm({
-            title: "",
-            entryFee: 10,
-            maxUsers: 50,
-            ticketPrice: 10,
-            totalTickets: 50,
-            maxTicketsPerUser: "",
-            allowMultiWin: false,
-            cooldownPeriodDays: 7,
-            cooldownWeight: 0.2,
-            feeMode: "fixed",
-            feeValue: 2,
-            startTime: localDatetimeValue(now2),
-            endTime: localDatetimeValue(end2),
-            noTimeLimit: false,
-            prizeFirst: 100,
-            prizeSecond: 50,
-            prizeThird: 30,
-            winnerCount: 3,
-            platformFeePerJoinStr: "",
-          });
-          setSubmitted(false);
-        },
-        onError: (err: any) => {
-          toast({ title: "Creation failed", description: err?.message, variant: "destructive" });
-          setSubmitted(false);
-        },
-      }
-    );
+          drawDelayMinutes: form.drawDelayMinutes,
+          autoRecreate: form.autoRecreate,
+          ...(form.customPrizeSplit ? { customPrizes: filledPrizes } : {}),
+        }),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      toast({ title: "🎉 Pool created successfully!" });
+      queryClient.invalidateQueries({ queryKey: getListPoolsQueryKey() });
+
+      const now2 = new Date();
+      const end2 = new Date(now2.getTime() + 7 * 24 * 60 * 60 * 1000);
+      setForm((f) => ({
+        ...f,
+        preset: "custom",
+        title: "Custom Pool",
+        ticketPrice: 5,
+        totalTickets: 8,
+        winnerCount: 3,
+        profitPercent:
+          Number.isFinite(Number((finSettings as any)?.defaultPoolProfitPercent))
+            ? Math.round(Number((finSettings as any)?.defaultPoolProfitPercent))
+            : 15,
+        startTime: localDatetimeValue(now2),
+        endTime: localDatetimeValue(end2),
+        noTimeLimit: false,
+        drawDelayMinutes: 5,
+        autoRecreate: true,
+        customPrizeSplit: false,
+        p1: 55,
+        p2: 30,
+        p3: 15,
+      }));
+      setSubmitted(false);
+    } catch (err: any) {
+      toast({ title: "Creation failed", description: err?.message ?? "Error", variant: "destructive" });
+      setSubmitted(false);
+    }
   }
 
   return (
@@ -1841,13 +1994,43 @@ function CreatePoolTab() {
                 <p className="text-sm font-semibold">Basic Info</p>
               </div>
 
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Quick create</p>
+                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                  {[
+                    { key: "starter", label: "Starter $2" },
+                    { key: "lite", label: "Lite $3" },
+                    { key: "blitz", label: "Blitz $5" },
+                    { key: "standard", label: "Standard $10" },
+                    { key: "pro", label: "Pro $25" },
+                    { key: "mega", label: "Mega $50" },
+                    { key: "jackpot", label: "Jackpot" },
+                  ].map((b) => (
+                    <button
+                      key={b.key}
+                      type="button"
+                      onClick={() => applyPreset(b.key as keyof typeof presets)}
+                      className={`shrink-0 rounded-xl px-3 py-2 text-xs font-semibold border transition-colors ${
+                        form.preset === b.key
+                          ? "bg-primary/15 border-primary/30 text-primary"
+                          : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/50"
+                      }`}
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div>
-                <Label className="text-xs text-muted-foreground mb-1.5 block">Pool Title <span className="text-red-400">*</span></Label>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">
+                  Pool Name <span className="text-red-400">*</span>
+                </Label>
                 <Input
                   value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  onChange={(e) => setForm({ ...form, title: e.target.value, preset: "custom" })}
                   required
-                  placeholder="e.g. Weekly Lucky USDT Pool"
+                  placeholder="e.g. Blitz Pool"
                   className="h-10"
                 />
               </div>
@@ -1859,7 +2042,7 @@ function CreatePoolTab() {
                     <Input
                       type="number" min="1" step="0.5"
                       value={form.ticketPrice}
-                      onChange={(e) => setForm({ ...form, ticketPrice: parseFloat(e.target.value) || 0, entryFee: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) => setForm({ ...form, ticketPrice: parseFloat(e.target.value) || 0, preset: "custom" })}
                       className="h-10 pr-14"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-primary">USDT</span>
@@ -1871,115 +2054,74 @@ function CreatePoolTab() {
                     <Input
                       type="number" min="2" step="1"
                       value={form.totalTickets}
-                      onChange={(e) => setForm({ ...form, totalTickets: parseInt(e.target.value) || 0, maxUsers: parseInt(e.target.value) || 0 })}
+                      onChange={(e) => setForm({ ...form, totalTickets: parseInt(e.target.value) || 0, preset: "custom" })}
                       className="h-10 pr-14"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">tickets</span>
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5 block">Max tickets per user</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={form.maxTicketsPerUser}
-                    onChange={(e) => setForm({ ...form, maxTicketsPerUser: e.target.value })}
-                    placeholder="Optional"
-                    className="h-10"
-                  />
-                </div>
-                <div className="flex items-end pb-2">
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      checked={form.allowMultiWin}
-                      onChange={(e) => setForm({ ...form, allowMultiWin: e.target.checked })}
-                      className="rounded border-border"
-                    />
-                    Allow multi-win by same user
-                  </label>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">How many winners?</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { v: 1, title: "1 Winner", hint: "Jackpot feel" },
+                    { v: 2, title: "2 Winners", hint: "Good for 6–8 seats" },
+                    { v: 3, title: "3 Winners", hint: "Recommended" },
+                  ].map((b) => (
+                    <button
+                      key={b.v}
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          winnerCount: b.v as 1 | 2 | 3,
+                          preset: "custom",
+                          customPrizeSplit: false,
+                          p1: b.v === 1 ? 100 : b.v === 2 ? 65 : 55,
+                          p2: b.v === 1 ? 0 : b.v === 2 ? 35 : 30,
+                          p3: b.v === 3 ? 15 : 0,
+                        }))
+                      }
+                      className={`rounded-xl border px-3 py-2 text-left transition-colors ${
+                        form.winnerCount === b.v
+                          ? "border-primary/30 bg-primary/10"
+                          : "border-border bg-muted/20 hover:bg-muted/30"
+                      }`}
+                    >
+                      <p className={`text-xs font-semibold ${form.winnerCount === b.v ? "text-primary" : "text-foreground"}`}>
+                        {b.title}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{b.hint}</p>
+                    </button>
+                  ))}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5 block">Cooldown days</Label>
+
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Platform profit (%)</Label>
+                <div className="grid grid-cols-[1fr,84px] gap-2 items-center">
+                  <Input
+                    type="range"
+                    min="5"
+                    max="40"
+                    step="1"
+                    value={form.profitPercent}
+                    onChange={(e) => setForm((f) => ({ ...f, profitPercent: parseInt(e.target.value, 10) || 15, preset: "custom" }))}
+                    className="h-10"
+                  />
                   <Input
                     type="number"
                     min="0"
+                    max="80"
                     step="1"
-                    value={form.cooldownPeriodDays}
-                    onChange={(e) => setForm({ ...form, cooldownPeriodDays: parseInt(e.target.value) || 0 })}
+                    value={form.profitPercent}
+                    onChange={(e) => setForm((f) => ({ ...f, profitPercent: parseInt(e.target.value, 10) || 0, preset: "custom" }))}
                     className="h-10"
                   />
                 </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground mb-1.5 block">Cooldown weight (0.01 - 1)</Label>
-                  <Input
-                    type="number"
-                    min="0.01"
-                    max="1"
-                    step="0.01"
-                    value={form.cooldownWeight}
-                    onChange={(e) => setForm({ ...form, cooldownWeight: parseFloat(e.target.value) || 0.2 })}
-                    className="h-10"
-                  />
-                </div>
-              </div>
-
-
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5 block">
-                  Platform fee per join (optional override)
-                </Label>
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                  <Select value={form.feeMode} onValueChange={(v) => setForm({ ...form, feeMode: v as "fixed" | "percent" })}>
-                    <SelectTrigger className="h-10">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fixed">Fixed fee (USDT)</SelectItem>
-                      <SelectItem value="percent">Percent of ticket price</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.feeValue}
-                    onChange={(e) => setForm({ ...form, feeValue: parseFloat(e.target.value) || 0 })}
-                    className="h-10"
-                    placeholder={form.feeMode === "percent" ? "e.g. 20" : "e.g. 2"}
-                  />
-                </div>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  value={form.platformFeePerJoinStr}
-                  onChange={(e) => setForm({ ...form, platformFeePerJoinStr: e.target.value })}
-                  placeholder="Leave empty for default formula"
-                  className="h-10"
-                />
-                <p className="text-[11px] text-muted-foreground mt-1.5">
-                  Default is ceil(entry ÷ 5) USDT per join. Set a value here to lock a custom fee for this pool only.
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-border bg-muted/30 px-3 py-3 space-y-2 text-xs">
-                <p className="font-semibold text-foreground/90">Fee preview (this entry price)</p>
-                <p className="text-muted-foreground leading-relaxed">
-                  Fee per join: <UsdtAmount amount={platformFeePerJoin} amountClassName="text-primary font-mono font-semibold" currencyClassName="text-[10px] text-[#64748b]" />
-                  {parsedCustomFee != null && Number.isFinite(parsedCustomFee) ? (
-                    <> · custom override (capped at list entry).</>
-                  ) : (
-                    <> · default formula (ceil(entry ÷ 5)).</>
-                  )}
-                </p>
-                <p className="text-muted-foreground">
-                  Net to pool (per ticket, list − fee):{" "}
-                  <UsdtAmount amount={netToPoolPerTicket} amountClassName="text-foreground font-mono font-medium" currencyClassName="text-[10px] text-[#64748b]" />
+                <p className="text-[11px] text-muted-foreground">
+                  Suggested: 10–20%. Low profit may be unsustainable; high profit may reduce trust.
                 </p>
               </div>
             </div>
@@ -2062,54 +2204,54 @@ function CreatePoolTab() {
                 <p className="text-sm font-semibold">Prize Distribution</p>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: "1st Place", icon: "🥇", key: "prizeFirst" as const, color: "hsla(45,100%,50%,1)", bg: "hsla(45,100%,50%,0.06)", border: "hsla(45,100%,50%,0.2)" },
-                  { label: "2nd Place", icon: "🥈", key: "prizeSecond" as const, color: "hsla(220,20%,70%,1)", bg: "hsla(220,20%,70%,0.06)", border: "hsla(220,20%,70%,0.2)" },
-                  { label: "3rd Place", icon: "🥉", key: "prizeThird" as const, color: "hsla(25,80%,55%,1)", bg: "hsla(25,80%,55%,0.06)", border: "hsla(25,80%,55%,0.2)" },
-                ].map((prize) => (
-                  <div key={prize.key} className="rounded-xl px-3 pt-2 pb-3"
-                    style={{ background: prize.bg, border: `1px solid ${prize.border}` }}>
-                    <div className="text-center mb-2">
-                      <span className="text-2xl">{prize.icon}</span>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{prize.label}</p>
-                    </div>
-                    <div className="relative">
-                      <Input
-                        type="number" min="0" step="1"
-                        value={form[prize.key]}
-                        onChange={(e) => setForm({ ...form, [prize.key]: parseFloat(e.target.value) || 0 })}
-                        className="h-8 text-center text-sm font-bold pr-10"
-                        style={{ color: prize.color }}
-                      />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-muted-foreground">USDT</span>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-semibold">Prize split</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Default: {defaultSplit.slice(0, form.winnerCount).join(" / ")}%
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={form.customPrizeSplit}
+                    onChange={(e) => setForm((f) => ({ ...f, customPrizeSplit: e.target.checked, preset: "custom" }))}
+                    className="rounded border-border"
+                  />
+                  Custom split
+                </label>
               </div>
-              <div>
-                <Label className="text-xs text-muted-foreground mb-1.5 block">Winners for this draw</Label>
-                <Select
-                  value={String(form.winnerCount)}
-                  onValueChange={(v) => setForm({ ...form, winnerCount: Number(v) as 1 | 2 | 3 })}
-                >
-                  <SelectTrigger className="h-10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 — 1st prize only</SelectItem>
-                    <SelectItem value="2">2 — 1st + 2nd</SelectItem>
-                    <SelectItem value="3">3 — full podium</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-muted-foreground mt-1.5">
-                  Only the first N prize amounts are paid at distribution. Set unused places to 0 if you like.
-                </p>
+
+              {form.customPrizeSplit ? (
+                <div className={`grid gap-2 ${form.winnerCount === 1 ? "grid-cols-1" : form.winnerCount === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+                  <Input type="number" min="0" max="100" step="1" value={form.p1} onChange={(e) => setForm((f) => ({ ...f, p1: parseInt(e.target.value, 10) || 0 }))} className="h-10" />
+                  {form.winnerCount >= 2 ? (
+                    <Input type="number" min="0" max="100" step="1" value={form.p2} onChange={(e) => setForm((f) => ({ ...f, p2: parseInt(e.target.value, 10) || 0 }))} className="h-10" />
+                  ) : null}
+                  {form.winnerCount >= 3 ? (
+                    <Input type="number" min="0" max="100" step="1" value={form.p3} onChange={(e) => setForm((f) => ({ ...f, p3: parseInt(e.target.value, 10) || 0 }))} className="h-10" />
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className={`grid gap-2 ${form.winnerCount === 1 ? "grid-cols-1" : form.winnerCount === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+                {[
+                  { icon: form.winnerCount === 1 ? "🏆" : "🥇", v: filledPrizes[0], tint: "hsla(152,72%,44%,0.08)", border: "hsla(152,72%,44%,0.22)" },
+                  { icon: "🥈", v: filledPrizes[1], tint: "hsla(220,20%,70%,0.07)", border: "hsla(220,20%,70%,0.18)" },
+                  { icon: "🥉", v: filledPrizes[2], tint: "hsla(25,80%,55%,0.07)", border: "hsla(25,80%,55%,0.18)" },
+                ]
+                  .slice(0, form.winnerCount)
+                  .map((p, i) => (
+                    <div key={i} className="rounded-xl px-3 py-3 text-center" style={{ background: p.tint, border: `1px solid ${p.border}` }}>
+                      <div className="text-lg">{p.icon}</div>
+                      <UsdtAmount amount={p.v} amountClassName="text-sm font-bold" currencyClassName="text-[10px] text-[#64748b]" />
+                    </div>
+                  ))}
               </div>
             </div>
 
-            <Button type="submit" disabled={createPool.isPending || !form.title} className="w-full h-12 rounded-2xl font-bold text-base shadow-md">
-              {createPool.isPending ? "Creating Pool..." : "🎱 Create Pool"}
+            <Button type="submit" disabled={!form.title} className="w-full h-12 rounded-2xl font-bold text-base shadow-md">
+              🎱 Create Pool
             </Button>
           </div>
 
@@ -2142,9 +2284,9 @@ function CreatePoolTab() {
                   {/* Prizes */}
                   <div className={`grid gap-1.5 mb-4 ${form.winnerCount === 1 ? "grid-cols-1" : form.winnerCount === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
                     {[
-                      { icon: "🥇", prize: form.prizeFirst, color: "hsla(45,100%,50%,1)", bg: "hsla(45,100%,50%,0.07)" },
-                      { icon: "🥈", prize: form.prizeSecond, color: "hsla(220,20%,70%,1)", bg: "hsla(220,20%,70%,0.07)" },
-                      { icon: "🥉", prize: form.prizeThird, color: "hsla(25,80%,55%,1)", bg: "hsla(25,80%,55%,0.07)" },
+                      { icon: form.winnerCount === 1 ? "🏆" : "🥇", prize: filledPrizes[0], bg: "hsla(45,100%,50%,0.07)" },
+                      { icon: "🥈", prize: filledPrizes[1], bg: "hsla(220,20%,70%,0.07)" },
+                      { icon: "🥉", prize: filledPrizes[2], bg: "hsla(25,80%,55%,0.07)" },
                     ]
                       .slice(0, form.winnerCount)
                       .map((p, i) => (
@@ -2188,11 +2330,11 @@ function CreatePoolTab() {
                   <div className="grid grid-cols-2 gap-2 text-[10px] border-t border-border/40 pt-2">
                     <div>
                       <p className="text-muted-foreground">Platform fees (if full)</p>
-                      <UsdtAmount amount={totalPlatformFeesIfFull} amountClassName="font-mono font-semibold text-amber-200/90" currencyClassName="text-[10px] text-[#64748b]" />
+                      <UsdtAmount amount={platformFeeAmount} amountClassName="font-mono font-semibold text-amber-200/90" currencyClassName="text-[10px] text-[#64748b]" />
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Net collected (if full)</p>
-                      <UsdtAmount amount={maxNetCollected} amountClassName="font-mono font-semibold text-emerald-300/90" currencyClassName="text-[10px] text-[#64748b]" />
+                      <p className="text-muted-foreground">Prize pool (after fee)</p>
+                      <UsdtAmount amount={prizePool} amountClassName="font-mono font-semibold text-emerald-300/90" currencyClassName="text-[10px] text-[#64748b]" />
                     </div>
                   </div>
                   <div className="rounded-lg px-2 py-2 text-center"

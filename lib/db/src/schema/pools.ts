@@ -63,6 +63,12 @@ export const poolsTable = pgTable("pools", {
   prizeDistribution: jsonb("prize_distribution").$type<number[]>().notNull().default([]),
   totalPoolAmount: numeric("total_pool_amount", { precision: 18, scale: 2 }).notNull().default("0"),
   platformFeeAmount: numeric("platform_fee_amount", { precision: 18, scale: 2 }).notNull().default("0"),
+  /** Planned platform profit margin at creation time (percentage of revenue). */
+  profitPercent: numeric("profit_percent", { precision: 8, scale: 2 }).notNull().default("0"),
+  /** Optional per-pool draw delay override (minutes after fill). */
+  drawDelayMinutes: integer("draw_delay_minutes"),
+  /** When true, system may auto-recreate this pool after draw (if supported). */
+  autoRecreate: boolean("auto_recreate").notNull().default(true),
   currentMembers: integer("current_members").notNull().default(0),
   templateId: integer("template_id").references(() => poolTemplatesTable.id),
   autoCreated: boolean("auto_created").notNull().default(false),
