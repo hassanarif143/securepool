@@ -204,8 +204,8 @@ export default function WinnersPage() {
 
   const winnersList = (winners as any[]) ?? [];
 
-  /* Compute stats */
-  const totalDistributed = winnersList.reduce((s: number, w: any) => s + parseFloat(w.prize), 0);
+  /* Compute stats (use server stats as fallback when list is limited/empty) */
+  const totalDistributedFromList = winnersList.reduce((s: number, w: any) => s + Number(w.prize ?? 0), 0);
   const uniquePools = new Set(winnersList.map((w: any) => w.poolTitle)).size;
 
   const { data: stats } = useQuery({
@@ -221,6 +221,7 @@ export default function WinnersPage() {
   const totalWinners = winnersList.length;
   const activeMembers = stats?.totalActiveUsers ?? 0;
   const drawsCompleted = stats?.totalPoolsCompleted ?? uniquePools;
+  const totalDistributed = Math.max(totalDistributedFromList, stats?.totalUsdtDistributed ?? 0);
   const winRate = activeMembers > 0 ? (totalWinners / activeMembers) * 100 : 0;
 
   const heroInView = useInViewOnce<HTMLDivElement>({ rootMargin: "-10% 0px" });
@@ -270,7 +271,7 @@ export default function WinnersPage() {
         label: "Total Distributed",
         value: (
           <UsdtAmount
-            amount={statsInView.inView ? totalDistributed : 0}
+            amount={totalDistributed}
             amountClassName="text-[28px] font-bold text-[#00e676]"
             currencyClassName="text-[11px] text-[#9e9e9e]"
           />
@@ -281,7 +282,7 @@ export default function WinnersPage() {
         label: "Draws Completed",
         value: (
           <span className="text-[28px] font-bold tabular-nums text-white">
-            {statsInView.inView ? drawsCompleted.toLocaleString() : "—"}
+            {drawsCompleted.toLocaleString()}
           </span>
         ),
       },
@@ -290,7 +291,7 @@ export default function WinnersPage() {
         label: "Active Members",
         value: (
           <span className="text-[28px] font-bold tabular-nums text-white">
-            {statsInView.inView ? activeMembers.toLocaleString() : "—"}
+            {activeMembers.toLocaleString()}
           </span>
         ),
       },
@@ -299,12 +300,12 @@ export default function WinnersPage() {
         label: "Win Rate",
         value: (
           <span className="text-[28px] font-bold tabular-nums text-white">
-            {statsInView.inView ? `${Math.min(99.9, Math.max(0, winRate)).toFixed(1)}%` : "—"}
+            {`${Math.min(99.9, Math.max(0, winRate)).toFixed(1)}%`}
           </span>
         ),
       },
     ],
-    [activeMembers, drawsCompleted, statsInView.inView, totalDistributed, winRate],
+    [activeMembers, drawsCompleted, totalDistributed, winRate],
   );
 
   return (
