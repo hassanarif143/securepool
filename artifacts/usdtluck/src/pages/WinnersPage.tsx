@@ -272,7 +272,7 @@ export default function WinnersPage() {
         value: (
           <UsdtAmount
             amount={totalDistributed}
-            amountClassName="text-[28px] font-bold text-[#00e676]"
+            amountClassName="text-[28px] font-extrabold text-[#00e676] tracking-tight"
             currencyClassName="text-[11px] text-[#9e9e9e]"
           />
         ),
@@ -281,7 +281,7 @@ export default function WinnersPage() {
         icon: "🏆",
         label: "Draws Completed",
         value: (
-          <span className="text-[28px] font-bold tabular-nums text-white">
+          <span className="text-[28px] font-extrabold tabular-nums text-white tracking-tight">
             {drawsCompleted.toLocaleString()}
           </span>
         ),
@@ -290,7 +290,7 @@ export default function WinnersPage() {
         icon: "👥",
         label: "Active Members",
         value: (
-          <span className="text-[28px] font-bold tabular-nums text-white">
+          <span className="text-[28px] font-extrabold tabular-nums text-white tracking-tight">
             {activeMembers.toLocaleString()}
           </span>
         ),
@@ -299,7 +299,7 @@ export default function WinnersPage() {
         icon: "🎯",
         label: "Win Rate",
         value: (
-          <span className="text-[28px] font-bold tabular-nums text-white">
+          <span className="text-[28px] font-extrabold tabular-nums text-white tracking-tight">
             {`${Math.min(99.9, Math.max(0, winRate)).toFixed(1)}%`}
           </span>
         ),
@@ -359,12 +359,14 @@ export default function WinnersPage() {
           {statCards.map((stat: { label: string; value: ReactNode; icon: string }) => (
             <div
               key={stat.label}
-              className="rounded-2xl border border-white/[0.08] bg-[rgba(15,20,40,0.6)] p-4 text-center shadow-sm transition-transform sm:hover:-translate-y-0.5"
+              className="sp-stat-card rounded-2xl border border-white/[0.08] bg-[rgba(15,20,40,0.6)] p-4 text-center shadow-sm transition-transform sm:hover:-translate-y-0.5"
               style={{ backdropFilter: "blur(12px)" }}
             >
-              <div className="text-xl" aria-hidden>{stat.icon}</div>
-              <div className="mt-2">{stat.value}</div>
-              <p className="mt-1 text-[12px] text-[#9e9e9e]">{stat.label}</p>
+              <div className="mx-auto grid h-10 w-10 place-items-center rounded-xl border border-white/[0.08] bg-black/20 text-[20px] sp-stat-icon" aria-hidden>
+                {stat.icon}
+              </div>
+              <div className="mt-2 leading-none">{stat.value}</div>
+              <p className="mt-2 text-[12px] font-semibold text-[#9e9e9e]">{stat.label}</p>
             </div>
           ))}
         </div>
@@ -575,6 +577,36 @@ export default function WinnersPage() {
         }
         @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
           .sp-hero-bg { background: #050810; }
+        }
+        .sp-stat-card {
+          position: relative;
+          overflow: hidden;
+        }
+        .sp-stat-card::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background: radial-gradient(140px 80px at 50% 0%, rgba(0,212,255,0.12), transparent 60%);
+          opacity: 0.9;
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .sp-stat-card:hover {
+            border-color: rgba(0,230,118,0.28);
+            box-shadow: 0 14px 36px rgba(0,0,0,0.35);
+          }
+        }
+        .sp-stat-icon {
+          box-shadow: 0 0 22px rgba(0,212,255,0.08);
+          transform: translateY(0);
+          animation: sp-icon-pop 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        @keyframes sp-icon-pop {
+          from { opacity: 0; transform: translateY(6px) scale(0.92); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .sp-stat-icon { animation: none; }
         }
       `}</style>
     </div>
