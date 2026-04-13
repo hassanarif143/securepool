@@ -9,4 +9,9 @@
 export interface PatchAdminFinanceSettings {
   /** @minimum 0 */
   drawDesiredProfitUsdt: number;
+  /**
+   * @minimum 0
+   * @maximum 80
+   */
+  defaultPoolProfitPercent?: number;
 }

@@ -380,6 +380,16 @@ export const UpdatePoolParams = zod.object({
 
 export const updatePoolBodyPlatformFeePerJoinMin = 0;
 
+export const updatePoolBodyProfitPercentMin = 0;
+export const updatePoolBodyProfitPercentMax = 80;
+
+export const updatePoolBodyTicketPriceMin = 0;
+
+export const updatePoolBodyCooldownPeriodDaysMin = 0;
+
+export const updatePoolBodyCooldownWeightMin = 0.01;
+export const updatePoolBodyCooldownWeightMax = 1;
+
 export const UpdatePoolBody = zod.object({
   title: zod.string().optional(),
   status: zod.enum(["open", "closed", "completed"]).optional(),
@@ -396,6 +406,27 @@ export const UpdatePoolBody = zod.object({
     .describe(
       "Change number of winner places (not allowed after pool is completed)",
     ),
+  profitPercent: zod
+    .number()
+    .min(updatePoolBodyProfitPercentMin)
+    .max(updatePoolBodyProfitPercentMax)
+    .optional()
+    .describe(
+      "Recalculate fee + prizes (open pools only; blocked after tickets sold)",
+    ),
+  ticketPrice: zod.number().min(updatePoolBodyTicketPriceMin).optional(),
+  totalTickets: zod.number().min(1).optional(),
+  maxTicketsPerUser: zod.number().nullish(),
+  allowMultiWin: zod.boolean().optional(),
+  cooldownPeriodDays: zod
+    .number()
+    .min(updatePoolBodyCooldownPeriodDaysMin)
+    .optional(),
+  cooldownWeight: zod
+    .number()
+    .min(updatePoolBodyCooldownWeightMin)
+    .max(updatePoolBodyCooldownWeightMax)
+    .optional(),
 });
 
 export const UpdatePoolResponse = zod.object({
@@ -761,6 +792,7 @@ export const GetAdminDrawFinancialsResponse = zod.object({
  */
 export const GetAdminFinanceSettingsResponse = zod.object({
   drawDesiredProfitUsdt: zod.number(),
+  defaultPoolProfitPercent: zod.number(),
 });
 
 /**
@@ -768,12 +800,21 @@ export const GetAdminFinanceSettingsResponse = zod.object({
  */
 export const patchAdminFinanceSettingsBodyDrawDesiredProfitUsdtMin = 0;
 
+export const patchAdminFinanceSettingsBodyDefaultPoolProfitPercentMin = 0;
+export const patchAdminFinanceSettingsBodyDefaultPoolProfitPercentMax = 80;
+
 export const PatchAdminFinanceSettingsBody = zod.object({
   drawDesiredProfitUsdt: zod
     .number()
     .min(patchAdminFinanceSettingsBodyDrawDesiredProfitUsdtMin),
+  defaultPoolProfitPercent: zod
+    .number()
+    .min(patchAdminFinanceSettingsBodyDefaultPoolProfitPercentMin)
+    .max(patchAdminFinanceSettingsBodyDefaultPoolProfitPercentMax)
+    .optional(),
 });
 
 export const PatchAdminFinanceSettingsResponse = zod.object({
   drawDesiredProfitUsdt: zod.number(),
+  defaultPoolProfitPercent: zod.number(),
 });

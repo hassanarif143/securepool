@@ -21,4 +21,23 @@ export interface UpdatePoolBody {
   platformFeePerJoin?: number | null;
   /** Change number of winner places (not allowed after pool is completed) */
   winnerCount?: UpdatePoolBodyWinnerCount;
+  /**
+   * Recalculate fee + prizes (open pools only; blocked after tickets sold)
+   * @minimum 0
+   * @maximum 80
+   */
+  profitPercent?: number;
+  /** @minimum 0 */
+  ticketPrice?: number;
+  /** @minimum 1 */
+  totalTickets?: number;
+  maxTicketsPerUser?: number | null;
+  allowMultiWin?: boolean;
+  /** @minimum 0 */
+  cooldownPeriodDays?: number;
+  /**
+   * @minimum 0.01
+   * @maximum 1
+   */
+  cooldownWeight?: number;
 }

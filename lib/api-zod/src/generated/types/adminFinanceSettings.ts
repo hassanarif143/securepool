@@ -8,4 +8,5 @@
 
 export interface AdminFinanceSettings {
   drawDesiredProfitUsdt: number;
+  defaultPoolProfitPercent: number;
 }

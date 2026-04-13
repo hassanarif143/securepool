@@ -51,6 +51,7 @@ import {
 } from "../services/user-wallet-service";
 import { getRewardConfig, normalizeRewardConfig } from "../lib/reward-config";
 import { getSecurityConfig } from "../lib/security";
+import { countPoolTickets } from "../services/lucky-pool-ticket-service";
 import poolFactoryV2Router from "./pool-factory-v2";
 
 const router: IRouter = Router();
@@ -2843,6 +2844,125 @@ router.patch("/finance/settings", async (req, res) => {
       set: { drawDesiredProfitUsdt: v, ...(dpp != null ? { defaultPoolProfitPercent: dpp } : {}), updatedAt: new Date() },
     });
   res.json({ drawDesiredProfitUsdt: parsed.data.drawDesiredProfitUsdt, ...(dpp != null ? { defaultPoolProfitPercent: parseFloat(dpp) } : {}) });
+});
+
+const BackfillDrawFinancialsBody = z.object({
+  limit: z.number().int().min(1).max(500).optional(),
+  dryRun: z.boolean().optional(),
+  onlyMissingOrZeroFee: z.boolean().optional(),
+});
+
+router.post("/finance/backfill-draw-financials", async (req, res) => {
+  const parsed = BackfillDrawFinancialsBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", message: parsed.error.message });
+    return;
+  }
+  const limit = parsed.data.limit ?? 200;
+  const dryRun = parsed.data.dryRun ?? false;
+  const onlyMissingOrZeroFee = parsed.data.onlyMissingOrZeroFee ?? true;
+
+  const completed = await db
+    .select()
+    .from(poolsTable)
+    .where(eq(poolsTable.status, "completed"))
+    .orderBy(desc(poolsTable.id))
+    .limit(limit);
+
+  let scanned = 0;
+  let upserted = 0;
+  let updatedPools = 0;
+  let revenueSum = 0;
+  let prizesSum = 0;
+  let feeSum = 0;
+
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+
+  for (const pool of completed) {
+    scanned += 1;
+    const [fin] = await db.select().from(poolDrawFinancialsTable).where(eq(poolDrawFinancialsTable.poolId, pool.id)).limit(1);
+    if (onlyMissingOrZeroFee && fin && parseFloat(String(fin.platformFee)) > 0) continue;
+
+    const ticketsSold = Number(pool.soldTickets ?? 0) || (await countPoolTickets(pool.id));
+    const ticketPrice = parseFloat(String(pool.ticketPrice ?? pool.entryFee ?? "0"));
+    const totalRevenue = round2(Math.max(0, ticketPrice) * Math.max(0, ticketsSold));
+
+    const wc = Math.min(3, Math.max(1, Number(pool.winnerCount ?? 3))) as 1 | 2 | 3;
+    const p1 = parseFloat(String(pool.prizeFirst ?? "0"));
+    const p2 = wc >= 2 ? parseFloat(String(pool.prizeSecond ?? "0")) : 0;
+    const p3 = wc >= 3 ? parseFloat(String(pool.prizeThird ?? "0")) : 0;
+    const totalPrizes = round2(Math.max(0, p1 + p2 + p3));
+    const platformFee = round2(Math.max(0, totalRevenue - totalPrizes));
+    const profitMarginPercent = totalRevenue > 0 ? (platformFee / totalRevenue) * 100 : 0;
+
+    revenueSum += totalRevenue;
+    prizesSum += totalPrizes;
+    feeSum += platformFee;
+
+    if (dryRun) continue;
+
+    await db
+      .insert(poolDrawFinancialsTable)
+      .values({
+        poolId: pool.id,
+        ticketsSold,
+        ticketPrice: ticketPrice.toFixed(2),
+        totalRevenue: totalRevenue.toFixed(2),
+        prizeFirst: p1.toFixed(2),
+        prizeSecond: p2.toFixed(2),
+        prizeThird: p3.toFixed(2),
+        winnerFirstName: fin?.winnerFirstName ?? null,
+        winnerSecondName: fin?.winnerSecondName ?? null,
+        winnerThirdName: fin?.winnerThirdName ?? null,
+        totalPrizes: totalPrizes.toFixed(2),
+        platformFee: platformFee.toFixed(2),
+        profitMarginPercent: profitMarginPercent.toFixed(4),
+        minParticipantsRequired: fin?.minParticipantsRequired ?? 3,
+        createdAt: fin?.createdAt ?? new Date(pool.endTime ?? pool.createdAt ?? new Date()),
+      })
+      .onConflictDoUpdate({
+        target: poolDrawFinancialsTable.poolId,
+        set: {
+          ticketsSold,
+          ticketPrice: ticketPrice.toFixed(2),
+          totalRevenue: totalRevenue.toFixed(2),
+          prizeFirst: p1.toFixed(2),
+          prizeSecond: p2.toFixed(2),
+          prizeThird: p3.toFixed(2),
+          totalPrizes: totalPrizes.toFixed(2),
+          platformFee: platformFee.toFixed(2),
+          profitMarginPercent: profitMarginPercent.toFixed(4),
+        },
+      });
+    upserted += 1;
+
+    const totalPoolAmount = parseFloat(String((pool as any).totalPoolAmount ?? "0"));
+    const platformFeeAmount = parseFloat(String((pool as any).platformFeeAmount ?? "0"));
+    if (totalPoolAmount <= 0 || platformFeeAmount <= 0) {
+      await db
+        .update(poolsTable)
+        .set({
+          ...(totalPoolAmount <= 0 ? ({ totalPoolAmount: totalRevenue.toFixed(2) } as any) : {}),
+          ...(platformFeeAmount <= 0 ? ({ platformFeeAmount: platformFee.toFixed(2) } as any) : {}),
+          ...(totalRevenue > 0 ? ({ profitPercent: profitMarginPercent.toFixed(2) } as any) : {}),
+        })
+        .where(eq(poolsTable.id, pool.id));
+      updatedPools += 1;
+    }
+  }
+
+  res.json({
+    ok: true,
+    dryRun,
+    scanned,
+    upserted,
+    updatedPools,
+    totals: {
+      revenue: round2(revenueSum),
+      prizes: round2(prizesSum),
+      platformFee: round2(feeSum),
+    },
+  });
 });
 
 router.get("/rewards/config", async (_req, res) => {

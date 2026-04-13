@@ -1234,7 +1234,9 @@ components:
       properties:
         drawDesiredProfitUsdt:
           type: number
-      required: [drawDesiredProfitUsdt]
+        defaultPoolProfitPercent:
+          type: number
+      required: [drawDesiredProfitUsdt, defaultPoolProfitPercent]
 
     PatchAdminFinanceSettings:
       type: object
@@ -1242,6 +1244,10 @@ components:
         drawDesiredProfitUsdt:
           type: number
           minimum: 0
+        defaultPoolProfitPercent:
+          type: number
+          minimum: 0
+          maximum: 80
       required: [drawDesiredProfitUsdt]
 
     PoolDetail:
@@ -1369,6 +1375,29 @@ components:
           type: integer
           enum: [1, 2, 3]
           description: Change number of winner places (not allowed after pool is completed)
+        profitPercent:
+          type: number
+          minimum: 0
+          maximum: 80
+          description: Recalculate fee + prizes (open pools only; blocked after tickets sold)
+        ticketPrice:
+          type: number
+          minimum: 0
+        totalTickets:
+          type: integer
+          minimum: 1
+        maxTicketsPerUser:
+          type: integer
+          nullable: true
+        allowMultiWin:
+          type: boolean
+        cooldownPeriodDays:
+          type: integer
+          minimum: 0
+        cooldownWeight:
+          type: number
+          minimum: 0.01
+          maximum: 1
 
     Participant:
       type: object

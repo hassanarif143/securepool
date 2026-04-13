@@ -46,6 +46,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -441,6 +449,7 @@ function FinanceTab() {
   const patchFin = usePatchAdminFinanceSettings();
   const [profitInput, setProfitInput] = useState("");
   const [defaultProfitPctInput, setDefaultProfitPctInput] = useState("15");
+  const [backfillLoading, setBackfillLoading] = useState(false);
   useEffect(() => {
     if (finSettings != null) setProfitInput(String(finSettings.drawDesiredProfitUsdt));
     if (finSettings != null && (finSettings as any).defaultPoolProfitPercent != null) {
@@ -494,6 +503,37 @@ function FinanceTab() {
         onError: () => toast({ title: "Save failed", variant: "destructive" }),
       },
     );
+  }
+
+  async function runBackfill(dryRun: boolean) {
+    setBackfillLoading(true);
+    try {
+      const csrfRes = await fetch(apiUrl("/api/auth/csrf-token"), { credentials: "include" });
+      const csrfData = await csrfRes.json().catch(() => ({}));
+      const token = (csrfData as { csrfToken?: string }).csrfToken;
+      const res = await fetch(apiUrl("/api/admin/finance/backfill-draw-financials"), {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "x-csrf-token": token } : {}),
+        },
+        body: JSON.stringify({ limit: 200, dryRun, onlyMissingOrZeroFee: true }),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      const j = (await res.json()) as any;
+      toast({
+        title: dryRun ? "Backfill dry run complete" : "Backfill complete",
+        description: `Scanned ${j.scanned}, upserted ${j.upserted}, updated pools ${j.updatedPools}.`,
+      });
+      if (!dryRun) {
+        void queryClient.invalidateQueries({ queryKey: getGetAdminFinanceOverviewQueryKey() });
+      }
+    } catch (e: any) {
+      toast({ title: "Backfill failed", description: e?.message ?? "Error", variant: "destructive" });
+    } finally {
+      setBackfillLoading(false);
+    }
   }
 
   const perDrawSafe = overview?.perDraw ?? [];
@@ -603,6 +643,34 @@ function FinanceTab() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-border/60">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">One-time maintenance</CardTitle>
+          <p className="text-xs text-muted-foreground font-normal">
+            Backfill draw financials for completed pools that are missing records or show 0 profit.
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2 pt-0">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={backfillLoading}
+            onClick={() => void runBackfill(true)}
+          >
+            {backfillLoading ? "Working…" : "Dry run"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={backfillLoading}
+            onClick={() => void runBackfill(false)}
+          >
+            {backfillLoading ? "Working…" : "Run backfill"}
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-2">
@@ -971,6 +1039,7 @@ function PoolsTab() {
   const [initialPlatformFeePerJoin, setInitialPlatformFeePerJoin] = useState("");
   const [editProfitPercent, setEditProfitPercent] = useState("15");
   const [initialProfitPercent, setInitialProfitPercent] = useState("15");
+  const [profitDrawerOpen, setProfitDrawerOpen] = useState(false);
   const [editWinnerCount, setEditWinnerCount] = useState<1 | 2 | 3>(3);
   const [editTicketPrice, setEditTicketPrice] = useState("");
   const [editTotalTickets, setEditTotalTickets] = useState("");
@@ -1098,6 +1167,27 @@ function PoolsTab() {
       setSaving(false);
     }
   }
+
+  const profitPreview = useMemo(() => {
+    const ticketPrice = Math.max(0, parseFloat(editTicketPrice) || 0);
+    const totalTickets = Math.max(1, parseInt(editTotalTickets, 10) || 1);
+    const wc = editWinnerCount;
+    const pct = Math.min(80, Math.max(0, parseFloat(editProfitPercent) || 0));
+    const revenue = Math.round(ticketPrice * totalTickets * 100) / 100;
+    const fee = Math.round(revenue * (pct / 100) * 100) / 100;
+    const prizePool = Math.round((revenue - fee) * 100) / 100;
+    const split = wc === 1 ? [100] : wc === 2 ? [65, 35] : [55, 30, 15];
+    const weights = split.slice(0, wc);
+    const sum = weights.reduce((a, b) => a + b, 0) || 1;
+    const p1 = Math.round((prizePool * (weights[0] ?? 0)) / sum * 100) / 100;
+    const p2 = Math.round((prizePool * (weights[1] ?? 0)) / sum * 100) / 100;
+    const p3 = Math.round((prizePool * (weights[2] ?? 0)) / sum * 100) / 100;
+    const prizes = [p1, p2, p3] as [number, number, number];
+    const totalPrizes = Math.round((prizes[0] + prizes[1] + prizes[2]) * 100) / 100;
+    const rounding = Math.round((prizePool - totalPrizes) * 100) / 100;
+    prizes[0] = Math.round((prizes[0] + rounding) * 100) / 100;
+    return { ticketPrice, totalTickets, wc, pct, revenue, fee, prizePool, prizes, split };
+  }, [editProfitPercent, editTicketPrice, editTotalTickets, editWinnerCount]);
 
   async function deletePool(poolId: number) {
     setDeleting(true);
@@ -1477,26 +1567,19 @@ function PoolsTab() {
                     </p>
                   </div>
                   <div className="rounded-xl border border-border bg-muted/20 p-3">
-                    <Label className="text-xs text-muted-foreground mb-1.5 block">Adjust profit % (open pools only)</Label>
-                    <div className="grid grid-cols-[1fr,86px] gap-2 items-center">
-                      <Input
-                        type="range"
-                        min="5"
-                        max="40"
-                        step="1"
-                        value={parseInt(editProfitPercent || "15", 10) || 15}
-                        onChange={(e) => setEditProfitPercent(e.target.value)}
-                        className="h-9"
-                      />
-                      <Input
-                        value={editProfitPercent}
-                        onChange={(e) => setEditProfitPercent(e.target.value)}
-                        className="h-9"
-                        inputMode="decimal"
-                      />
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-semibold">Profit</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Current target: <span className="text-foreground font-medium">{(parseFloat(editProfitPercent) || 0).toFixed(0)}%</span>
+                        </p>
+                      </div>
+                      <Button type="button" size="sm" variant="outline" onClick={() => setProfitDrawerOpen(true)}>
+                        Adjust profit
+                      </Button>
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      This recalculates fee + prizes. For transparency, it’s blocked once any ticket is sold.
+                    <p className="text-[11px] text-muted-foreground mt-2">
+                      Recalculates fee + prizes. Blocked once any ticket is sold.
                     </p>
                   </div>
                   <div>
@@ -1526,6 +1609,79 @@ function PoolsTab() {
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
                 </div>
+
+                <Drawer open={profitDrawerOpen} onOpenChange={setProfitDrawerOpen}>
+                  <DrawerContent className="max-h-[88vh]">
+                    <DrawerHeader className="pb-2">
+                      <DrawerTitle>Adjust profit</DrawerTitle>
+                      <DrawerDescription>
+                        Updates fee + prizes based on profit %. For transparency this is only allowed before any tickets are sold.
+                      </DrawerDescription>
+                    </DrawerHeader>
+                    <div className="px-4 space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Profit %</Label>
+                        <div className="grid grid-cols-[1fr,88px] gap-2 items-center">
+                          <Input
+                            type="range"
+                            min="5"
+                            max="40"
+                            step="1"
+                            value={parseInt(editProfitPercent || "15", 10) || 15}
+                            onChange={(e) => setEditProfitPercent(e.target.value)}
+                            className="h-10"
+                          />
+                          <Input
+                            value={editProfitPercent}
+                            onChange={(e) => setEditProfitPercent(e.target.value)}
+                            className="h-10"
+                            inputMode="decimal"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-border bg-muted/20 p-4 text-sm space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Total revenue</span>
+                          <span className="font-semibold">{profitPreview.revenue.toFixed(2)} USDT</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Platform keeps</span>
+                          <span className="font-semibold text-emerald-400">{profitPreview.fee.toFixed(2)} USDT</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Prize pool</span>
+                          <span className="font-semibold">{profitPreview.prizePool.toFixed(2)} USDT</span>
+                        </div>
+                        <div className="pt-2 border-t border-border/60 grid grid-cols-3 gap-2 text-center">
+                          <div className="rounded-xl border border-border/60 bg-background/50 p-2">
+                            <div className="text-base">🥇</div>
+                            <div className="text-xs font-semibold">{profitPreview.prizes[0].toFixed(2)}</div>
+                          </div>
+                          <div className="rounded-xl border border-border/60 bg-background/50 p-2">
+                            <div className="text-base">🥈</div>
+                            <div className="text-xs font-semibold">{profitPreview.prizes[1].toFixed(2)}</div>
+                          </div>
+                          <div className="rounded-xl border border-border/60 bg-background/50 p-2">
+                            <div className="text-base">🥉</div>
+                            <div className="text-xs font-semibold">{profitPreview.prizes[2].toFixed(2)}</div>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Split: {profitPreview.split.slice(0, profitPreview.wc).join("/")}%
+                        </p>
+                      </div>
+                    </div>
+                    <DrawerFooter className="pb-[calc(1rem+env(safe-area-inset-bottom))]">
+                      <Button type="button" onClick={() => { setProfitDrawerOpen(false); void saveEdit(pool.id); }} disabled={saving}>
+                        Save profit
+                      </Button>
+                      <Button type="button" variant="outline" onClick={() => setProfitDrawerOpen(false)}>
+                        Cancel
+                      </Button>
+                    </DrawerFooter>
+                  </DrawerContent>
+                </Drawer>
               </div>
             ) : (
               <div className="p-5">
@@ -1899,6 +2055,25 @@ function CreatePoolTab() {
   const durationMs = form.noTimeLimit ? 0 : new Date(form.endTime).getTime() - new Date(form.startTime).getTime();
   const durationDays = Math.max(0, Math.round(durationMs / 86400000));
 
+  const createErrors = useMemo(() => {
+    const errs: string[] = [];
+    if (!form.title.trim()) errs.push("Pool name is required.");
+    if (form.totalTickets < 2) errs.push("Total players must be at least 2.");
+    if (form.winnerCount >= form.totalTickets) errs.push("Winners cannot be greater than or equal to total players.");
+    if (form.ticketPrice <= 0) errs.push("Ticket price must be greater than 0.");
+    if (filledPrizes[0] < form.ticketPrice) errs.push("1st prize is less than the ticket price (users won’t join).");
+    return errs;
+  }, [filledPrizes, form.ticketPrice, form.title, form.totalTickets, form.winnerCount]);
+
+  const createWarnings = useMemo(() => {
+    const warns: string[] = [];
+    if (form.profitPercent < 5) warns.push("Very low profit margin (<5%).");
+    if (form.profitPercent > 40) warns.push("High fee may reduce user trust (>40%).");
+    if (form.winnerCount === 1 && form.totalTickets < 10) warns.push("1-winner jackpot on a small pool may feel too hard to win.");
+    if (form.winnerCount === 3 && form.totalTickets <= 6) warns.push("3 winners on a tiny pool—consider 2 winners.");
+    return warns;
+  }, [form.profitPercent, form.totalTickets, form.winnerCount]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitted(true);
@@ -2124,6 +2299,31 @@ function CreatePoolTab() {
                   Suggested: 10–20%. Low profit may be unsustainable; high profit may reduce trust.
                 </p>
               </div>
+
+              {(createErrors.length > 0 || createWarnings.length > 0) ? (
+                <div className="rounded-xl border border-border bg-muted/20 p-3 text-xs space-y-2">
+                  {createErrors.length > 0 ? (
+                    <div>
+                      <p className="font-semibold text-red-400">Fix before creating</p>
+                      <ul className="mt-1 space-y-1 text-muted-foreground">
+                        {createErrors.map((e, i) => (
+                          <li key={i}>- {e}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {createWarnings.length > 0 ? (
+                    <div>
+                      <p className="font-semibold text-amber-300">Warnings</p>
+                      <ul className="mt-1 space-y-1 text-muted-foreground">
+                        {createWarnings.map((w, i) => (
+                          <li key={i}>- {w}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             {/* Section: Schedule */}
@@ -2250,7 +2450,7 @@ function CreatePoolTab() {
               </div>
             </div>
 
-            <Button type="submit" disabled={!form.title} className="w-full h-12 rounded-2xl font-bold text-base shadow-md">
+            <Button type="submit" disabled={!form.title || createErrors.length > 0} className="w-full h-12 rounded-2xl font-bold text-base shadow-md">
               🎱 Create Pool
             </Button>
           </div>
