@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiUrl } from "@/lib/api-base";
 import { UsdtAmount } from "@/components/UsdtAmount";
 
@@ -27,34 +27,39 @@ function formatRelativeTime(input: string) {
 export function LiveWinnerFeed() {
   const [rows, setRows] = useState<RecentWinner[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setError(false);
+      const res = await fetch(apiUrl("/api/winners/recent"), { credentials: "include" });
+      if (!res.ok) {
+        setError(true);
+        return;
+      }
+      const data = (await res.json()) as RecentWinner[];
+      if (!Array.isArray(data)) return;
+      setRows(data);
+    } catch {
+      // Keep existing rows to avoid flicker on transient failures.
+      setError(true);
+    } finally {
+      setLoaded(true);
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
-
-    const load = async () => {
-      try {
-        const res = await fetch(apiUrl("/api/winners/recent"), { credentials: "include" });
-        if (!res.ok) return;
-        const data = (await res.json()) as RecentWinner[];
-        if (!mounted || !Array.isArray(data)) return;
-        setRows(data);
-      } catch {
-        // Keep existing rows to avoid flicker on transient failures.
-      } finally {
-        if (mounted) setLoaded(true);
-      }
-    };
-
     void load();
     const timer = window.setInterval(() => {
+      if (!mounted) return;
       void load();
     }, 30_000);
-
     return () => {
       mounted = false;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [load]);
 
   const loop = useMemo(() => [...rows, ...rows], [rows]);
   const hasRows = rows.length > 0;
@@ -63,9 +68,39 @@ export function LiveWinnerFeed() {
     <section id="live-winner-feed" className="max-w-6xl mx-auto scroll-mt-24 px-2 sm:px-0">
       <div className="border-y border-border/70 py-3">
         {!hasRows ? (
-          <p className="text-center text-sm text-muted-foreground py-2">
-            {loaded ? "Winners will appear here after the first draw" : "Loading winners..."}
-          </p>
+          error ? (
+            <div className="py-2 text-center">
+              <p className="text-sm text-muted-foreground">Couldn&apos;t load winners.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoaded(false);
+                  setError(false);
+                  void load();
+                }}
+                className="mt-2 h-11 px-4 rounded-full border border-emerald-500/30 text-emerald-200 text-sm font-semibold hover:bg-emerald-500/10 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <div className="px-2 py-2">
+              {!loaded ? (
+                <div className="flex gap-3 overflow-hidden">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="h-14 w-[260px] rounded-2xl border border-white/[0.08] bg-white/[0.04] animate-pulse"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-sm text-muted-foreground py-2">
+                  Winners will appear here after the first draw
+                </p>
+              )}
+            </div>
+          )
         ) : (
           <div className="live-winner-feed-marquee group">
             <div className="live-winner-feed-track group-hover:[animation-play-state:paused]">

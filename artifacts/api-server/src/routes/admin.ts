@@ -424,6 +424,11 @@ router.get("/stats", async (_req, res) => {
     comebackCoupons,
     poolVipBreakdown,
     emailVerification,
+    // Public/marketing aliases (keep older fields too).
+    totalPoolsCompleted: completedPools,
+    totalUsdtDistributed: totalRewardsDistributed,
+    totalActiveUsers: Number(totalUsers),
+    openPools: activePools,
   });
 });
 

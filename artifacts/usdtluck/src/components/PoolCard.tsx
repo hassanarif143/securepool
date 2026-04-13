@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import type { Pool } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,10 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
   const spotsLeft = Math.max(0, maxSeats - sold);
   const wc = poolWinnerCount(pool);
   const chance = winChancePercent(maxSeats, wc);
+  const chanceText = useMemo(() => {
+    const denom = wc > 0 ? Math.max(1, Math.round(maxSeats / wc)) : maxSeats;
+    return denom > 1 ? `1 in ${denom} players wins!` : "High win chance!";
+  }, [maxSeats, wc]);
   const tier = poolTierBadge({ entryFee: pool.entryFee, poolType: (pool as { poolType?: string }).poolType });
   const { headline, dateNote } = sanitizePoolTitle(pool.title);
   const noTimeLimit = new Date(pool.endTime).getUTCFullYear() >= 2099;
@@ -61,7 +65,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
             ? "linear-gradient(90deg, #22c55e, #4ade80)"
             : "linear-gradient(90deg, #16a34a, #22c55e)";
 
-  const explainer = `💡 ${maxSeats} people join → pool fills → ${wc} winner${wc === 1 ? "" : "s"} picked automatically`;
+  const explainer = `${maxSeats} people join → pool fills → ${wc} winner${wc === 1 ? "" : "s"} picked automatically`;
 
   return (
     <div
@@ -109,20 +113,42 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
         >
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300/90">🎟️ Ticket price</p>
           <div className="flex flex-wrap items-baseline gap-3">
-            <span className="text-3xl font-bold font-mono text-white tabular-nums">${roundPrizeUsdt(pool.entryFee)}</span>
+            <span className="text-[40px] sm:text-[48px] leading-none font-extrabold font-mono text-white tabular-nums">
+              ${roundPrizeUsdt(pool.entryFee)}
+            </span>
             <span className="text-sm text-slate-400">
               ≈ {formatPkr(pool.entryFee)} <span className="text-slate-500">PKR</span>
             </span>
           </div>
         </div>
 
-        <p className="text-[13px] leading-snug text-slate-300 border-l-2 border-emerald-500/50 pl-3">{explainer}</p>
+        {/* Steps flow */}
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { icon: "👥", label: `${maxSeats} join` },
+            { icon: "🎰", label: "Draw runs" },
+            { icon: "🏆", label: `${wc} winner${wc === 1 ? "" : "s"}` },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className="rounded-xl border border-white/10 bg-black/25 px-3 py-3 text-center"
+            >
+              <p className="text-xl leading-none" aria-hidden>{s.icon}</p>
+              <p className="mt-1 text-[12px] font-semibold text-slate-200">{s.label}</p>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-[13px] leading-snug text-slate-300 border-l-2 border-emerald-500/50 pl-3">
+          <span className="text-emerald-300 font-semibold">💡</span> {explainer}
+        </p>
 
         <div
-          className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold font-mono"
+          className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold font-mono"
           style={{ background: "rgba(16,185,129,0.12)", color: "#34d399", border: "1px solid rgba(52,211,153,0.35)" }}
         >
           🎯 {chance}% win chance
+          <span className="text-[12px] text-emerald-100/80 font-sans font-semibold">· {chanceText}</span>
         </div>
 
         {/* Progress */}
@@ -133,16 +159,22 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
             </span>
             <span className={`text-[11px] ${progressMsg.className}`}>{progressMsg.text}</span>
           </div>
-          <div className="h-2.5 rounded-full bg-white/5 overflow-hidden">
+          <div className="relative h-3 rounded-full bg-white/5 overflow-hidden">
             <div
-              className="h-full rounded-full transition-[width] ease-out"
+              className={`h-full rounded-full transition-[width] ease-out ${fillPct >= 100 ? "sp-bar-full" : ""}`}
               style={{
                 width: `${barReady ? Math.min(100, fillPct) : 0}%`,
                 transitionDuration: "600ms",
                 background: barGradient,
               }}
             />
+            <div className="sp-bar-shimmer" aria-hidden />
           </div>
+          {fillPct >= 100 ? (
+            <p className="text-[11px] font-semibold text-amber-300">
+              🏆 Pool Full! Drawing soon…
+            </p>
+          ) : null}
         </div>
 
         {/* Contextual timer / state */}
@@ -173,7 +205,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
         </div>
 
         {/* CTAs */}
-        <div className="flex flex-col sm:flex-row gap-2 pt-1">
+        <div className="flex flex-col sm:flex-row gap-2 pt-1 sp-cta-wrap">
           <PoolCardActions
             poolId={pool.id}
             status={status}
@@ -184,6 +216,44 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
           />
         </div>
       </div>
+
+      <style>{`
+        .sp-cta-wrap {
+          position: sticky;
+          bottom: 0;
+          padding-bottom: calc(8px + env(safe-area-inset-bottom));
+          background: linear-gradient(180deg, rgba(10,15,26,0) 0%, rgba(10,15,26,0.55) 24%, rgba(10,15,26,0.92) 100%);
+          border-top: 1px solid rgba(255,255,255,0.06);
+          margin-left: -20px;
+          margin-right: -20px;
+          padding-left: 20px;
+          padding-right: 20px;
+        }
+        @media (min-width: 640px) {
+          .sp-cta-wrap {
+            position: static;
+            background: transparent;
+            border-top: 0;
+            margin: 0;
+            padding: 0;
+          }
+        }
+        .sp-bar-shimmer {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.14), transparent);
+          transform: translateX(-100%);
+          animation: sp-shimmer 2.4s ease-in-out infinite;
+          opacity: 0.6;
+          pointer-events: none;
+        }
+        @keyframes sp-shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .sp-bar-full { animation: sp-full-pulse 1.2s ease-in-out infinite; }
+        @keyframes sp-full-pulse { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.25); } }
+        @media (prefers-reduced-motion: reduce) {
+          .sp-bar-shimmer, .sp-bar-full { animation: none; }
+        }
+      `}</style>
     </div>
   );
 }
@@ -222,7 +292,17 @@ function StatusPill({ status }: { status: string }) {
   if (status === "open")
     return <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px]">🟢 Open</Badge>;
   if (status === "filled")
-    return <Badge className="bg-amber-500/15 text-amber-200 border-amber-500/35 text-[10px] animate-pulse">🔴 Drawing soon</Badge>;
+    return (
+      <Badge className="bg-amber-500/15 text-amber-200 border-amber-500/35 text-[10px]">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="relative flex h-2 w-2" aria-hidden>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-60" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+          </span>
+          Drawing soon
+        </span>
+      </Badge>
+    );
   if (status === "drawing")
     return <Badge className="bg-amber-500/15 text-amber-200 border-amber-500/35 text-[10px]">🎰 Drawing</Badge>;
   if (status === "completed")
@@ -347,7 +427,23 @@ function MmSs({ endIso }: { endIso: string }) {
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
   }, [endIso]);
-  return <span className="font-mono tabular-nums">{label}</span>;
+  return (
+    <span className="inline-flex items-center gap-1 font-mono tabular-nums">
+      {label.split("").map((ch, idx) =>
+        ch === ":" ? (
+          <span key={`sep-${idx}`} className="text-red-100/90 px-0.5">:</span>
+        ) : (
+          <span
+            key={`${ch}-${idx}`}
+            className="inline-flex h-7 w-5 items-center justify-center rounded-md border border-red-400/30 bg-black/25 text-red-50"
+            style={{ boxShadow: "0 0 18px rgba(239,68,68,0.12)" }}
+          >
+            {ch}
+          </span>
+        ),
+      )}
+    </span>
+  );
 }
 
 function PoolCardActions({
@@ -381,18 +477,26 @@ function PoolCardActions({
   if (isFilledWait) {
     return (
       <>
-        <Button size="lg" variant="secondary" disabled className="w-full sm:flex-1 min-h-12 opacity-80">
+        <Button size="lg" variant="secondary" disabled className="w-full sm:flex-1 min-h-14 opacity-80">
           ⏳ Waiting for draw…
         </Button>
         <Link href={`/pools/${poolId}`} className="w-full sm:flex-1">
           <Button
             size="lg"
             variant="outline"
-            className="w-full min-h-12 border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10"
+            className="w-full min-h-14 border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10 sp-watch-live"
           >
-            Watch live
+            ▶︎ Watch Live
           </Button>
         </Link>
+        <style>{`
+          .sp-watch-live { animation: sp-watch-pulse 2.2s ease-in-out infinite; }
+          @keyframes sp-watch-pulse {
+            0%,100% { box-shadow: 0 0 0 rgba(34,197,94,0.0); }
+            50% { box-shadow: 0 0 18px rgba(34,197,94,0.22); }
+          }
+          @media (prefers-reduced-motion: reduce) { .sp-watch-live { animation: none; } }
+        `}</style>
       </>
     );
   }
@@ -403,14 +507,14 @@ function PoolCardActions({
         <Link href={`/pools/${poolId}`} className="w-full sm:flex-1">
           <Button
             size="lg"
-            className="w-full min-h-12 font-semibold text-white border-0"
+            className="w-full min-h-14 font-extrabold text-white border-0"
             style={{ background: "linear-gradient(135deg, #22c55e, #15803d)" }}
           >
             {userJoined ? "🎟️ Buy more tickets" : "🎟️ Buy ticket"}
           </Button>
         </Link>
         <Link href={`/pools/${poolId}`} className="w-full sm:flex-1">
-          <Button size="lg" variant="outline" className="w-full min-h-12 border-slate-600 text-slate-200">
+          <Button size="lg" variant="outline" className="w-full min-h-14 border-slate-600 text-slate-200">
             Details
           </Button>
         </Link>

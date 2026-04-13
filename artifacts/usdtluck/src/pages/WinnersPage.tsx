@@ -1,10 +1,13 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useListWinners } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LiveWinnerTicker } from "@/components/winners/LiveWinnerTicker";
 import { UsdtAmount } from "@/components/UsdtAmount";
+import { apiUrl } from "@/lib/api-base";
+import { useCountUp } from "@/hooks/useCountUp";
 
 /* ── Place metadata — dark-mode aware ── */
 const PLACE: Record<number, {
@@ -62,6 +65,37 @@ function timeAgo(dateStr: string) {
   if (hours > 0) return `${hours}h ago`;
   if (mins > 0) return `${mins}m ago`;
   return "just now";
+}
+
+function startOfDay(d = new Date()) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function isWithinDays(iso: string, days: number) {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return false;
+  const ms = Date.now() - t;
+  return ms <= days * 24 * 60 * 60 * 1000;
+}
+
+function useInViewOnce<T extends HTMLElement>(opts?: { rootMargin?: string }) {
+  const ref = useRef<T | null>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || inView) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setInView(true);
+      },
+      { rootMargin: opts?.rootMargin ?? "-20% 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [inView, opts?.rootMargin]);
+  return { ref, inView } as const;
 }
 
 /* ── Featured podium card (top 3) ── */
@@ -172,8 +206,37 @@ export default function WinnersPage() {
 
   /* Compute stats */
   const totalDistributed = winnersList.reduce((s: number, w: any) => s + parseFloat(w.prize), 0);
-  const firstPlaceWinners = winnersList.filter((w: any) => w.place === 1);
   const uniquePools = new Set(winnersList.map((w: any) => w.poolTitle)).size;
+
+  const { data: stats } = useQuery({
+    queryKey: ["stats"],
+    queryFn: async () => {
+      const res = await fetch(apiUrl("/api/stats"), { credentials: "include" });
+      if (!res.ok) return null;
+      return (await res.json()) as { totalPoolsCompleted?: number; totalUsdtDistributed?: number; totalActiveUsers?: number };
+    },
+    staleTime: 60_000,
+  });
+
+  const totalWinners = winnersList.length;
+  const activeMembers = stats?.totalActiveUsers ?? 0;
+  const drawsCompleted = stats?.totalPoolsCompleted ?? uniquePools;
+  const winRate = activeMembers > 0 ? (totalWinners / activeMembers) * 100 : 0;
+
+  const heroInView = useInViewOnce<HTMLDivElement>({ rootMargin: "-10% 0px" });
+  const statsInView = useInViewOnce<HTMLDivElement>({ rootMargin: "-15% 0px" });
+
+  const heroTotalDist = useCountUp({ from: 0, to: totalDistributed, duration: 1200, decimals: 2, autoStart: false });
+  const heroTotalWinners = useCountUp({ from: 0, to: totalWinners, duration: 900, decimals: 0, autoStart: false });
+  const heroDrawsDone = useCountUp({ from: 0, to: drawsCompleted, duration: 900, decimals: 0, autoStart: false });
+
+  useEffect(() => {
+    if (!heroInView.inView || isLoading) return;
+    heroTotalDist.start({ from: 0, to: totalDistributed, duration: 1200 });
+    heroTotalWinners.start({ from: 0, to: totalWinners, duration: 900 });
+    heroDrawsDone.start({ from: 0, to: drawsCompleted, duration: 900 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heroInView.inView, isLoading, totalDistributed, totalWinners, drawsCompleted]);
 
   /* Grab the most recent top-3 for the podium — sorted by place so 1st/2nd/3rd are correct */
   const latestRound = winnersList.slice(0, 3).sort((a: any, b: any) => a.place - b.place);
@@ -182,21 +245,108 @@ export default function WinnersPage() {
   /* All winners for the feed below */
   const feedWinners = winnersList;
 
+  const [range, setRange] = useState<"all" | "today" | "week" | "month">("all");
+  const [visible, setVisible] = useState(10);
+
+  useEffect(() => setVisible(10), [range]);
+
+  const filtered = useMemo(() => {
+    if (range === "all") return feedWinners;
+    if (range === "today") {
+      const s = startOfDay();
+      return feedWinners.filter((w: any) => new Date(w.awardedAt).getTime() >= s.getTime());
+    }
+    if (range === "week") return feedWinners.filter((w: any) => isWithinDays(String(w.awardedAt), 7));
+    return feedWinners.filter((w: any) => isWithinDays(String(w.awardedAt), 30));
+  }, [feedWinners, range]);
+
+  const page = filtered.slice(0, visible);
+  const canLoadMore = filtered.length > visible;
+
+  const statCards = useMemo(
+    () => [
+      {
+        icon: "💰",
+        label: "Total Distributed",
+        value: (
+          <UsdtAmount
+            amount={statsInView.inView ? totalDistributed : 0}
+            amountClassName="text-[28px] font-bold text-[#00e676]"
+            currencyClassName="text-[11px] text-[#9e9e9e]"
+          />
+        ),
+      },
+      {
+        icon: "🏆",
+        label: "Draws Completed",
+        value: (
+          <span className="text-[28px] font-bold tabular-nums text-white">
+            {statsInView.inView ? drawsCompleted.toLocaleString() : "—"}
+          </span>
+        ),
+      },
+      {
+        icon: "👥",
+        label: "Active Members",
+        value: (
+          <span className="text-[28px] font-bold tabular-nums text-white">
+            {statsInView.inView ? activeMembers.toLocaleString() : "—"}
+          </span>
+        ),
+      },
+      {
+        icon: "🎯",
+        label: "Win Rate",
+        value: (
+          <span className="text-[28px] font-bold tabular-nums text-white">
+            {statsInView.inView ? `${Math.min(99.9, Math.max(0, winRate)).toFixed(1)}%` : "—"}
+          </span>
+        ),
+      },
+    ],
+    [activeMembers, drawsCompleted, statsInView.inView, totalDistributed, winRate],
+  );
+
   return (
     <div className="max-w-3xl mx-auto space-y-10">
 
       {/* ── Hero header ── */}
-      <div className="relative overflow-visible pt-2">
-        <div
-          className="absolute inset-0 rounded-3xl pointer-events-none"
-          style={{ background: "radial-gradient(ellipse 70% 50% at 50% 0%, hsla(45,100%,50%,0.06) 0%, transparent 70%)" }}
-        />
-        <div className="relative px-1 text-center pb-2 pt-8 sm:pt-10">
-          <div className="mb-4 text-5xl leading-none sm:text-[3.25rem]">🏆</div>
-          <h1 className="text-3xl font-bold mb-2">Winners Hall of Fame</h1>
-          <p className="text-muted-foreground">
+      <div ref={heroInView.ref} className="relative overflow-hidden rounded-3xl border border-white/[0.08]">
+        <div className="absolute inset-0 sp-hero-bg" aria-hidden />
+        <div className="absolute inset-0 sp-hero-vignette" aria-hidden />
+        <div className="absolute inset-0 sp-hero-particles pointer-events-none" aria-hidden />
+
+        <div className="relative px-4 pb-6 pt-8 text-center sm:px-6">
+          <div className="mx-auto mb-3 h-16 w-16 rounded-2xl border border-yellow-500/25 bg-yellow-500/10 grid place-items-center sp-hero-trophy">
+            <span className="text-[34px] leading-none" aria-hidden>🏆</span>
+          </div>
+          <h1 className="text-[28px] font-extrabold leading-[1.15] tracking-tight sm:text-[40px] sp-hero-title">
+            Winners Hall of Fame
+          </h1>
+          <p className="mt-2 text-[14px] leading-relaxed text-[#9e9e9e]">
             Real USDT rewards — verified, transparent, paid instantly to wallets
           </p>
+
+          <div className="mt-5 grid grid-cols-3 gap-3">
+            <div className="rounded-2xl border border-white/[0.08] bg-black/20 px-3 py-3">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#9e9e9e]">💰 Total Distributed</p>
+              <p className="mt-1 text-[16px] font-bold text-[#00c853] tabular-nums">
+                {isLoading ? "—" : heroTotalDist.formatted}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/[0.08] bg-black/20 px-3 py-3">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#9e9e9e]">🏆 Total Winners</p>
+              <p className="mt-1 text-[16px] font-bold text-[#00c853] tabular-nums">
+                {isLoading ? "—" : heroTotalWinners.formatted}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/[0.08] bg-black/20 px-3 py-3">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#9e9e9e]">📊 Draws Completed</p>
+              <p className="mt-1 text-[16px] font-bold text-[#00c853] tabular-nums">
+                {isLoading ? "—" : heroDrawsDone.formatted}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -204,20 +354,16 @@ export default function WinnersPage() {
 
       {/* ── Stats bar ── */}
       {!isLoading && winnersList.length > 0 && (
-        <div className="grid grid-cols-3 gap-3 pt-2">
-          {[
-            { label: "Total Distributed", value: <UsdtAmount amount={totalDistributed} amountClassName="text-lg font-bold text-primary" currencyClassName="text-[10px] text-[#64748b]" />, icon: "💰" },
-            { label: "Pools Completed", value: uniquePools, icon: "🎱" },
-            { label: "Grand Prize Winners", value: firstPlaceWinners.length, icon: "🥇" },
-          ].map((stat: { label: string; value: ReactNode; icon: string }) => (
+        <div ref={statsInView.ref} className="grid grid-cols-2 gap-3 pt-1 sm:grid-cols-4">
+          {statCards.map((stat: { label: string; value: ReactNode; icon: string }) => (
             <div
               key={stat.label}
-              className="rounded-2xl px-3 py-5 text-center sm:py-4"
-              style={{ background: "hsl(222,30%,10%)", border: "1px solid hsl(217,28%,16%)" }}
+              className="rounded-2xl border border-white/[0.08] bg-[rgba(15,20,40,0.6)] p-4 text-center shadow-sm transition-transform sm:hover:-translate-y-0.5"
+              style={{ backdropFilter: "blur(12px)" }}
             >
-              <div className="mb-2 text-xl leading-none sm:mb-1">{stat.icon}</div>
-              <p className="text-lg font-bold text-primary">{stat.value}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">{stat.label}</p>
+              <div className="text-xl" aria-hidden>{stat.icon}</div>
+              <div className="mt-2">{stat.value}</div>
+              <p className="mt-1 text-[12px] text-[#9e9e9e]">{stat.label}</p>
             </div>
           ))}
         </div>
@@ -240,10 +386,8 @@ export default function WinnersPage() {
         <Card>
           <CardContent className="py-16 text-center">
             <div className="text-6xl mb-4">🏆</div>
-            <p className="font-semibold text-lg mb-1">No winners yet</p>
-            <p className="text-muted-foreground text-sm">
-              Join a pool and be the first to win USDT rewards!
-            </p>
+            <p className="font-semibold text-lg mb-1">First draw coming soon!</p>
+            <p className="text-muted-foreground text-sm">Join a pool to be the first winner.</p>
           </CardContent>
         </Card>
       )}
@@ -270,25 +414,168 @@ export default function WinnersPage() {
       {/* ── Full winners feed ── */}
       {!isLoading && feedWinners.length > 0 && (
         <div>
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">All Winners</p>
+              <p className="text-[11px] text-muted-foreground tabular-nums mt-1">
+                {filtered.length} result{filtered.length === 1 ? "" : "s"}
+              </p>
+            </div>
+            <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/25 text-[11px]">
+              ● Verified results
+            </Badge>
+          </div>
+
+          {/* Filters */}
+          <div className="mb-4 -mx-4 px-4 overflow-x-auto no-scrollbar">
+            <div className="inline-flex gap-2">
+              {([
+                ["all", "All"],
+                ["today", "Today"],
+                ["week", "This Week"],
+                ["month", "This Month"],
+              ] as const).map(([k, label]) => {
+                const active = range === k;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setRange(k)}
+                    className={`h-11 px-4 rounded-full border text-sm font-semibold whitespace-nowrap transition-colors ${
+                      active
+                        ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/35"
+                        : "bg-transparent text-muted-foreground border-border/60"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {page.map((winner: any, idx: number) => (
+              <div
+                key={winner.id}
+                className="animate-in fade-in slide-in-from-bottom-2"
+                style={{ animationDelay: `${Math.min(18, idx) * 30}ms`, animationFillMode: "both" }}
+              >
+                <WinnerRow winner={winner} />
+              </div>
+            ))}
+          </div>
+
+          {canLoadMore ? (
+            <button
+              type="button"
+              onClick={() => setVisible((v) => v + 10)}
+              className="mt-5 w-full h-12 rounded-xl border border-emerald-500/30 text-emerald-200 font-semibold hover:bg-emerald-500/10 transition-colors"
+            >
+              Load more
+            </button>
+          ) : null}
+
+          <p className="text-center text-xs text-muted-foreground mt-6">
+            {filtered.length} winner{filtered.length !== 1 ? "s" : ""} shown — rewards paid directly to wallets
+          </p>
+        </div>
+      )}
+
+      {/* ── Trust proof ── */}
+      {!isLoading && (
+        <div className="pt-2">
+          <div className="mb-4 flex items-center gap-3">
             <div className="h-px flex-1" style={{ background: "hsl(217,28%,16%)" }} />
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest px-2">
-              All Winners
+            <span className="px-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Why Trust SecurePool?
             </span>
             <div className="h-px flex-1" style={{ background: "hsl(217,28%,16%)" }} />
           </div>
 
-          <div className="space-y-2">
-            {feedWinners.map((winner: any) => (
-              <WinnerRow key={winner.id} winner={winner} />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {[
+              {
+                title: "🔒 Provably Fair",
+                body: "Every draw uses cryptographic randomness. Results are verifiable and tamper-proof.",
+              },
+              {
+                title: "⚡ Instant Payouts",
+                body: "Winners receive USDT directly to their wallet. No delays, no excuses.",
+              },
+              {
+                title: "👁️ Fully Transparent",
+                body: "Every draw, every winner, every payout — publicly recorded and verifiable.",
+              },
+            ].map((c) => (
+              <div
+                key={c.title}
+                className="rounded-2xl border border-white/[0.08] bg-[rgba(15,20,40,0.6)] p-5 text-center shadow-sm transition-transform sm:hover:-translate-y-0.5"
+                style={{ backdropFilter: "blur(12px)" }}
+              >
+                <p className="font-semibold text-white">{c.title}</p>
+                <p className="mt-2 text-sm text-[#9e9e9e] leading-relaxed">{c.body}</p>
+              </div>
             ))}
           </div>
-
-          <p className="text-center text-xs text-muted-foreground mt-6">
-            {winnersList.length} verified winner{winnersList.length !== 1 ? "s" : ""} — all rewards paid directly to wallets
-          </p>
         </div>
       )}
+
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .sp-hero-bg {
+          background: linear-gradient(120deg, #050810, #0b1230, #220b3a, #050810);
+          background-size: 300% 300%;
+          animation: sp-hero-gradient 15s ease-in-out infinite;
+        }
+        @keyframes sp-hero-gradient {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .sp-hero-vignette {
+          background: radial-gradient(ellipse 70% 55% at 50% 0%, rgba(255,215,0,0.10) 0%, rgba(0,0,0,0) 65%);
+        }
+        .sp-hero-title {
+          background: linear-gradient(90deg, rgba(255,215,0,0.95), rgba(255,255,255,0.92));
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+        }
+        .sp-hero-trophy {
+          box-shadow: 0 0 30px rgba(255,215,0,0.18);
+        }
+        .sp-hero-particles::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background:
+            radial-gradient(circle at 10% 80%, rgba(255,215,0,0.35) 0 2px, transparent 3px),
+            radial-gradient(circle at 25% 60%, rgba(255,215,0,0.25) 0 2px, transparent 3px),
+            radial-gradient(circle at 45% 90%, rgba(255,215,0,0.25) 0 2px, transparent 3px),
+            radial-gradient(circle at 60% 70%, rgba(255,215,0,0.22) 0 2px, transparent 3px),
+            radial-gradient(circle at 75% 85%, rgba(255,215,0,0.25) 0 2px, transparent 3px),
+            radial-gradient(circle at 88% 65%, rgba(255,215,0,0.22) 0 2px, transparent 3px),
+            radial-gradient(circle at 15% 30%, rgba(255,215,0,0.18) 0 2px, transparent 3px),
+            radial-gradient(circle at 50% 35%, rgba(255,215,0,0.18) 0 2px, transparent 3px),
+            radial-gradient(circle at 80% 25%, rgba(255,215,0,0.18) 0 2px, transparent 3px),
+            radial-gradient(circle at 92% 40%, rgba(255,215,0,0.18) 0 2px, transparent 3px);
+          opacity: 0.65;
+          animation: sp-particles-float 12s linear infinite;
+          will-change: transform;
+        }
+        @keyframes sp-particles-float {
+          0% { transform: translateY(10px); }
+          100% { transform: translateY(-18px); }
+        }
+        @media (max-width: 768px) {
+          .sp-hero-particles { display: none; }
+        }
+        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+          .sp-hero-bg { background: #050810; }
+        }
+      `}</style>
     </div>
   );
 }

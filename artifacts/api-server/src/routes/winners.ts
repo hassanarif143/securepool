@@ -184,9 +184,13 @@ router.get("/", async (req, res) => {
       poolTitle: w.poolTitle,
       userId: w.userId,
       userName: privacyDisplayName(w.userName),
+      // Backward-compatible aliases used by older/mobile ticker UIs.
+      winnerName: privacyDisplayName(w.userName),
       place: w.place,
       prize: parseFloat(w.prize),
+      amount: parseFloat(w.prize),
       awardedAt: w.awardedAt,
+      createdAt: w.awardedAt,
       withdrawalStatus: w.paymentStatus,
       walletAddressTruncated: truncateWallet(w.cryptoAddress),
       screenshotUrl: null as string | null,
