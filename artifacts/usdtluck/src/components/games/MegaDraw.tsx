@@ -1,6 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { fetchMegaDrawCurrent, fetchMegaDrawResults, idem, postMegaDrawBuy } from "@/lib/games-api";
+import { useSound } from "@/hooks/useSound";
+import { cn } from "@/lib/utils";
 
 export type MegaDrawProps = {
   balance: number;
@@ -8,6 +11,7 @@ export type MegaDrawProps = {
 };
 
 export default function MegaDraw({ balance, onBalanceUpdate }: MegaDrawProps) {
+  const { play } = useSound();
   const [digits, setDigits] = useState(["", "", "", ""]);
   const [cart, setCart] = useState<string[]>([]);
   const [lookupInput, setLookupInput] = useState("");
@@ -32,15 +36,18 @@ export default function MegaDraw({ balance, onBalanceUpdate }: MegaDrawProps) {
   const addToCart = useCallback(() => {
     const n = digits.map((d) => d || "0").join("");
     if (!/^[0-9]{4}$/.test(n)) return;
+    play("tap");
     setCart((c) => [...c, n]);
   }, [digits]);
 
   const buy = useCallback(async () => {
     if (cart.length === 0) return;
     try {
+      play("tap");
       const r = await postMegaDrawBuy(cart, idem());
       onBalanceUpdate(r.newBalance);
       setCart([]);
+      play("cashout");
       await q.refetch();
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Purchase failed");
@@ -59,6 +66,7 @@ export default function MegaDraw({ balance, onBalanceUpdate }: MegaDrawProps) {
       window.alert("Enter a valid round number (database id).");
       return;
     }
+    play("tap");
     setSubmittedRoundId(id);
   }, [lookupInput]);
 
@@ -70,9 +78,10 @@ export default function MegaDraw({ balance, onBalanceUpdate }: MegaDrawProps) {
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-6 px-2 py-4">
-      <div className="rounded-3xl border border-[#FFD700]/30 bg-gradient-to-br from-amber-950/50 to-sp-deep p-6 text-center shadow-[0_0_40px_rgba(255,215,0,0.12)]">
+      <div className="relative overflow-hidden rounded-3xl border border-[#FFD700]/30 bg-gradient-to-br from-amber-950/50 to-sp-deep p-6 text-center shadow-[0_0_40px_rgba(255,215,0,0.12)]">
+        <div className="pointer-events-none absolute inset-0 opacity-60" style={{ background: "radial-gradient(circle at 25% 20%, rgba(255,215,0,0.18), transparent 55%), radial-gradient(circle at 80% 35%, rgba(0,229,204,0.10), transparent 60%)" }} />
         <p className="text-xs font-bold uppercase tracking-[0.3em] text-amber-200/80">Mega Draw</p>
-        <p className="mt-2 font-sp-mono text-5xl font-extrabold tabular-nums text-[#FFD700] drop-shadow-[0_0_24px_rgba(255,215,0,0.35)]">
+        <p className="relative mt-2 font-sp-mono text-5xl font-extrabold tabular-nums text-[#FFD700] drop-shadow-[0_0_24px_rgba(255,215,0,0.35)]">
           {displayJackpot.toFixed(2)} <span className="text-lg text-amber-100/80">USDT</span>
         </p>
         <p className="mt-2 text-xs text-sp-text-dim">Next draw (server): {drawAt}</p>
@@ -101,17 +110,22 @@ export default function MegaDraw({ balance, onBalanceUpdate }: MegaDrawProps) {
               inputMode="numeric"
               onChange={(e) => {
                 const v = e.target.value.replace(/\D/g, "").slice(-1);
+                if (v) play("number-pop", { intensity: 0.25 });
                 setDigits((prev) => {
                   const n = [...prev];
                   n[i] = v;
                   return n;
                 });
               }}
-              className="h-14 w-12 rounded-xl border border-white/15 bg-black/30 text-center font-sp-mono text-2xl font-bold text-white"
+              className="h-14 w-12 rounded-2xl border border-white/15 bg-black/30 text-center font-sp-mono text-2xl font-extrabold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
             />
           ))}
         </div>
-        <button type="button" onClick={addToCart} className="w-full rounded-xl bg-white/10 py-2 text-sm font-semibold">
+        <button
+          type="button"
+          onClick={addToCart}
+          className="w-full rounded-2xl border border-white/10 bg-white/[0.06] py-2.5 text-sm font-semibold text-white/90 hover:bg-white/[0.08]"
+        >
           Add ticket ({digits.map((d) => d || "0").join("")})
         </button>
         {cart.length > 0 ? (
@@ -119,7 +133,14 @@ export default function MegaDraw({ balance, onBalanceUpdate }: MegaDrawProps) {
             {cart.map((c, i) => (
               <li key={i} className="flex justify-between font-mono">
                 <span>{c}</span>
-                <button type="button" className="text-red-400" onClick={() => setCart((x) => x.filter((_, j) => j !== i))}>
+                <button
+                  type="button"
+                  className="text-red-400 hover:text-red-300"
+                  onClick={() => {
+                    play("tap");
+                    setCart((x) => x.filter((_, j) => j !== i));
+                  }}
+                >
                   remove
                 </button>
               </li>
@@ -130,7 +151,10 @@ export default function MegaDraw({ balance, onBalanceUpdate }: MegaDrawProps) {
           type="button"
           disabled={cart.length === 0 || balance < cart.length * 2}
           onClick={() => void buy()}
-          className="mt-4 w-full rounded-2xl bg-gradient-to-r from-[#FFD700] to-amber-600 py-3 font-bold text-black disabled:opacity-40"
+          className={cn(
+            "mt-4 w-full rounded-2xl bg-gradient-to-r from-[#FFD700] to-amber-600 py-3 font-extrabold text-black",
+            "shadow-[0_14px_44px_rgba(255,215,0,0.12)] disabled:opacity-40",
+          )}
         >
           Buy {cart.length} ticket(s) — {(cart.length * 2).toFixed(2)} USDT
         </button>
@@ -208,6 +232,19 @@ export default function MegaDraw({ balance, onBalanceUpdate }: MegaDrawProps) {
           </div>
         ) : null}
       </div>
+
+      <AnimatePresence>
+        {q.isFetching ? (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            className="fixed bottom-6 left-1/2 z-[999] -translate-x-1/2 rounded-full border border-white/10 bg-black/60 px-3 py-1.5 text-xs text-white/80 backdrop-blur-xl"
+          >
+            Updating jackpot…
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

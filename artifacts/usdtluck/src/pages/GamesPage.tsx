@@ -1,15 +1,17 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useSearch } from "wouter";
-import { Sparkles, Package, Ticket, Diamond, Layers, Crown } from "lucide-react";
+import { Crown, Package } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useAnimatedNumber } from "@/hooks/useAnimatedNumber";
+import { useCountUp } from "@/hooks/useCountUp";
 import { fetchGamesState, fetchRecentGameWins } from "@/lib/games-api";
-import { GameHubCard } from "@/components/games/GameHubCard";
 import { RecentWinsFeed } from "@/components/games/RecentWinsFeed";
 import { readArcadeStreakDays } from "@/hooks/useGamesArcadeAccess";
+import { GameCard } from "@/components/game/GameCard";
+import { SoundToggle } from "@/components/ui/SoundToggle";
+import { useSound } from "@/hooks/useSound";
 
 export default function GamesPage() {
   const { user } = useAuth();
@@ -17,6 +19,7 @@ export default function GamesPage() {
   const [loc, navigate] = useLocation();
   const search = useSearch();
   const [streakDays, setStreakDays] = useState(0);
+  const { play } = useSound();
 
   /** Legacy ?tab= deep links → dedicated routes (layout effect reduces hub flash). */
   useLayoutEffect(() => {
@@ -33,7 +36,17 @@ export default function GamesPage() {
   }, [loc]);
 
   const balanceRaw = user?.withdrawableBalance ?? 0;
-  const balanceAnim = useAnimatedNumber(balanceRaw, 500);
+  const { formatted: balanceText, start: startBalance } = useCountUp({
+    from: balanceRaw,
+    to: balanceRaw,
+    duration: 650,
+    decimals: 2,
+    prefix: "$",
+    autoStart: false,
+  });
+  useEffect(() => {
+    startBalance({ from: balanceRaw, to: balanceRaw, duration: 1 });
+  }, [balanceRaw, startBalance]);
 
   const {
     data: gameState,
@@ -63,23 +76,39 @@ export default function GamesPage() {
 
   return (
     <div className="sp-ambient-bg relative min-h-[75vh] w-full max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="sp-games-hero-gradient absolute -left-24 -top-24 h-72 w-72 rounded-full blur-3xl" />
+        <div className="sp-games-hero-gradient absolute -bottom-28 -right-28 h-96 w-96 rounded-full blur-3xl [animation-delay:-6s]" />
+      </div>
       <div className="relative z-[1] space-y-7">
         <header className="space-y-4">
-          <div>
-            <p className="font-sp-display text-xs font-semibold uppercase tracking-[0.28em] text-[#00E5CC]/90">Arcade</p>
-            <h1 className="font-sp-display mt-2 text-3xl font-extrabold tracking-tight text-sp-text sm:text-4xl">SecurePool Games</h1>
-            <p className="mt-2 max-w-xl text-sm text-sp-text-dim">
-              Provably fair mini games — play from your withdrawable balance with clear odds.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="sp-glass rounded-2xl px-4 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-sp-text-dim">Withdrawable</p>
-              <p className="font-sp-mono text-lg font-bold tabular-nums text-sp-text">${balanceAnim.toFixed(2)}</p>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="font-sp-display text-xs font-semibold uppercase tracking-[0.28em] text-[#00E5CC]/90">Arcade</p>
+              <h1 className="font-sp-display mt-2 text-3xl font-extrabold tracking-tight text-sp-text sm:text-4xl">SecurePool Games</h1>
+              <p className="mt-2 max-w-xl text-sm text-sp-text-dim">
+                Provably fair mini games — play from your withdrawable balance with clear odds.
+              </p>
             </div>
-            <Button type="button" variant="outline" size="sm" className="border-white/10" asChild>
-              <Link href="/wallet">Wallet</Link>
-            </Button>
+
+            <div className="flex items-center gap-2">
+              <SoundToggle />
+              <div className="sp-glass rounded-2xl px-4 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-sp-text-dim">Withdrawable</p>
+                <p className="font-sp-mono text-lg font-bold tabular-nums text-sp-text">{balanceText}</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-white/10"
+                asChild
+              >
+                <Link href="/wallet" onClick={() => play("tap")}>
+                  Wallet
+                </Link>
+              </Button>
+            </div>
           </div>
         </header>
 
@@ -138,6 +167,8 @@ export default function GamesPage() {
               </p>
             </div>
 
+            <RecentWinsFeed wins={wins} />
+
             <div className="sp-glass flex flex-wrap items-center gap-3 rounded-xl px-4 py-3.5">
               <span className="text-xl" aria-hidden>
                 🔥
@@ -161,50 +192,38 @@ export default function GamesPage() {
 
             <div>
               <h2 className="mb-4 font-sp-display text-xs font-bold uppercase tracking-[0.2em] text-sp-text-dim">Quick play</h2>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <GameHubCard
+              <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                <GameCard
                   href="/games/spin-wheel"
-                  accent="cyan"
-                  badge={{ label: "Popular", className: "bg-[#FF4757]/20 text-[#FF8A95]" }}
-                  icon={<Sparkles className="h-6 w-6 text-[#00E5CC]" />}
-                  iconClass="bg-gradient-to-br from-[#00E5CC]/35 to-[#00B89C]/10"
                   title="Risk Wheel"
-                  description="Auto-spinning wheel — tap STOP to land. Near-miss feedback on close calls."
+                  tagline="Tap STOP and land a multiplier."
                   stats="Entry 1–5 USDT · Max 3×"
-                  highlight="⚡ Stop"
-                />
-                <GameHubCard
-                  href="/games/mystery-box"
-                  accent="violet"
-                  badge={{ label: "Strategy", className: "bg-[#8B5CF6]/25 text-[#C4B5FD]" }}
-                  icon={<Diamond className="h-6 w-6 text-[#A78BFA]" />}
-                  iconClass="bg-gradient-to-br from-[#8B5CF6]/40 to-[#8B5CF6]/10"
-                  title="Treasure Hunt"
-                  description="Five boxes, three picks — avoid the bomb and cash out anytime."
-                  stats="Entry 1–5 USDT · Max ~6.5×"
-                  highlight="💎 Boxes"
-                />
-                <GameHubCard
-                  href="/games/scratch-card"
-                  accent="gold"
-                  badge={{ label: "Lottery", className: "bg-[#FFD700]/20 text-[#FDE047]" }}
-                  icon={<Ticket className="h-6 w-6 text-[#FFD700]" />}
-                  iconClass="bg-gradient-to-br from-[#FFD700]/30 to-[#FFD700]/5"
-                  title="Lucky Numbers"
-                  description="Pick three numbers 1–9 — draw reveals matches up to 10×."
-                  stats="Entry 1–5 USDT · Max 10×"
-                  highlight="🔢 Pick 3"
-                />
-                <GameHubCard
-                  href="/games/hi-lo"
                   accent="cyan"
-                  badge={{ label: "Quick", className: "bg-[#00E5CC]/20 text-[#99F6E4]" }}
-                  icon={<Layers className="h-6 w-6 text-[#00E5CC]" />}
-                  iconClass="bg-gradient-to-br from-[#00E5CC]/30 to-[#00B89C]/10"
-                  title="Hi-Lo Cards"
-                  description="Guess higher or lower — ladder multipliers up to 5×, cash out anytime."
+                  icon={<span aria-hidden>🎡</span>}
+                />
+                <GameCard
+                  href="/games/mystery-box"
+                  title="Treasure Hunt"
+                  tagline="Pick boxes, dodge bombs, cash out anytime."
+                  stats="Entry 1–5 USDT · Max ~6.5×"
+                  accent="violet"
+                  icon={<span aria-hidden>💎</span>}
+                />
+                <GameCard
+                  href="/games/scratch-card"
+                  title="Lucky Numbers"
+                  tagline="Pick 3 numbers — match for up to 10×."
+                  stats="Entry 1–5 USDT · Max 10×"
+                  accent="gold"
+                  icon={<span aria-hidden>🎟️</span>}
+                />
+                <GameCard
+                  href="/games/hi-lo"
+                  title="Hi‑Lo Cards"
+                  tagline="Higher or lower — cash out before you bust."
                   stats="Entry 1–5 USDT · Max 5×"
-                  highlight="🃏 Cards"
+                  accent="cyan"
+                  icon={<span aria-hidden>🃏</span>}
                 />
               </div>
             </div>
@@ -233,11 +252,24 @@ export default function GamesPage() {
                 </div>
               </Link>
             </div>
-
-            <RecentWinsFeed wins={wins} />
           </>
         )}
       </div>
+
+      <style>{`
+        .sp-games-hero-gradient {
+          background: radial-gradient(circle at 30% 30%, rgba(0,229,204,0.22), transparent 55%),
+                      radial-gradient(circle at 70% 35%, rgba(139,92,246,0.18), transparent 60%),
+                      radial-gradient(circle at 55% 70%, rgba(255,215,0,0.10), transparent 65%);
+          animation: spGamesGlow 16s ease-in-out infinite;
+          opacity: 0.95;
+        }
+        @keyframes spGamesGlow {
+          0% { transform: translate3d(0,0,0) scale(1); filter: hue-rotate(0deg); }
+          50% { transform: translate3d(10px,-12px,0) scale(1.06); filter: hue-rotate(18deg); }
+          100% { transform: translate3d(0,0,0) scale(1); filter: hue-rotate(0deg); }
+        }
+      `}</style>
     </div>
   );
 }

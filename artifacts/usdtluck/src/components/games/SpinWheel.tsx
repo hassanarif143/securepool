@@ -3,6 +3,8 @@ import { useGameActionGate } from "@/hooks/useGameActionGate";
 import { postAnimationSuspenseMs } from "@/lib/games-ui";
 import { arcadePlay, type ArcadePlaySuccess } from "@/lib/games-play-ui";
 import { fireConfetti } from "./confetti";
+import { useSound } from "@/hooks/useSound";
+import { WinCeremony, type WinCeremonyType } from "@/components/game/WinCeremony";
 
 export type SpinWheelProps = {
   balance: number;
@@ -27,6 +29,15 @@ const WHEEL_PX = 280;
 const WHEEL_R = WHEEL_PX / 2;
 const LABEL_RADIUS_PX = 102;
 
+function wrap360(deg: number): number {
+  const m = deg % 360;
+  return m < 0 ? m + 360 : m;
+}
+
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
 function labelPositionPx(i: number): { x: number; y: number } {
   const bisectorDeg = i * SEGMENT_ANGLE + SEGMENT_ANGLE / 2;
   const t = (bisectorDeg * Math.PI) / 180;
@@ -46,13 +57,21 @@ function resolveLandingIndex(res: ArcadePlaySuccess): number {
 
 export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPlayComplete }: SpinWheelProps) {
   const gate = useGameActionGate();
+  const { play } = useSound();
   const [rotation, setRotation] = useState(0);
   const [autoSpinning, setAutoSpinning] = useState(false);
   const [landing, setLanding] = useState(false);
   const [pendingRound, setPendingRound] = useState<ArcadePlaySuccess | null>(null);
   const [currentBet, setCurrentBet] = useState(allowedBets[0] ?? 1);
-  const transitionMs = 3000;
+  const transitionMs = 5200;
   const spinRafRef = useRef<number | null>(null);
+  const landingRafRef = useRef<number | null>(null);
+  const lastRotRef = useRef(0);
+  const lastTickSegRef = useRef<number | null>(null);
+  const lastTsRef = useRef<number | null>(null);
+  const [blurPx, setBlurPx] = useState(0);
+  const [flap, setFlap] = useState(false);
+  const [ceremony, setCeremony] = useState<null | { type: WinCeremonyType; amount: number; mult: number; near?: string }>(null);
 
   useEffect(() => {
     setCurrentBet((prev) => (allowedBets.includes(prev) ? prev : allowedBets[0] ?? 1));
@@ -74,6 +93,7 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
   const handlePlay = useCallback(async () => {
     if (busy || balance < currentBet || !gate.tryEnter()) return;
     setResult(null);
+    play("tap");
     const response = await arcadePlay("spin_wheel", currentBet);
     if (!response.success) {
       gate.exit();
@@ -82,10 +102,12 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
     }
     setPendingRound(response);
     setAutoSpinning(true);
+    play("spin-start");
   }, [busy, balance, currentBet, gate]);
 
   const handleStop = useCallback(() => {
     if (!pendingRound || !autoSpinning) return;
+    play("tap");
     if (spinRafRef.current != null) {
       cancelAnimationFrame(spinRafRef.current);
       spinRafRef.current = null;
@@ -94,20 +116,87 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
     const targetIndex = resolveLandingIndex(pendingRound);
     const targetCenter = targetIndex * SEGMENT_ANGLE + SEGMENT_ANGLE / 2;
     const extraSpins = 4 + Math.floor(Math.random() * 2);
-    setRotation((prev) => prev + extraSpins * 360 + (360 - targetCenter));
     setLanding(true);
+
+    const from = lastRotRef.current;
+    const to = from + extraSpins * 360 + (360 - targetCenter);
+    const start = performance.now();
+    const dur = transitionMs;
+
+    const tick = (ts: number) => {
+      const p = Math.min(1, Math.max(0, (ts - start) / dur));
+      const eased = easeOutCubic(p);
+      const next = from + (to - from) * eased;
+      setRotation(next);
+      lastRotRef.current = next;
+
+      const prevRot = lastRotRef.current;
+      const dt = lastTsRef.current == null ? 16.7 : Math.max(1, ts - lastTsRef.current);
+      lastTsRef.current = ts;
+      const vel = (next - prevRot) / (dt / 1000);
+      const blur = Math.min(2.2, Math.max(0, Math.abs(vel) / 1200));
+      setBlurPx(blur);
+
+      // tick when crossing segment boundaries
+      const seg = Math.floor(wrap360(next) / SEGMENT_ANGLE);
+      const prevSeg = lastTickSegRef.current;
+      if (prevSeg == null) lastTickSegRef.current = seg;
+      else if (seg !== prevSeg) {
+        // intensity decreases near the end
+        play("spin-tick", { intensity: 0.35 + 0.65 * (1 - p) });
+        setFlap(true);
+        window.setTimeout(() => setFlap(false), 90);
+        lastTickSegRef.current = seg;
+      }
+
+      if (p < 1) {
+        landingRafRef.current = requestAnimationFrame(tick);
+      } else {
+        setBlurPx(0);
+        landingRafRef.current = null;
+      }
+    };
+
+    if (landingRafRef.current != null) cancelAnimationFrame(landingRafRef.current);
+    lastTickSegRef.current = Math.floor(wrap360(from) / SEGMENT_ANGLE);
+    lastTsRef.current = null;
+    landingRafRef.current = requestAnimationFrame(tick);
   }, [pendingRound, autoSpinning]);
 
   useEffect(() => {
     if (!autoSpinning) return;
-    const step = () => {
-      setRotation((r) => r + 3.2);
+    // acceleration + steady speed, with ticks synced to segment crossings
+    const start = performance.now();
+    const baseVel = 920; // deg/s
+    const rampMs = 420;
+    const step = (ts: number) => {
+      const dt = lastTsRef.current == null ? 16.7 : Math.max(1, ts - lastTsRef.current);
+      lastTsRef.current = ts;
+      const ramp = Math.min(1, (ts - start) / rampMs);
+      const vel = baseVel * (0.35 + 0.65 * ramp);
+      const next = lastRotRef.current + vel * (dt / 1000);
+      setRotation(next);
+      lastRotRef.current = next;
+      setBlurPx(Math.min(2, vel / 1100));
+
+      const seg = Math.floor(wrap360(next) / SEGMENT_ANGLE);
+      const prevSeg = lastTickSegRef.current;
+      if (prevSeg == null) lastTickSegRef.current = seg;
+      else if (seg !== prevSeg) {
+        play("spin-tick", { intensity: 0.8 });
+        setFlap(true);
+        window.setTimeout(() => setFlap(false), 80);
+        lastTickSegRef.current = seg;
+      }
       spinRafRef.current = requestAnimationFrame(step);
     };
+    lastTickSegRef.current = Math.floor(wrap360(lastRotRef.current) / SEGMENT_ANGLE);
+    lastTsRef.current = null;
     spinRafRef.current = requestAnimationFrame(step);
     return () => {
       if (spinRafRef.current != null) cancelAnimationFrame(spinRafRef.current);
       spinRafRef.current = null;
+      setBlurPx(0);
     };
   }, [autoSpinning]);
 
@@ -128,6 +217,8 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
 
       if (pr.resultType === "big_win") {
         fireConfetti(true);
+        play("win-big");
+        setCeremony({ type: "jackpot", amount: pr.winAmount, mult: pr.multiplier, near: nm });
         setResult({
           type: "bigwin",
           emoji: "🏆",
@@ -138,6 +229,8 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
         });
       } else if (pr.resultType === "small_win") {
         fireConfetti(false);
+        play("win-small");
+        setCeremony({ type: "small-win", amount: pr.winAmount, mult: pr.multiplier, near: nm });
         setResult({
           type: "win",
           emoji: "✨",
@@ -147,6 +240,8 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
           nearMiss: nm,
         });
       } else {
+        play(nm ? "near-miss" : "lose");
+        setCeremony({ type: nm ? "near-miss" : "loss", amount: 0, mult: 0, near: nm });
         setResult({
           type: "loss",
           emoji: "😔",
@@ -183,17 +278,25 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
       </div>
 
       <div className="relative my-5 h-[280px] w-[280px]">
-        <div
-          className="pointer-events-none absolute -top-2 left-1/2 z-30 -translate-x-1/2 border-l-[10px] border-r-[10px] border-t-[18px] border-l-transparent border-r-transparent border-t-[#00E5CC] drop-shadow-[0_2px_6px_rgba(0,229,204,0.4)]"
-          style={{ width: 0, height: 0 }}
-        />
+        <div className="pointer-events-none absolute -top-3 left-1/2 z-30 -translate-x-1/2">
+          <div
+            className="relative"
+            style={{ width: 0, height: 0, transform: flap ? "translateY(1px) rotate(2deg)" : "none", transition: "transform 90ms ease-out" }}
+          >
+            <div
+              className="border-l-[10px] border-r-[10px] border-t-[18px] border-l-transparent border-r-transparent border-t-[#00E5CC] drop-shadow-[0_2px_6px_rgba(0,229,204,0.4)]"
+              style={{ width: 0, height: 0 }}
+            />
+          </div>
+        </div>
 
         <div
           className="absolute inset-0 rounded-full border-[3px] border-[rgba(0,229,204,0.2)] shadow-[0_0_40px_rgba(0,229,204,0.1),inset_0_0_30px_rgba(0,0,0,0.5)]"
           style={{
             transform: `rotate(${rotation}deg)`,
-            transition: landing ? `transform ${transitionMs}ms cubic-bezier(0.12, 0.75, 0.15, 1)` : "none",
+            transition: "none",
             transformOrigin: "center center",
+            filter: blurPx > 0 ? `blur(${blurPx.toFixed(2)}px)` : "none",
           }}
         >
           <div className="absolute inset-0 rounded-full" style={{ background: conic }} />
@@ -221,6 +324,10 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
               </div>
             );
           })}
+        </div>
+
+        <div className="pointer-events-none absolute inset-0 rounded-full">
+          <div className={`absolute inset-[-10px] rounded-full ${autoSpinning || landing ? "sp-wheel-lights" : ""}`} />
         </div>
 
         {!autoSpinning && !pendingRound ? (
@@ -283,6 +390,37 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
           </button>
         </div>
       ) : null}
+
+      <WinCeremony
+        open={ceremony != null}
+        type={ceremony?.type ?? "loss"}
+        amount={ceremony?.amount ?? 0}
+        multiplier={ceremony?.mult ?? 0}
+        betAmount={currentBet}
+        nearMissInfo={ceremony?.near}
+        onDismiss={() => setCeremony(null)}
+      />
+
+      <style>{`
+        .sp-wheel-lights {
+          background:
+            radial-gradient(circle at 12% 12%, rgba(0,229,204,0.18), transparent 55%),
+            radial-gradient(circle at 88% 24%, rgba(139,92,246,0.14), transparent 55%),
+            radial-gradient(circle at 50% 86%, rgba(255,215,0,0.10), transparent 60%);
+          box-shadow:
+            0 0 0 1px rgba(255,255,255,0.06),
+            0 0 22px rgba(0,229,204,0.12),
+            inset 0 0 0 10px rgba(0,0,0,0.28);
+          mask-image: radial-gradient(circle, transparent 60%, #000 64%);
+          -webkit-mask-image: radial-gradient(circle, transparent 60%, #000 64%);
+          animation: spWheelChase 1.25s linear infinite;
+        }
+        @keyframes spWheelChase {
+          0% { filter: hue-rotate(0deg); opacity: 0.85; }
+          50% { filter: hue-rotate(14deg); opacity: 1; }
+          100% { filter: hue-rotate(0deg); opacity: 0.85; }
+        }
+      `}</style>
     </div>
   );
 }

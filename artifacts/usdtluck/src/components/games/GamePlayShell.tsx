@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SoundToggle } from "@/components/ui/SoundToggle";
 
 export type GamePlayShellProps = {
   title: string;
@@ -26,9 +27,12 @@ export function GamePlayShell({ title, subtitle, balance, children, className }:
             <h1 className="font-sp-display text-2xl font-extrabold tracking-tight text-sp-text sm:text-3xl">{title}</h1>
             {subtitle ? <p className="mt-1 text-sm text-sp-text-dim">{subtitle}</p> : null}
           </div>
-          <div className="sp-glass shrink-0 rounded-2xl px-4 py-2.5 text-right">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-sp-text-dim">Withdrawable</p>
-            <p className="font-sp-mono text-lg font-bold tabular-nums text-sp-text">${balance.toFixed(2)}</p>
+          <div className="flex shrink-0 items-center gap-2">
+            <SoundToggle />
+            <div className="sp-glass rounded-2xl px-4 py-2.5 text-right">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-sp-text-dim">Withdrawable</p>
+              <p className="font-sp-mono text-lg font-bold tabular-nums text-sp-text">${balance.toFixed(2)}</p>
+            </div>
           </div>
         </div>
         <div className="rounded-3xl border border-sp-border bg-gradient-to-b from-sp-card/95 to-[rgba(6,8,15,0.98)] p-5 shadow-[0_24px_64px_rgba(0,0,0,0.45)] sm:p-7">
