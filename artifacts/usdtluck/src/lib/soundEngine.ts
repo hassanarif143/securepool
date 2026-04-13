@@ -100,6 +100,7 @@ export class SoundEngine {
   private muted = false;
   private volume = 0.9;
   private listeners = new Set<() => void>();
+  private snapshot: { muted: boolean; volume: number } = { muted: false, volume: 0.9 };
 
   constructor() {
     try {
@@ -108,6 +109,7 @@ export class SoundEngine {
     } catch {
       this.muted = false;
     }
+    this.snapshot = { muted: this.muted, volume: this.volume };
   }
 
   subscribe(fn: () => void) {
@@ -116,7 +118,16 @@ export class SoundEngine {
   }
 
   private emit() {
+    // Keep snapshot referentially stable unless values change.
+    if (this.snapshot.muted !== this.muted || this.snapshot.volume !== this.volume) {
+      this.snapshot = { muted: this.muted, volume: this.volume };
+    }
     for (const fn of this.listeners) fn();
+  }
+
+  /** Stable snapshot for useSyncExternalStore (must not allocate each call). */
+  getSnapshot(): { muted: boolean; volume: number } {
+    return this.snapshot;
   }
 
   get isMuted(): boolean {

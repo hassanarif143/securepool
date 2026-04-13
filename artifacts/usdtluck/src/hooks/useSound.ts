@@ -6,8 +6,7 @@ function subscribe(cb: () => void) {
 }
 
 function getSnapshot() {
-  const e = getSoundEngine();
-  return { muted: e.isMuted, volume: e.masterVolume };
+  return getSoundEngine().getSnapshot();
 }
 
 function getServerSnapshot() {
