@@ -48,12 +48,12 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return undefined;
-          if (id.includes("react") || id.includes("scheduler")) return "framework";
           if (id.includes("@tanstack/react-query")) return "query";
           if (id.includes("framer-motion")) return "motion";
           if (id.includes("recharts")) return "charts";
           if (id.includes("@radix-ui") || id.includes("lucide-react")) return "ui";
-          return "vendor";
+          // Let Rollup choose the rest to avoid circular chunk graphs.
+          return undefined;
         },
       },
     },

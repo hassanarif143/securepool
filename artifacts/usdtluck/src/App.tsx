@@ -1,6 +1,6 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -32,17 +32,18 @@ import MyTicketsPage from "@/pages/MyTicketsPage";
 import P2PTradingPage from "@/pages/P2PTradingPage";
 import CashoutArenaRedirect from "@/pages/CashoutArenaRedirect";
 import ScratchCardRedirect from "@/pages/ScratchCardRedirect";
-import GamesPage from "@/pages/GamesPage";
-import {
-  SpinWheelGamePage,
-  TreasureHuntGamePage,
-  LuckyNumbersGamePage,
-  HiLoGamePage,
-  MegaDrawGamePage,
-} from "@/pages/arcade-game-pages";
 import MySharesPage from "@/pages/MySharesPage";
 import RefRedirectPage from "@/pages/RefRedirectPage";
 import HowToBuyUsdtPage from "@/pages/HowToBuyUsdtPage";
+
+const GamesPage = lazy(() => import("@/pages/GamesPage"));
+const ArcadeGamePlay = lazy(() =>
+  import("@/components/games/ArcadeGamePlay").then((m) => ({ default: m.ArcadeGamePlay })),
+);
+
+function PageFallback() {
+  return <PageLoading />;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -214,34 +215,46 @@ function Router() {
             <P2PTradingPage />
           </RequireAuth>
         </Route>
+        <Route path="/games">
+          <RequireAuth>
+            <Suspense fallback={<PageFallback />}>
+              <GamesPage />
+            </Suspense>
+          </RequireAuth>
+        </Route>
         <Route path="/games/spin-wheel">
           <RequireAuth>
-            <SpinWheelGamePage />
+            <Suspense fallback={<PageFallback />}>
+              <ArcadeGamePlay game="spin" />
+            </Suspense>
           </RequireAuth>
         </Route>
         <Route path="/games/mystery-box">
           <RequireAuth>
-            <TreasureHuntGamePage />
+            <Suspense fallback={<PageFallback />}>
+              <ArcadeGamePlay game="box" />
+            </Suspense>
           </RequireAuth>
         </Route>
         <Route path="/games/scratch-card">
           <RequireAuth>
-            <LuckyNumbersGamePage />
+            <Suspense fallback={<PageFallback />}>
+              <ArcadeGamePlay game="scratch" />
+            </Suspense>
           </RequireAuth>
         </Route>
         <Route path="/games/hi-lo">
           <RequireAuth>
-            <HiLoGamePage />
+            <Suspense fallback={<PageFallback />}>
+              <ArcadeGamePlay game="hilo" />
+            </Suspense>
           </RequireAuth>
         </Route>
         <Route path="/games/mega-draw">
           <RequireAuth>
-            <MegaDrawGamePage />
-          </RequireAuth>
-        </Route>
-        <Route path="/games">
-          <RequireAuth>
-            <GamesPage />
+            <Suspense fallback={<PageFallback />}>
+              <ArcadeGamePlay game="mega" />
+            </Suspense>
           </RequireAuth>
         </Route>
         <Route path="/cashout-arena">
