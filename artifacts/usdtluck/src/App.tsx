@@ -1,6 +1,6 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Suspense, lazy, useEffect } from "react";
+import { Component, Suspense, lazy, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -43,6 +43,36 @@ const ArcadeGamePlay = lazy(() =>
 
 function PageFallback() {
   return <PageLoading />;
+}
+
+class LazyRouteBoundary extends Component<{ children: React.ReactNode }, { err: unknown }> {
+  state: { err: unknown } = { err: null };
+  static getDerivedStateFromError(err: unknown) {
+    return { err };
+  }
+  render() {
+    if (this.state.err) {
+      return (
+        <div className="sp-ambient-bg flex min-h-[50vh] items-center justify-center px-4 py-14">
+          <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-center shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl space-y-3">
+            <p className="text-2xl">⚠️</p>
+            <h2 className="font-sp-display text-xl font-bold text-white">Update available</h2>
+            <p className="text-sm text-sp-text-dim">
+              Your browser is loading an older version of the app. Please reload to get the latest game pages.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-2 inline-flex h-11 items-center justify-center rounded-2xl bg-gradient-to-r from-[#00E5CC] to-[#00B89C] px-6 font-sp-display text-sm font-extrabold text-[#06080F]"
+            >
+              Reload
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 const queryClient = new QueryClient({
@@ -217,44 +247,56 @@ function Router() {
         </Route>
         <Route path="/games/spin-wheel">
           <RequireAuth>
-            <Suspense fallback={<PageFallback />}>
-              <ArcadeGamePlay game="spin" />
-            </Suspense>
+            <LazyRouteBoundary>
+              <Suspense fallback={<PageFallback />}>
+                <ArcadeGamePlay game="spin" />
+              </Suspense>
+            </LazyRouteBoundary>
           </RequireAuth>
         </Route>
         <Route path="/games/mystery-box">
           <RequireAuth>
-            <Suspense fallback={<PageFallback />}>
-              <ArcadeGamePlay game="box" />
-            </Suspense>
+            <LazyRouteBoundary>
+              <Suspense fallback={<PageFallback />}>
+                <ArcadeGamePlay game="box" />
+              </Suspense>
+            </LazyRouteBoundary>
           </RequireAuth>
         </Route>
         <Route path="/games/scratch-card">
           <RequireAuth>
-            <Suspense fallback={<PageFallback />}>
-              <ArcadeGamePlay game="scratch" />
-            </Suspense>
+            <LazyRouteBoundary>
+              <Suspense fallback={<PageFallback />}>
+                <ArcadeGamePlay game="scratch" />
+              </Suspense>
+            </LazyRouteBoundary>
           </RequireAuth>
         </Route>
         <Route path="/games/hi-lo">
           <RequireAuth>
-            <Suspense fallback={<PageFallback />}>
-              <ArcadeGamePlay game="hilo" />
-            </Suspense>
+            <LazyRouteBoundary>
+              <Suspense fallback={<PageFallback />}>
+                <ArcadeGamePlay game="hilo" />
+              </Suspense>
+            </LazyRouteBoundary>
           </RequireAuth>
         </Route>
         <Route path="/games/mega-draw">
           <RequireAuth>
-            <Suspense fallback={<PageFallback />}>
-              <ArcadeGamePlay game="mega" />
-            </Suspense>
+            <LazyRouteBoundary>
+              <Suspense fallback={<PageFallback />}>
+                <ArcadeGamePlay game="mega" />
+              </Suspense>
+            </LazyRouteBoundary>
           </RequireAuth>
         </Route>
         <Route path="/games">
           <RequireAuth>
-            <Suspense fallback={<PageFallback />}>
-              <GamesPage />
-            </Suspense>
+            <LazyRouteBoundary>
+              <Suspense fallback={<PageFallback />}>
+                <GamesPage />
+              </Suspense>
+            </LazyRouteBoundary>
           </RequireAuth>
         </Route>
         <Route path="/cashout-arena">
