@@ -215,13 +215,6 @@ function Router() {
             <P2PTradingPage />
           </RequireAuth>
         </Route>
-        <Route path="/games">
-          <RequireAuth>
-            <Suspense fallback={<PageFallback />}>
-              <GamesPage />
-            </Suspense>
-          </RequireAuth>
-        </Route>
         <Route path="/games/spin-wheel">
           <RequireAuth>
             <Suspense fallback={<PageFallback />}>
@@ -254,6 +247,13 @@ function Router() {
           <RequireAuth>
             <Suspense fallback={<PageFallback />}>
               <ArcadeGamePlay game="mega" />
+            </Suspense>
+          </RequireAuth>
+        </Route>
+        <Route path="/games">
+          <RequireAuth>
+            <Suspense fallback={<PageFallback />}>
+              <GamesPage />
             </Suspense>
           </RequireAuth>
         </Route>
