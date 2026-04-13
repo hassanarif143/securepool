@@ -154,8 +154,8 @@ export default function GamesPage() {
               </div>
               <p className="mb-3 text-base font-semibold text-sp-text">Real odds · Provably fair · Built for trust</p>
               <div className="mb-2 flex h-1.5 gap-0.5 overflow-hidden rounded-full">
-                <div className="flex-[6.5] rounded-full bg-[rgba(255,71,87,0.35)]" />
-                <div className="flex-[2.8] rounded-full bg-[rgba(0,229,204,0.45)]" />
+                <div className="flex-[6.5] rounded-full bg-[rgba(0,229,204,0.45)]" />
+                <div className="flex-[2.8] rounded-full bg-[rgba(255,71,87,0.35)]" />
                 <div className="flex-[0.7] rounded-full bg-[rgba(255,215,0,0.55)]" />
               </div>
               <p className="text-xs text-sp-text-dim">
