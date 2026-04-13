@@ -36,6 +36,7 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
   const [cards, setCards] = useState<string[]>([]);
   const [flipKey, setFlipKey] = useState(0);
   const [dealing, setDealing] = useState(false);
+  const [faceDown, setFaceDown] = useState(true);
   const [suspense, setSuspense] = useState(false);
   const suspendedRef = useRef<number | null>(null);
 
@@ -52,6 +53,7 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
     setStreak(0);
     setCards([]);
     setDealing(true);
+    setFaceDown(true);
     try {
       const r = await postHiloStart(bet, idem());
       setGameId(r.gameId as number);
@@ -60,6 +62,7 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
       setPot((r.potentialWin as number) ?? bet);
       setCards([String(r.cardName ?? "—")]);
       setFlipKey((k) => k + 1);
+      window.setTimeout(() => setFaceDown(false), 180);
       onBalanceUpdate((r.newBalance as number) ?? balance);
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Deal failed");
@@ -79,6 +82,7 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
       setBusy(true);
       play("tap");
       play("card-flip", { intensity: 0.85 });
+      setFaceDown(true);
       if (suspendedRef.current != null) window.clearTimeout(suspendedRef.current);
       setSuspense(true);
       suspendedRef.current = window.setTimeout(() => setSuspense(false), 1400);
@@ -90,6 +94,7 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
           setStreak(0);
           setCeremony({ type: "loss", amount: 0, mult: 0 });
           play("lose");
+          window.setTimeout(() => setFaceDown(false), 120);
           onBalanceUpdate((r.newBalance as number) ?? balance);
           onPlayComplete?.();
         } else if (r.cashedOut) {
@@ -100,6 +105,7 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
           play("cashout");
           setGameId(null);
           setSuspense(false);
+          window.setTimeout(() => setFaceDown(false), 120);
           onBalanceUpdate((r.newBalance as number) ?? balance);
           onPlayComplete?.();
         } else {
@@ -110,9 +116,11 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
           setCards((prev) => [String(r.cardName ?? "?"), ...prev].slice(0, 8));
           setFlipKey((k) => k + 1);
           play("countdown");
+          window.setTimeout(() => setFaceDown(false), 120);
         }
       } catch (e) {
         window.alert(e instanceof Error ? e.message : "Guess failed");
+        setFaceDown(false);
       } finally {
         setBusy(false);
       }
@@ -133,6 +141,7 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
       play("cashout");
       setGameId(null);
       setSuspense(false);
+      setFaceDown(false);
       onBalanceUpdate((r.newBalance as number) ?? balance);
       onPlayComplete?.();
     } catch (e) {
@@ -144,7 +153,6 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
 
   return (
     <div className="relative mx-auto flex w-full max-w-md flex-col items-center gap-4 px-2">
-      <h2 className="font-sp-display text-[22px] font-bold text-sp-text">Hi-Lo Cards</h2>
       <div className="flex w-full gap-1">
         {LADDER.map((m) => (
           <div
@@ -184,25 +192,14 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
         >
           <motion.div
             className="relative h-full w-full"
-            initial={{ rotateY: dealing ? 0 : 0 }}
-            animate={{ rotateY: dealing ? 180 : 180 }}
+            animate={{ rotateY: faceDown ? 0 : 180 }}
             transition={{ duration: 0.55, ease: "easeInOut" }}
-            style={{ transformStyle: "preserve-3d" }}
-          />
-
-          <motion.div
-            className="relative h-full w-full"
-            animate={{ rotateY: 180 }}
-            transition={{ duration: 0 }}
             style={{ transformStyle: "preserve-3d" }}
           >
             {/* Back */}
             <motion.div
               className="absolute inset-0 rounded-2xl border border-white/15 bg-gradient-to-br from-[#0b1224] via-[#0a0e1a] to-[#111b35] shadow-[0_18px_52px_rgba(0,0,0,0.55)]"
               style={{ backfaceVisibility: "hidden" }}
-              initial={{ rotateY: 0 }}
-              animate={{ rotateY: dealing ? 0 : 180 }}
-              transition={{ duration: 0.55, ease: "easeInOut" }}
             >
               <div className="absolute inset-3 rounded-xl border border-white/10 bg-[rgba(255,255,255,0.03)]" />
               <div className="absolute inset-6 rounded-xl border border-white/10" />
@@ -220,9 +217,6 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
                 busted ? "border-red-500/40" : "",
               )}
               style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
-              initial={{ rotateY: 180 }}
-              animate={{ rotateY: dealing ? 180 : 360 }}
-              transition={{ duration: 0.55, ease: "easeInOut" }}
             >
               <div className="absolute left-3 top-3 text-left">
                 <p className={cn("font-sp-mono text-lg font-extrabold leading-none", meta.suitColor)}>{meta.label}</p>
