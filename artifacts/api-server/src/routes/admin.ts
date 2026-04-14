@@ -487,10 +487,20 @@ router.post("/simulator/fill-pool", async (req, res) => {
   const poolNowFull = after >= totalTickets && totalTickets > 0;
   if (poolNowFull) {
     await logAction(adminId, "pool", poolId, "simulator_pool_full", `Simulator filled pool #${poolId} to capacity (${after}/${totalTickets}).`);
-    // Trigger same draw flow the admin uses elsewhere.
+    // Do NOT auto-distribute instantly. Respect drawScheduledAt countdown.
     try {
-      await autoDistributePool(poolId);
-    } catch {}
+      const holders = await db
+        .select({ userId: poolParticipantsTable.userId })
+        .from(poolParticipantsTable)
+        .where(eq(poolParticipantsTable.poolId, poolId));
+      const delayMin = 10;
+      const msg = `🎉 Pool ${pool.title} is now FULL! Live winner announcement in ${delayMin} minutes. Tap Watch Live to see it.`;
+      for (const h of holders) {
+        void notifyUser(h.userId, "Pool is full!", msg, "POOL_FILLED", poolId);
+      }
+    } catch {
+      /* ignore notify failures */
+    }
   }
 
   res.json({ added, poolNowFull, totalEntries: after });
@@ -533,9 +543,20 @@ router.post("/simulator/bulk-fill", async (req, res) => {
     const after = await countPoolTickets(p.poolId);
     const poolNowFull = after >= totalTickets && totalTickets > 0;
     if (poolNowFull) {
+      // Do NOT auto-distribute instantly. Respect drawScheduledAt countdown.
       try {
-        await autoDistributePool(p.poolId);
-      } catch {}
+        const holders = await db
+          .select({ userId: poolParticipantsTable.userId })
+          .from(poolParticipantsTable)
+          .where(eq(poolParticipantsTable.poolId, p.poolId));
+        const delayMin = 10;
+        const msg = `🎉 Pool ${pool.title} is now FULL! Live winner announcement in ${delayMin} minutes. Tap Watch Live to see it.`;
+        for (const h of holders) {
+          void notifyUser(h.userId, "Pool is full!", msg, "POOL_FILLED", p.poolId);
+        }
+      } catch {
+        /* ignore */
+      }
     }
     out.push({ poolId: p.poolId, added, poolNowFull, totalEntries: after });
   }
