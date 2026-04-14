@@ -289,7 +289,13 @@ async function simulatorJoinPoolTicket(args: {
     }
 
     const newSold = (Number(sold) || 0) + qty;
-    await tx.update(poolsTable).set({ soldTickets: newSold } as any).where(eq(poolsTable.id, poolId));
+    const poolUpd: any = { soldTickets: newSold };
+    if (totalTickets > 0 && newSold >= totalTickets) {
+      poolUpd.status = "filled";
+      poolUpd.filledAt = new Date();
+      poolUpd.drawScheduledAt = new Date(Date.now() + 15 * 60_000);
+    }
+    await tx.update(poolsTable).set(poolUpd).where(eq(poolsTable.id, poolId));
 
     await tx.insert(adminActionsTable).values({
       adminId,

@@ -89,17 +89,9 @@ function getDrawDelayMinutes(): number {
 }
 
 async function getDrawDelayMinutesForPool(pool: typeof poolsTable.$inferSelect): Promise<number> {
-  const fallback = getDrawDelayMinutes();
-  if (!pool.templateId) return fallback;
-  const [t] = await db
-    .select({ drawDelayMinutes: poolTemplatesTable.drawDelayMinutes })
-    .from(poolTemplatesTable)
-    .where(eq(poolTemplatesTable.id, pool.templateId))
-    .limit(1);
-  if (t?.drawDelayMinutes != null && Number.isFinite(Number(t.drawDelayMinutes))) {
-    return Math.min(120, Math.max(1, Number(t.drawDelayMinutes)));
-  }
-  return fallback;
+  // Product requirement: whenever a pool fills (bots or real users), always wait 15 minutes then run the draw.
+  // Keep the old env/template hooks but default the actual delay to 15.
+  return 15;
 }
 
 const poolAutoDrawInFlight = new Set<number>();

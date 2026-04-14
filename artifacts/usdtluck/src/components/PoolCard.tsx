@@ -295,6 +295,9 @@ function StatusPill({ status }: { status: string }) {
     return (
       <Badge className="bg-amber-500/15 text-amber-200 border-amber-500/35 text-[10px]">
         <span className="inline-flex items-center gap-1.5">
+          <span className="rounded-full bg-red-500/20 text-red-200 border border-red-500/35 px-2 py-0.5 text-[9px] font-extrabold tracking-widest animate-pulse">
+            HOT
+          </span>
           <span className="relative flex h-2 w-2" aria-hidden>
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-60" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
