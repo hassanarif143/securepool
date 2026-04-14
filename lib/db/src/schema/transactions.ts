@@ -24,6 +24,12 @@ export const txTypeEnum = pgEnum("tx_type", [
 ]);
 export const txStatusEnum = pgEnum("tx_status", ["pending", "under_review", "completed", "rejected", "failed"]);
 
+// Admin-only analytics tags (do not affect wallet logic).
+export const txUserTypeEnum = pgEnum("tx_user_type", ["REAL", "BOT"]);
+export const txSourceEnum = pgEnum("tx_source", ["GAME", "SYSTEM", "FAKE_FEED"]);
+export const txEventTypeEnum = pgEnum("tx_event_type", ["BET", "WIN"]);
+export const txGameTypeEnum = pgEnum("tx_game_type", ["SPIN", "BOX", "SCRATCH"]);
+
 export const transactionsTable = pgTable("transactions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => usersTable.id),
@@ -32,6 +38,10 @@ export const transactionsTable = pgTable("transactions", {
   status: txStatusEnum("status").notNull().default("completed"),
   note: text("note"),
   screenshotUrl: text("screenshot_url"),
+  userType: txUserTypeEnum("user_type"),
+  source: txSourceEnum("source"),
+  eventType: txEventTypeEnum("event_type"),
+  gameType: txGameTypeEnum("game_type"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

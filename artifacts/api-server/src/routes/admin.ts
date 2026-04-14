@@ -18,7 +18,7 @@ import {
   securityConfigTable,
   securityEventsTable,
 } from "@workspace/db";
-import { eq, ne, count, sum, desc, and, sql, inArray } from "drizzle-orm";
+import { eq, ne, count, sum, desc, and, sql, inArray, gte, lte } from "drizzle-orm";
 import { sendWithdrawalStatusEmail } from "../lib/email";
 import { notifyUser } from "../lib/notify";
 import { logger } from "../lib/logger";
@@ -3269,6 +3269,53 @@ router.get("/finance/overview", async (_req, res) => {
     ...overview,
     perDraw,
     activeUsersByDay: activeUsers,
+  });
+});
+
+router.get("/analytics/revenue", async (req, res) => {
+  const view = typeof req.query.view === "string" ? req.query.view : "real";
+  const from = typeof req.query.from === "string" && req.query.from ? new Date(req.query.from) : undefined;
+  const to = typeof req.query.to === "string" && req.query.to ? new Date(req.query.to) : undefined;
+
+  const whereBase = [
+    eq((transactionsTable as any).source, "GAME" as any),
+    and(
+      // keep only BET/WIN rows for profit math
+      sql`${(transactionsTable as any).eventType} IN ('BET','WIN')`,
+      sql`1=1`,
+    ),
+    ...(from ? [gte(transactionsTable.createdAt, from)] : []),
+    ...(to ? [lte(transactionsTable.createdAt, to)] : []),
+  ];
+
+  async function totals(userType: "REAL" | "BOT" | "COMBINED") {
+    const where = userType === "COMBINED" ? and(...whereBase) : and(...whereBase, eq((transactionsTable as any).userType, userType as any));
+    const [row] = await db
+      .select({
+        bets: sql<string>`COALESCE(SUM(CASE WHEN ${(transactionsTable as any).eventType} = 'BET' THEN ${(transactionsTable as any).amount}::numeric ELSE 0 END),0)::text`,
+        wins: sql<string>`COALESCE(SUM(CASE WHEN ${(transactionsTable as any).eventType} = 'WIN' THEN ${(transactionsTable as any).amount}::numeric ELSE 0 END),0)::text`,
+      })
+      .from(transactionsTable)
+      .where(where)
+      .limit(1);
+    const bets = parseFloat(String((row as any)?.bets ?? "0")) || 0;
+    const wins = parseFloat(String((row as any)?.wins ?? "0")) || 0;
+    return { bets, wins, profit: bets - wins };
+  }
+
+  const real = await totals("REAL");
+  const bot = await totals("BOT");
+  const combined = await totals("COMBINED");
+
+  const activeView = view === "bot" ? bot : view === "combined" ? combined : real;
+
+  res.json({
+    view: view === "bot" || view === "combined" ? view : "real",
+    real,
+    bot,
+    combined,
+    active: activeView,
+    note: "Bot activity is simulated and not included in actual profit.",
   });
 });
 

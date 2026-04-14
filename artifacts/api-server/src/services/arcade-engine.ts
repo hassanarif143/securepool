@@ -53,11 +53,23 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+function mapAnalyticsGameType(gt: ArcadeGameType): "SPIN" | "BOX" | "SCRATCH" {
+  if (gt === "spin_wheel" || gt === "risk_wheel") return "SPIN";
+  if (gt === "mystery_box" || gt === "treasure_hunt") return "BOX";
+  return "SCRATCH";
+}
+
 async function lockArcade(tx: DbTx): Promise<void> {
   await tx.execute(sql.raw(`SELECT pg_advisory_xact_lock(${ADV_LOCK_ARCADE})`));
 }
 
-export async function debitGameBet(tx: DbTx, userId: number, amount: number, note: string): Promise<void> {
+export async function debitGameBet(
+  tx: DbTx,
+  userId: number,
+  amount: number,
+  note: string,
+  gameType: ArcadeGameType,
+): Promise<void> {
   const [u] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!u) throw new Error("USER_NOT_FOUND");
   const wd = toNum(u.withdrawableBalance);
@@ -68,17 +80,28 @@ export async function debitGameBet(tx: DbTx, userId: number, amount: number, not
     .update(usersTable)
     .set({ withdrawableBalance: nextWd.toFixed(2), walletBalance: (bonus + nextWd).toFixed(2) })
     .where(eq(usersTable.id, userId));
+  const isBot = Boolean((u as any).isBot);
   await tx.insert(transactionsTable).values({
     userId,
     txType: "game_bet",
     amount: amount.toFixed(2),
     status: "completed",
     note,
+    userType: isBot ? "BOT" : "REAL",
+    source: "GAME",
+    eventType: "BET",
+    gameType: mapAnalyticsGameType(gameType),
   });
   await mirrorAvailableFromUser(tx, userId);
 }
 
-export async function creditGameWin(tx: DbTx, userId: number, amount: number, note: string): Promise<void> {
+export async function creditGameWin(
+  tx: DbTx,
+  userId: number,
+  amount: number,
+  note: string,
+  gameType: ArcadeGameType,
+): Promise<void> {
   const [u] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (!u) throw new Error("USER_NOT_FOUND");
   const wd = toNum(u.withdrawableBalance);
@@ -88,23 +111,37 @@ export async function creditGameWin(tx: DbTx, userId: number, amount: number, no
     .update(usersTable)
     .set({ withdrawableBalance: nextWd.toFixed(2), walletBalance: (bonus + nextWd).toFixed(2) })
     .where(eq(usersTable.id, userId));
+  const isBot = Boolean((u as any).isBot);
   await tx.insert(transactionsTable).values({
     userId,
     txType: "game_win",
     amount: amount.toFixed(2),
     status: "completed",
     note,
+    userType: isBot ? "BOT" : "REAL",
+    source: "GAME",
+    eventType: "WIN",
+    gameType: mapAnalyticsGameType(gameType),
   });
   await mirrorAvailableFromUser(tx, userId);
 }
 
-export async function logGameLoss(tx: DbTx, userId: number, note: string): Promise<void> {
+export async function logGameLoss(tx: DbTx, userId: number, note: string, gameType: ArcadeGameType): Promise<void> {
+  const [u] = await tx
+    .select({ isBot: (usersTable as any).isBot })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  const isBot = Boolean((u as any)?.isBot);
   await tx.insert(transactionsTable).values({
     userId,
     txType: "game_loss",
     amount: "0.00",
     status: "completed",
     note,
+    userType: isBot ? "BOT" : "REAL",
+    source: "GAME",
+    gameType: mapAnalyticsGameType(gameType),
   });
 }
 
@@ -371,12 +408,12 @@ export async function playArcadeGame(
         }
       }
 
-      await debitGameBet(tx, userId, betAmount, `${label} — stake ${betAmount} USDT`);
+      await debitGameBet(tx, userId, betAmount, `${label} — stake ${betAmount} USDT`, storedType);
 
       if (r.winAmount > 0.009) {
-        await creditGameWin(tx, userId, r.winAmount, `${label} win — ${r.multiplier}×`);
+        await creditGameWin(tx, userId, r.winAmount, `${label} win — ${r.multiplier}×`, storedType);
       } else {
-        await logGameLoss(tx, userId, `${label} — no win`);
+        await logGameLoss(tx, userId, `${label} — no win`, storedType);
       }
 
       const [row] = await tx
@@ -461,7 +498,7 @@ export async function startTreasureHuntSession(
       const resultHash = crypto.createHash("sha256").update(JSON.stringify(boxes)).digest("hex");
       const label = gameLabel("treasure_hunt");
 
-      await debitGameBet(tx, userId, betAmount, `${label} — stake ${betAmount} USDT`);
+      await debitGameBet(tx, userId, betAmount, `${label} — stake ${betAmount} USDT`, "treasure_hunt");
 
       const [row] = await tx
         .insert(arcadeRoundsTable)
@@ -586,9 +623,9 @@ export async function pickTreasureHuntBox(
       const profit = round2(betAmount - winAmount);
 
       if (winAmount > 0.009) {
-        await creditGameWin(tx, userId, winAmount, `${gameLabel("treasure_hunt")} win — ${finalMultiplier}×`);
+        await creditGameWin(tx, userId, winAmount, `${gameLabel("treasure_hunt")} win — ${finalMultiplier}×`, "treasure_hunt");
       } else {
-        await logGameLoss(tx, userId, `${gameLabel("treasure_hunt")} — no win`);
+        await logGameLoss(tx, userId, `${gameLabel("treasure_hunt")} — no win`, "treasure_hunt");
       }
 
       await tx
@@ -690,9 +727,9 @@ export async function cashOutTreasureHunt(
       const profit = round2(betAmount - winAmount);
 
       if (winAmount > 0.009) {
-        await creditGameWin(tx, userId, winAmount, `${gameLabel("treasure_hunt")} cashout — ${totalMultiplier}×`);
+        await creditGameWin(tx, userId, winAmount, `${gameLabel("treasure_hunt")} cashout — ${totalMultiplier}×`, "treasure_hunt");
       } else {
-        await logGameLoss(tx, userId, `${gameLabel("treasure_hunt")} — cashout 0`);
+        await logGameLoss(tx, userId, `${gameLabel("treasure_hunt")} — cashout 0`, "treasure_hunt");
       }
 
       await tx
@@ -782,7 +819,7 @@ export async function startHiLoSession(
       const resultHash = crypto.createHash("sha256").update(serverSeed).digest("hex");
       const label = gameLabel("hilo");
 
-      await debitGameBet(tx, userId, betAmount, `${label} — stake ${betAmount} USDT`);
+      await debitGameBet(tx, userId, betAmount, `${label} — stake ${betAmount} USDT`, "hilo");
 
       const [row] = await tx
         .insert(arcadeRoundsTable)
@@ -848,9 +885,9 @@ async function finalizeHiLoSession(
   const profit = round2(betAmount - winAmount);
 
   if (winAmount > 0.009) {
-    await creditGameWin(tx, userId, winAmount, `${gameLabel("hilo")} cashout — ${multiplier}×`);
+    await creditGameWin(tx, userId, winAmount, `${gameLabel("hilo")} cashout — ${multiplier}×`, "hilo");
   } else {
-    await logGameLoss(tx, userId, `${gameLabel("hilo")} — no win`);
+    await logGameLoss(tx, userId, `${gameLabel("hilo")} — no win`, "hilo");
   }
 
   await tx

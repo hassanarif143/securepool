@@ -976,6 +976,33 @@ function FinanceTab() {
   const drawTotalProfit = perDrawSafe.reduce((a, d) => a + financeOverviewNum(d.platformFee), 0);
   const drawAvgProfit = perDrawSafe.length > 0 ? drawTotalProfit / perDrawSafe.length : 0;
 
+  const [revView, setRevView] = useState<"real" | "bot" | "combined">("real");
+  const [revLoading, setRevLoading] = useState(false);
+  const [rev, setRev] = useState<any>(null);
+  const [revErr, setRevErr] = useState<string | null>(null);
+
+  const loadRevenue = useCallback(async () => {
+    setRevLoading(true);
+    setRevErr(null);
+    try {
+      const res = await fetch(apiUrl(`/api/admin/analytics/revenue?view=${encodeURIComponent(revView)}`), {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      setRev(await res.json());
+    } catch (e: any) {
+      setRevErr(e?.message ?? "Failed to load revenue analytics");
+    } finally {
+      setRevLoading(false);
+    }
+  }, [revView]);
+
+  useEffect(() => {
+    void loadRevenue();
+  }, [loadRevenue]);
+
+  const activeRev = (rev?.active ?? null) as { bets: number; wins: number; profit: number } | null;
+
   return (
     <div className="space-y-6 mt-4">
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -993,6 +1020,66 @@ function FinanceTab() {
           </Card>
         ))}
       </div>
+
+      <Card className="border-border/60">
+        <CardHeader className="pb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-sm">Game revenue analytics (admin-only)</CardTitle>
+              <p className="text-xs text-muted-foreground font-normal">{rev?.note ?? "Bot activity is simulated and not included in actual profit."}</p>
+            </div>
+            <div className="inline-flex items-center rounded-xl border border-border/60 bg-muted/30 p-1">
+              {(["real", "bot", "combined"] as const).map((k) => (
+                <Button
+                  key={k}
+                  type="button"
+                  variant={revView === k ? "default" : "ghost"}
+                  size="sm"
+                  className={cn("h-8 px-3 text-xs", revView === k ? "" : "text-muted-foreground")}
+                  onClick={() => setRevView(k)}
+                >
+                  {k === "real" ? "Real Data" : k === "bot" ? "Bot Data" : "Combined"}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 pt-2">
+          {revLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : revErr ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-red-500">{revErr}</p>
+              <Button type="button" size="sm" variant="outline" onClick={() => void loadRevenue()}>
+                Retry
+              </Button>
+            </div>
+          ) : !activeRev ? (
+            <p className="text-sm text-muted-foreground">No data</p>
+          ) : (
+            <div className="grid sm:grid-cols-3 gap-3">
+              <Card className="border-border/60">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Total bets</p>
+                  <UsdtAmount amount={activeRev.bets} amountClassName="text-lg font-bold mt-1" />
+                </CardContent>
+              </Card>
+              <Card className="border-border/60">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Total wins</p>
+                  <UsdtAmount amount={activeRev.wins} amountClassName="text-lg font-bold mt-1" />
+                </CardContent>
+              </Card>
+              <Card className="border-emerald-500/30 bg-emerald-950/10">
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Profit (bets − wins)</p>
+                  <UsdtAmount amount={activeRev.profit} amountClassName="text-lg font-bold mt-1 text-emerald-500" />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
