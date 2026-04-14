@@ -22,9 +22,10 @@ export async function arcadePlay(
   gameType: "spin_wheel" | "risk_wheel" | "mystery_box" | "scratch_card" | "lucky_numbers",
   betAmount: number,
   luckyNumbers?: [number, number, number],
+  idempotencyKey?: string,
 ): Promise<ArcadePlayResult> {
   try {
-    const r = await postPlay(gameType, betAmount, idem(), luckyNumbers);
+    const r = await postPlay(gameType, betAmount, idempotencyKey ?? idem(), luckyNumbers);
     return {
       success: true,
       resultType: r.resultType,

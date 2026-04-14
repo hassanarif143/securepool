@@ -218,7 +218,7 @@ router.post("/treasure-hunt/start", miniGamesMutationLimiter, idempotencyGuard, 
   }
 });
 
-router.post("/treasure-hunt/pick", miniGamesMutationLimiter, async (req, res) => {
+router.post("/treasure-hunt/pick", miniGamesMutationLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;
@@ -236,7 +236,7 @@ router.post("/treasure-hunt/pick", miniGamesMutationLimiter, async (req, res) =>
   }
 });
 
-router.post("/treasure-hunt/cashout", miniGamesMutationLimiter, async (req, res) => {
+router.post("/treasure-hunt/cashout", miniGamesMutationLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;
@@ -283,7 +283,7 @@ router.post("/hilo/start", miniGamesMutationLimiter, idempotencyGuard, async (re
   }
 });
 
-router.post("/hilo/guess", miniGamesMutationLimiter, async (req, res) => {
+router.post("/hilo/guess", miniGamesMutationLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;
@@ -303,7 +303,7 @@ router.post("/hilo/guess", miniGamesMutationLimiter, async (req, res) => {
   }
 });
 
-router.post("/hilo/cashout", miniGamesMutationLimiter, async (req, res) => {
+router.post("/hilo/cashout", miniGamesMutationLimiter, idempotencyGuard, async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!(await assertEmailVerified(res, userId))) return;

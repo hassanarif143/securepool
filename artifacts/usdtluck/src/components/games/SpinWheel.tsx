@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useGameActionGate } from "@/hooks/useGameActionGate";
 import { postAnimationSuspenseMs } from "@/lib/games-ui";
 import { arcadePlay, type ArcadePlaySuccess } from "@/lib/games-play-ui";
 import { fireConfetti } from "./confetti";
 import { useSound } from "@/hooks/useSound";
 import { WinCeremony, type WinCeremonyType } from "@/components/game/WinCeremony";
+import { clearGameState, loadGameState, markSessionRestoredOnce, saveGameState } from "@/lib/session-resume";
+import { toast } from "@/hooks/use-toast";
+import { idem } from "@/lib/games-api";
 
 export type SpinWheelProps = {
   balance: number;
@@ -63,6 +66,7 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
   const [landing, setLanding] = useState(false);
   const [pendingRound, setPendingRound] = useState<ArcadePlaySuccess | null>(null);
   const [currentBet, setCurrentBet] = useState(allowedBets[0] ?? 1);
+  const pendingIdemRef = useRef<string | null>(null);
   const transitionMs = 5200;
   const spinRafRef = useRef<number | null>(null);
   const landingRafRef = useRef<number | null>(null);
@@ -76,6 +80,116 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
   useEffect(() => {
     setCurrentBet((prev) => (allowedBets.includes(prev) ? prev : allowedBets[0] ?? 1));
   }, [allowedBets]);
+
+  useLayoutEffect(() => {
+    const saved = loadGameState("spin");
+    if (!saved) return;
+    if (typeof saved.bet === "number") setCurrentBet(saved.bet);
+    if (saved.pending?.idempotencyKey) pendingIdemRef.current = saved.pending.idempotencyKey;
+    if (saved.result) {
+      const pr: ArcadePlaySuccess = {
+        success: true,
+        resultType: saved.result.resultType,
+        multiplier: saved.result.multiplier,
+        winAmount: saved.result.winAmount,
+        newBalance: saved.result.newBalance,
+        riskWheel: saved.result.riskWheel as any,
+      };
+      setPendingRound(null);
+      setAutoSpinning(false);
+      setLanding(false);
+      const nm =
+        (pr.riskWheel as any)?.nearMiss && pr.resultType === "loss" ? `So close! One slot from ${(pr.riskWheel as any).nearMissLabel}!` : undefined;
+      const cType: WinCeremonyType =
+        pr.resultType === "big_win" ? "jackpot" : pr.resultType === "small_win" ? "small-win" : nm ? "near-miss" : "loss";
+      setCeremony({ type: cType, amount: pr.winAmount, mult: pr.multiplier, near: nm });
+      if (pr.resultType === "big_win") {
+        setResult({
+          type: "bigwin",
+          emoji: "🏆",
+          text: "JACKPOT!",
+          amount: `+${pr.winAmount.toFixed(2)} USDT`,
+          amountClass: "text-[#FFD700] drop-shadow-[0_0_20px_rgba(255,215,0,0.4)]",
+          nearMiss: nm,
+        });
+      } else if (pr.resultType === "small_win") {
+        setResult({
+          type: "win",
+          emoji: "✨",
+          text: "Nice Win!",
+          amount: `+${pr.winAmount.toFixed(2)} USDT`,
+          amountClass: "text-[#00E5CC] drop-shadow-[0_0_15px_rgba(0,229,204,0.3)]",
+          nearMiss: nm,
+        });
+      } else {
+        setResult({
+          type: "loss",
+          emoji: "😔",
+          text: "Try Again",
+          amount: `-${pr.multiplier > 0 ? pr.winAmount.toFixed(2) : (saved.bet ?? currentBet).toFixed(2)} USDT`,
+          amountClass: "text-[#FF4757]",
+          nearMiss: nm,
+        });
+      }
+      onBalanceUpdate(pr.newBalance);
+      onPlayComplete?.();
+      if (markSessionRestoredOnce()) toast({ title: "Session Restored", description: "Your last game result was restored." });
+      clearGameState("spin");
+    } else if (saved.pending?.idempotencyKey && saved.pending.bet) {
+      // Replay server-decided result using same idempotency key (no double debit).
+      const k = saved.pending.idempotencyKey;
+      void (async () => {
+        const response = await arcadePlay("spin_wheel", saved.pending!.bet, undefined, k);
+        if (response.success) {
+          const pr: ArcadePlaySuccess = response as any;
+          setPendingRound(null);
+          setAutoSpinning(false);
+          setLanding(false);
+          const nm =
+            (pr.riskWheel as any)?.nearMiss && pr.resultType === "loss"
+              ? `So close! One slot from ${(pr.riskWheel as any).nearMissLabel}!`
+              : undefined;
+          const cType: WinCeremonyType =
+            pr.resultType === "big_win" ? "jackpot" : pr.resultType === "small_win" ? "small-win" : nm ? "near-miss" : "loss";
+          setCeremony({ type: cType, amount: pr.winAmount, mult: pr.multiplier, near: nm });
+          if (pr.resultType === "big_win") {
+            setResult({
+              type: "bigwin",
+              emoji: "🏆",
+              text: "JACKPOT!",
+              amount: `+${pr.winAmount.toFixed(2)} USDT`,
+              amountClass: "text-[#FFD700] drop-shadow-[0_0_20px_rgba(255,215,0,0.4)]",
+              nearMiss: nm,
+            });
+          } else if (pr.resultType === "small_win") {
+            setResult({
+              type: "win",
+              emoji: "✨",
+              text: "Nice Win!",
+              amount: `+${pr.winAmount.toFixed(2)} USDT`,
+              amountClass: "text-[#00E5CC] drop-shadow-[0_0_15px_rgba(0,229,204,0.3)]",
+              nearMiss: nm,
+            });
+          } else {
+            setResult({
+              type: "loss",
+              emoji: "😔",
+              text: "Try Again",
+              amount: `-${saved.pending!.bet.toFixed(2)} USDT`,
+              amountClass: "text-[#FF4757]",
+              nearMiss: nm,
+            });
+          }
+          onBalanceUpdate(pr.newBalance);
+          onPlayComplete?.();
+          if (markSessionRestoredOnce()) toast({ title: "Session Restored", description: "Your last game result was restored." });
+          clearGameState("spin");
+        } else {
+          clearGameState("spin");
+        }
+      })();
+    }
+  }, []);
 
   const [result, setResult] = useState<{
     type: "bigwin" | "win" | "loss";
@@ -94,13 +208,28 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
     if (busy || balance < currentBet || !gate.tryEnter()) return;
     setResult(null);
     play("tap");
-    const response = await arcadePlay("spin_wheel", currentBet);
+    const idemKey = pendingIdemRef.current ?? idem();
+    pendingIdemRef.current = idemKey;
+    saveGameState("spin", { bet: currentBet, status: "playing", pending: { idempotencyKey: idemKey, bet: currentBet } });
+    const response = await arcadePlay("spin_wheel", currentBet, undefined, idemKey);
     if (!response.success) {
       gate.exit();
+      clearGameState("spin");
       window.alert(response.error || "Something went wrong");
       return;
     }
     setPendingRound(response);
+    saveGameState("spin", {
+      bet: currentBet,
+      status: "result",
+      result: {
+        resultType: response.resultType,
+        multiplier: response.multiplier,
+        winAmount: response.winAmount,
+        newBalance: response.newBalance,
+        riskWheel: response.riskWheel,
+      },
+    });
     setAutoSpinning(true);
     play("spin-start");
   }, [busy, balance, currentBet, gate]);
@@ -209,6 +338,7 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
       gate.exit();
       onBalanceUpdate(pr.newBalance);
       onPlayComplete?.();
+      clearGameState("spin");
 
       const nm =
         pr.riskWheel?.nearMiss && pr.resultType === "loss"

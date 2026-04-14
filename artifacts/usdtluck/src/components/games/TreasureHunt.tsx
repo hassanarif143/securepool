@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useGameActionGate } from "@/hooks/useGameActionGate";
 import { idem, postTreasureCashout, postTreasurePick, postTreasureStart } from "@/lib/games-api";
@@ -6,6 +6,8 @@ import { fireConfetti } from "./confetti";
 import { useSound } from "@/hooks/useSound";
 import { WinCeremony, type WinCeremonyType } from "@/components/game/WinCeremony";
 import { cn } from "@/lib/utils";
+import { clearGameState, loadGameState, markSessionRestoredOnce, saveGameState } from "@/lib/session-resume";
+import { toast } from "@/hooks/use-toast";
 
 export type TreasureHuntProps = {
   balance: number;
@@ -51,6 +53,38 @@ export default function TreasureHunt({ balance, allowedBets, onBalanceUpdate, on
     setCurrentBet((prev) => (allowedBets.includes(prev) ? prev : allowedBets[0] ?? 1));
   }, [allowedBets]);
 
+  useLayoutEffect(() => {
+    const saved = loadGameState("box");
+    if (!saved) return;
+    if (typeof saved.bet === "number") setCurrentBet(saved.bet);
+    if (saved.status === "playing" && saved.gameId) {
+      setGameId(saved.gameId);
+      setPhase("playing");
+      setAcc(saved.acc ?? 0);
+      setPotential(saved.potential ?? 0);
+      if (saved.boxes && Array.isArray(saved.boxes) && saved.boxes.length === 5) setBoxes(saved.boxes as any);
+      if (saved.order && Array.isArray(saved.order) && saved.order.length === 5) setOrder(saved.order);
+      setMsg("Session restored — continue picking.");
+      if (markSessionRestoredOnce()) toast({ title: "Session Restored", description: "Treasure Hunt was restored." });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (phase === "lobby") {
+      clearGameState("box");
+      return;
+    }
+    saveGameState("box", {
+      bet: currentBet,
+      status: phase,
+      gameId,
+      acc,
+      potential,
+      boxes,
+      order,
+    });
+  }, [phase, currentBet, gameId, acc, potential, boxes, order]);
+
   const goLobby = useCallback(() => {
     stop("suspense");
     setPhase("lobby");
@@ -62,6 +96,7 @@ export default function TreasureHunt({ balance, allowedBets, onBalanceUpdate, on
     setAcc(0);
     setPotential(0);
     setMsg(null);
+    clearGameState("box");
   }, []);
 
   const start = useCallback(async () => {
@@ -167,6 +202,7 @@ export default function TreasureHunt({ balance, allowedBets, onBalanceUpdate, on
       onBalanceUpdate((r.newBalance as number) ?? balance);
       onPlayComplete?.();
       goLobby();
+      clearGameState("box");
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Cashout failed");
     } finally {

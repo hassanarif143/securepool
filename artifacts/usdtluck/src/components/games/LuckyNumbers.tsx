@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useGameActionGate } from "@/hooks/useGameActionGate";
 import { arcadePlay } from "@/lib/games-play-ui";
@@ -6,6 +6,9 @@ import { fireConfetti } from "./confetti";
 import { useSound } from "@/hooks/useSound";
 import { WinCeremony, type WinCeremonyType } from "@/components/game/WinCeremony";
 import { cn } from "@/lib/utils";
+import { clearGameState, loadGameState, markSessionRestoredOnce, saveGameState } from "@/lib/session-resume";
+import { toast } from "@/hooks/use-toast";
+import { idem } from "@/lib/games-api";
 
 export type LuckyNumbersProps = {
   balance: number;
@@ -25,12 +28,77 @@ export default function LuckyNumbers({ balance, allowedBets, onBalanceUpdate, on
   const [busy, setBusy] = useState(false);
   const [ceremony, setCeremony] = useState<null | { type: WinCeremonyType; amount: number; mult: number; near?: string }>(null);
   const ticketId = useMemo(() => `SP-${String(Math.floor(10_000 + Math.random() * 89_999))}`, []);
+  const [pendingIdemKey, setPendingIdemKey] = useState<string | null>(null);
 
   const bets = [1, 2, 5].filter((b) => allowedBets.includes(b));
 
   useEffect(() => {
     setCurrentBet((prev) => (allowedBets.includes(prev) ? prev : allowedBets[0] ?? 1));
   }, [allowedBets]);
+
+  useLayoutEffect(() => {
+    const saved = loadGameState("scratch");
+    if (!saved) return;
+    if (typeof saved.bet === "number") setCurrentBet(saved.bet);
+    setPicked(Array.isArray(saved.picked) ? saved.picked : []);
+    setPhase(saved.status === "done" ? "done" : saved.status === "draw" ? "draw" : "pick");
+    if (saved.result && saved.result.luckyNumbers && (saved.result.luckyNumbers as any).winningNumbers) {
+      const w = ((saved.result.luckyNumbers as any).winningNumbers as number[]) ?? [];
+      setWinning(w);
+      const mc = ((saved.result.luckyNumbers as any).matchCount as number) ?? 0;
+      setSummary(
+        mc === 3 ? "JACKPOT! All 3 match — 10×" : mc === 2 ? "2 matches — 3×" : mc === 1 ? "1 match — 1.5×" : "No match — try again",
+      );
+      const cType: WinCeremonyType = mc === 3 ? "jackpot" : mc >= 2 ? "big-win" : mc === 1 ? "small-win" : "loss";
+      setCeremony({
+        type: cType,
+        amount: saved.result.winAmount,
+        mult: saved.result.multiplier,
+        near: mc === 2 ? "So close to 10× — one more match!" : mc === 0 ? "Pick 3 numbers — next one could hit." : undefined,
+      });
+      onBalanceUpdate(saved.result.newBalance);
+      onPlayComplete?.();
+      if (markSessionRestoredOnce()) toast({ title: "Session Restored", description: "Your last ticket was restored." });
+      clearGameState("scratch");
+    } else if (saved.pending?.idempotencyKey && saved.pending.luckyNumbers) {
+      setPendingIdemKey(saved.pending.idempotencyKey);
+      const k = saved.pending.idempotencyKey;
+      const nums = saved.pending.luckyNumbers;
+      void (async () => {
+        const response = await arcadePlay("lucky_numbers", saved.pending!.bet, nums, k);
+        if (!response.success) return clearGameState("scratch");
+        saveGameState("scratch", {
+          bet: saved.pending!.bet,
+          status: "done",
+          picked: [...nums],
+          result: {
+            multiplier: response.multiplier,
+            winAmount: response.winAmount,
+            newBalance: response.newBalance,
+            luckyNumbers: response.luckyNumbers,
+          },
+        });
+        const w = response.luckyNumbers?.winningNumbers ?? [];
+        setWinning(w);
+        setPhase("done");
+        const mc = response.luckyNumbers?.matchCount ?? 0;
+        setSummary(
+          mc === 3 ? "JACKPOT! All 3 match — 10×" : mc === 2 ? "2 matches — 3×" : mc === 1 ? "1 match — 1.5×" : "No match — try again",
+        );
+        const cType: WinCeremonyType = mc === 3 ? "jackpot" : mc >= 2 ? "big-win" : mc === 1 ? "small-win" : "loss";
+        setCeremony({
+          type: cType,
+          amount: response.winAmount,
+          mult: response.multiplier,
+          near: mc === 2 ? "So close to 10× — one more match!" : mc === 0 ? "Pick 3 numbers — next one could hit." : undefined,
+        });
+        onBalanceUpdate(response.newBalance);
+        onPlayComplete?.();
+        if (markSessionRestoredOnce()) toast({ title: "Session Restored", description: "Your last ticket was restored." });
+        clearGameState("scratch");
+      })();
+    }
+  }, []);
 
   const toggle = (n: number) => {
     if (phase !== "pick" || busy) return;
@@ -48,10 +116,14 @@ export default function LuckyNumbers({ balance, allowedBets, onBalanceUpdate, on
     play("tap");
     play("dice-roll", { intensity: 0.6 });
     const nums = picked as [number, number, number];
-    const response = await arcadePlay("lucky_numbers", currentBet, nums);
+    const key = pendingIdemKey ?? idem();
+    setPendingIdemKey(key);
+    saveGameState("scratch", { bet: currentBet, status: "draw", picked: [...nums], pending: { idempotencyKey: key, bet: currentBet, luckyNumbers: nums } });
+    const response = await arcadePlay("lucky_numbers", currentBet, nums, key);
     if (!response.success) {
       setBusy(false);
       gate.exit();
+      clearGameState("scratch");
       window.alert(response.error || "Failed");
       return;
     }
@@ -86,9 +158,15 @@ export default function LuckyNumbers({ balance, allowedBets, onBalanceUpdate, on
     play(cType === "jackpot" ? "win-big" : cType === "big-win" ? "win-medium" : cType === "small-win" ? "win-small" : "lose");
     onBalanceUpdate(response.newBalance);
     onPlayComplete?.();
+    saveGameState("scratch", {
+      bet: currentBet,
+      status: "done",
+      picked: [...nums],
+      result: { multiplier: response.multiplier, winAmount: response.winAmount, newBalance: response.newBalance, luckyNumbers: response.luckyNumbers },
+    });
     setBusy(false);
     gate.exit();
-  }, [picked, balance, currentBet, busy, gate, onBalanceUpdate, onPlayComplete]);
+  }, [picked, balance, currentBet, busy, gate, onBalanceUpdate, onPlayComplete, pendingIdemKey]);
 
   const reset = () => {
     play("tap");
@@ -96,6 +174,8 @@ export default function LuckyNumbers({ balance, allowedBets, onBalanceUpdate, on
     setPhase("pick");
     setWinning(null);
     setSummary(null);
+    setPendingIdemKey(null);
+    clearGameState("scratch");
   };
 
   const winningFull = winning ?? [];

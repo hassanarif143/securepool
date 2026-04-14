@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { idem, postHiloCashout, postHiloGuess, postHiloStart } from "@/lib/games-api";
 import { useSound } from "@/hooks/useSound";
 import { WinCeremony, type WinCeremonyType } from "@/components/game/WinCeremony";
 import { cn } from "@/lib/utils";
+import { clearGameState, loadGameState, markSessionRestoredOnce, saveGameState } from "@/lib/session-resume";
+import { toast } from "@/hooks/use-toast";
 
 export type HiLoCardsProps = {
   balance: number;
@@ -42,6 +44,37 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
 
   const bets = [1, 2, 5].filter((b) => allowedBets.includes(b));
   const meta = useMemo(() => cardMeta(cardName), [cardName]);
+
+  useLayoutEffect(() => {
+    const saved = loadGameState("hilo");
+    if (!saved) return;
+    if (typeof saved.bet === "number") setBet(saved.bet);
+    if (saved.status === "playing" && saved.gameId) {
+      setGameId(saved.gameId);
+      setCardName((saved.currentCard as any) ?? null);
+      setMult(saved.currentMultiplier ?? 1);
+      setPot(saved.potentialWin ?? 0);
+      setCards(Array.isArray(saved.cards) ? (saved.cards as any) : []);
+      setFaceDown(false);
+      if (markSessionRestoredOnce()) toast({ title: "Session Restored", description: "Hi‑Lo session restored." });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!gameId) {
+      clearGameState("hilo");
+      return;
+    }
+    saveGameState("hilo", {
+      bet,
+      status: "playing",
+      gameId,
+      currentMultiplier: mult,
+      potentialWin: pot,
+      cards: cards as any,
+      currentCard: cardName as any,
+    });
+  }, [bet, gameId, mult, pot, cards, cardName]);
 
   const deal = useCallback(async () => {
     if (busy || balance < bet) return;
@@ -97,6 +130,7 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
           window.setTimeout(() => setFaceDown(false), 120);
           onBalanceUpdate((r.newBalance as number) ?? balance);
           onPlayComplete?.();
+          clearGameState("hilo");
         } else if (r.cashedOut) {
           const winAmt = (r.winAmount as number) ?? pot;
           const m = (r.multiplier as number) ?? mult;
@@ -108,6 +142,7 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
           window.setTimeout(() => setFaceDown(false), 120);
           onBalanceUpdate((r.newBalance as number) ?? balance);
           onPlayComplete?.();
+          clearGameState("hilo");
         } else {
           setCardName((r.cardName as string) ?? "?");
           setMult((r.currentMultiplier as number) ?? 1);
@@ -133,7 +168,7 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
     setBusy(true);
     play("tap");
     try {
-      const r = await postHiloCashout(gameId);
+      const r = await postHiloCashout(gameId, idem());
       const winAmt = (r.winAmount as number) ?? pot;
       const m = (r.multiplier as number) ?? mult;
       const cType: WinCeremonyType = m >= 3 ? "big-win" : "small-win";
@@ -144,6 +179,7 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
       setFaceDown(false);
       onBalanceUpdate((r.newBalance as number) ?? balance);
       onPlayComplete?.();
+      clearGameState("hilo");
     } catch (e) {
       window.alert(e instanceof Error ? e.message : "Cashout failed");
     } finally {

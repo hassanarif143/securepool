@@ -144,23 +144,23 @@ export async function postTreasureStart(betAmount: number, idempotencyKey: strin
   return readGamesJson(res);
 }
 
-export async function postTreasurePick(gameId: number, boxIndex: number): Promise<Record<string, unknown>> {
+export async function postTreasurePick(gameId: number, boxIndex: number, idempotencyKey?: string): Promise<Record<string, unknown>> {
   const csrf = await csrfHeaders();
   const res = await gamesFetch(apiUrl("/api/games/treasure-hunt/pick"), {
     method: "POST",
     credentials: "include",
-    headers: { ...csrf, "Content-Type": "application/json" },
+    headers: { ...csrf, "Content-Type": "application/json", ...(idempotencyKey ? { "x-idempotency-key": idempotencyKey } : {}) },
     body: JSON.stringify({ gameId, boxIndex }),
   });
   return readGamesJson(res);
 }
 
-export async function postTreasureCashout(gameId: number): Promise<Record<string, unknown>> {
+export async function postTreasureCashout(gameId: number, idempotencyKey?: string): Promise<Record<string, unknown>> {
   const csrf = await csrfHeaders();
   const res = await gamesFetch(apiUrl("/api/games/treasure-hunt/cashout"), {
     method: "POST",
     credentials: "include",
-    headers: { ...csrf, "Content-Type": "application/json" },
+    headers: { ...csrf, "Content-Type": "application/json", ...(idempotencyKey ? { "x-idempotency-key": idempotencyKey } : {}) },
     body: JSON.stringify({ gameId }),
   });
   return readGamesJson(res);
@@ -177,23 +177,23 @@ export async function postHiloStart(betAmount: number, idempotencyKey: string): 
   return readGamesJson(res);
 }
 
-export async function postHiloGuess(gameId: number, guess: "higher" | "lower"): Promise<Record<string, unknown>> {
+export async function postHiloGuess(gameId: number, guess: "higher" | "lower", idempotencyKey?: string): Promise<Record<string, unknown>> {
   const csrf = await csrfHeaders();
   const res = await gamesFetch(apiUrl("/api/games/hilo/guess"), {
     method: "POST",
     credentials: "include",
-    headers: { ...csrf, "Content-Type": "application/json" },
+    headers: { ...csrf, "Content-Type": "application/json", ...(idempotencyKey ? { "x-idempotency-key": idempotencyKey } : {}) },
     body: JSON.stringify({ gameId, guess }),
   });
   return readGamesJson(res);
 }
 
-export async function postHiloCashout(gameId: number): Promise<Record<string, unknown>> {
+export async function postHiloCashout(gameId: number, idempotencyKey?: string): Promise<Record<string, unknown>> {
   const csrf = await csrfHeaders();
   const res = await gamesFetch(apiUrl("/api/games/hilo/cashout"), {
     method: "POST",
     credentials: "include",
-    headers: { ...csrf, "Content-Type": "application/json" },
+    headers: { ...csrf, "Content-Type": "application/json", ...(idempotencyKey ? { "x-idempotency-key": idempotencyKey } : {}) },
     body: JSON.stringify({ gameId }),
   });
   return readGamesJson(res);
