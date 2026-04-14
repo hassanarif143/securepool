@@ -23,7 +23,13 @@ app.disable("x-powered-by");
 
 // Fast liveness for Railway — no session, DB, or CSRF (must stay before heavy middleware).
 app.get("/health", (_req, res) => {
-  res.status(200).json({ status: "ok" });
+  const sha =
+    process.env.RAILWAY_GIT_COMMIT_SHA ||
+    process.env.GIT_COMMIT_SHA ||
+    process.env.GIT_SHA ||
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    null;
+  res.status(200).json({ status: "ok", sha, now: new Date().toISOString() });
 });
 
 app.use(
