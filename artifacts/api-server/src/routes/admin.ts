@@ -3610,7 +3610,6 @@ router.post("/finance/reset-test-data", async (req, res) => {
              filled_at = NULL,
              draw_scheduled_at = NULL,
              draw_executed_at = NULL,
-             completed_at = NULL,
              selected_winner_user_ids = NULL
          WHERE status IN ('filled','drawing','completed','closed')`,
       );
