@@ -2105,8 +2105,10 @@ async function executePoolDistribution(
 
     const ticketsSold = ticketTotal > 0 ? ticketTotal : participants.length;
     const ticketPrice = entryFee;
-    const platformFee = simulatedOnlyPool ? 0 : settlementRemainder;
-    const profitMarginPercent = !simulatedOnlyPool && totalRevenue > 0 ? (platformFee / totalRevenue) * 100 : 0;
+    // For simulated-only pools, we still compute and store a "virtual" profit so finance testing works,
+    // but we never post it to the real platform fee ledger (see appendPlatformFeeForDraw below).
+    const platformFee = settlementRemainder;
+    const profitMarginPercent = totalRevenue > 0 ? (platformFee / totalRevenue) * 100 : 0;
 
     await tx.insert(poolDrawFinancialsTable).values({
       poolId,
