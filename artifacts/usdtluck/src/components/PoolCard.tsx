@@ -472,7 +472,7 @@ function PoolCardActions({
             variant="outline"
             className="w-full min-h-14 border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10 sp-watch-live"
           >
-            ▶︎ Watch Live
+            ▶︎ Live
           </Button>
         </Link>
         <style>{`
