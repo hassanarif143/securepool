@@ -2413,6 +2413,7 @@ async function pickAutoWinnerUserIds(
     .from(poolTicketsTable)
     .where(eq(poolTicketsTable.poolId, poolId));
   const allowMultiWin = Boolean(pool.allowMultiWin);
+  const uniqueTicketUsers = new Set(ticketRows.map((t) => t.userId)).size;
   let pickedIds = pickWeightedWinnersByTickets(
     ticketRows.map((t) => ({
       id: t.id,
@@ -2428,6 +2429,19 @@ async function pickAutoWinnerUserIds(
       .from(poolParticipantsTable)
       .where(eq(poolParticipantsTable.poolId, poolId));
     pickedIds = pickUniqueWinners(participants, winnerCount).map((p) => p.userId);
+  }
+  // Recovery: if a pool filled with fewer unique users than winnerCount, auto-fallback to multi-win.
+  // This prevents filled pools (especially bot/simulator filled) from getting stuck forever.
+  if (pickedIds.length !== winnerCount && uniqueTicketUsers > 0 && uniqueTicketUsers < winnerCount) {
+    pickedIds = pickWeightedWinnersByTickets(
+      ticketRows.map((t) => ({
+        id: t.id,
+        userId: t.userId,
+        weight: parseFloat(String(t.weight ?? "1")),
+      })),
+      winnerCount,
+      true,
+    ).map((t) => t.userId);
   }
   if (pickedIds.length !== winnerCount) {
     const e = new Error(`Pool requires ${winnerCount} winner(s), but only ${pickedIds.length} unique participant(s) found.`);
