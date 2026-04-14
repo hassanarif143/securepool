@@ -130,7 +130,7 @@ function NotificationBell() {
     <div ref={ref} className="relative">
       <button
         onClick={openDropdown}
-        className="relative h-9 w-9 grid place-items-center rounded-xl transition-all hover:bg-white/[0.05] focus:outline-none"
+        className="relative p-2 rounded-xl transition-all hover:bg-white/[0.05] focus:outline-none"
         aria-label="Notifications"
       >
         <svg className="w-4.5 h-4.5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -144,14 +144,7 @@ function NotificationBell() {
       </button>
 
       {open && (
-        <div
-          className={cn(
-            // Mobile: fixed, full-width sheet so it never overflows off-screen.
-            "fixed left-3 right-3 top-[calc(env(safe-area-inset-top,0px)+4.25rem)] z-50 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden",
-            // Desktop: anchored popover.
-            "md:absolute md:left-auto md:right-0 md:top-auto md:mt-2 md:w-80"
-          )}
-        >
+        <div className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] sm:w-80 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden z-50">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <p className="text-sm font-semibold">Notifications</p>
             <div className="flex items-center gap-2">
@@ -168,7 +161,7 @@ function NotificationBell() {
             </div>
           </div>
 
-          <div className="max-h-[min(70vh,28rem)] md:max-h-72 overflow-y-auto">
+          <div className="max-h-72 overflow-y-auto">
             {loading ? (
               <div className="p-6 text-center text-sm text-muted-foreground">Loading…</div>
             ) : notifs.length === 0 ? (
@@ -253,7 +246,7 @@ function WalletDropdown({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "h-9 inline-flex items-center gap-2 rounded-xl px-3 transition-all border border-primary/25 focus:outline-none hover:bg-primary/15",
+          "flex items-center gap-2 rounded-xl px-3 min-h-12 py-2 transition-all border border-primary/25 focus:outline-none hover:bg-primary/15",
           open ? "bg-primary/15 border-primary/40" : "bg-primary/10"
         )}
       >
@@ -342,7 +335,7 @@ function UserMenu({ user, logout }: { user: any; logout: () => void }) {
       <button
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "h-9 inline-flex items-center gap-2 rounded-xl px-2 transition-all focus:outline-none hover:bg-white/5 border",
+          "flex items-center gap-2 rounded-xl px-2 py-1.5 transition-all focus:outline-none hover:bg-white/5 border",
           open ? "border-primary/30" : "border-transparent"
         )}
       >
@@ -419,7 +412,7 @@ function MoreMenu({ links, location }: { links: { href: string; label: string; i
       <button
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "relative h-9 inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all",
+          "relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
           anyActive ? "text-primary bg-primary/10 border border-primary/20" : "text-muted-foreground hover:text-foreground"
         )}
       >
@@ -589,7 +582,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <Link key={link.href} href={link.href}>
                       <span
                         className={cn(
-                          "relative h-9 inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all cursor-pointer whitespace-nowrap",
+                          "relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer whitespace-nowrap",
                           active
                             ? "text-primary bg-primary/10 border border-primary/20"
                             : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
