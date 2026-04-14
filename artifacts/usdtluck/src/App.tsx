@@ -112,11 +112,23 @@ function RedirectToWalletTab({ tab }: { tab: "deposit" | "withdraw" | "history" 
 
 function RequireGuest({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
 
   useEffect(() => {
-    if (user) navigate("/dashboard");
-  }, [user, navigate]);
+    if (!user) return;
+    if (typeof window === "undefined") return;
+    const qs = location.includes("?") ? location.slice(location.indexOf("?") + 1) : "";
+    const nextParam = new URLSearchParams(qs).get("next");
+    const next = nextParam ? decodeURIComponent(nextParam) : null;
+    const saved = window.sessionStorage.getItem(LAST_ROUTE_KEY);
+    const target =
+      next && next.startsWith("/") && !next.startsWith("/login") && !next.startsWith("/signup")
+        ? next
+        : saved && saved.startsWith("/") && !saved.startsWith("/login") && !saved.startsWith("/signup") && saved !== "/"
+          ? saved
+          : "/dashboard";
+    navigate(target, { replace: true });
+  }, [user, navigate, location]);
 
   // Do not gate on isLoading: cross-origin /me can leave the login route blank while pending.
   if (user) return null;
@@ -130,7 +142,7 @@ function PersistAndRestoreRoute() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const isAuthPage = location.startsWith("/login") || location.startsWith("/signup");
-    if (!isAuthPage && location) {
+    if (!isAuthPage && location && location !== "/") {
       window.sessionStorage.setItem(LAST_ROUTE_KEY, location || "/dashboard");
     }
   }, [location, isLoading]);
