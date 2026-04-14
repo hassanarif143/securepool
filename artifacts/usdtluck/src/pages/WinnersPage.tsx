@@ -179,46 +179,38 @@ function WinnerRow({ winner }: { winner: any }) {
 
   return (
     <div
-      className="rounded-2xl border border-white/[0.08] bg-[rgba(15,20,40,0.55)] p-4 transition-transform sm:hover:-translate-y-0.5"
-      style={{ backdropFilter: "blur(12px)" }}
+      className="flex items-center gap-4 p-4 rounded-xl transition-all hover:bg-white/[0.03] group"
+      style={{ border: `1px solid hsla(217,28%,16%,0.8)` }}
     >
-      <div className="flex items-start gap-3">
-        <div className="w-9 shrink-0 pt-0.5 text-center text-xl" aria-hidden>
-          {meta.rank}
+      {/* Rank number */}
+      <div className="w-8 text-center shrink-0">
+        <span className="text-lg">{meta.rank}</span>
+      </div>
+
+      {/* Avatar */}
+      <div
+        className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+        style={{ background: meta.bg, border: `1px solid ${meta.border}` }}
+      >
+        <span className={meta.prizeColor}>{getInitial(winner.userName)}</span>
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-semibold text-sm">{winner.userName}</span>
+          <Badge className={`text-[10px] py-0 ${meta.badge}`}>{meta.label}</Badge>
         </div>
+        <p className="text-xs text-muted-foreground truncate mt-0.5">{winner.poolTitle}</p>
+        <p className="text-[10px] text-muted-foreground">
+          Ticket IDs: {(winner.winnerTicketNumbers ?? []).slice(0, 6).join(", ") || "N/A"}
+        </p>
+      </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="font-semibold text-[15px] leading-tight text-white truncate">{winner.userName}</p>
-              <p className="mt-1 text-[13px] text-[#9e9e9e] truncate">
-                <span className="text-cyan-200/90 font-semibold">on</span>{" "}
-                <span className="text-[#00D4FF] font-semibold">{winner.poolTitle}</span>
-                {winner.poolId ? <span className="text-[#64748b]">{` · #${winner.poolId}`}</span> : null}
-              </p>
-            </div>
-
-            <div className="text-right shrink-0">
-              <UsdtAmount
-                amount={Number(winner.prize)}
-                prefix="+"
-                amountClassName={`font-extrabold text-[18px] ${meta.prizeColor} tracking-tight`}
-                currencyClassName="text-[12px] text-[#9e9e9e]"
-              />
-              <div className="mt-2 flex items-center justify-end gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/18 px-2.5 py-1 text-[12px] font-semibold text-emerald-100 border border-emerald-500/25">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
-                  Verified
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 flex items-center justify-between gap-3 text-[12px] text-[#9e9e9e]">
-            <Badge className={`text-[12px] py-0.5 ${meta.badge}`}>{meta.label}</Badge>
-            <span className="tabular-nums">{timeAgo(winner.awardedAt)}</span>
-          </div>
-        </div>
+      {/* Prize + time */}
+      <div className="text-right shrink-0">
+        <UsdtAmount amount={Number(winner.prize)} prefix="+" amountClassName={`font-bold text-base ${meta.prizeColor}`} currencyClassName="text-[10px] text-[#64748b]" />
+        <p className="text-[11px] text-muted-foreground">{timeAgo(winner.awardedAt)}</p>
       </div>
     </div>
   );
@@ -267,8 +259,6 @@ export default function WinnersPage() {
   /* Grab the most recent top-3 for the podium */
   const latestRound = winnersList.slice(0, 3).sort((a: any, b: any) => a.place - b.place);
   const hasLatestRound = latestRound.length > 0;
-  const latestPoolMembers =
-    Number(latestRound[0]?.poolSoldTickets ?? latestRound[0]?.poolCurrentMembers ?? latestRound[0]?.poolMaxUsers ?? 0) || 0;
 
   /* All winners for the feed below */
   const feedWinners = winnersList;
@@ -427,10 +417,7 @@ export default function WinnersPage() {
         <div className="pt-2">
           <div className="sp-podium-wrap">
             <p className="sp-podium-label">LATEST ROUND</p>
-            <div className="sp-pool-tag">
-              {latestRoundPoolTag(latestRound)}
-              {latestRound[0]?.poolId ? ` · #${latestRound[0].poolId}` : ""}
-            </div>
+            <div className="sp-pool-tag">{latestRoundPoolTag(latestRound)}</div>
 
             <div className="sp-podium-row" aria-label="Latest round winners podium">
               {latestRound[1] ? <PodiumWinnerCard winner={latestRound[1]} place={2} /> : null}
@@ -455,7 +442,9 @@ export default function WinnersPage() {
               </div>
               <div className="sp-summary-row">
                 <span className="sp-summary-k">Players</span>
-                <span className="sp-summary-v">{latestPoolMembers > 0 ? `${latestPoolMembers} participants` : "—"}</span>
+                <span className="sp-summary-v">
+                  {`${Math.max(0, Number(latestRound[0]?.winnerTicketCount ?? 0))} participants`}
+                </span>
               </div>
               <div className="sp-summary-row">
                 <span className="sp-summary-k">Draw method</span>
