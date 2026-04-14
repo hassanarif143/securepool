@@ -175,11 +175,11 @@ export default function LandingPage() {
 
   return (
     <div
-      className="landing-root min-w-0 text-[#f0f0f0]"
+      className="landing-root -mx-4 min-w-0 rounded-xl px-4 pb-8 text-[#f0f0f0] sm:-mx-6 sm:px-6 sm:pb-12 lg:-mx-8 lg:px-8"
       style={{ backgroundColor: BRAND_BG }}
     >
       {/* Hero */}
-      <section className="relative overflow-hidden pb-10 pt-2 sm:pb-16 sm:pt-4">
+      <section className="relative overflow-hidden pb-12 pt-2 sm:pb-16 sm:pt-4">
         <div
           className="pointer-events-none absolute left-1/2 top-24 h-[420px] w-[420px] -translate-x-1/2 rounded-full opacity-[0.06]"
           style={{
@@ -187,7 +187,7 @@ export default function LandingPage() {
           }}
           aria-hidden
         />
-        <div className="sp-page relative mx-auto max-w-[900px] text-center min-h-[100svh] flex flex-col justify-center">
+        <div className="relative mx-auto max-w-[900px] text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300">
             <span className="landing-live-dot relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -213,11 +213,11 @@ export default function LandingPage() {
             Winners picked automatically — 100% fair & verifiable.
           </p>
 
-          <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link href="/pools" className="w-full max-w-sm sm:w-auto">
               <Button
                 size="lg"
-                className="landing-mono min-h-14 w-full rounded-[14px] bg-gradient-to-r from-emerald-500 to-green-600 px-6 text-base font-bold text-white shadow-lg hover:from-emerald-400 hover:to-green-500 sm:min-w-[280px]"
+                className="landing-mono h-14 w-full rounded-[14px] bg-gradient-to-r from-emerald-500 to-green-600 px-10 text-base font-bold text-white shadow-lg hover:from-emerald-400 hover:to-green-500 sm:min-w-[280px]"
                 style={{
                   boxShadow: "0 4px 24px rgba(34,197,94,0.25)",
                   animation: "landing-cta-glow 3s ease-in-out infinite",
@@ -249,12 +249,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <MarketingMotionSection id="how-it-works" className="py-12 sm:py-16">
+      <MarketingMotionSection id="how-it-works" className="py-16">
         <HowItWorksFourSteps />
       </MarketingMotionSection>
 
-      <MarketingMotionSection id="trust-proof" className="rounded-2xl py-12 sm:py-16 sm:px-2" style={{ backgroundColor: SURFACE }}>
-        <div ref={trustInView.ref} className="sp-page mx-auto max-w-[900px]">
+      <MarketingMotionSection id="trust-proof" className="rounded-2xl py-16 sm:px-2" style={{ backgroundColor: SURFACE }}>
+        <div ref={trustInView.ref} className="mx-auto max-w-[900px]">
           <p className="landing-verified-label text-center text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400">
             Verified Results
           </p>

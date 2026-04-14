@@ -477,13 +477,6 @@
   }
 }
 
-/* Avoid heavy marquee effects on low-end mobile */
-@media (max-width: 640px) {
-  .landing-winners-marquee {
-    animation-duration: 75s;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .landing-winners-marquee {
     animation: none;
