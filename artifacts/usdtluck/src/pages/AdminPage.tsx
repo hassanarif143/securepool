@@ -31,6 +31,7 @@ import { appToast } from "@/components/feedback/AppToast";
 import { useQueryClient } from "@tanstack/react-query";
 import { CelebrationModal } from "@/components/CelebrationModal";
 import { poolPaidPrizeTotal, poolWinnerCount } from "@/lib/pool-winners";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -148,12 +149,49 @@ function SimulatorTab() {
   const [botCount, setBotCount] = useState(5);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [mode, setMode] = useState<"bots" | "select" | "auto">("bots");
+  const [userQuery, setUserQuery] = useState("");
+  const [userRows, setUserRows] = useState<Array<{ id: number; name: string; isBot: boolean; region: string | null }>>([]);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [actions, setActions] = useState<any[]>([]);
 
   useEffect(() => {
     if (!poolId && openPools.length > 0) setPoolId(Number(openPools[0]?.id ?? 0));
   }, [openPools.length]);
 
-  async function fill(mode: "bots" | "auto") {
+  const loadActions = useCallback(async () => {
+    try {
+      const res = await fetch(apiUrl("/api/admin/simulator/actions?limit=15"), { credentials: "include" });
+      if (!res.ok) return;
+      setActions(await res.json());
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadActions();
+  }, [loadActions]);
+
+  useEffect(() => {
+    if (mode !== "select") return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(apiUrl(`/api/admin/simulator/users?q=${encodeURIComponent(userQuery)}`), { credentials: "include" });
+        if (!res.ok) return;
+        const j = (await res.json()) as Array<{ id: number; name: string; isBot: boolean; region: string | null }>;
+        if (!cancelled) setUserRows(j);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, userQuery]);
+
+  async function runFill(nextMode: "bots" | "select" | "auto") {
     if (!poolId) return;
     setLoading(true);
     setResult(null);
@@ -164,8 +202,9 @@ function SimulatorTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           poolId,
-          mode,
-          botCount: mode === "bots" ? Math.max(1, Math.min(200, botCount)) : undefined,
+          mode: nextMode,
+          botCount: nextMode === "bots" ? Math.max(1, Math.min(200, botCount)) : undefined,
+          userIds: nextMode === "select" ? selectedIds : undefined,
         }),
       });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
@@ -173,6 +212,8 @@ function SimulatorTab() {
       setResult(j);
       toast({ title: "Simulator ran", description: `Added ${j.added ?? 0} entries` });
       void refetchPools();
+      void loadActions();
+      if (nextMode === "select") setSelectedIds([]);
     } catch (e: any) {
       toast({ title: "Simulator failed", description: e?.message ?? "Error", variant: "destructive" });
     } finally {
@@ -210,22 +251,93 @@ function SimulatorTab() {
               </select>
               <p className="text-[11px] text-muted-foreground">Spots left: {left}</p>
             </div>
-            <div className="space-y-1.5">
-              <Label>Quick fill spots</Label>
-              <Input
-                inputMode="numeric"
-                value={String(botCount)}
-                onChange={(e) => setBotCount(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
-                className="h-11"
-              />
-              <div className="flex gap-2 pt-1">
-                <Button className="h-11 flex-1" disabled={loading || !poolId} onClick={() => void fill("bots")}>
-                  {loading ? "Filling…" : `Fill ${botCount}`}
-                </Button>
-                <Button variant="outline" className="h-11 flex-1" disabled={loading || !poolId} onClick={() => void fill("auto")}>
-                  {loading ? "…" : "Fill all"}
-                </Button>
+            <div className="space-y-2">
+              <Label>Fill method</Label>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  ["bots", "Quick Fill (bots)"],
+                  ["select", "Select Users"],
+                  ["auto", "Auto-fill remaining"],
+                ] as const).map(([k, label]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setMode(k)}
+                    className={cn(
+                      "h-10 px-3 rounded-xl border text-xs font-semibold",
+                      mode === k ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
+
+              {mode === "bots" ? (
+                <>
+                  <div className="space-y-1.5 pt-1">
+                    <Label>Fill spots</Label>
+                    <Input
+                      inputMode="numeric"
+                      value={String(botCount)}
+                      onChange={(e) => setBotCount(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
+                      className="h-11"
+                    />
+                  </div>
+                  <Button className="h-11 w-full" disabled={loading || !poolId} onClick={() => void runFill("bots")}>
+                    {loading ? "Filling…" : `Fill ${botCount} bots`}
+                  </Button>
+                </>
+              ) : mode === "auto" ? (
+                <Button variant="outline" className="h-11 w-full" disabled={loading || !poolId} onClick={() => void runFill("auto")}>
+                  {loading ? "Filling…" : "Fill entire pool"}
+                </Button>
+              ) : (
+                <div className="space-y-2 pt-1">
+                  <Input
+                    placeholder="Search users (name/email/phone)"
+                    value={userQuery}
+                    onChange={(e) => setUserQuery(e.target.value)}
+                    className="h-11"
+                  />
+                  <div className="max-h-56 overflow-y-auto rounded-xl border border-border bg-background">
+                    {userRows.length === 0 ? (
+                      <p className="p-3 text-xs text-muted-foreground">No results.</p>
+                    ) : (
+                      <ul className="divide-y divide-border">
+                        {userRows.slice(0, 80).map((u) => {
+                          const checked = selectedIds.includes(u.id);
+                          return (
+                            <li key={u.id} className="px-3 py-2 flex items-center justify-between gap-2">
+                              <label className="flex items-center gap-2 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) => {
+                                    const on = e.target.checked;
+                                    setSelectedIds((prev) =>
+                                      on ? Array.from(new Set([...prev, u.id])).slice(0, 200) : prev.filter((x) => x !== u.id),
+                                    );
+                                  }}
+                                />
+                                <span className="text-xs font-semibold truncate">{u.name}</span>
+                                {u.isBot ? <Badge variant="secondary">bot</Badge> : <Badge variant="outline">real</Badge>}
+                              </label>
+                              <span className="text-[11px] text-muted-foreground">#{u.id}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">Selected: {selectedIds.length}</p>
+                    <Button className="h-11" disabled={loading || !poolId || selectedIds.length === 0} onClick={() => void runFill("select")}>
+                      {loading ? "Adding…" : "Add to pool"}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -244,6 +356,30 @@ function SimulatorTab() {
               </p>
             ) : (
               <p className="mt-2 text-muted-foreground">Run simulator to see results here.</p>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-border/60 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/60 bg-muted/20">
+              <p className="text-sm font-semibold">Recent simulator actions</p>
+              <Button size="sm" variant="outline" onClick={() => void loadActions()}>
+                Refresh
+              </Button>
+            </div>
+            {actions.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">No actions yet.</p>
+            ) : (
+              <ul className="divide-y divide-border/60">
+                {actions.slice(0, 12).map((a) => (
+                  <li key={a.id} className="px-4 py-3">
+                    <p className="text-xs font-semibold">{a.actionType}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{a.description}</p>
+                    <p className="text-[11px] text-muted-foreground/70 mt-1">
+                      {new Date(a.createdAt).toLocaleString()} · {a.adminName}
+                    </p>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </CardContent>

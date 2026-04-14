@@ -1130,6 +1130,60 @@ router.get("/audit-logs", async (_req, res) => {
   res.json(logs);
 });
 
+router.get("/simulator/actions", async (req, res) => {
+  const raw = parseInt(String(req.query.limit ?? "20"), 10);
+  const lim = Number.isNaN(raw) ? 20 : Math.min(Math.max(raw, 1), 100);
+  const logs = await db
+    .select({
+      id: adminActionsTable.id,
+      adminId: adminActionsTable.adminId,
+      adminName: usersTable.name,
+      actionType: adminActionsTable.actionType,
+      description: adminActionsTable.description,
+      createdAt: adminActionsTable.createdAt,
+    })
+    .from(adminActionsTable)
+    .innerJoin(usersTable, eq(adminActionsTable.adminId, usersTable.id))
+    .where(sql`${adminActionsTable.actionType} like 'simulator_%'`)
+    .orderBy(desc(adminActionsTable.createdAt))
+    .limit(lim);
+  res.json(logs);
+});
+
+router.get("/simulator/users", async (req, res) => {
+  const raw = String(req.query.q ?? "").trim();
+  const q = raw.slice(0, 64);
+  const rows = await db
+    .select({
+      id: usersTable.id,
+      name: usersTable.name,
+      isBot: (usersTable as any).isBot,
+      botDisplayName: (usersTable as any).botDisplayName,
+      botRegion: (usersTable as any).botRegion,
+      isAdmin: usersTable.isAdmin,
+      isBlocked: usersTable.isBlocked,
+    })
+    .from(usersTable)
+    .where(
+      q
+        ? sql`(${usersTable.name} ILIKE ${"%" + q + "%"} OR ${usersTable.email} ILIKE ${"%" + q + "%"} OR ${usersTable.phone} ILIKE ${"%" + q + "%"})`
+        : sql`true`,
+    )
+    .orderBy(desc(usersTable.joinedAt))
+    .limit(200);
+
+  res.json(
+    rows
+      .filter((u) => !u.isAdmin && !u.isBlocked)
+      .map((u) => ({
+        id: u.id,
+        name: u.botDisplayName ?? u.name,
+        isBot: Boolean((u as any).isBot),
+        region: (u as any).botRegion ?? null,
+      })),
+  );
+});
+
 router.delete("/pools/:id", async (req, res) => {
   const poolId = parseInt(req.params.id);
   if (isNaN(poolId)) { res.status(400).json({ error: "Invalid pool ID" }); return; }
