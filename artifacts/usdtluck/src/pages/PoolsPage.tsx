@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { apiUrl } from "@/lib/api-base";
 import { premiumPanel } from "@/lib/premium-panel";
 
@@ -63,7 +64,7 @@ export default function PoolsPage() {
 
   return (
     <div className="sp-ambient-bg relative min-h-screen w-full">
-      <div className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:px-6 sm:py-10">
+      <div className="sp-page mx-auto max-w-6xl space-y-8">
       {bannerOpen && (
         <div
           className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/50 to-slate-900/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3"
@@ -114,39 +115,77 @@ export default function PoolsPage() {
         )}
       </div>
 
-      <Dialog open={howOpen} onOpenChange={setHowOpen}>
-        <DialogContent className="sm:max-w-md border-emerald-500/20 bg-[#0d1526] text-slate-100">
-          <DialogHeader>
-            <DialogTitle className="font-sp-display text-xl text-emerald-100">How it works</DialogTitle>
-          </DialogHeader>
-          <ol className="space-y-4 text-sm text-slate-300">
-            <li className="flex gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
-                1
-              </span>
-              <span>
-                <strong className="text-white">Choose a pool</strong> — each card shows ticket price, seats, and your approximate win chance.
-              </span>
-            </li>
-            <li className="flex gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
-                2
-              </span>
-              <span>
-                <strong className="text-white">Buy tickets</strong> — payment is in USDT; prizes credit to your wallet when you win.
-              </span>
-            </li>
-            <li className="flex gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
-                3
-              </span>
-              <span>
-                <strong className="text-white">Pool fills → draw runs</strong> — winners are picked automatically. You can verify any completed draw.
-              </span>
-            </li>
-          </ol>
-        </DialogContent>
-      </Dialog>
+      {/* Mobile: bottom sheet. Desktop: centered dialog */}
+      <div className="md:hidden">
+        <Drawer open={howOpen} onOpenChange={setHowOpen}>
+          <DrawerContent className="border-emerald-500/20 bg-[#0d1526] text-slate-100">
+            <DrawerHeader className="pb-2">
+              <DrawerTitle className="font-sp-display text-xl text-emerald-100">How it works</DrawerTitle>
+            </DrawerHeader>
+            <ol className="px-4 pb-6 space-y-4 text-sm text-slate-300">
+              <li className="flex gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
+                  1
+                </span>
+                <span>
+                  <strong className="text-white">Choose a pool</strong> — each card shows ticket price, seats, and your approximate win chance.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
+                  2
+                </span>
+                <span>
+                  <strong className="text-white">Buy tickets</strong> — payment is in USDT; prizes credit to your wallet when you win.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
+                  3
+                </span>
+                <span>
+                  <strong className="text-white">Pool fills → draw runs</strong> — winners are picked automatically. You can verify any completed draw.
+                </span>
+              </li>
+            </ol>
+          </DrawerContent>
+        </Drawer>
+      </div>
+      <div className="hidden md:block">
+        <Dialog open={howOpen} onOpenChange={setHowOpen}>
+          <DialogContent className="sm:max-w-md border-emerald-500/20 bg-[#0d1526] text-slate-100">
+            <DialogHeader>
+              <DialogTitle className="font-sp-display text-xl text-emerald-100">How it works</DialogTitle>
+            </DialogHeader>
+            <ol className="space-y-4 text-sm text-slate-300">
+              <li className="flex gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
+                  1
+                </span>
+                <span>
+                  <strong className="text-white">Choose a pool</strong> — each card shows ticket price, seats, and your approximate win chance.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
+                  2
+                </span>
+                <span>
+                  <strong className="text-white">Buy tickets</strong> — payment is in USDT; prizes credit to your wallet when you win.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
+                  3
+                </span>
+                <span>
+                  <strong className="text-white">Pool fills → draw runs</strong> — winners are picked automatically. You can verify any completed draw.
+                </span>
+              </li>
+            </ol>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       {isError && (
         <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 max-w-4xl">
