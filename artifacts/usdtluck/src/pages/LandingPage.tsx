@@ -10,7 +10,6 @@ import { MarketingMotionSection } from "@/components/marketing/MarketingMotionSe
 import { HowItWorksFourSteps } from "@/components/marketing/HowItWorksFourSteps";
 import { PoolTierCardsSection } from "@/components/marketing/PoolTierCards";
 import { LandingFaqAccordion } from "@/components/marketing/LandingFaqAccordion";
-import { MarketingWhatsAppFab } from "@/components/marketing/MarketingWhatsAppFab";
 import { useCountUp } from "@/hooks/useCountUp";
 
 const BRAND_BG = "#0a0f1a";
@@ -437,8 +436,6 @@ export default function LandingPage() {
           <LandingFaqAccordion />
         </div>
       </MarketingMotionSection>
-
-      <MarketingWhatsAppFab />
 
       <style>{`
         @keyframes landing-cta-glow {

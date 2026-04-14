@@ -6,7 +6,6 @@ import { MarketingMotionSection } from "@/components/marketing/MarketingMotionSe
 import { HowItWorksFourSteps } from "@/components/marketing/HowItWorksFourSteps";
 import { PoolTierCardsSection } from "@/components/marketing/PoolTierCards";
 import { LandingFaqAccordion } from "@/components/marketing/LandingFaqAccordion";
-import { MarketingWhatsAppFab } from "@/components/marketing/MarketingWhatsAppFab";
 
 const BRAND_BG = "#0a0f1a";
 const SURFACE = "#0f172a";
@@ -99,7 +98,6 @@ export default function HowItWorksPage() {
         </div>
       </MarketingMotionSection>
 
-      <MarketingWhatsAppFab />
     </div>
   );
 }
