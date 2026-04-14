@@ -219,25 +219,11 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
 
       <style>{`
         .sp-cta-wrap {
-          position: sticky;
-          bottom: 0;
-          padding-bottom: calc(8px + env(safe-area-inset-bottom));
-          background: linear-gradient(180deg, rgba(10,15,26,0) 0%, rgba(10,15,26,0.55) 24%, rgba(10,15,26,0.92) 100%);
+          padding-top: 10px;
           border-top: 1px solid rgba(255,255,255,0.06);
-          margin-left: -20px;
-          margin-right: -20px;
-          padding-left: 20px;
-          padding-right: 20px;
+          padding-bottom: calc(10px + env(safe-area-inset-bottom));
         }
-        @media (min-width: 640px) {
-          .sp-cta-wrap {
-            position: static;
-            background: transparent;
-            border-top: 0;
-            margin: 0;
-            padding: 0;
-          }
-        }
+        @media (min-width: 640px) { .sp-cta-wrap { padding: 0; border-top: 0; } }
         .sp-bar-shimmer {
           position: absolute;
           inset: 0;
@@ -295,9 +281,6 @@ function StatusPill({ status }: { status: string }) {
     return (
       <Badge className="bg-amber-500/15 text-amber-200 border-amber-500/35 text-[10px]">
         <span className="inline-flex items-center gap-1.5">
-          <span className="rounded-full bg-red-500/20 text-red-200 border border-red-500/35 px-2 py-0.5 text-[9px] font-extrabold tracking-widest animate-pulse">
-            HOT
-          </span>
           <span className="relative flex h-2 w-2" aria-hidden>
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-60" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />

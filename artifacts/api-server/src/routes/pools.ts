@@ -1742,11 +1742,6 @@ async function executePoolDistribution(
       (e as { code?: string }).code = "INVALID_WINNER_COUNT";
       throw e;
     }
-    if (new Set(manualWinnerUserIds).size !== manualWinnerUserIds.length) {
-      const e = new Error("Winner user IDs must be distinct.");
-      (e as { code?: string }).code = "INVALID_WINNERS";
-      throw e;
-    }
 
     const participants = await tx
       .select()
@@ -1757,6 +1752,11 @@ async function executePoolDistribution(
       (e as { code?: string }).code = "MIN_PARTICIPANTS";
       throw e;
     }
+  if (!pool.allowMultiWin && new Set(manualWinnerUserIds).size !== manualWinnerUserIds.length) {
+    const e = new Error("Winner user IDs must be distinct.");
+    (e as { code?: string }).code = "INVALID_WINNERS";
+    throw e;
+  }
 
     const [settings] = await tx.select().from(platformSettingsTable).where(eq(platformSettingsTable.id, 1)).limit(1);
     const desiredProfit = settings ? parseFloat(settings.drawDesiredProfitUsdt) : 100;
