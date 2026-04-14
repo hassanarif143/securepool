@@ -566,10 +566,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <div className="sticky top-0 z-50">
       <header className="border-b border-border bg-background/92 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center min-h-[3.25rem] py-2.5 gap-2 sm:gap-3">
+          <div className="flex items-center min-h-[3.5rem] py-2 gap-2 sm:gap-3">
 
             {/* ── Logo ── */}
-            <Link href={user ? "/dashboard" : "/"} className="shrink-0 mr-2">
+            <Link href={user ? "/dashboard" : "/"} className="shrink-0 mr-1">
               <Logo size="sm" />
             </Link>
 
@@ -610,16 +610,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   {/* Notification bell */}
                   <NotificationBell />
 
-                  {/* Wallet balance */}
-                  <WalletDropdown
-                    withdrawableBalance={user.withdrawableBalance}
-                    bonusBalance={user.bonusBalance}
-                    isLoading={isLoading}
-                  />
-                  <Link href="/wallet?tab=deposit">
+                  {/* Wallet balance (tap target, thumb reachable) */}
+                  <div className="hidden sm:block">
+                    <WalletDropdown
+                      withdrawableBalance={user.withdrawableBalance}
+                      bonusBalance={user.bonusBalance}
+                      isLoading={isLoading}
+                    />
+                  </div>
+                  <Link href="/wallet" className="sm:hidden">
+                    <span className="min-h-11 inline-flex items-center rounded-xl border border-primary/20 bg-primary/10 px-3 text-xs font-semibold text-emerald-300">
+                      💰
+                    </span>
+                  </Link>
+                  <Link href="/wallet?tab=deposit" className="hidden sm:block">
                     <button
                       type="button"
-                      className="h-8 w-8 rounded-lg border border-primary/35 text-primary font-bold text-base leading-none transition-colors hover:bg-primary/10"
+                      className="h-9 w-9 rounded-xl border border-primary/35 text-primary font-bold text-base leading-none transition-colors hover:bg-primary/10"
                       aria-label="Deposit"
                       title="Deposit"
                     >
@@ -638,7 +645,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   {/* Hamburger — mobile only */}
                   <button
                     onClick={() => setMobileOpen((v) => !v)}
-                    className={cn("md:hidden p-2 rounded-lg transition-colors", mobileOpen ? "text-primary" : undefined)}
+                    className={cn("md:hidden h-11 w-11 grid place-items-center rounded-xl transition-colors", mobileOpen ? "text-primary" : undefined)}
                     aria-label="Menu"
                   >
                     {mobileOpen ? (
@@ -697,7 +704,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       <main
-        className={`flex-1 max-w-7xl w-full min-w-0 mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${
+        className={`flex-1 max-w-7xl w-full min-w-0 mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-10 ${
           user ? "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""
         }`}
       >
@@ -708,7 +715,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {user && (
         <nav
-          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/96 backdrop-blur-md flex justify-between items-stretch min-h-[4.25rem] py-1 px-1 safe-area-pb touch-manipulation shadow-[0_-8px_32px_rgba(0,0,0,0.35)]"
+          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 flex justify-between items-stretch min-h-[4rem] py-1 px-1 safe-area-pb touch-manipulation shadow-[0_-8px_32px_rgba(0,0,0,0.35)]"
           aria-label="Main"
         >
           {(
@@ -727,14 +734,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Link key={item.href} href={item.href} className="flex-1 min-w-0 basis-0 max-w-[25%]">
                 <span
                   className={cn(
-                    "flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[10px] font-semibold tracking-tight transition-colors duration-200 active:scale-[0.98] touch-manipulation",
-                    active ? "text-primary bg-primary/12" : "text-muted-foreground hover:text-foreground/90"
+                    "relative flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[11px] font-medium tracking-tight transition-colors duration-200 active:scale-[0.92] touch-manipulation",
+                    active ? "text-primary bg-primary/10" : "text-muted-foreground"
                   )}
+                  onClick={() => {
+                    try {
+                      navigator.vibrate?.(10);
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
                 >
-                  <span className="text-lg leading-none" aria-hidden>
+                  <span className={cn("leading-none", active ? "text-[26px]" : "text-[24px]")} aria-hidden>
                     {item.icon}
                   </span>
                   <span className="leading-tight text-center truncate w-full">{item.label}</span>
+                  {active ? <span className="absolute top-1.5 h-1 w-1 rounded-full bg-primary" aria-hidden /> : null}
                 </span>
               </Link>
             );

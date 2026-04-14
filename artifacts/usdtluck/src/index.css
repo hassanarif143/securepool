@@ -228,6 +228,14 @@
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
   }
+  html,
+  body {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
@@ -237,6 +245,31 @@
     @apply bg-background text-foreground font-sans antialiased text-[15px] sm:text-base leading-relaxed;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  /* Prevent horizontal overflow on mobile */
+  body,
+  #root,
+  main {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+  /* iOS input zoom prevention (font-size must be >= 16px) */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  button,
+  a,
+  [role="button"],
+  input,
+  select,
+  textarea {
+    min-height: 44px;
   }
   ::selection {
     background: hsl(142 71% 45% / 0.28);
@@ -267,6 +300,93 @@
   }
   .safe-area-pb {
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* ========================================
+     SECUREPOOL MOBILE-FIRST FOUNDATION
+     ======================================== */
+
+  /* MOBILE-FIRST TYPOGRAPHY + SPACING (base = mobile) */
+  :root {
+    --text-xs: 12px;
+    --text-sm: 14px;
+    --text-base: 16px;
+    --text-lg: 18px;
+    --text-xl: 20px;
+    --text-2xl: 24px;
+    --text-3xl: 28px;
+    --text-4xl: 32px;
+
+    --page-padding: 16px;
+    --card-padding: 14px;
+    --section-gap: 24px;
+    --card-gap: 12px;
+    --card-radius: 12px;
+  }
+
+  @media (min-width: 768px) {
+    :root {
+      --text-xs: 12px;
+      --text-sm: 14px;
+      --text-base: 16px;
+      --text-lg: 20px;
+      --text-xl: 24px;
+      --text-2xl: 30px;
+      --text-3xl: 36px;
+      --text-4xl: 48px;
+
+      --page-padding: 24px;
+      --card-padding: 20px;
+      --section-gap: 40px;
+      --card-gap: 16px;
+      --card-radius: 16px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    :root {
+      --page-padding: 32px;
+      --card-padding: 24px;
+      --section-gap: 48px;
+    }
+  }
+
+  /* Mobile screens need higher contrast — especially in sunlight */
+  :root {
+    --bg-base: #000000;
+    --bg-surface: #0a0e1a;
+    --bg-surface-2: #111827;
+    --text-primary: #ffffff;
+    --text-secondary: #9ca3af;
+    --text-muted: #6b7280;
+    --accent-green: #00e676;
+    --accent-cyan: #00e5ff;
+    --accent-gold: #ffd700;
+    --border-subtle: rgba(255, 255, 255, 0.1);
+    --border-active: rgba(0, 229, 255, 0.3);
+  }
+
+  /* Mobile-first page shell helper */
+  .sp-page {
+    padding-left: var(--page-padding);
+    padding-right: var(--page-padding);
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+  @media (min-width: 640px) {
+    .sp-page {
+      padding-top: 24px;
+      padding-bottom: 24px;
+    }
+  }
+
+  /* Reduce expensive blur on mid-range phones */
+  @media (max-width: 768px) {
+    .sp-glass {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      background: rgba(12, 17, 30, 0.95);
+    }
   }
   /** Used by shadcn Button / Badge — subtle lift without layout shift */
   .hover-elevate {
