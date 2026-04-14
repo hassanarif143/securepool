@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, numeric, timestamp, text } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, numeric, timestamp, text, boolean } from "drizzle-orm/pg-core";
 import { poolsTable } from "./pools";
 import { usersTable } from "./users";
 
@@ -10,6 +10,8 @@ export const winnersTable = pgTable("winners", {
   prize: numeric("prize", { precision: 18, scale: 2 }).notNull(),
   awardedAt: timestamp("awarded_at", { withTimezone: true }).notNull().defaultNow(),
   paymentStatus: text("payment_status").notNull().default("pending"),
+  /** Admin-only: true if the winner is a simulated/bot user. */
+  isBotWinner: boolean("is_bot_winner").notNull().default(false),
 });
 
 export type Winner = typeof winnersTable.$inferSelect;

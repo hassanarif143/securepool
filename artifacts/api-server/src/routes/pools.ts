@@ -1969,6 +1969,11 @@ async function executePoolDistribution(
         throw e;
       }
 
+      const userIsBot = Boolean((user as any)?.isBot ?? (user as any)?.is_bot ?? false);
+      if (userIsBot) {
+        await tx.update(winnersTable).set({ isBotWinner: true } as any).where(eq(winnersTable.id, winner.id));
+      }
+
       const beforeBuckets = parseUserBuckets(user);
       const afterBuckets = distributeWinnings(beforeBuckets, prize);
       const rewardPoints = afterBuckets.rewardPoints;
