@@ -743,8 +743,8 @@ export default function ProfilePage() {
       </div>
 
       {/* Desktop / existing profile */}
-      <div className="hidden md:block max-w-lg mx-auto space-y-6">
-        <h1 className="text-2xl font-bold">Profile</h1>
+      <div className="max-w-lg mx-auto space-y-6 px-4 pb-10 md:px-0">
+        <h1 className="hidden md:block text-2xl font-bold">Profile</h1>
 
       <Card>
         <CardHeader>
