@@ -450,6 +450,7 @@ function FinanceTab() {
   const [profitInput, setProfitInput] = useState("");
   const [defaultProfitPctInput, setDefaultProfitPctInput] = useState("15");
   const [backfillLoading, setBackfillLoading] = useState(false);
+  const [backfillConfirmOpen, setBackfillConfirmOpen] = useState(false);
   useEffect(() => {
     if (finSettings != null) setProfitInput(String(finSettings.drawDesiredProfitUsdt));
     if (finSettings != null && (finSettings as any).defaultPoolProfitPercent != null) {
@@ -665,12 +666,42 @@ function FinanceTab() {
             type="button"
             size="sm"
             disabled={backfillLoading}
-            onClick={() => void runBackfill(false)}
+            onClick={() => setBackfillConfirmOpen(true)}
           >
             {backfillLoading ? "Working…" : "Run backfill"}
           </Button>
         </CardContent>
       </Card>
+
+      <Dialog open={backfillConfirmOpen} onOpenChange={setBackfillConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Run backfill now?</DialogTitle>
+            <DialogDescription>
+              This will write financial rows for up to 200 completed pools with missing/zero profit and may update pool profit fields.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p>- Safe to run multiple times (upsert)</p>
+            <p>- Use “Dry run” first to preview counts</p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setBackfillConfirmOpen(false)} disabled={backfillLoading}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={async () => {
+                setBackfillConfirmOpen(false);
+                await runBackfill(false);
+              }}
+              disabled={backfillLoading}
+            >
+              Run backfill
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader className="pb-2">
