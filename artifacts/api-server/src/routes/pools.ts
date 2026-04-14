@@ -1947,7 +1947,14 @@ async function executePoolDistribution(
 
       const [winner] = await tx
         .insert(winnersTable)
-        .values({ poolId, userId: winRow.userId, place, prize: String(prize) })
+        .values({
+          poolId,
+          userId: winRow.userId,
+          place,
+          prize: String(prize),
+          paymentStatus: "paid",
+          awardedAt: new Date(),
+        })
         .returning();
       if (!winner) {
         const e = new Error("WINNER_INSERT_FAILED");
