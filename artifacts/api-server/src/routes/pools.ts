@@ -1775,6 +1775,7 @@ async function executePoolDistribution(
         id: poolTicketsTable.id,
         userId: poolTicketsTable.userId,
         luckyNumber: poolTicketsTable.luckyNumber,
+        isSimulated: (poolTicketsTable as any).isSimulated,
       })
       .from(poolTicketsTable)
       .where(eq(poolTicketsTable.poolId, poolId));
@@ -1799,6 +1800,19 @@ async function executePoolDistribution(
       }
     }
 
+    // Simulator / bot fills may create pools with no real money movement.
+    // In that case, we still want the draw to complete and announce winners,
+    // but must NOT affect any real balances or platform profit.
+    const participantUsers = await tx
+      .select({ id: usersTable.id, isBot: (usersTable as any).isBot })
+      .from(usersTable)
+      .where(inArray(usersTable.id, Array.from(participantUserIds)));
+    const botsById = new Map<number, boolean>(participantUsers.map((u) => [u.id, Boolean((u as any).isBot)]));
+    const hasAnyReal = participantUsers.some((u) => !Boolean((u as any).isBot));
+    const hasAnyBot = participantUsers.some((u) => Boolean((u as any).isBot));
+    const simulatedTickets = ticketRows.filter((t) => Boolean((t as any).isSimulated)).length;
+    const simulatedOnlyPool = !hasAnyReal && (hasAnyBot || simulatedTickets > 0);
+
     const picked = manualWinnerUserIds.map((userId) => ({ userId }));
     const positionByUserId = new Map<number, number>();
     manualWinnerUserIds.forEach((uid, i) => positionByUserId.set(uid, i + 1));
@@ -1816,12 +1830,17 @@ async function executePoolDistribution(
     }
 
     let totalRevenue = 0;
-    for (const p of participants) {
-      const paid =
-        p.amountPaid != null && String(p.amountPaid).trim() !== ""
-          ? parseFloat(String(p.amountPaid))
-          : entryFee;
-      totalRevenue += paid;
+    if (simulatedOnlyPool) {
+      // Virtual revenue for simulated pools; used for display only.
+      totalRevenue = Number((effectiveTicketCount * entryFee).toFixed(2));
+    } else {
+      for (const p of participants) {
+        const paid =
+          p.amountPaid != null && String(p.amountPaid).trim() !== ""
+            ? parseFloat(String(p.amountPaid))
+            : entryFee;
+        totalRevenue += paid;
+      }
     }
 
     const feePerListEntry = platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin);
@@ -1842,7 +1861,7 @@ async function executePoolDistribution(
     }
 
     const totalPrizes = prizeTotalForWinnerSlots(p1, p2, p3, winnerCount);
-    if (totalRevenue + 0.02 < totalPrizes) {
+    if (!simulatedOnlyPool && totalRevenue + 0.02 < totalPrizes) {
       const e = new Error(
         `Pool settlement is short by ${Math.abs(totalRevenue - totalPrizes).toFixed(2)} USDT (wallet revenue ${totalRevenue.toFixed(2)} vs ${totalPrizes.toFixed(2)} prizes). Lower prizes or add participants.`,
       );
@@ -1966,60 +1985,63 @@ async function executePoolDistribution(
         await tx.update(winnersTable).set({ isBotWinner: true } as any).where(eq(winnersTable.id, winner.id));
       }
 
-      const beforeBuckets = parseUserBuckets(user);
-      const afterBuckets = distributeWinnings(beforeBuckets, prize);
-      const rewardPoints = afterBuckets.rewardPoints;
-      const wdB = afterBuckets.withdrawableBalance;
-      const newBalance = pointsToUsdt(rewardPoints) + wdB;
-      logger.info(
-        {
-          poolId,
+      // Never move real balances for bots or fully simulated pools.
+      if (!simulatedOnlyPool && !userIsBot) {
+        const beforeBuckets = parseUserBuckets(user);
+        const afterBuckets = distributeWinnings(beforeBuckets, prize);
+        const rewardPoints = afterBuckets.rewardPoints;
+        const wdB = afterBuckets.withdrawableBalance;
+        const newBalance = pointsToUsdt(rewardPoints) + wdB;
+        logger.info(
+          {
+            poolId,
+            userId: winRow.userId,
+            prize,
+            before: beforeBuckets,
+            after: afterBuckets,
+          },
+          "[wallet] distribute winnings",
+        );
+        const prevWins = user.totalWins ?? 0;
+        const nextWins = prevWins + 1;
+        const isFirstWinEver = prevWins === 0;
+        const now = new Date();
+        const within7d =
+          user.lastWinAt != null && now.getTime() - new Date(user.lastWinAt).getTime() <= 7 * 24 * 60 * 60 * 1000;
+        const winCount7d = within7d ? (user.winCount7d ?? 0) + 1 : 1;
+        await tx
+          .update(usersTable)
+          .set({
+            rewardPoints,
+            bonusBalance: "0",
+            withdrawableBalance: wdB.toFixed(2),
+            walletBalance: newBalance.toFixed(2),
+            totalWins: nextWins,
+            firstWinAt: isFirstWinEver ? new Date() : user.firstWinAt,
+            lastWinAt: now,
+            winCount7d,
+          })
+          .where(eq(usersTable.id, winRow.userId));
+
+        await recordPrizeWon(tx, {
           userId: winRow.userId,
-          prize,
-          before: beforeBuckets,
-          after: afterBuckets,
-        },
-        "[wallet] distribute winnings",
-      );
-      const prevWins = user.totalWins ?? 0;
-      const nextWins = prevWins + 1;
-      const isFirstWinEver = prevWins === 0;
-      const now = new Date();
-      const within7d =
-        user.lastWinAt != null && now.getTime() - new Date(user.lastWinAt).getTime() <= 7 * 24 * 60 * 60 * 1000;
-      const winCount7d = within7d ? (user.winCount7d ?? 0) + 1 : 1;
-      await tx
-        .update(usersTable)
-        .set({
-          rewardPoints,
-          bonusBalance: "0",
-          withdrawableBalance: wdB.toFixed(2),
-          walletBalance: newBalance.toFixed(2),
-          totalWins: nextWins,
-          firstWinAt: isFirstWinEver ? new Date() : user.firstWinAt,
-          lastWinAt: now,
-          winCount7d,
-        })
-        .where(eq(usersTable.id, winRow.userId));
+          amount: prize,
+          poolId,
+          place,
+          poolTitle: pool.title,
+          balanceAfter: newBalance,
+        });
 
-      await recordPrizeWon(tx, {
-        userId: winRow.userId,
-        amount: prize,
-        poolId,
-        place,
-        poolTitle: pool.title,
-        balanceAfter: newBalance,
-      });
+        if (isFirstWinEver) firstWinUserIds.push(winRow.userId);
 
-      if (isFirstWinEver) firstWinUserIds.push(winRow.userId);
-
-      await tx.insert(transactionsTable).values({
-        userId: winRow.userId,
-        txType: "reward",
-        amount: String(prize),
-        status: "completed",
-        note: `Winner - Place ${place} in pool: ${pool.title}`,
-      });
+        await tx.insert(transactionsTable).values({
+          userId: winRow.userId,
+          txType: "reward",
+          amount: String(prize),
+          status: "completed",
+          note: `Winner - Place ${place} in pool: ${pool.title}`,
+        });
+      }
 
       winnerRecords.push({ ...winner, userName: user.name, poolTitle: pool.title });
       if (place === 1) w1name = user.name;
@@ -2027,9 +2049,11 @@ async function executePoolDistribution(
       else if (place === 3) w3name = user.name;
     }
 
-    for (const [userId, amt] of loserRefundByUserId) {
+    if (!simulatedOnlyPool) for (const [userId, amt] of loserRefundByUserId) {
       const [u] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
       if (!u) continue;
+      const loserIsBot = Boolean((u as any)?.isBot ?? (u as any)?.is_bot ?? false);
+      if (loserIsBot) continue;
       const beforeBuckets = parseUserBuckets(u);
       const afterBuckets = processRefund(beforeBuckets, amt);
       logger.info(
@@ -2063,7 +2087,7 @@ async function executePoolDistribution(
 
     let drawLuckyNumber: number | null = null;
     let luckyMatchUserId: number | null = null;
-    if (ticketTotal > 0) {
+    if (!simulatedOnlyPool && ticketTotal > 0) {
       drawLuckyNumber = randomInt(1, 9999);
       const match = ticketRows.find((t) => t.luckyNumber === drawLuckyNumber);
       if (match) {
@@ -2081,8 +2105,8 @@ async function executePoolDistribution(
 
     const ticketsSold = ticketTotal > 0 ? ticketTotal : participants.length;
     const ticketPrice = entryFee;
-    const platformFee = settlementRemainder;
-    const profitMarginPercent = totalRevenue > 0 ? (platformFee / totalRevenue) * 100 : 0;
+    const platformFee = simulatedOnlyPool ? 0 : settlementRemainder;
+    const profitMarginPercent = !simulatedOnlyPool && totalRevenue > 0 ? (platformFee / totalRevenue) * 100 : 0;
 
     await tx.insert(poolDrawFinancialsTable).values({
       poolId,
@@ -2101,11 +2125,13 @@ async function executePoolDistribution(
       minParticipantsRequired: minRequired,
     });
 
-    await appendPlatformFeeForDraw(tx, {
-      poolId,
-      platformFee,
-      description: `Draw #${poolId} — settlement (${totalRevenue.toFixed(2)} revenue − ${totalPrizes.toFixed(2)} prizes − ${totalLoserRefunds.toFixed(2)} loser refunds)`,
-    });
+    if (!simulatedOnlyPool) {
+      await appendPlatformFeeForDraw(tx, {
+        poolId,
+        platformFee,
+        description: `Draw #${poolId} — settlement (${totalRevenue.toFixed(2)} revenue − ${totalPrizes.toFixed(2)} prizes − ${totalLoserRefunds.toFixed(2)} loser refunds)`,
+      });
+    }
 
     await tx
       .update(poolsTable)
