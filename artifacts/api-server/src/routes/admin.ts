@@ -3553,36 +3553,49 @@ router.post("/finance/reset-test-data", async (req, res) => {
   // Destructive, test-only wipe. Keep admin audit logs & bot name pool intact.
   await pgPool.query("BEGIN");
   try {
+    const step = async (name: string, q: string) => {
+      try {
+        await pgPool.query(q);
+      } catch (e: any) {
+        const msg = e?.message ? String(e.message) : String(e);
+        throw new Error(`${name}: ${msg}`);
+      }
+    };
+
     if (scope === "games" || scope === "all") {
-      await pgPool.query(
+      await step(
+        "truncate_games",
         `TRUNCATE TABLE
-          arcade_recent_wins,
-          arcade_rounds,
-          arcade_user_stats,
-          arcade_platform_daily,
-          arcade_treasure_sessions,
-          arcade_hilo_sessions,
-          scratch_rounds
-        RESTART IDENTITY CASCADE`,
+           arcade_recent_wins,
+           arcade_rounds,
+           arcade_user_stats,
+           arcade_platform_daily,
+           arcade_treasure_sessions,
+           arcade_hilo_sessions,
+           scratch_rounds
+         RESTART IDENTITY CASCADE`,
       );
-      await pgPool.query(
+      await step(
+        "delete_game_transactions",
         `DELETE FROM transactions
          WHERE tx_type IN ('game_bet','game_win','game_loss','cashout_bet_lock','cashout_payout_credit','cashout_shield_refund','scratch_bet_lock','scratch_payout_credit')`,
       );
     }
 
     if (scope === "pools" || scope === "all") {
-      await pgPool.query(
+      await step(
+        "truncate_pools",
         `TRUNCATE TABLE
-          winners,
-          pool_draw_financials,
-          pool_tickets,
-          pool_participants
-        RESTART IDENTITY CASCADE`,
+           winners,
+           pool_draw_financials,
+           pool_tickets,
+           pool_participants
+         RESTART IDENTITY CASCADE`,
       );
-      await pgPool.query(`DELETE FROM transactions WHERE tx_type IN ('pool_entry','pool_refund')`);
+      await step("delete_pool_transactions", `DELETE FROM transactions WHERE tx_type IN ('pool_entry','pool_refund')`);
       // Reset pool state back to open-ish (factory/rotation will recreate as needed)
-      await pgPool.query(
+      await step(
+        "reset_pool_rows",
         `UPDATE pools
          SET status = 'open',
              filled_at = NULL,
@@ -3595,17 +3608,22 @@ router.post("/finance/reset-test-data", async (req, res) => {
     }
 
     if (scope === "all") {
-      await pgPool.query(
+      await step(
+        "truncate_wallet_ledgers",
         `TRUNCATE TABLE
-          admin_wallet_transactions,
-          central_wallet_ledger,
-          user_wallet_transactions,
-          user_wallet
-        RESTART IDENTITY CASCADE`,
+           admin_wallet_transactions,
+           central_wallet_ledger,
+           user_wallet_transactions,
+           user_wallet
+         RESTART IDENTITY CASCADE`,
       );
-      await pgPool.query(`DELETE FROM transactions WHERE tx_type IN ('deposit','withdraw','reward','promo_credit','p2p_escrow_lock','p2p_escrow_refund','p2p_trade_credit')`);
+      await step(
+        "delete_other_transactions",
+        `DELETE FROM transactions WHERE tx_type IN ('deposit','withdraw','reward','promo_credit','p2p_escrow_lock','p2p_escrow_refund','p2p_trade_credit')`,
+      );
       // Reset user balances (keep admins intact).
-      await pgPool.query(
+      await step(
+        "reset_user_balances",
         `UPDATE users
          SET reward_points = 0,
              bonus_balance = '0',
@@ -3619,7 +3637,7 @@ router.post("/finance/reset-test-data", async (req, res) => {
   } catch (err) {
     await pgPool.query("ROLLBACK");
     logger.error({ err }, "[admin] finance reset failed");
-    res.status(500).json({ error: "RESET_FAILED" });
+    res.status(500).json({ error: "RESET_FAILED", message: err instanceof Error ? err.message : String(err) });
     return;
   }
 
