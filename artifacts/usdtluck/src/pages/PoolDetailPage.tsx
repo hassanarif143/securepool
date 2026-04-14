@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   useGetPool,
@@ -245,6 +245,7 @@ export default function PoolDetailPage() {
   });
 
   const winnerRevealSig = useRef("");
+  const winnerRevealTimer = useRef<number | null>(null);
 
   useEffect(() => {
     if (pool?.status !== "completed") {
@@ -253,25 +254,41 @@ export default function PoolDetailPage() {
     }
   }, [pool?.status]);
 
+  const winnersPublicSig = useMemo(() => {
+    if (pool?.status !== "completed" || !poolDetails?.winners_public?.length || !id) return "";
+    return `${id}:${poolDetails.winners_public.map((w) => `${w.place}-${w.prize}-${w.name}`).join("|")}`;
+  }, [pool?.status, id, poolDetails?.winners_public]);
+
   useEffect(() => {
-    if (pool?.status !== "completed" || !poolDetails?.winners_public?.length || !id) return;
-    const sig = `${id}:${poolDetails.winners_public.map((w) => `${w.place}-${w.prize}-${w.name}`).join("|")}`;
-    if (winnerRevealSig.current === sig) return;
-    winnerRevealSig.current = sig;
+    if (!winnersPublicSig || pool?.status !== "completed" || !poolDetails?.winners_public?.length) return;
+    if (winnerRevealSig.current === winnersPublicSig) return;
+    winnerRevealSig.current = winnersPublicSig;
+
+    if (winnerRevealTimer.current != null) {
+      window.clearInterval(winnerRevealTimer.current);
+      winnerRevealTimer.current = null;
+    }
 
     const sorted = [...poolDetails.winners_public].sort((a, b) => b.place - a.place);
     setWinnerRevealStep(0);
     let step = 0;
-    const timer = window.setInterval(() => {
+    winnerRevealTimer.current = window.setInterval(() => {
       step += 1;
       setWinnerRevealStep(step);
       if (step >= sorted.length) {
-        window.clearInterval(timer);
+        if (winnerRevealTimer.current != null) window.clearInterval(winnerRevealTimer.current);
+        winnerRevealTimer.current = null;
         void confetti({ particleCount: 140, spread: 75, origin: { y: 0.65 }, colors: ["#22c55e", "#eab308", "#38bdf8"] });
       }
     }, 4_000);
-    return () => window.clearInterval(timer);
-  }, [pool?.status, id, poolDetails?.winners_public]);
+  }, [winnersPublicSig, pool?.status, poolDetails?.winners_public]);
+
+  useEffect(() => {
+    return () => {
+      if (winnerRevealTimer.current != null) window.clearInterval(winnerRevealTimer.current);
+      winnerRevealTimer.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!id) return;
