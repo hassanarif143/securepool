@@ -30,7 +30,13 @@ import { logActivity } from "../services/activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { refundAllPoolParticipants } from "../lib/pool-refunds";
 import { autoDistributePool, distributePoolWithWinners } from "./pools";
-import { platformFeePerJoinUsdt } from "../lib/user-balances";
+import {
+  deductForPoolEntry,
+  parseUserBuckets,
+  platformFeePerJoinUsdt,
+  totalWallet,
+  walletBalanceFromBuckets,
+} from "../lib/user-balances";
 import {
   appendDepositFromTicketPurchase,
   appendWithdrawalForPayout,
@@ -53,7 +59,7 @@ import { getRewardConfig, normalizeRewardConfig } from "../lib/reward-config";
 import { getSecurityConfig } from "../lib/security";
 import { countPoolTickets, insertPoolTicketsWithLuckyNumbers } from "../services/lucky-pool-ticket-service";
 import poolFactoryV2Router from "./pool-factory-v2";
-import { botNamePoolTable } from "@workspace/db/schema";
+import { botNamePoolTable, poolTicketsTable } from "@workspace/db/schema";
 
 const router: IRouter = Router();
 
@@ -136,16 +142,110 @@ async function ensurePoolOpen(poolId: number) {
   return pool;
 }
 
-async function addSimulatedTicketAndParticipant(args: {
+async function simulatorJoinPoolTicket(args: {
   poolId: number;
   userId: number;
   ticketQty: number;
-  isSimulated: boolean;
-  amountPaidUsdt: number;
   adminId: number;
 }) {
-  const { poolId, userId, ticketQty, isSimulated, amountPaidUsdt, adminId } = args;
+  const { poolId, userId, ticketQty, adminId } = args;
   await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${poolId})`);
+
+    const [pool] = await tx
+      .select({
+        id: poolsTable.id,
+        title: poolsTable.title,
+        status: poolsTable.status,
+        isFrozen: poolsTable.isFrozen,
+        entryFee: poolsTable.entryFee,
+        ticketPrice: poolsTable.ticketPrice,
+        platformFeePerJoin: poolsTable.platformFeePerJoin,
+        maxUsers: poolsTable.maxUsers,
+        totalTickets: (poolsTable as any).totalTickets,
+        maxTicketsPerUser: poolsTable.maxTicketsPerUser,
+      })
+      .from(poolsTable)
+      .where(eq(poolsTable.id, poolId))
+      .limit(1);
+
+    if (!pool || String(pool.status) !== "open" || Boolean(pool.isFrozen)) {
+      const e = new Error("POOL_NOT_OPEN");
+      (e as { code?: string }).code = "POOL_NOT_OPEN";
+      throw e;
+    }
+
+    const totalTickets = Number(pool.totalTickets ?? pool.maxUsers ?? 0);
+    const [{ sold }] = await tx
+      .select({ sold: sql<number>`count(*)::int` })
+      .from(poolTicketsTable)
+      .where(eq(poolTicketsTable.poolId, poolId));
+    const slotsLeft = totalTickets - (Number(sold) || 0);
+    if (slotsLeft <= 0) {
+      const e = new Error("POOL_FULL");
+      (e as { code?: string }).code = "POOL_FULL";
+      throw e;
+    }
+    const qty = Math.min(ticketQty, slotsLeft);
+
+    const [user] = await tx
+      .select({
+        id: usersTable.id,
+        name: usersTable.name,
+        isBot: (usersTable as any).isBot,
+        rewardPoints: usersTable.rewardPoints,
+        bonusBalance: usersTable.bonusBalance,
+        withdrawableBalance: usersTable.withdrawableBalance,
+        walletBalance: usersTable.walletBalance,
+      })
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1);
+    if (!user) {
+      const e = new Error("USER_NOT_FOUND");
+      (e as { code?: string }).code = "USER_NOT_FOUND";
+      throw e;
+    }
+
+    const isBot = Boolean((user as any).isBot);
+    const entryFee = Number(pool.ticketPrice ?? pool.entryFee ?? 0);
+    const feePerJoin = platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin ?? null);
+    const gross = entryFee * qty;
+    const platformFee = Math.min(gross, feePerJoin * qty);
+    const netDue = Math.max(0, gross - platformFee);
+
+    let fromPointsUsdt = 0;
+    let fromWithdrawable = 0;
+    if (!isBot) {
+      const buckets = parseUserBuckets(user as any);
+      const total = totalWallet(buckets);
+      if (total < netDue) {
+        const e = new Error("INSUFFICIENT_BALANCE");
+        (e as { code?: string }).code = "INSUFFICIENT_BALANCE";
+        throw e;
+      }
+      const d = deductForPoolEntry(buckets, netDue, { allowRewardPoints: true });
+      fromPointsUsdt = d.fromRewardPointsUsdt;
+      fromWithdrawable = d.fromWithdrawable;
+      await tx
+        .update(usersTable)
+        .set({
+          rewardPoints: d.after.rewardPoints,
+          bonusBalance: "0",
+          withdrawableBalance: d.after.withdrawableBalance.toFixed(2),
+          walletBalance: walletBalanceFromBuckets(d.after),
+        })
+        .where(eq(usersTable.id, userId));
+      await mirrorAvailableFromUser(tx, userId);
+      await tx.insert(transactionsTable).values({
+        userId,
+        txType: "pool_entry",
+        amount: netDue.toFixed(2),
+        status: "completed",
+        note: `[Admin Simulator] Joined pool: ${pool.title} — wallet ${netDue.toFixed(2)} USDT`,
+      });
+    }
+
     // prevent duplicate joins when simulator is used repeatedly
     const [existing] = await tx
       .select({ id: poolParticipantsTable.id, ticketCount: poolParticipantsTable.ticketCount })
@@ -153,32 +253,50 @@ async function addSimulatedTicketAndParticipant(args: {
       .where(and(eq(poolParticipantsTable.poolId, poolId), eq(poolParticipantsTable.userId, userId)))
       .limit(1);
 
-    const lucky = await insertPoolTicketsWithLuckyNumbers(tx, poolId, userId, ticketQty, { isSimulated });
+    const lucky = await insertPoolTicketsWithLuckyNumbers(tx, poolId, userId, qty, { isSimulated: isBot });
     if (existing) {
+      const [prev] = await tx
+        .select({
+          ticketCount: poolParticipantsTable.ticketCount,
+          amountPaid: poolParticipantsTable.amountPaid,
+          paidFromBonus: poolParticipantsTable.paidFromBonus,
+          paidFromWithdrawable: poolParticipantsTable.paidFromWithdrawable,
+        })
+        .from(poolParticipantsTable)
+        .where(eq(poolParticipantsTable.id, existing.id))
+        .limit(1);
+      const prevPaid = parseFloat(String(prev?.amountPaid ?? "0"));
+      const prevFb = parseFloat(String(prev?.paidFromBonus ?? "0"));
+      const prevWd = parseFloat(String(prev?.paidFromWithdrawable ?? "0"));
       await tx
         .update(poolParticipantsTable)
         .set({
-          ticketCount: Number(existing.ticketCount ?? 0) + ticketQty,
-          amountPaid: String(Number((Number(amountPaidUsdt) + 0).toFixed(2))),
+          ticketCount: Number(existing.ticketCount ?? 0) + qty,
+          amountPaid: (prevPaid + (isBot ? 0 : netDue)).toFixed(2),
+          paidFromBonus: (prevFb + (isBot ? 0 : fromPointsUsdt)).toFixed(2),
+          paidFromWithdrawable: (prevWd + (isBot ? 0 : fromWithdrawable)).toFixed(2),
         } as any)
         .where(eq(poolParticipantsTable.id, existing.id));
     } else {
       await tx.insert(poolParticipantsTable).values({
         poolId,
         userId,
-        ticketCount: ticketQty,
-        amountPaid: String(Number(amountPaidUsdt.toFixed(2))),
-        paidFromBonus: "0",
-        paidFromWithdrawable: String(Number(amountPaidUsdt.toFixed(2))),
+        ticketCount: qty,
+        amountPaid: String(isBot ? 0 : netDue.toFixed(2)),
+        paidFromBonus: String(isBot ? 0 : fromPointsUsdt.toFixed(2)),
+        paidFromWithdrawable: String(isBot ? 0 : fromWithdrawable.toFixed(2)),
       });
     }
+
+    const newSold = (Number(sold) || 0) + qty;
+    await tx.update(poolsTable).set({ soldTickets: newSold } as any).where(eq(poolsTable.id, poolId));
 
     await tx.insert(adminActionsTable).values({
       adminId,
       targetType: "pool",
       targetId: poolId,
       actionType: "simulator_add_entry",
-      description: `Simulator added ${ticketQty} ${isSimulated ? "bot" : "user"} ticket(s) to pool #${poolId} for user #${userId} (lucky: ${lucky.slice(0, 6).join(", ")}${lucky.length > 6 ? "…" : ""}).`,
+      description: `Simulator added ${qty} ${isBot ? "bot" : "user"} ticket(s) to pool #${poolId} for user #${userId} (lucky: ${lucky.slice(0, 6).join(", ")}${lucky.length > 6 ? "…" : ""}).`,
     });
   });
 }
@@ -286,15 +404,10 @@ router.post("/simulator/fill-pool", async (req, res) => {
   let added = 0;
   for (let i = 0; i < toAdd; i++) {
     const uid = pickedUserIds[i]!;
-    // Determine if bot
-    const [u] = await db.select({ isBot: (usersTable as any).isBot }).from(usersTable).where(eq(usersTable.id, uid)).limit(1);
-    const isBot = Boolean((u as any)?.isBot);
-    await addSimulatedTicketAndParticipant({
+    await simulatorJoinPoolTicket({
       poolId,
       userId: uid,
       ticketQty: 1,
-      isSimulated: isBot,
-      amountPaidUsdt: isBot ? 0 : entryFee,
       adminId,
     });
     added += 1;
@@ -339,12 +452,10 @@ router.post("/simulator/bulk-fill", async (req, res) => {
       .limit(Math.min(need, 250));
     let added = 0;
     for (const b of bots) {
-      await addSimulatedTicketAndParticipant({
+      await simulatorJoinPoolTicket({
         poolId: p.poolId,
         userId: b.id,
         ticketQty: 1,
-        isSimulated: true,
-        amountPaidUsdt: 0,
         adminId,
       });
       added += 1;
