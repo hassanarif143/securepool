@@ -21,7 +21,7 @@ export async function insertPoolTicketsWithLuckyNumbers(
   poolId: number,
   userId: number,
   count: number,
-  opts?: { weight?: number },
+  opts?: { weight?: number; isSimulated?: boolean },
 ): Promise<number[]> {
   const assigned: number[] = [];
   let nextTicketNumber = await getNextTicketNumber(poolId, tx);
@@ -38,6 +38,7 @@ export async function insertPoolTicketsWithLuckyNumbers(
           ticketNumber: nextTicketNumber,
           luckyNumber: lucky,
           weight: w.toFixed(4),
+          isSimulated: Boolean(opts?.isSimulated),
         });
         inserted = true;
         assigned.push(lucky);

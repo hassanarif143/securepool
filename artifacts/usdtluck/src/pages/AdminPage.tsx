@@ -116,6 +116,8 @@ export default function AdminPage() {
           <TabsTrigger value="reviews" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Reviews</TabsTrigger>
           <TabsTrigger value="wallets" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Wallets</TabsTrigger>
           <TabsTrigger value="audit" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Audit</TabsTrigger>
+          <TabsTrigger value="simulator" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Simulator</TabsTrigger>
+          <TabsTrigger value="bots" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Bots</TabsTrigger>
         </TabsList>
         <TabsContent value="finance"><FinanceTab /></TabsContent>
         <TabsContent value="rewards"><RewardsConfigTab /></TabsContent>
@@ -129,7 +131,240 @@ export default function AdminPage() {
         <TabsContent value="reviews"><ReviewsTab /></TabsContent>
         <TabsContent value="wallets"><WalletRequestsTab /></TabsContent>
         <TabsContent value="audit"><AuditLogsTab /></TabsContent>
+        <TabsContent value="simulator"><SimulatorTab /></TabsContent>
+        <TabsContent value="bots"><BotManagementTab /></TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function SimulatorTab() {
+  const { toast } = useToast();
+  const { data: pools = [], isLoading: poolsLoading, refetch: refetchPools } = useListPools({
+    query: { queryKey: getListPoolsQueryKey() },
+  });
+  const openPools = useMemo(() => pools.filter((p: any) => String(p.status) === "open"), [pools]);
+  const [poolId, setPoolId] = useState<number>(() => Number(openPools[0]?.id ?? 0));
+  const [botCount, setBotCount] = useState(5);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+
+  useEffect(() => {
+    if (!poolId && openPools.length > 0) setPoolId(Number(openPools[0]?.id ?? 0));
+  }, [openPools.length]);
+
+  async function fill(mode: "bots" | "auto") {
+    if (!poolId) return;
+    setLoading(true);
+    setResult(null);
+    try {
+      const res = await fetch(apiUrl("/api/admin/simulator/fill-pool"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          poolId,
+          mode,
+          botCount: mode === "bots" ? Math.max(1, Math.min(200, botCount)) : undefined,
+        }),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      const j = await res.json();
+      setResult(j);
+      toast({ title: "Simulator ran", description: `Added ${j.added ?? 0} entries` });
+      void refetchPools();
+    } catch (e: any) {
+      toast({ title: "Simulator failed", description: e?.message ?? "Error", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const pool = openPools.find((p: any) => Number(p.id) === Number(poolId)) ?? pools.find((p: any) => Number(p.id) === Number(poolId));
+  const total = Number((pool as any)?.totalTickets ?? (pool as any)?.maxUsers ?? 0);
+  const sold = Number((pool as any)?.soldTickets ?? (pool as any)?.participantCount ?? 0);
+  const left = Math.max(0, total - sold);
+
+  return (
+    <div className="space-y-4 mt-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">🎮 Pool Simulator</CardTitle>
+          <p className="text-xs text-muted-foreground">Fill pools with bot entries (admin-only). Bot tickets are marked `is_simulated=true`.</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Open pool</Label>
+              <select
+                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                value={poolId || ""}
+                onChange={(e) => setPoolId(Number(e.target.value))}
+                disabled={poolsLoading}
+              >
+                {openPools.map((p: any) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title} — ${Number(p.ticketPrice ?? p.entryFee ?? 0)} ({Number(p.soldTickets ?? p.participantCount ?? 0)}/{Number(p.totalTickets ?? p.maxUsers ?? 0)})
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground">Spots left: {left}</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Quick fill spots</Label>
+              <Input
+                inputMode="numeric"
+                value={String(botCount)}
+                onChange={(e) => setBotCount(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
+                className="h-11"
+              />
+              <div className="flex gap-2 pt-1">
+                <Button className="h-11 flex-1" disabled={loading || !poolId} onClick={() => void fill("bots")}>
+                  {loading ? "Filling…" : `Fill ${botCount}`}
+                </Button>
+                <Button variant="outline" className="h-11 flex-1" disabled={loading || !poolId} onClick={() => void fill("auto")}>
+                  {loading ? "…" : "Fill all"}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">Pool #{poolId || "—"}</Badge>
+              <span className="text-muted-foreground">
+                Entries: {sold}/{total} ({total ? Math.round((sold / total) * 100) : 0}%)
+              </span>
+            </div>
+            {result ? (
+              <p className="mt-2 text-muted-foreground">
+                Added <span className="font-semibold text-foreground">{result.added ?? 0}</span> · Total entries{" "}
+                <span className="font-semibold text-foreground">{result.totalEntries ?? "—"}</span> · Full:{" "}
+                <span className="font-semibold text-foreground">{String(Boolean(result.poolNowFull))}</span>
+              </p>
+            ) : (
+              <p className="mt-2 text-muted-foreground">Run simulator to see results here.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function BotManagementTab() {
+  const { toast } = useToast();
+  const [bots, setBots] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [genCount, setGenCount] = useState(20);
+  const [region, setRegion] = useState<"mix" | "pk" | "in" | "uae">("mix");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(apiUrl("/api/admin/bots"), { credentials: "include" });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      setBots(await res.json());
+    } catch (e: any) {
+      toast({ title: "Failed to load bots", description: e?.message ?? "Error", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function generate() {
+    setBusy(true);
+    try {
+      const res = await fetch(apiUrl("/api/admin/bots/generate"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count: Math.max(1, Math.min(50, genCount)), region }),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      const j = await res.json();
+      toast({ title: "Bots generated", description: `${j.created ?? 0} created` });
+      await load();
+    } catch (e: any) {
+      toast({ title: "Generate failed", description: e?.message ?? "Error", variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4 mt-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">🤖 Bot Management</CardTitle>
+          <p className="text-xs text-muted-foreground">Bots are admin-only users (`is_bot=true`) used for pool filling and social proof.</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label>Generate count (1–50)</Label>
+              <Input
+                inputMode="numeric"
+                value={String(genCount)}
+                onChange={(e) => setGenCount(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Region</Label>
+              <select
+                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                value={region}
+                onChange={(e) => setRegion(e.target.value as any)}
+              >
+                <option value="mix">Mix</option>
+                <option value="pk">PK</option>
+                <option value="in">IN</option>
+                <option value="uae">UAE</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>&nbsp;</Label>
+              <Button className="h-11 w-full" disabled={busy} onClick={() => void generate()}>
+                {busy ? "Generating…" : "Generate bots"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border/60 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/60 bg-muted/20">
+              <p className="text-sm font-semibold">Bots ({bots.length})</p>
+              <Button size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
+                Refresh
+              </Button>
+            </div>
+            {loading ? (
+              <p className="p-4 text-sm text-muted-foreground">Loading…</p>
+            ) : bots.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">No bots yet. Generate some.</p>
+            ) : (
+              <ul className="divide-y divide-border/60">
+                {bots.slice(0, 80).map((b) => (
+                  <li key={b.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">{b.botDisplayName ?? b.name}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        #{b.id} · {(b.botRegion ?? "mix").toUpperCase()}
+                      </p>
+                    </div>
+                    <Badge variant="secondary">bot</Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -10,6 +10,11 @@ export const usersTable = pgTable("users", {
   email: text("email").notNull().unique(),
   phone: text("phone").unique(),
   passwordHash: text("password_hash").notNull(),
+  /** Admin-only: marks simulated/bot users used for pool filler. */
+  isBot: boolean("is_bot").notNull().default(false),
+  botCreatedBy: integer("bot_created_by"),
+  botDisplayName: text("bot_display_name"),
+  botRegion: text("bot_region"),
   walletBalance: numeric("wallet_balance", { precision: 18, scale: 2 }).notNull().default("0"),
   /** Non-withdrawable; ticket purchases only (first deposit + referral count milestones). */
   bonusBalance: numeric("bonus_balance", { precision: 18, scale: 2 }).notNull().default("0"),

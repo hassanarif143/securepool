@@ -5,6 +5,7 @@ export * from "./poolTemplates";
 export * from "./poolLifecycleLog";
 export * from "./poolParticipants";
 export * from "./poolTickets";
+export * from "./botNamePool";
 export * from "./transactions";
 export * from "./usdtStakes";
 export * from "./winners";

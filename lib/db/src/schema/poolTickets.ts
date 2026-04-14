@@ -1,6 +1,7 @@
 import { pgTable, serial, integer, timestamp, unique, numeric } from "drizzle-orm/pg-core";
 import { poolsTable } from "./pools";
 import { usersTable } from "./users";
+import { boolean } from "drizzle-orm/pg-core";
 
 export const poolTicketsTable = pgTable(
   "pool_tickets",
@@ -15,6 +16,8 @@ export const poolTicketsTable = pgTable(
     ticketNumber: integer("ticket_number"),
     luckyNumber: integer("lucky_number").notNull(),
     weight: numeric("weight", { precision: 8, scale: 4 }).notNull().default("1.0000"),
+    /** Admin-only: marks tickets inserted by simulator/bots. */
+    isSimulated: boolean("is_simulated").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

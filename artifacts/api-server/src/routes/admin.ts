@@ -18,7 +18,7 @@ import {
   securityConfigTable,
   securityEventsTable,
 } from "@workspace/db";
-import { eq, ne, count, sum, desc, and, sql } from "drizzle-orm";
+import { eq, ne, count, sum, desc, and, sql, inArray } from "drizzle-orm";
 import { sendWithdrawalStatusEmail } from "../lib/email";
 import { notifyUser } from "../lib/notify";
 import { logger } from "../lib/logger";
@@ -51,12 +51,29 @@ import {
 } from "../services/user-wallet-service";
 import { getRewardConfig, normalizeRewardConfig } from "../lib/reward-config";
 import { getSecurityConfig } from "../lib/security";
-import { countPoolTickets } from "../services/lucky-pool-ticket-service";
+import { countPoolTickets, insertPoolTicketsWithLuckyNumbers } from "../services/lucky-pool-ticket-service";
 import poolFactoryV2Router from "./pool-factory-v2";
+import { botNamePoolTable } from "@workspace/db/schema";
 
 const router: IRouter = Router();
 
 router.use(requireAdmin);
+
+const AdminGenerateBotsBody = z.object({
+  count: z.number().int().min(1).max(50),
+  region: z.enum(["pk", "in", "uae", "mix"]).optional(),
+});
+
+const AdminFillPoolBody = z.object({
+  poolId: z.number().int().positive(),
+  mode: z.enum(["bots", "select", "auto"]),
+  userIds: z.array(z.number().int().positive()).optional(),
+  botCount: z.number().int().min(1).max(200).optional(),
+});
+
+const AdminBulkFillBody = z.object({
+  pools: z.array(z.object({ poolId: z.number().int().positive(), fillCount: z.number().int().min(0).max(500) })).min(1).max(50),
+});
 
 function superAdminIds(): number[] {
   const raw = process.env.SUPER_ADMIN_USER_IDS ?? "1";
@@ -75,6 +92,276 @@ async function logAction(adminId: number, targetType: string, targetId: number |
 function getAdminId(req: any): number {
   return getAuthedUserId(req);
 }
+
+function pickRegion(region?: "pk" | "in" | "uae" | "mix"): "pk" | "in" | "uae" {
+  if (!region || region === "mix") {
+    const r = Math.random();
+    if (r < 0.7) return "pk";
+    if (r < 0.93) return "in";
+    return "uae";
+  }
+  return region;
+}
+
+async function randomBotNames(count: number, region?: "pk" | "in" | "uae" | "mix") {
+  const desired = pickRegion(region);
+  // Try region-specific first; fall back to any if pool is small.
+  const rows = await db
+    .select({ firstName: botNamePoolTable.firstName, lastInitial: botNamePoolTable.lastInitial, region: botNamePoolTable.region })
+    .from(botNamePoolTable)
+    .where(eq(botNamePoolTable.region, desired))
+    .orderBy(sql`RANDOM()`)
+    .limit(Math.min(count, 200));
+  if (rows.length >= count) return rows.slice(0, count);
+  const more = await db
+    .select({ firstName: botNamePoolTable.firstName, lastInitial: botNamePoolTable.lastInitial, region: botNamePoolTable.region })
+    .from(botNamePoolTable)
+    .orderBy(sql`RANDOM()`)
+    .limit(Math.min(200, Math.max(0, count - rows.length)));
+  return [...rows, ...more].slice(0, count);
+}
+
+async function ensurePoolOpen(poolId: number) {
+  const [pool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
+  if (!pool) {
+    const e = new Error("POOL_NOT_FOUND");
+    (e as { status?: number }).status = 404;
+    throw e;
+  }
+  if (String(pool.status) !== "open") {
+    const e = new Error("POOL_NOT_OPEN");
+    (e as { status?: number }).status = 400;
+    throw e;
+  }
+  return pool;
+}
+
+async function addSimulatedTicketAndParticipant(args: {
+  poolId: number;
+  userId: number;
+  ticketQty: number;
+  isSimulated: boolean;
+  amountPaidUsdt: number;
+  adminId: number;
+}) {
+  const { poolId, userId, ticketQty, isSimulated, amountPaidUsdt, adminId } = args;
+  await db.transaction(async (tx) => {
+    // prevent duplicate joins when simulator is used repeatedly
+    const [existing] = await tx
+      .select({ id: poolParticipantsTable.id, ticketCount: poolParticipantsTable.ticketCount })
+      .from(poolParticipantsTable)
+      .where(and(eq(poolParticipantsTable.poolId, poolId), eq(poolParticipantsTable.userId, userId)))
+      .limit(1);
+
+    const lucky = await insertPoolTicketsWithLuckyNumbers(tx, poolId, userId, ticketQty, { isSimulated });
+    if (existing) {
+      await tx
+        .update(poolParticipantsTable)
+        .set({
+          ticketCount: Number(existing.ticketCount ?? 0) + ticketQty,
+          amountPaid: String(Number((Number(amountPaidUsdt) + 0).toFixed(2))),
+        } as any)
+        .where(eq(poolParticipantsTable.id, existing.id));
+    } else {
+      await tx.insert(poolParticipantsTable).values({
+        poolId,
+        userId,
+        ticketCount: ticketQty,
+        amountPaid: String(Number(amountPaidUsdt.toFixed(2))),
+        paidFromBonus: "0",
+        paidFromWithdrawable: String(Number(amountPaidUsdt.toFixed(2))),
+      });
+    }
+
+    await tx.insert(adminActionsTable).values({
+      adminId,
+      targetType: "pool",
+      targetId: poolId,
+      actionType: "simulator_add_entry",
+      description: `Simulator added ${ticketQty} ${isSimulated ? "bot" : "user"} ticket(s) to pool #${poolId} for user #${userId} (lucky: ${lucky.slice(0, 6).join(", ")}${lucky.length > 6 ? "…" : ""}).`,
+    });
+  });
+}
+
+router.post("/bots/generate", async (req, res) => {
+  const adminId = getAdminId(req);
+  const parsed = AdminGenerateBotsBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
+    return;
+  }
+  const { count: n, region } = parsed.data;
+  const names = await randomBotNames(n, region);
+  if (names.length === 0) {
+    res.status(400).json({ error: "BOT_NAME_POOL_EMPTY" });
+    return;
+  }
+  const botIds: number[] = [];
+  for (let i = 0; i < names.length; i++) {
+    const nm = names[i]!;
+    const display = `${nm.firstName} ${String(nm.lastInitial).toUpperCase()}.`;
+    const email = `bot_${Date.now()}_${randomBytes(3).toString("hex")}_${i}@securepool.internal`;
+    const passwordHash = await bcrypt.hash(randomBytes(16).toString("hex"), 10);
+    const [u] = await db
+      .insert(usersTable)
+      .values({
+        name: display,
+        email,
+        phone: null as any,
+        passwordHash,
+        isBot: true,
+        botCreatedBy: adminId,
+        botDisplayName: display,
+        botRegion: nm.region,
+        // keep balances at zero (bots do not need money)
+        walletBalance: "0",
+        bonusBalance: "0",
+        withdrawableBalance: "0",
+      } as any)
+      .returning({ id: usersTable.id });
+    if (u?.id) botIds.push(u.id);
+  }
+  await logAction(adminId, "bot", null, "generate_bots", `Generated ${botIds.length} bot user(s) (${region ?? "mix"}).`);
+  res.json({ created: botIds.length, botIds });
+});
+
+router.get("/bots", async (_req, res) => {
+  const bots = await db
+    .select({
+      id: usersTable.id,
+      name: usersTable.name,
+      botDisplayName: (usersTable as any).botDisplayName,
+      botRegion: (usersTable as any).botRegion,
+      joinedAt: usersTable.joinedAt,
+    })
+    .from(usersTable)
+    .where(eq((usersTable as any).isBot, true))
+    .orderBy(desc(usersTable.joinedAt))
+    .limit(500);
+  res.json(bots);
+});
+
+router.post("/simulator/fill-pool", async (req, res) => {
+  const adminId = getAdminId(req);
+  const parsed = AdminFillPoolBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
+    return;
+  }
+  const { poolId, mode, userIds, botCount } = parsed.data;
+  const pool = await ensurePoolOpen(poolId);
+
+  const totalTickets = Number((pool as any).totalTickets ?? pool.maxUsers ?? 0);
+  const current = await countPoolTickets(poolId);
+  const left = Math.max(0, totalTickets - current);
+  if (left <= 0) {
+    res.json({ added: 0, poolNowFull: true, totalEntries: current });
+    return;
+  }
+
+  let pickedUserIds: number[] = [];
+  if (mode === "select") {
+    pickedUserIds = Array.from(new Set((userIds ?? []).filter((id) => Number.isFinite(id) && id > 0)));
+    if (pickedUserIds.length === 0) {
+      res.status(400).json({ error: "NO_USERS_SELECTED" });
+      return;
+    }
+  } else {
+    const fillN = mode === "auto" ? left : Math.min(left, botCount ?? 0);
+    if (fillN <= 0) {
+      res.status(400).json({ error: "INVALID_BOT_COUNT" });
+      return;
+    }
+    const bots = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq((usersTable as any).isBot, true))
+      .orderBy(sql`RANDOM()`)
+      .limit(Math.min(fillN, 200));
+    pickedUserIds = bots.map((b) => b.id);
+  }
+
+  const toAdd = Math.min(left, pickedUserIds.length);
+  const entryFee = Number((pool as any).ticketPrice ?? pool.entryFee ?? 0);
+  let added = 0;
+  for (let i = 0; i < toAdd; i++) {
+    const uid = pickedUserIds[i]!;
+    // Determine if bot
+    const [u] = await db.select({ isBot: (usersTable as any).isBot }).from(usersTable).where(eq(usersTable.id, uid)).limit(1);
+    const isBot = Boolean((u as any)?.isBot);
+    await addSimulatedTicketAndParticipant({
+      poolId,
+      userId: uid,
+      ticketQty: 1,
+      isSimulated: isBot,
+      amountPaidUsdt: isBot ? 0 : entryFee,
+      adminId,
+    });
+    added += 1;
+  }
+
+  const after = await countPoolTickets(poolId);
+  const poolNowFull = after >= totalTickets && totalTickets > 0;
+  if (poolNowFull) {
+    await logAction(adminId, "pool", poolId, "simulator_pool_full", `Simulator filled pool #${poolId} to capacity (${after}/${totalTickets}).`);
+    // Trigger same draw flow the admin uses elsewhere.
+    try {
+      await autoDistributePool(poolId);
+    } catch {}
+  }
+
+  res.json({ added, poolNowFull, totalEntries: after });
+});
+
+router.post("/simulator/bulk-fill", async (req, res) => {
+  const adminId = getAdminId(req);
+  const parsed = AdminBulkFillBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
+    return;
+  }
+  const out: Array<{ poolId: number; added: number; poolNowFull: boolean; totalEntries: number }> = [];
+  for (const p of parsed.data.pools) {
+    const pool = await ensurePoolOpen(p.poolId);
+    const totalTickets = Number((pool as any).totalTickets ?? pool.maxUsers ?? 0);
+    const current = await countPoolTickets(p.poolId);
+    const left = Math.max(0, totalTickets - current);
+    const need = p.fillCount === 0 ? left : Math.min(left, p.fillCount);
+    if (need <= 0) {
+      out.push({ poolId: p.poolId, added: 0, poolNowFull: left <= 0, totalEntries: current });
+      continue;
+    }
+    const bots = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq((usersTable as any).isBot, true))
+      .orderBy(sql`RANDOM()`)
+      .limit(Math.min(need, 250));
+    let added = 0;
+    for (const b of bots) {
+      await addSimulatedTicketAndParticipant({
+        poolId: p.poolId,
+        userId: b.id,
+        ticketQty: 1,
+        isSimulated: true,
+        amountPaidUsdt: 0,
+        adminId,
+      });
+      added += 1;
+    }
+    const after = await countPoolTickets(p.poolId);
+    const poolNowFull = after >= totalTickets && totalTickets > 0;
+    if (poolNowFull) {
+      try {
+        await autoDistributePool(p.poolId);
+      } catch {}
+    }
+    out.push({ poolId: p.poolId, added, poolNowFull, totalEntries: after });
+  }
+  await logAction(adminId, "simulator", null, "bulk_fill", `Bulk-filled ${out.length} pool(s).`);
+  res.json({ pools: out });
+});
+
 
 function csvEscape(val: unknown): string {
   const s = val === null || val === undefined ? "" : String(val);
