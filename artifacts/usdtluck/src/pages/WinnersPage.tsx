@@ -9,7 +9,6 @@ import { UsdtAmount } from "@/components/UsdtAmount";
 import { apiUrl } from "@/lib/api-base";
 import { useCountUp } from "@/hooks/useCountUp";
 import { cn } from "@/lib/utils";
-import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 
 /* ── Place metadata — dark-mode aware ── */
 const PLACE: Record<number, {
@@ -226,7 +225,7 @@ function WinnerRow({ winner }: { winner: any }) {
 }
 
 export default function WinnersPage() {
-  const { data: winners, isLoading, refetch } = useListWinners();
+  const { data: winners, isLoading } = useListWinners();
 
   const winnersList = (winners as any[]) ?? [];
 
@@ -278,8 +277,6 @@ export default function WinnersPage() {
   const [visible, setVisible] = useState(10);
 
   useEffect(() => setVisible(10), [range]);
-
-  const ptr = usePullToRefresh({ onRefresh: async () => { await refetch(); } });
 
   const filtered = useMemo(() => {
     if (range === "all") return feedWinners;
@@ -339,33 +336,7 @@ export default function WinnersPage() {
   );
 
   return (
-    <div className="max-w-3xl mx-auto space-y-10" {...ptr.bind}>
-      <div
-        className="md:hidden"
-        style={{
-          height: ptr.pullPx,
-          display: "flex",
-          alignItems: "flex-end",
-          justifyContent: "center",
-          transition: ptr.refreshing ? "none" : "height 120ms ease",
-        }}
-      >
-        {ptr.pullPx > 8 || ptr.refreshing ? (
-          <div
-            style={{
-              width: 18,
-              height: 18,
-              borderRadius: 999,
-              border: "2px solid rgba(255,255,255,0.18)",
-              borderTopColor: "var(--accent-cyan)",
-              animation: "sp-pt-spin 700ms linear infinite",
-              marginBottom: 8,
-            }}
-            aria-label="Refreshing"
-          />
-        ) : null}
-      </div>
-      <style>{`@keyframes sp-pt-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    <div className="max-w-3xl mx-auto space-y-10">
 
       {/* ── Hero header ── */}
       <div ref={heroInView.ref} className="relative overflow-hidden rounded-3xl border border-white/[0.08]">
@@ -702,6 +673,7 @@ export default function WinnersPage() {
           max-width: 420px;
           margin: 0 auto;
           padding: 20px 16px;
+          font-family: 'DM Sans', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
         }
         .sp-podium-label {
           text-align: center;
@@ -714,11 +686,11 @@ export default function WinnersPage() {
         .sp-pool-tag {
           width: fit-content;
           margin: 10px auto 14px;
-          padding: 4px 14px;
+          padding: 6px 12px;
           font-size: 12px;
-          color: var(--accent-cyan);
-          background: var(--accent-cyan-bg);
-          border: 1px solid var(--accent-cyan-border);
+          color: #00D4FF;
+          background: rgba(0,229,255,0.08);
+          border: 1px solid rgba(0,229,255,0.22);
           border-radius: 999px;
           text-align: center;
           white-space: nowrap;
@@ -795,7 +767,7 @@ export default function WinnersPage() {
           display: flex;
           align-items: flex-end;
           justify-content: center;
-          gap: 0px;
+          gap: 8px;
           margin-top: 10px;
         }
         .sp-step { width: 112px; border-radius: 12px 12px 0 0; }

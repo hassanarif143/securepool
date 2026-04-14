@@ -22,8 +22,6 @@ import { RewardsSummaryCard } from "@/components/rewards/RewardsSummaryCard";
 import { LiveWinnerTicker } from "@/components/winners/LiveWinnerTicker";
 import { useGameAvailability } from "@/lib/game-availability";
 import { premiumPanel, premiumPanelHead } from "@/lib/premium-panel";
-import { useCurrencyRate } from "@/hooks/useCurrencyRate";
-import { PoolCard } from "@/components/PoolCard";
 
 function greeting() {
   const h = new Date().getHours();
@@ -181,223 +179,10 @@ export default function DashboardPage() {
   const firstName = user.name.split(" ")[0] ?? user.name;
   const rewardsUsdt = Number((user.rewardPoints ?? 0) as number) / 300;
   const lockedEstimated = Math.max(0, Number(user.walletBalance ?? 0) - Number(user.withdrawableBalance ?? 0) - rewardsUsdt);
-  const { rates, localeCurrency } = useCurrencyRate();
-  const localApprox = Math.round((Number.isFinite(animBalance) ? animBalance : 0) * (rates[localeCurrency] ?? 0));
 
   return (
-    <>
-      {/* Mobile-first pixel UI (spec) */}
-      <div className="md:hidden" style={{ padding: "12px var(--page-px) 0" }}>
-        {/* Balance card */}
-        <section
-          style={{
-            background: "linear-gradient(135deg, #0d1117 0%, #111d2e 100%)",
-            border: "1px solid rgba(0, 229, 255, 0.10)",
-            borderRadius: 16,
-            padding: 20,
-            margin: "12px 0",
-          }}
-        >
-          <p style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>Available balance</p>
-          <p
-            className="tabular-nums"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 32,
-              fontWeight: 700,
-              color: "var(--text-white)",
-              lineHeight: 1.15,
-              marginTop: 6,
-            }}
-          >
-            {Number.isFinite(animBalance) ? animBalance.toFixed(2) : "0.00"}
-          </p>
-          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
-            ≈ {Number.isFinite(localApprox) ? localApprox.toLocaleString() : "0"} {localeCurrency}
-          </p>
-
-          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-            <button
-              type="button"
-              onClick={() => navigate("/wallet?tab=deposit")}
-              style={{
-                flex: 1,
-                height: 40,
-                borderRadius: "var(--btn-radius)",
-                background: "var(--accent-green)",
-                color: "#04120a",
-                fontSize: 13,
-                fontWeight: 600,
-                border: "none",
-              }}
-            >
-              ＋ Deposit
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/wallet?tab=withdraw")}
-              style={{
-                flex: 1,
-                height: 40,
-                borderRadius: "var(--btn-radius)",
-                background: "transparent",
-                border: "1px solid var(--border)",
-                color: "var(--text-white)",
-                fontSize: 13,
-                fontWeight: 600,
-              }}
-            >
-              Withdraw
-            </button>
-          </div>
-        </section>
-
-        {/* Quick actions row */}
-        <section style={{ margin: "16px 0" }}>
-          <div className="hide-scroll" style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
-            {[
-              { icon: "🎰", label: "Pools", href: "/pools" },
-              { icon: "🎮", label: "Games", href: "/games" },
-              { icon: "👥", label: "Refer", href: "/referral" },
-              { icon: "📊", label: "Stats", href: "/profile" },
-            ].map((a) => (
-              <Link key={a.href} href={a.href}>
-                <div
-                  role="button"
-                  className="active:scale-[0.95]"
-                  style={{
-                    minWidth: 72,
-                    background: "var(--bg-surface)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 12,
-                    padding: "12px 8px",
-                    textAlign: "center",
-                    transition: "transform 100ms ease, background-color 100ms ease",
-                  }}
-                >
-                  <span style={{ display: "block", fontSize: 18, marginBottom: 4 }} aria-hidden>
-                    {a.icon}
-                  </span>
-                  <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 500 }}>{a.label}</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* Active pools */}
-        <section style={{ marginTop: 18 }}>
-          <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-white)", margin: "18px 0 10px" }}>
-            Active pools
-          </p>
-          {activeJoined.length === 0 ? (
-            <Link href="/pools">
-              <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                No active pools. <span style={{ color: "var(--accent-cyan)" }}>Join one now! →</span>
-              </p>
-            </Link>
-          ) : (
-            <div style={{ display: "grid", gap: 10 }}>
-              {activeJoined.slice(0, 2).map((e) => {
-                const pool = pools?.find((p) => p.id === e.id);
-                return pool ? <PoolCard key={pool.id} pool={pool} userJoined /> : (
-                  <Link key={e.id} href={`/pools/${e.id}`}>
-                    <div
-                      style={{
-                        background: "var(--bg-surface)",
-                        border: "1px solid var(--border)",
-                        borderRadius: "var(--card-radius)",
-                        padding: "var(--card-px)",
-                      }}
-                    >
-                      <p style={{ fontSize: 14, fontWeight: 600 }}>{e.title}</p>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>Waiting for draw</p>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* Recent activity */}
-        <section style={{ marginTop: 18, paddingBottom: 24 }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "18px 0 10px" }}>
-            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-white)" }}>Recent activity</p>
-            <Link href="/wallet">
-              <span style={{ fontSize: 12, color: "var(--accent-cyan)" }}>View all →</span>
-            </Link>
-          </div>
-          <div>
-            {recentTxs.slice(0, 5).map((tx) => {
-              const meta = rowTxMetaForDashboard(tx);
-              const amt = Number(tx.amount);
-              const sign = meta.isCredit ? "+" : "-";
-              const local = Math.round((Number.isFinite(amt) ? amt : 0) * (rates[localeCurrency] ?? 0));
-              return (
-                <div
-                  key={tx.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "10px 0",
-                    borderBottom: "1px solid rgba(255,255,255,0.04)",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                    <div
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 10,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 14,
-                        background: meta.isCredit ? "var(--accent-green-bg)" : "var(--accent-red-bg)",
-                        color: meta.isCredit ? "var(--accent-green)" : "var(--accent-red)",
-                        border: "1px solid var(--border)",
-                        flexShrink: 0,
-                      }}
-                      aria-hidden
-                    >
-                      {meta.icon}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <p style={{ fontSize: 13, fontWeight: 500, color: "var(--text-white)" }}>{meta.label}</p>
-                      <p style={{ fontSize: 11, color: "var(--text-dim)" }}>
-                        {meta.desc} · {timeAgo(tx.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <p
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 600,
-                        fontFamily: "var(--font-mono)",
-                        color: meta.isCredit ? "var(--accent-green)" : "var(--accent-red)",
-                      }}
-                      className="tabular-nums"
-                    >
-                      {sign}
-                      {Number.isFinite(amt) ? Math.abs(amt).toFixed(2) : "0.00"}
-                    </p>
-                    <p style={{ fontSize: 10, color: "var(--text-dim)" }}>
-                      ≈ {Number.isFinite(local) ? local.toLocaleString() : "0"} {localeCurrency}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      </div>
-
-      {/* Desktop / existing dashboard (kept for now) */}
-      <div className="hidden md:block sp-ambient-bg relative min-h-[50vh] w-full">
-        <div className="mx-auto max-w-6xl space-y-8 px-4 pb-12 sm:space-y-10 sm:px-6">
+    <div className="sp-ambient-bg relative min-h-[50vh] w-full">
+      <div className="mx-auto max-w-6xl space-y-8 px-4 pb-12 sm:space-y-10 sm:px-6">
       {poolsError && (
         <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <p className="text-sm text-destructive-foreground">Something went wrong loading pools. Try again.</p>
@@ -1024,8 +809,7 @@ export default function DashboardPage() {
           </p>
         </div>
       </div>
-        </div>
       </div>
-    </>
+    </div>
   );
 }

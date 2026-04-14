@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useListPools } from "@workspace/api-client-react";
 import type { Pool } from "@workspace/api-client-react";
 import { PoolCard } from "@/components/PoolCard";
-import { PoolCardCompact } from "@/components/PoolCardCompact";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { apiUrl } from "@/lib/api-base";
 import { premiumPanel } from "@/lib/premium-panel";
-import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 
 const BANNER_KEY = "securepool_pools_onboarding_dismissed";
 
@@ -25,8 +23,6 @@ export default function PoolsPage() {
   const { data: pools, isLoading, isError, refetch } = useListPools();
   const [bannerOpen, setBannerOpen] = useState(false);
   const [howOpen, setHowOpen] = useState(false);
-  const [filter, setFilter] = useState<"open" | "filling" | "drawing" | "completed">("open");
-  const ptr = usePullToRefresh({ onRefresh: async () => { await refetch(); } });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -52,16 +48,6 @@ export default function PoolsPage() {
   const completed =
     pools?.filter((p) => poolStatus(p) === "completed" || poolStatus(p) === "closed") ?? [];
 
-  const filling = openPools.filter((p) => (p.maxUsers > 0 ? p.participantCount / p.maxUsers : 0) >= 0.35);
-  const filteredPools =
-    filter === "open"
-      ? openPools
-      : filter === "filling"
-        ? filling
-        : filter === "drawing"
-          ? drawingSoon
-          : completed;
-
   const ticketsAvailable = openPools.reduce((sum, p) => sum + Math.max(0, p.maxUsers - p.participantCount), 0);
 
   const staleWarningCount = openPools.filter((p) => {
@@ -78,83 +64,7 @@ export default function PoolsPage() {
 
   return (
     <div className="sp-ambient-bg relative min-h-screen w-full">
-      {/* Mobile spec UI */}
-      <div className="md:hidden" style={{ padding: "12px var(--page-px) 0" }} {...ptr.bind}>
-        <div
-          style={{
-            height: ptr.pullPx,
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "center",
-            transition: ptr.refreshing ? "none" : "height 120ms ease",
-          }}
-        >
-          {ptr.pullPx > 8 || ptr.refreshing ? (
-            <div
-              style={{
-                width: 18,
-                height: 18,
-                borderRadius: 999,
-                border: "2px solid rgba(255,255,255,0.18)",
-                borderTopColor: "var(--accent-cyan)",
-                animation: "sp-pt-spin 700ms linear infinite",
-                marginBottom: 8,
-              }}
-              aria-label="Refreshing"
-            />
-          ) : null}
-        </div>
-        <style>{`@keyframes sp-pt-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-
-        <div className="hide-scroll" style={{ display: "flex", gap: 6, overflowX: "auto", margin: "12px 0" }}>
-          {([
-            ["open", "Open"],
-            ["filling", "Filling"],
-            ["drawing", "Drawing"],
-            ["completed", "Completed"],
-          ] as const).map(([k, label]) => {
-            const active = filter === k;
-            return (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setFilter(k)}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: "var(--pill-radius)",
-                  fontSize: 12,
-                  fontWeight: 500,
-                  whiteSpace: "nowrap",
-                  background: active ? "var(--accent-cyan-bg)" : "transparent",
-                  border: active ? `1px solid var(--accent-cyan-border)` : "1px solid rgba(255,255,255,0.08)",
-                  color: active ? "var(--accent-cyan)" : "var(--text-muted)",
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-
-        {isLoading ? (
-          <div style={{ display: "grid", gap: 10 }}>
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-40 rounded-2xl border border-white/[0.08] bg-white/[0.04] animate-pulse" />
-            ))}
-          </div>
-        ) : filteredPools.length === 0 ? (
-          <p style={{ color: "var(--text-muted)", fontSize: 13 }}>No pools found.</p>
-        ) : (
-          <div>
-            {filteredPools.map((p) => (
-              <PoolCardCompact key={p.id} pool={p} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Desktop / existing pools page */}
-      <div className="hidden md:block sp-page mx-auto max-w-6xl space-y-8">
+      <div className="sp-page mx-auto max-w-6xl space-y-8">
       {bannerOpen && (
         <div
           className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/50 to-slate-900/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3"
