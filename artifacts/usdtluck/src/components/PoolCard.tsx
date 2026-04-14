@@ -4,7 +4,6 @@ import type { Pool } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { poolPaidPrizeTotal, poolWinnerCount } from "@/lib/pool-winners";
-import { cn } from "@/lib/utils";
 import {
   formatPkr,
   poolTierBadge,
@@ -254,14 +253,6 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
         @media (prefers-reduced-motion: reduce) {
           .sp-bar-shimmer, .sp-bar-full { animation: none; }
         }
-        .sp-status-pulse {
-          animation: sp-status-pulse 1.8s ease-in-out infinite;
-        }
-        @keyframes sp-status-pulse {
-          0%,100% { box-shadow: 0 0 0 rgba(239,68,68,0.0); }
-          50% { box-shadow: 0 0 18px rgba(239,68,68,0.16); }
-        }
-        @media (prefers-reduced-motion: reduce) { .sp-status-pulse { animation: none; } }
       `}</style>
     </div>
   );
@@ -281,52 +272,28 @@ function PrizeBlock({
   big?: boolean;
 }) {
   const a = roundPrizeUsdt(amount);
-  const medalBorder =
-    rank === 1
-      ? "border-[#f5a623]/30"
-      : rank === 2
-        ? "border-[#a8b4c4]/25"
-        : "border-[#cd7f50]/25";
-  const medalBg =
-    rank === 1
-      ? "bg-[rgba(245,166,35,0.08)]"
-      : rank === 2
-        ? "bg-[rgba(168,180,196,0.06)]"
-        : "bg-[rgba(205,127,80,0.06)]";
   return (
     <div
-      className={cn(
-        "rounded-xl border px-2.5 py-2.5 text-center shadow-sm",
-        medalBorder,
-        medalBg,
-        big ? "sm:py-3 scale-[1.04] sm:scale-100 z-[1]" : undefined,
-      )}
+      className={`rounded-lg border border-white/10 bg-black/30 px-2 py-2 text-center ${
+        big ? "sm:py-3 scale-105 sm:scale-100 z-[1]" : ""
+      }`}
     >
       <p className={`${big ? "text-xl" : "text-lg"} mb-0.5`} aria-hidden>
         {emoji}
       </p>
-      <p className={`text-[11px] uppercase tracking-wide text-[#9e9e9e] ${big ? "font-semibold" : ""}`}>
-        {rank === 1 ? "1st" : rank === 2 ? "2nd" : "3rd"}
-      </p>
-      <p className={`font-mono font-extrabold tabular-nums ${accent} ${big ? "text-[18px]" : "text-[15px]"}`}>${a}</p>
-      <p className="text-[11px] text-[#9e9e9e] font-mono">≈ {formatPkr(amount)} PKR</p>
+      <p className={`text-[10px] uppercase text-slate-500 ${big ? "font-semibold" : ""}`}>{rank === 1 ? "1st" : rank === 2 ? "2nd" : "3rd"}</p>
+      <p className={`font-mono font-bold tabular-nums ${accent} ${big ? "text-lg" : "text-sm"}`}>${a}</p>
+      <p className="text-[10px] text-slate-500 font-mono">≈ {formatPkr(amount)} PKR</p>
     </div>
   );
 }
 
 function StatusPill({ status }: { status: string }) {
   if (status === "open")
-    return (
-      <Badge className="bg-emerald-500/15 text-emerald-200 border-emerald-500/30 text-[12px] px-3 py-1.5">
-        <span className="inline-flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-emerald-400" aria-hidden />
-          Open
-        </span>
-      </Badge>
-    );
+    return <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px]">🟢 Open</Badge>;
   if (status === "filled")
     return (
-      <Badge className="bg-amber-500/15 text-amber-100 border-amber-500/35 text-[12px] px-3 py-1.5 sp-status-pulse">
+      <Badge className="bg-amber-500/15 text-amber-200 border-amber-500/35 text-[10px]">
         <span className="inline-flex items-center gap-1.5">
           <span className="relative flex h-2 w-2" aria-hidden>
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-60" />
@@ -337,14 +304,14 @@ function StatusPill({ status }: { status: string }) {
       </Badge>
     );
   if (status === "drawing")
-    return <Badge className="bg-amber-500/15 text-amber-100 border-amber-500/35 text-[12px] px-3 py-1.5">🎰 Drawing</Badge>;
+    return <Badge className="bg-amber-500/15 text-amber-200 border-amber-500/35 text-[10px]">🎰 Drawing</Badge>;
   if (status === "completed")
-    return <Badge className="bg-emerald-500/15 text-emerald-100 border-emerald-500/35 text-[12px] px-3 py-1.5">🏆 Done</Badge>;
+    return <Badge className="bg-emerald-500/15 text-emerald-200 border-emerald-500/35 text-[10px]">🏆 Done</Badge>;
   if (status === "closed")
-    return <Badge variant="outline" className="text-[12px] text-slate-400 border-slate-600 px-3 py-1.5">Closed</Badge>;
+    return <Badge variant="outline" className="text-[10px] text-slate-400 border-slate-600">Closed</Badge>;
   if (status === "upcoming")
-    return <Badge className="bg-emerald-500/15 text-emerald-100 border-emerald-500/30 text-[12px] px-3 py-1.5">Upcoming</Badge>;
-  return <Badge variant="outline" className="text-[12px] px-3 py-1.5">{status}</Badge>;
+    return <Badge className="bg-emerald-500/15 text-emerald-200 border-emerald-500/30 text-[10px]">Upcoming</Badge>;
+  return <Badge variant="outline" className="text-[10px]">{status}</Badge>;
 }
 
 /** >12h: "Closes in 23h"; 1–12h: "5h 30m"; &lt;1h: "⚡ Closes in 45:23" */
@@ -394,13 +361,13 @@ function PoolCardTimer({
 
   if (status === "filled" && drawScheduledAt) {
     return (
-      <div className="rounded-xl border border-red-500/45 bg-gradient-to-r from-red-950/50 to-amber-950/30 px-3 py-2.5 flex flex-wrap items-center gap-2">
+      <div className="rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2 flex flex-wrap items-center gap-2">
         <span className="relative flex h-2 w-2">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
         </span>
-        <span className="text-[15px] font-extrabold text-red-100 tracking-tight">
-          Draw in <MmSs endIso={drawScheduledAt} />
+        <span className="text-sm font-semibold text-red-100">
+          🔴 Draw in <MmSs endIso={drawScheduledAt} />
         </span>
       </div>
     );
@@ -408,16 +375,16 @@ function PoolCardTimer({
 
   if (status === "drawing") {
     return (
-      <div className="rounded-xl border border-amber-500/40 bg-amber-950/30 px-3 py-3 flex items-center gap-3">
+      <div className="rounded-lg border border-amber-500/40 bg-amber-950/30 px-3 py-3 flex items-center gap-3">
         <div className="h-7 w-7 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" aria-hidden />
-        <span className="text-[15px] font-extrabold text-amber-100 tracking-tight">🎰 Drawing winners…</span>
+        <span className="text-sm font-semibold text-amber-100">🎰 Drawing winners…</span>
       </div>
     );
   }
 
   if ((status === "open" || status === "upcoming") && noTimeLimit) {
     return (
-      <div className="rounded-xl border border-emerald-500/25 bg-emerald-950/20 px-3 py-2.5 text-[13px] leading-relaxed text-emerald-100">
+      <div className="rounded-lg border border-emerald-500/25 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-100">
         ⏰ Stays open until every seat is sold — then the draw runs automatically.
       </div>
     );
@@ -432,8 +399,8 @@ function PoolCardTimer({
       );
     const line = formatPoolCountdownLine(ms, status === "upcoming" ? "opens" : "closes");
     return (
-      <div className="rounded-xl border border-emerald-500/20 bg-slate-900/60 px-3 py-2.5 text-[14px] text-emerald-100">
-        <span className="font-mono font-extrabold text-white tabular-nums">
+      <div className="rounded-lg border border-emerald-500/20 bg-slate-900/60 px-3 py-2 text-sm text-emerald-100">
+        <span className="font-mono font-semibold text-white tabular-nums">
           {line.startsWith("⚡") ? line : <>⏰ {line}</>}
         </span>
       </div>
@@ -540,7 +507,7 @@ function PoolCardActions({
         <Link href={`/pools/${poolId}`} className="w-full sm:flex-1">
           <Button
             size="lg"
-            className="w-full min-h-14 font-extrabold text-white border-0 sp-join-cta"
+            className="w-full min-h-14 font-extrabold text-white border-0"
             style={{ background: "linear-gradient(135deg, #22c55e, #15803d)" }}
           >
             {userJoined ? "🎟️ Buy more tickets" : "🎟️ Buy ticket"}
@@ -551,10 +518,6 @@ function PoolCardActions({
             Details
           </Button>
         </Link>
-        <style>{`
-          .sp-join-cta { box-shadow: 0 10px 28px rgba(34,197,94,0.18); }
-          .sp-join-cta:active { transform: scale(0.99); }
-        `}</style>
       </>
     );
   }
