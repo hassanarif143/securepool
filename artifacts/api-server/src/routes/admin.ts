@@ -3524,6 +3524,115 @@ router.post("/finance/backfill-draw-financials", async (req, res) => {
   });
 });
 
+const ResetFinanceTestDataBody = z.object({
+  scope: z.enum(["games", "pools", "all"]).default("all"),
+  confirm: z.string().min(1),
+});
+
+router.post("/finance/reset-test-data", async (req, res) => {
+  const adminId = getAdminId(req);
+  if (!superAdminIds().includes(adminId)) {
+    res.status(403).json({ error: "SUPER_ADMIN_ONLY" });
+    return;
+  }
+  if (String(process.env.ALLOW_FINANCE_RESET ?? "") !== "true") {
+    res.status(403).json({ error: "FINANCE_RESET_DISABLED" });
+    return;
+  }
+  const parsed = ResetFinanceTestDataBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
+    return;
+  }
+  const { scope, confirm } = parsed.data;
+  if (confirm !== "RESET_FINANCE_TEST_DATA") {
+    res.status(400).json({ error: "CONFIRM_PHRASE_REQUIRED", message: 'Type "RESET_FINANCE_TEST_DATA" to confirm.' });
+    return;
+  }
+
+  // Destructive, test-only wipe. Keep admin audit logs & bot name pool intact.
+  await pgPool.query("BEGIN");
+  try {
+    if (scope === "games" || scope === "all") {
+      await pgPool.query(
+        `TRUNCATE TABLE
+          arcade_recent_wins,
+          arcade_rounds,
+          arcade_user_stats,
+          arcade_platform_daily,
+          arcade_treasure_sessions,
+          arcade_hilo_sessions,
+          scratch_rounds
+        RESTART IDENTITY CASCADE`,
+      );
+      await pgPool.query(
+        `DELETE FROM transactions
+         WHERE tx_type IN ('game_bet','game_win','game_loss','cashout_bet_lock','cashout_payout_credit','cashout_shield_refund','scratch_bet_lock','scratch_payout_credit')`,
+      );
+    }
+
+    if (scope === "pools" || scope === "all") {
+      await pgPool.query(
+        `TRUNCATE TABLE
+          winners,
+          pool_draw_financials,
+          pool_tickets,
+          pool_participants
+        RESTART IDENTITY CASCADE`,
+      );
+      await pgPool.query(`DELETE FROM transactions WHERE tx_type IN ('pool_entry','pool_refund')`);
+      // Reset pool state back to open-ish (factory/rotation will recreate as needed)
+      await pgPool.query(
+        `UPDATE pools
+         SET status = 'open',
+             filled_at = NULL,
+             draw_scheduled_at = NULL,
+             draw_executed_at = NULL,
+             completed_at = NULL,
+             selected_winner_user_ids = NULL
+         WHERE status IN ('filled','drawing','completed','closed')`,
+      );
+    }
+
+    if (scope === "all") {
+      await pgPool.query(
+        `TRUNCATE TABLE
+          admin_wallet_transactions,
+          central_wallet_ledger,
+          user_wallet_transactions,
+          user_wallet
+        RESTART IDENTITY CASCADE`,
+      );
+      await pgPool.query(`DELETE FROM transactions WHERE tx_type IN ('deposit','withdraw','reward','promo_credit','p2p_escrow_lock','p2p_escrow_refund','p2p_trade_credit')`);
+      // Reset user balances (keep admins intact).
+      await pgPool.query(
+        `UPDATE users
+         SET reward_points = 0,
+             bonus_balance = '0',
+             withdrawable_balance = '0',
+             wallet_balance = '0'
+         WHERE COALESCE(is_admin,false) = false`,
+      );
+    }
+
+    await pgPool.query("COMMIT");
+  } catch (err) {
+    await pgPool.query("ROLLBACK");
+    logger.error({ err }, "[admin] finance reset failed");
+    res.status(500).json({ error: "RESET_FAILED" });
+    return;
+  }
+
+  await logAction(
+    adminId,
+    "platform",
+    null,
+    "finance_reset_test_data",
+    `Finance test data reset executed (scope=${scope}).`,
+  );
+  res.json({ ok: true, scope });
+});
+
 router.get("/rewards/config", async (_req, res) => {
   const cfg = await getRewardConfig();
   res.json(cfg);

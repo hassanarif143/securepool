@@ -989,6 +989,57 @@ function FinanceTab() {
 
   const activeRev = (rev?.active ?? null) as { bets: number; wins: number; profit: number } | null;
 
+  const resetFinanceView = useCallback(() => {
+    // UI-only reset (no ledger changes / no data deletion)
+    setLedgerType("all");
+    setFromDate("");
+    setToDate("");
+    setDetailPoolId(null);
+    setRevView("real");
+    setRev(null);
+    setRevErr(null);
+    void queryClient.invalidateQueries({ queryKey: getGetAdminFinanceOverviewQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: getGetAdminFinanceSettingsQueryKey() });
+  }, [queryClient]);
+
+  const [resetScope, setResetScope] = useState<"games" | "pools" | "all">("all");
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetBusy, setResetBusy] = useState(false);
+
+  async function runFinanceDataReset() {
+    if (!parseSuperAdminIds().includes(Number(user?.id ?? 0))) {
+      toast({ title: "Super admin only", variant: "destructive" });
+      return;
+    }
+    if (resetConfirm.trim() !== "RESET_FINANCE_TEST_DATA") {
+      toast({ title: "Confirm phrase required", description: 'Type "RESET_FINANCE_TEST_DATA" exactly.', variant: "destructive" });
+      return;
+    }
+    setResetBusy(true);
+    try {
+      const csrfRes = await fetch(apiUrl("/api/auth/csrf-token"), { credentials: "include" });
+      const csrfData = await csrfRes.json().catch(() => ({}));
+      const token = (csrfData as { csrfToken?: string }).csrfToken;
+      const res = await fetch(apiUrl("/api/admin/finance/reset-test-data"), {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "x-csrf-token": token } : {}),
+        },
+        body: JSON.stringify({ scope: resetScope, confirm: resetConfirm.trim() }),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      toast({ title: "Finance data reset", description: `Scope: ${resetScope}` });
+      setResetConfirm("");
+      resetFinanceView();
+    } catch (e: any) {
+      toast({ title: "Reset failed", description: e?.message ?? "Error", variant: "destructive" });
+    } finally {
+      setResetBusy(false);
+    }
+  }
+
   if (ovLoading || !overview) {
     return <p className="text-muted-foreground py-8 text-center">Loading finance overview...</p>;
   }
@@ -1006,6 +1057,11 @@ function FinanceTab() {
 
   return (
     <div className="space-y-6 mt-4">
+      <div className="flex items-center justify-end">
+        <Button type="button" size="sm" variant="outline" onClick={resetFinanceView}>
+          Reset Finance View
+        </Button>
+      </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: "Central wallet (ledger balance)", value: <UsdtAmount amount={bal} amountClassName="text-lg font-bold mt-1" /> },
@@ -1079,6 +1135,49 @@ function FinanceTab() {
               </Card>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-red-500/25 bg-red-950/10">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Danger zone — reset finance data (test)</CardTitle>
+          <p className="text-xs text-muted-foreground font-normal">
+            This permanently deletes finance/game/pool records for a clean testing run. Requires backend env <code className="text-[11px]">ALLOW_FINANCE_RESET=true</code> and super-admin.
+          </p>
+        </CardHeader>
+        <CardContent className="p-4 pt-2 space-y-3">
+          <div className="grid sm:grid-cols-3 gap-2">
+            <div className="sm:col-span-1 space-y-1">
+              <Label className="text-xs">Scope</Label>
+              <Select value={resetScope} onValueChange={(v) => setResetScope(v as any)}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="games">Games only</SelectItem>
+                  <SelectItem value="pools">Pools only</SelectItem>
+                  <SelectItem value="all">All finance</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="sm:col-span-2 space-y-1">
+              <Label className="text-xs">Type to confirm</Label>
+              <Input
+                className="h-9 font-mono"
+                placeholder="RESET_FINANCE_TEST_DATA"
+                value={resetConfirm}
+                onChange={(e) => setResetConfirm(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              Note: users will be reset to 0 balances for <code className="text-[11px]">All finance</code> (admins excluded).
+            </p>
+            <Button type="button" size="sm" variant="destructive" disabled={resetBusy} onClick={() => void runFinanceDataReset()}>
+              {resetBusy ? "Resetting…" : "Reset data"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
