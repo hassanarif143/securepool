@@ -1052,7 +1052,11 @@ function FinanceTab() {
         },
         body: JSON.stringify({ scope: resetScope, confirm: resetConfirm.trim() }),
       });
-      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+        const msg = [j.error, j.message].filter(Boolean).join(": ");
+        throw new Error(msg || (await readApiErrorMessage(res)));
+      }
       toast({ title: "Finance data reset", description: `Scope: ${resetScope}` });
       setResetConfirm("");
       resetFinanceView();
