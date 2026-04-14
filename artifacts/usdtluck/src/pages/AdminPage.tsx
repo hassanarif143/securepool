@@ -87,6 +87,7 @@ function parseSuperAdminIds(): number[] {
 export default function AdminPage() {
   const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
+  const [superAdmin, setSuperAdmin] = useState<boolean>(false);
 
   useEffect(() => {
     if (isLoading) return;
@@ -94,12 +95,37 @@ export default function AdminPage() {
     else if (!user.isAdmin) navigate("/dashboard");
   }, [user, isLoading]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!user?.isAdmin) return;
+    void (async () => {
+      try {
+        const res = await fetch(apiUrl("/api/admin/me"), { credentials: "include" });
+        if (!res.ok) return;
+        const j = (await res.json()) as { isSuperAdmin?: boolean };
+        if (!cancelled) setSuperAdmin(Boolean(j.isSuperAdmin));
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.isAdmin]);
+
   if (isLoading || !user) return null;
 
   return (
     <div className="space-y-5 sm:space-y-6 pb-8 md:pb-10 -mx-1 px-1 sm:mx-0 sm:px-0">
       <div className="space-y-1.5">
-        <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Admin Panel</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Admin Panel</h1>
+          {superAdmin ? (
+            <Badge className="bg-purple-500/15 text-purple-200 border-purple-500/35 text-[11px] font-semibold">
+              ⭐ Super Admin
+            </Badge>
+          ) : null}
+        </div>
         <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">Manage pools, users, and rewards</p>
       </div>
 

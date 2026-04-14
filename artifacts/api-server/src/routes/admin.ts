@@ -65,6 +65,15 @@ const router: IRouter = Router();
 
 router.use(requireAdmin);
 
+// Backend source-of-truth for admin privilege display (do not rely on frontend env).
+router.get("/me", async (req, res) => {
+  const adminId = getAdminId(req);
+  res.json({
+    id: adminId,
+    isSuperAdmin: superAdminIds().includes(adminId),
+  });
+});
+
 const AdminGenerateBotsBody = z.object({
   count: z.number().int().min(1).max(50),
   region: z.enum(["pk", "in", "uae", "mix"]).optional(),
