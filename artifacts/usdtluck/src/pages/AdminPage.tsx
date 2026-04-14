@@ -1008,10 +1008,6 @@ function FinanceTab() {
   const [resetBusy, setResetBusy] = useState(false);
 
   async function runFinanceDataReset() {
-    if (!parseSuperAdminIds().includes(Number(me?.id ?? 0))) {
-      toast({ title: "Super admin only", variant: "destructive" });
-      return;
-    }
     if (resetConfirm.trim() !== "RESET_FINANCE_TEST_DATA") {
       toast({ title: "Confirm phrase required", description: 'Type "RESET_FINANCE_TEST_DATA" exactly.', variant: "destructive" });
       return;
