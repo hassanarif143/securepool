@@ -409,6 +409,96 @@
   }
 }
 
+/* ========================================
+   PIXEL-PERFECT MOBILE SYSTEM (spec)
+   ======================================== */
+:root {
+  /* COLORS — exact values */
+  --bg-base: #06080f;
+  --bg-surface: #0d1117;
+  --bg-surface-2: #111d2e;
+  --bg-elevated: #151b27;
+
+  --text-white: #ffffff;
+  --text-muted: #6b7a8d;
+  --text-dim: #4a5568;
+  --text-hint: #8a8f98;
+
+  --accent-green: #00e676;
+  --accent-green-bg: rgba(0, 230, 118, 0.08);
+  --accent-green-border: rgba(0, 230, 118, 0.15);
+
+  --accent-cyan: #00e5ff;
+  --accent-cyan-bg: rgba(0, 229, 255, 0.10);
+  --accent-cyan-border: rgba(0, 229, 255, 0.20);
+
+  --accent-gold: #f5a623;
+  --accent-gold-bg: rgba(245, 166, 35, 0.10);
+
+  --accent-red: #e24b4a;
+  --accent-red-bg: rgba(229, 62, 62, 0.10);
+
+  --border: rgba(255, 255, 255, 0.06);
+  --border-hover: rgba(255, 255, 255, 0.12);
+
+  /* FONTS */
+  --font-body: "DM Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  /* SPACING */
+  --page-px: 16px;
+  --card-px: 14px;
+  --card-radius: 14px;
+  --btn-radius: 10px;
+  --pill-radius: 16px;
+
+  /* SIZING */
+  --nav-height: 64px;
+  --header-height: 48px;
+  --btn-height: 44px;
+  --btn-height-lg: 52px;
+  --input-height: 48px;
+}
+
+@media (max-width: 374px) {
+  :root {
+    --page-px: 12px;
+    --card-px: 12px;
+  }
+}
+
+/* Make Tailwind font-sans match DM Sans */
+:root {
+  --app-font-sans: var(--font-body);
+  --app-font-mono: var(--font-mono);
+}
+
+@media (max-width: 767px) {
+  body {
+    background: var(--bg-base);
+    color: var(--text-white);
+    padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom));
+  }
+}
+@media (min-width: 768px) {
+  body {
+    padding-bottom: 0;
+  }
+}
+
+/* Hide scrollbars on horizontal scrollers */
+.hide-scroll::-webkit-scrollbar { display: none; }
+.hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Global press feedback (mobile) */
+@media (max-width: 767px) {
+  button:active,
+  [role="button"]:active {
+    transform: scale(0.96);
+    transition: transform 100ms ease-out;
+  }
+}
+
 /* Landing page: infinite horizontal winners ticker */
 @keyframes landing-winners-marquee {
   from {

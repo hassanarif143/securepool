@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import { SharePromptGate } from "@/components/share/SharePromptGate";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import { SiteFooter } from "@/components/SiteFooter";
 import { cn } from "@/lib/utils";
+import { useCurrencyRate } from "@/hooks/useCurrencyRate";
+import { BottomNav } from "@/components/BottomNav";
+import { MobileHeader } from "@/components/MobileHeader";
 
 function playNotifSound() {
   try {
@@ -231,6 +234,12 @@ function WalletDropdown({
   const bonus = Number(bonusBalance ?? 0);
   const total = wd + bonus;
   const displayValue = isLoading ? "..." : total.toFixed(2);
+  const { rates, localeCurrency } = useCurrencyRate();
+  const localApprox = useMemo(() => {
+    const r = rates[localeCurrency] ?? 0;
+    const v = Number.isFinite(total) ? total * r : 0;
+    return Number.isFinite(v) && v > 0 ? Math.round(v).toLocaleString() : "0";
+  }, [localeCurrency, rates, total]);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -265,11 +274,14 @@ function WalletDropdown({
           {isLoading ? (
             <span className="text-muted-foreground tabular-nums">…</span>
           ) : (
-            <UsdtAmount
-              amount={total}
-              amountClassName="text-emerald-400 font-bold tabular-nums"
-              currencyClassName="text-[10px] text-muted-foreground font-normal"
-            />
+            <span className="inline-flex items-center gap-1.5 min-w-0">
+              <span className="text-emerald-400 font-bold tabular-nums whitespace-nowrap">
+                {Number.isFinite(total) ? total.toFixed(2) : "0.00"} USDT
+              </span>
+              <span className="text-[11px] text-muted-foreground font-normal whitespace-nowrap">
+                · ≈ {localApprox} {localeCurrency}
+              </span>
+            </span>
           )}
         </div>
         <svg className={`w-3 h-3 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
@@ -540,10 +552,7 @@ function MobileMenu({
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, isLoading } = useAuth();
   const [location] = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const { loading: gamesLoading, miniGamesEnabled } = useGameAvailability(!!user);
-  /* Close mobile menu on navigation */
-  useEffect(() => { setMobileOpen(false); }, [location]);
 
   /* Center nav: Pools + Winners (Home via logo) */
   const primaryLinks = user ? [
@@ -570,10 +579,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      <div className="sticky top-0 z-50">
-      <header className="border-b border-border bg-background/92 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center min-h-[3.5rem] py-2 gap-2 sm:gap-3">
+      {/* Mobile sticky header (spec) */}
+      {user && !isLoading ? (
+        <MobileHeader
+          balanceUsdt={Number(user.withdrawableBalance ?? 0) + Number(user.bonusBalance ?? 0)}
+          showNotifications={true}
+          unreadDot={false}
+        />
+      ) : null}
+
+      {/* Desktop header */}
+      <div className="hidden md:block sticky top-0 z-50">
+        <header className="border-b border-border bg-background/92 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center min-h-[3.5rem] py-2 gap-2 sm:gap-3">
 
             {/* ── Logo ── */}
             <Link href={user ? "/dashboard" : "/"} className="shrink-0 mr-1">
@@ -649,22 +668,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <UserMenu user={user} logout={logout} />
                   </div>
 
-                  {/* Hamburger — mobile only */}
-                  <button
-                    onClick={() => setMobileOpen((v) => !v)}
-                    className={cn("md:hidden h-11 w-11 grid place-items-center rounded-xl transition-colors", mobileOpen ? "text-primary" : undefined)}
-                    aria-label="Menu"
-                  >
-                    {mobileOpen ? (
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                      </svg>
-                    )}
-                  </button>
                 </>
               )}
 
@@ -693,26 +696,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </div>
               )}
             </div>
+            </div>
           </div>
-        </div>
-
-        {/* Mobile menu slide-down */}
-        {mobileOpen && user && (
-          <MobileMenu
-            primaryLinks={primaryLinks}
-            secondaryLinks={secondaryLinks}
-            location={location}
-            user={user}
-            logout={logout}
-            onClose={() => setMobileOpen(false)}
-          />
-        )}
-      </header>
+        </header>
       </div>
 
       <main
         className={`flex-1 max-w-7xl w-full min-w-0 mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-10 ${
-          user ? "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""
+          user ? "pb-[calc(var(--nav-height)+env(safe-area-inset-bottom,0px)+16px)] md:pb-10" : ""
         }`}
       >
         {user ? <LiveJoinNotification /> : null}
@@ -720,49 +711,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {user && (
-        <nav
-          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 flex justify-between items-stretch min-h-[4rem] py-1 px-1 safe-area-pb touch-manipulation shadow-[0_-8px_32px_rgba(0,0,0,0.35)]"
-          aria-label="Main"
-        >
-          {(
-            [
-              { href: "/dashboard", label: "Home", icon: "🏠" },
-              { href: "/pools", label: "Pools", icon: "🎱" },
-              { href: "/wallet", label: "Wallet", icon: "💰" },
-              { href: "/profile", label: "Me", icon: "👤" },
-            ] as const
-          ).map((item) => {
-            const active =
-              item.href === "/dashboard"
-                ? location === "/dashboard" || location === "/"
-                : location.startsWith(item.href);
-            return (
-              <Link key={item.href} href={item.href} className="flex-1 min-w-0 basis-0 max-w-[25%]">
-                <span
-                  className={cn(
-                    "relative flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[11px] font-medium tracking-tight transition-colors duration-200 active:scale-[0.92] touch-manipulation",
-                    active ? "text-primary bg-primary/10" : "text-muted-foreground"
-                  )}
-                  onClick={() => {
-                    try {
-                      navigator.vibrate?.(10);
-                    } catch {
-                      /* ignore */
-                    }
-                  }}
-                >
-                  <span className={cn("leading-none", active ? "text-[26px]" : "text-[24px]")} aria-hidden>
-                    {item.icon}
-                  </span>
-                  <span className="leading-tight text-center truncate w-full">{item.label}</span>
-                  {active ? <span className="absolute top-1.5 h-1 w-1 rounded-full bg-primary" aria-hidden /> : null}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
-      )}
+      {user ? <BottomNav /> : null}
 
       <SiteFooter extraMobileBottomSpace={!!user} />
     </div>

@@ -20,6 +20,8 @@ import { appToast } from "@/components/feedback/AppToast";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import { cn } from "@/lib/utils";
 import { premiumPanel, premiumPanelHead } from "@/lib/premium-panel";
+import { useCurrencyRate } from "@/hooks/useCurrencyRate";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 
 /** USDT (TRC20) address users send deposits to — Deposit tab + copy button. */
 const PLATFORM_ADDRESS = "TBjGU8jfZvsfDVPpjJXVb47khVyKjQqjqp";
@@ -385,7 +387,22 @@ export default function WalletPage() {
 
   return (
     <div className="sp-ambient-bg relative min-h-[50vh] w-full">
-      <div className="mx-auto max-w-2xl space-y-4 px-4 pb-10 sm:px-6 md:pb-12">
+      {/* Mobile pixel spec UI */}
+      <MobileWalletSpec
+        user={user}
+        isLoading={isLoading}
+        txs={txArr}
+        txsLoading={txsLoading}
+        onDeposit={() => navigate("/wallet?tab=deposit")}
+        onWithdraw={() => navigate("/wallet?tab=withdraw")}
+        onRefresh={async () => {
+          await refetchTxs();
+          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+        }}
+      />
+
+      {/* Desktop / existing wallet */}
+      <div className="hidden md:block mx-auto max-w-2xl space-y-4 px-4 pb-10 sm:px-6 md:pb-12">
       {txsError && (
         <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <p className="text-sm text-destructive-foreground">Something went wrong loading transactions. Try again.</p>
@@ -928,6 +945,257 @@ export default function WalletPage() {
           </p>
         </div>
       </div>
+      </div>
+    </div>
+  );
+}
+
+function MobileWalletSpec({
+  user,
+  isLoading,
+  txs,
+  txsLoading,
+  onDeposit,
+  onWithdraw,
+  onRefresh,
+}: {
+  user: any;
+  isLoading: boolean;
+  txs: any[];
+  txsLoading: boolean;
+  onDeposit: () => void;
+  onWithdraw: () => void;
+  onRefresh: () => Promise<void>;
+}) {
+  const { rates, localeCurrency } = useCurrencyRate();
+  const [filter, setFilter] = useState<"all" | "deposits" | "wins" | "withdrawals">("all");
+  const ptr = usePullToRefresh({ onRefresh });
+
+  const bal = Number(user?.walletBalance ?? 0);
+  const balAnim = useAnimatedNumber(bal, 800);
+  const pkr = Math.round((Number.isFinite(balAnim) ? balAnim : 0) * (rates[localeCurrency] ?? 0));
+
+  const filtered = useMemo(() => {
+    const list = (txs ?? []).slice().sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    if (filter === "all") return list;
+    if (filter === "deposits") return list.filter((t: any) => t.txType === "deposit" || t.txType === "pool_refund");
+    if (filter === "wins") return list.filter((t: any) => t.txType === "reward" && String(t.note ?? "").startsWith("Winner - Place"));
+    return list.filter((t: any) => t.txType === "withdraw" || t.txType === "withdrawal");
+  }, [filter, txs]);
+
+  return (
+    <div className="md:hidden" style={{ padding: "12px var(--page-px) 0" }} {...ptr.bind}>
+      <div
+        style={{
+          height: ptr.pullPx,
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "center",
+          transition: ptr.refreshing ? "none" : "height 120ms ease",
+        }}
+      >
+        {ptr.pullPx > 8 || ptr.refreshing ? (
+          <div
+            style={{
+              width: 18,
+              height: 18,
+              borderRadius: 999,
+              border: "2px solid rgba(255,255,255,0.18)",
+              borderTopColor: "var(--accent-cyan)",
+              animation: "sp-pt-spin 700ms linear infinite",
+              marginBottom: 8,
+            }}
+            aria-label="Refreshing"
+          />
+        ) : null}
+      </div>
+      <style>{`@keyframes sp-pt-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+
+      {/* Balance card (spec) */}
+      <section
+        style={{
+          background: "linear-gradient(135deg, #0d1117 0%, #111d2e 100%)",
+          border: "1px solid rgba(0, 229, 255, 0.10)",
+          borderRadius: 16,
+          padding: 20,
+          margin: "12px 0",
+        }}
+      >
+        <p style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 500 }}>Available balance</p>
+        <p
+          className="tabular-nums"
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 32,
+            fontWeight: 700,
+            color: "var(--text-white)",
+            lineHeight: 1.15,
+            marginTop: 6,
+          }}
+        >
+          {Number.isFinite(balAnim) ? balAnim.toFixed(2) : "0.00"}
+        </p>
+        <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+          ≈ {Number.isFinite(pkr) ? pkr.toLocaleString() : "0"} {localeCurrency}
+        </p>
+
+        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+          <button
+            type="button"
+            onClick={onDeposit}
+            style={{
+              flex: 1,
+              height: 40,
+              borderRadius: "var(--btn-radius)",
+              background: "var(--accent-green)",
+              color: "#04120a",
+              fontSize: 13,
+              fontWeight: 600,
+              border: "none",
+            }}
+          >
+            ＋ Deposit
+          </button>
+          <button
+            type="button"
+            onClick={onWithdraw}
+            style={{
+              flex: 1,
+              height: 40,
+              borderRadius: "var(--btn-radius)",
+              background: "transparent",
+              border: "1px solid var(--border)",
+              color: "var(--text-white)",
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+            disabled={isLoading}
+          >
+            Withdraw
+          </button>
+        </div>
+      </section>
+
+      {/* Filter pills (spec) */}
+      <div className="hide-scroll" style={{ display: "flex", gap: 6, overflowX: "auto", margin: "12px 0" }}>
+        {([
+          ["all", "All"],
+          ["deposits", "Deposits"],
+          ["wins", "Wins"],
+          ["withdrawals", "Withdrawals"],
+        ] as const).map(([k, label]) => {
+          const active = filter === k;
+          return (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setFilter(k)}
+              style={{
+                padding: "6px 14px",
+                borderRadius: "var(--pill-radius)",
+                fontSize: 12,
+                fontWeight: 500,
+                whiteSpace: "nowrap",
+                background: active ? "var(--accent-cyan-bg)" : "transparent",
+                border: active ? `1px solid var(--accent-cyan-border)` : "1px solid rgba(255,255,255,0.08)",
+                color: active ? "var(--accent-cyan)" : "var(--text-muted)",
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Transaction list */}
+      <section>
+        {txsLoading ? (
+          <div style={{ display: "grid", gap: 10 }}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-14 rounded-xl border border-white/[0.08] bg-white/[0.04] animate-pulse" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <p style={{ fontSize: 13, color: "var(--text-muted)", padding: "10px 0" }}>No transactions.</p>
+        ) : (
+          <div>
+            {filtered.map((tx: any) => (
+              <MobileTxRow key={tx.id} tx={tx} rates={rates} localeCurrency={localeCurrency} />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function MobileTxRow({
+  tx,
+  rates,
+  localeCurrency,
+}: {
+  tx: any;
+  rates: Record<string, number>;
+  localeCurrency: string;
+}) {
+  const meta = rowTxMeta(tx);
+  const amt = Number(tx.amount);
+  const abs = Number.isFinite(amt) ? Math.abs(amt) : 0;
+  const local = Math.round(abs * (rates[localeCurrency as keyof typeof rates] ?? 0));
+  const detail = txExplain(tx);
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "10px 0",
+        borderBottom: "1px solid rgba(255,255,255,0.04)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 10,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 14,
+            background: meta.isCredit ? "var(--accent-green-bg)" : "var(--accent-red-bg)",
+            color: meta.isCredit ? "var(--accent-green)" : "var(--accent-red)",
+            border: "1px solid var(--border)",
+            flexShrink: 0,
+          }}
+          aria-hidden
+        >
+          {meta.icon}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ fontSize: 13, fontWeight: 500, color: "var(--text-white)" }}>{meta.label}</p>
+          <p style={{ fontSize: 11, color: "var(--text-dim)" }}>
+            {(detail || tx.txType).toString()} · {timeAgo(tx.createdAt)}
+          </p>
+        </div>
+      </div>
+      <div style={{ textAlign: "right" }}>
+        <p
+          className="tabular-nums"
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            fontFamily: "var(--font-mono)",
+            color: meta.isCredit ? "var(--accent-green)" : "var(--accent-red)",
+          }}
+        >
+          {meta.sign}
+          {abs.toFixed(2)}
+        </p>
+        <p style={{ fontSize: 10, color: "var(--text-dim)" }}>
+          ≈ {Number.isFinite(local) ? local.toLocaleString() : "0"} {localeCurrency}
+        </p>
       </div>
     </div>
   );

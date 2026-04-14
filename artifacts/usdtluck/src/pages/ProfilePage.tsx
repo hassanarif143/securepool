@@ -654,8 +654,97 @@ export default function ProfilePage() {
   const cooldownActive = Boolean(walletInfo?.cooldownUntil && cooldown);
 
   return (
-    <div className="max-w-lg mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">Profile</h1>
+    <>
+      {/* Mobile pixel spec wrapper */}
+      <div className="md:hidden" style={{ padding: "12px var(--page-px) 0" }}>
+        <p style={{ fontSize: 14, fontWeight: 600, margin: "12px 0 10px", color: "var(--text-white)" }}>Profile</p>
+
+        <section
+          style={{
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--card-radius)",
+            padding: "14px var(--card-px)",
+          }}
+        >
+          <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-white)" }}>{currentUser.name ?? "Account"}</p>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{currentUser.email ?? "—"}</p>
+          <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+            <button
+              type="button"
+              onClick={() => navigate("/wallet")}
+              className="active:scale-[0.96]"
+              style={{
+                flex: 1,
+                height: 44,
+                borderRadius: 10,
+                border: "1px solid rgba(0,229,255,0.20)",
+                background: "rgba(0,229,255,0.10)",
+                color: "var(--accent-cyan)",
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              Wallet
+            </button>
+            <button
+              type="button"
+              onClick={() => setChangeOpen(true)}
+              className="active:scale-[0.96]"
+              style={{
+                flex: 1,
+                height: 44,
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.10)",
+                background: "transparent",
+                color: "var(--text-white)",
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              TRC20 Address
+            </button>
+          </div>
+        </section>
+
+        <div style={{ marginTop: 12 }}>
+          <section
+            style={{
+              background: "var(--bg-surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--card-radius)",
+              padding: "14px var(--card-px)",
+            }}
+          >
+            <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "var(--text-muted)" }}>
+              Wallet summary
+            </p>
+            {walletLoading ? (
+              <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 10 }}>Loading…</p>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 10 }}>
+                <div>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)" }}>Available</p>
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: 16, fontWeight: 700, color: "var(--text-white)" }}>
+                    {(walletInfo?.available_balance ?? currentUser.walletBalance ?? 0).toFixed(2)}{" "}
+                    <span style={{ fontSize: 10, color: "var(--text-muted)" }}>USDT</span>
+                  </p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)" }}>Total won</p>
+                  <p style={{ fontFamily: "var(--font-mono)", fontSize: 16, fontWeight: 700, color: "var(--text-white)" }}>
+                    {(walletInfo?.total_won ?? 0).toFixed(2)} <span style={{ fontSize: 10, color: "var(--text-muted)" }}>USDT</span>
+                  </p>
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
+
+      {/* Desktop / existing profile */}
+      <div className="hidden md:block max-w-lg mx-auto space-y-6">
+        <h1 className="text-2xl font-bold">Profile</h1>
 
       <Card>
         <CardHeader>
@@ -1332,6 +1421,7 @@ export default function ProfilePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 }
