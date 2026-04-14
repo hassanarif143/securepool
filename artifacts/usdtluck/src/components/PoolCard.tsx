@@ -449,7 +449,7 @@ function PoolCardActions({
 }) {
   if (isCompleted || isClosed) {
     return (
-      <Link href={`/pools/${poolId}`} className="w-full">
+      <Link href={`/pools/${poolId}`} className="w-full sm:w-auto sm:flex-1">
         <Button
           size="lg"
           className="w-full min-h-12 font-semibold bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 text-white border-0"
@@ -463,10 +463,10 @@ function PoolCardActions({
   if (isFilledWait) {
     return (
       <>
-        <Button size="lg" variant="secondary" disabled className="w-full sm:flex-1 min-h-14 opacity-80">
+        <Button size="lg" variant="secondary" disabled className="w-full sm:w-auto sm:flex-1 min-h-14 opacity-80">
           ⏳ Waiting for draw…
         </Button>
-        <Link href={`/pools/${poolId}`} className="w-full sm:flex-1">
+        <Link href={`/pools/${poolId}`} className="w-full sm:w-auto sm:flex-1">
           <Button
             size="lg"
             variant="outline"
@@ -490,7 +490,7 @@ function PoolCardActions({
   if (status === "open" || status === "upcoming") {
     return (
       <>
-        <Link href={`/pools/${poolId}`} className="w-full sm:flex-1">
+        <Link href={`/pools/${poolId}`} className="w-full sm:w-auto sm:flex-1">
           <Button
             size="lg"
             className="w-full min-h-14 font-extrabold text-white border-0"
@@ -499,7 +499,7 @@ function PoolCardActions({
             {userJoined ? "🎟️ Buy more tickets" : "🎟️ Buy ticket"}
           </Button>
         </Link>
-        <Link href={`/pools/${poolId}`} className="w-full sm:flex-1">
+        <Link href={`/pools/${poolId}`} className="w-full sm:w-auto sm:flex-1">
           <Button size="lg" variant="outline" className="w-full min-h-14 border-slate-600 text-slate-200">
             Details
           </Button>
@@ -509,7 +509,7 @@ function PoolCardActions({
   }
 
   return (
-    <Link href={`/pools/${poolId}`} className="w-full">
+    <Link href={`/pools/${poolId}`} className="w-full sm:w-auto sm:flex-1">
       <Button size="lg" variant="outline" className="w-full min-h-12">
         View pool
       </Button>
