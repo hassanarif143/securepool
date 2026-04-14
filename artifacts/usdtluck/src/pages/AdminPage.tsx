@@ -961,21 +961,7 @@ function FinanceTab() {
     ),
   );
 
-  if (ovLoading || !overview) {
-    return <p className="text-muted-foreground py-8 text-center">Loading finance overview...</p>;
-  }
-
-  const bal = financeOverviewNum(overview.currentBalance);
-  const dep = financeOverviewNum(overview.totalRevenueDeposits);
-  const payout = financeOverviewNum(overview.totalPaidOutWithdrawals);
-  const fees = financeOverviewNum(overview.totalPlatformFees);
-  const todayD = financeOverviewNum(overview.todayDeposits);
-  const todayW = financeOverviewNum(overview.todayWithdrawals);
-  const drawTotalRevenue = perDrawSafe.reduce((a, d) => a + financeOverviewNum(d.totalRevenue), 0);
-  const drawTotalPrizes = perDrawSafe.reduce((a, d) => a + financeOverviewNum(d.totalPrizes), 0);
-  const drawTotalProfit = perDrawSafe.reduce((a, d) => a + financeOverviewNum(d.platformFee), 0);
-  const drawAvgProfit = perDrawSafe.length > 0 ? drawTotalProfit / perDrawSafe.length : 0;
-
+  // Admin-only revenue analytics (hooks must be called before any early returns).
   const [revView, setRevView] = useState<"real" | "bot" | "combined">("real");
   const [revLoading, setRevLoading] = useState(false);
   const [rev, setRev] = useState<any>(null);
@@ -1002,6 +988,21 @@ function FinanceTab() {
   }, [loadRevenue]);
 
   const activeRev = (rev?.active ?? null) as { bets: number; wins: number; profit: number } | null;
+
+  if (ovLoading || !overview) {
+    return <p className="text-muted-foreground py-8 text-center">Loading finance overview...</p>;
+  }
+
+  const bal = financeOverviewNum(overview.currentBalance);
+  const dep = financeOverviewNum(overview.totalRevenueDeposits);
+  const payout = financeOverviewNum(overview.totalPaidOutWithdrawals);
+  const fees = financeOverviewNum(overview.totalPlatformFees);
+  const todayD = financeOverviewNum(overview.todayDeposits);
+  const todayW = financeOverviewNum(overview.todayWithdrawals);
+  const drawTotalRevenue = perDrawSafe.reduce((a, d) => a + financeOverviewNum(d.totalRevenue), 0);
+  const drawTotalPrizes = perDrawSafe.reduce((a, d) => a + financeOverviewNum(d.totalPrizes), 0);
+  const drawTotalProfit = perDrawSafe.reduce((a, d) => a + financeOverviewNum(d.platformFee), 0);
+  const drawAvgProfit = perDrawSafe.length > 0 ? drawTotalProfit / perDrawSafe.length : 0;
 
   return (
     <div className="space-y-6 mt-4">
