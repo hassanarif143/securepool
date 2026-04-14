@@ -36,6 +36,7 @@ function NotificationBell() {
   const [notifs, setNotifs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const prevUnread = useRef(0);
   const countFirstLoad = useRef(true);
 
@@ -67,6 +68,14 @@ function NotificationBell() {
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const onChange = () => setIsMobile(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
   }, []);
 
   function openDropdown() {
@@ -143,7 +152,82 @@ function NotificationBell() {
         )}
       </button>
 
-      {open && (
+      {open && isMobile ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[49] bg-black/60"
+            aria-label="Close notifications"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            className={cn(
+              "fixed left-3 right-3 z-50 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl",
+              "top-[calc(env(safe-area-inset-top)+56px)]",
+            )}
+            style={{ maxHeight: "min(72vh, 560px)" }}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <p className="text-sm font-semibold">Notifications</p>
+              <div className="flex items-center gap-2">
+                {unread > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      markAllRead();
+                    }}
+                    className="text-[10px] font-semibold text-primary hover:underline"
+                  >
+                    Mark all read
+                  </button>
+                )}
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Recent</span>
+              </div>
+            </div>
+
+            <div className="max-h-[calc(72vh-52px)] overflow-y-auto">
+              {loading ? (
+                <div className="p-6 text-center text-sm text-muted-foreground">Loading…</div>
+              ) : notifs.length === 0 ? (
+                <div className="p-8 text-center">
+                  <p className="text-2xl mb-2">🔔</p>
+                  <p className="text-sm text-muted-foreground">No notifications yet</p>
+                </div>
+              ) : (
+                notifs.map((n) => (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => markOneRead(n.id)}
+                    className={cn(
+                      "w-full text-left flex items-start gap-3 px-4 py-3 border-b border-border transition-colors hover:bg-white/[0.02]",
+                      !n.read && "bg-primary/[0.04]",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-8 h-8 rounded-xl flex items-center justify-center text-sm shrink-0 mt-0.5 border",
+                        typeChipClass(n.type ?? "info"),
+                      )}
+                    >
+                      {typeIcon[n.type] ?? "📢"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold leading-none">{n.title}</p>
+                        {!n.read && <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-primary" />}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{n.message}</p>
+                      <p className="text-[11px] text-muted-foreground/60 mt-1">{timeAgo(n.created_at)}</p>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </>
+      ) : open ? (
         <div className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] sm:w-80 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden z-50">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <p className="text-sm font-semibold">Notifications</p>
@@ -201,7 +285,7 @@ function NotificationBell() {
             )}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
