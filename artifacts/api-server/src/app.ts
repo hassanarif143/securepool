@@ -67,7 +67,7 @@ app.use(
 app.use(cookieParser());
 
 /** Production SPA — must match browser Origin for credentialed cross-origin requests. */
-const PRODUCTION_FRONTEND_ORIGIN = "https://securepool-usdtluck.vercel.app";
+const PRODUCTION_FRONTEND_ORIGIN = "https://securepool.vercel.app";
 
 function buildAllowedOrigins(): string[] {
   const raw = process.env.FRONTEND_ORIGINS ?? process.env.FRONTEND_ORIGIN ?? "";
@@ -104,7 +104,8 @@ app.use(
     credentials: true,
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     // `x-idempotency-key` is required for /api/games/* POSTs (idempotencyGuard); browsers block it if not allowed here.
-    allowedHeaders: ["Content-Type", "Authorization", "x-csrf-token", "x-idempotency-key"],
+    // Some browsers (and service workers) include cache-control / pragma in preflight — allow them.
+    allowedHeaders: ["Content-Type", "Authorization", "x-csrf-token", "x-idempotency-key", "cache-control", "pragma"],
     optionsSuccessStatus: 204,
   }),
 );
