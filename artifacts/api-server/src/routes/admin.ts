@@ -302,7 +302,8 @@ async function simulatorJoinPoolTicket(args: {
     if (totalTickets > 0 && newSold >= totalTickets) {
       poolUpd.status = "filled";
       poolUpd.filledAt = new Date();
-      poolUpd.drawScheduledAt = new Date(Date.now() + 15 * 60_000);
+      // Simulator/bot fills: use a shorter countdown for engagement testing.
+      poolUpd.drawScheduledAt = new Date(Date.now() + 10 * 60_000);
     }
     await tx.update(poolsTable).set(poolUpd).where(eq(poolsTable.id, poolId));
 
