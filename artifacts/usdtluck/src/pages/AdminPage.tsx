@@ -851,6 +851,7 @@ function GamesTab() {
 function FinanceTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user: me } = useAuth();
   const { data: overview, isLoading: ovLoading } = useGetAdminFinanceOverview({
     query: { queryKey: getGetAdminFinanceOverviewQueryKey() },
   });
@@ -1007,7 +1008,7 @@ function FinanceTab() {
   const [resetBusy, setResetBusy] = useState(false);
 
   async function runFinanceDataReset() {
-    if (!parseSuperAdminIds().includes(Number(user?.id ?? 0))) {
+    if (!parseSuperAdminIds().includes(Number(me?.id ?? 0))) {
       toast({ title: "Super admin only", variant: "destructive" });
       return;
     }
