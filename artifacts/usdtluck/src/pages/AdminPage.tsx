@@ -4014,8 +4014,22 @@ function UserProfileModal({ user, onClose }: { user: any; onClose: () => void })
       <div className="bg-background rounded-xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-5 border-b">
           <div>
-            <h2 className="font-bold text-lg">{user.name}</h2>
-            <p className="text-sm text-muted-foreground">{user.email}</p>
+            <h2 className="font-bold text-lg flex flex-wrap items-center gap-2">
+              {user.name}
+              <span className="text-[11px] font-mono text-muted-foreground">ID: {user.id}</span>
+            </h2>
+            <p className="text-sm text-muted-foreground flex flex-wrap items-center gap-2">
+              <span>{user.email}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => void navigator.clipboard?.writeText(String(user.id))}
+              >
+                Copy ID
+              </Button>
+            </p>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>✕</Button>
         </div>
