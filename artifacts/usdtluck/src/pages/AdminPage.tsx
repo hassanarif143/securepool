@@ -977,9 +977,17 @@ function FinanceTab() {
 
   const perDrawSafe = overview?.perDraw ?? [];
   const activeUsersSafe = overview?.activeUsersByDay ?? [];
+  const [drawRows, setDrawRows] = useState<any[]>([]);
+  const [drawHasMore, setDrawHasMore] = useState(false);
+  const [drawLoadingMore, setDrawLoadingMore] = useState(false);
+
+  useEffect(() => {
+    setDrawRows(perDrawSafe);
+    setDrawHasMore(perDrawSafe.length >= 24);
+  }, [overview]);
   const maxBar = Math.max(
     1,
-    ...perDrawSafe.map((d) =>
+    ...(drawRows.length > 0 ? drawRows : perDrawSafe).map((d) =>
       Math.max(
         financeOverviewNum(d.totalRevenue),
         financeOverviewNum(d.totalPrizes),
@@ -1334,10 +1342,10 @@ function FinanceTab() {
           <p className="text-xs text-muted-foreground font-normal">Click a row for the full saved summary.</p>
         </CardHeader>
         <CardContent className="space-y-3 pt-0">
-          {perDrawSafe.length === 0 ? (
+          {drawRows.length === 0 ? (
             <p className="text-sm text-muted-foreground">No completed draws with financials yet.</p>
           ) : (
-            perDrawSafe.map((d) => (
+            drawRows.map((d) => (
               <button
                 key={d.poolId}
                 type="button"
@@ -1393,6 +1401,36 @@ function FinanceTab() {
               </button>
             ))
           )}
+          {drawHasMore ? (
+            <div className="pt-1 flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={drawLoadingMore}
+                onClick={async () => {
+                  setDrawLoadingMore(true);
+                  try {
+                    const res = await fetch(
+                      apiUrl(`/api/admin/finance/draws?limit=24&offset=${encodeURIComponent(String(drawRows.length))}`),
+                      { credentials: "include" },
+                    );
+                    if (!res.ok) throw new Error(await readApiErrorMessage(res));
+                    const j = (await res.json()) as { rows?: any[]; hasMore?: boolean };
+                    const next = Array.isArray(j.rows) ? j.rows : [];
+                    setDrawRows((prev) => [...prev, ...next]);
+                    setDrawHasMore(Boolean(j.hasMore));
+                  } catch (e: any) {
+                    toast({ title: "Load more failed", description: e?.message ?? "Error", variant: "destructive" });
+                  } finally {
+                    setDrawLoadingMore(false);
+                  }
+                }}
+              >
+                {drawLoadingMore ? "Loading…" : "Load more"}
+              </Button>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

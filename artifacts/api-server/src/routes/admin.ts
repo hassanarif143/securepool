@@ -3303,6 +3303,45 @@ router.get("/finance/overview", async (_req, res) => {
   });
 });
 
+router.get("/finance/draws", async (req, res) => {
+  const limitRaw = parseInt(String(req.query.limit ?? "24"), 10);
+  const offsetRaw = parseInt(String(req.query.offset ?? "0"), 10);
+  const limit = Number.isNaN(limitRaw) ? 24 : Math.min(200, Math.max(1, limitRaw));
+  const offset = Number.isNaN(offsetRaw) ? 0 : Math.max(0, offsetRaw);
+
+  const drawRows = await db
+    .select({
+      poolId: poolDrawFinancialsTable.poolId,
+      poolTitle: poolsTable.title,
+      ticketsSold: poolDrawFinancialsTable.ticketsSold,
+      totalRevenue: poolDrawFinancialsTable.totalRevenue,
+      totalPrizes: poolDrawFinancialsTable.totalPrizes,
+      platformFee: poolDrawFinancialsTable.platformFee,
+      createdAt: poolDrawFinancialsTable.createdAt,
+    })
+    .from(poolDrawFinancialsTable)
+    .innerJoin(poolsTable, eq(poolDrawFinancialsTable.poolId, poolsTable.id))
+    .orderBy(desc(poolDrawFinancialsTable.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  const rows = drawRows.map((r) => ({
+    poolId: r.poolId,
+    poolTitle: r.poolTitle,
+    ticketsSold: r.ticketsSold,
+    totalRevenue: parseFloat(r.totalRevenue),
+    totalPrizes: parseFloat(r.totalPrizes),
+    platformFee: parseFloat(r.platformFee),
+    createdAt: r.createdAt,
+  }));
+
+  res.json({
+    rows,
+    nextOffset: offset + rows.length,
+    hasMore: rows.length === limit,
+  });
+});
+
 router.get("/analytics/revenue", async (req, res) => {
   const view = typeof req.query.view === "string" ? req.query.view : "real";
   const from = typeof req.query.from === "string" && req.query.from ? new Date(req.query.from) : undefined;
