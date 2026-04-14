@@ -359,6 +359,60 @@ router.get("/bots", async (_req, res) => {
   res.json(bots);
 });
 
+router.get("/bots/stats", async (_req, res) => {
+  const [{ totalBots }] = await db
+    .select({ totalBots: sql<number>`count(*)::int` })
+    .from(usersTable)
+    .where(eq((usersTable as any).isBot, true));
+
+  const [{ activeInPools }] = await db
+    .select({ activeInPools: sql<number>`count(distinct ${poolParticipantsTable.userId})::int` })
+    .from(poolParticipantsTable)
+    .innerJoin(usersTable, eq(poolParticipantsTable.userId, usersTable.id))
+    .innerJoin(poolsTable, eq(poolParticipantsTable.poolId, poolsTable.id))
+    .where(and(eq((usersTable as any).isBot, true), inArray(poolsTable.status, ["open", "filled", "drawing"] as any)));
+
+  const [{ won }] = await db
+    .select({ won: sql<number>`count(*)::int` })
+    .from(winnersTable)
+    .innerJoin(usersTable, eq(winnersTable.userId, usersTable.id))
+    .where(eq((usersTable as any).isBot, true));
+
+  res.json({
+    totalBots: Number(totalBots) || 0,
+    activeInPools: Number(activeInPools) || 0,
+    won: Number(won) || 0,
+  });
+});
+
+router.delete("/bots", async (req, res) => {
+  const adminId = getAdminId(req);
+  const allow = superAdminIds().includes(adminId);
+  if (!allow) {
+    res.status(403).json({ error: "SUPER_ADMIN_ONLY" });
+    return;
+  }
+  // Only delete bots that are NOT admins (safety).
+  const botIds = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(and(eq((usersTable as any).isBot, true), eq(usersTable.isAdmin, false)))
+    .limit(5000);
+
+  const ids = botIds.map((b) => b.id);
+  if (ids.length > 0) {
+    // Remove pool participation + tickets first (FK-safe)
+    await db.delete(poolParticipantsTable).where(inArray(poolParticipantsTable.userId, ids));
+    await db.delete(poolTicketsTable).where(inArray(poolTicketsTable.userId, ids));
+    await db.delete(winnersTable).where(inArray(winnersTable.userId, ids));
+    await db.delete(transactionsTable).where(inArray(transactionsTable.userId, ids));
+    await db.delete(usersTable).where(inArray(usersTable.id, ids));
+  }
+
+  await logAction(adminId, "bot", null, "delete_all_bots", `Deleted ${ids.length} bot user(s) and related records.`);
+  res.json({ deleted: ids.length });
+});
+
 router.post("/simulator/fill-pool", async (req, res) => {
   const adminId = getAdminId(req);
   const parsed = AdminFillPoolBody.safeParse(req.body ?? {});

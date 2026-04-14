@@ -391,10 +391,12 @@ function SimulatorTab() {
 function BotManagementTab() {
   const { toast } = useToast();
   const [bots, setBots] = useState<any[]>([]);
+  const [stats, setStats] = useState<{ totalBots: number; activeInPools: number; won: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [genCount, setGenCount] = useState(20);
   const [region, setRegion] = useState<"mix" | "pk" | "in" | "uae">("mix");
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -402,6 +404,8 @@ function BotManagementTab() {
       const res = await fetch(apiUrl("/api/admin/bots"), { credentials: "include" });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
       setBots(await res.json());
+      const s = await fetch(apiUrl("/api/admin/bots/stats"), { credentials: "include" });
+      if (s.ok) setStats(await s.json());
     } catch (e: any) {
       toast({ title: "Failed to load bots", description: e?.message ?? "Error", variant: "destructive" });
     } finally {
@@ -433,6 +437,23 @@ function BotManagementTab() {
     }
   }
 
+  async function deleteAllBots() {
+    const ok = window.confirm("Delete ALL bots? This also deletes bot tickets/participants/wins/transactions. This cannot be undone.");
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(apiUrl("/api/admin/bots"), { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      const j = await res.json();
+      toast({ title: "Bots deleted", description: `${j.deleted ?? 0} removed` });
+      await load();
+    } catch (e: any) {
+      toast({ title: "Delete failed", description: e?.message ?? "Error", variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="space-y-4 mt-4">
       <Card>
@@ -441,6 +462,21 @@ function BotManagementTab() {
           <p className="text-xs text-muted-foreground">Bots are admin-only users (`is_bot=true`) used for pool filling and social proof.</p>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-3 text-center">
+              <p className="text-[11px] text-muted-foreground">Total</p>
+              <p className="text-lg font-bold tabular-nums">{stats?.totalBots ?? bots.length}</p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-3 text-center">
+              <p className="text-[11px] text-muted-foreground">Active in pools</p>
+              <p className="text-lg font-bold tabular-nums">{stats?.activeInPools ?? 0}</p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-3 text-center">
+              <p className="text-[11px] text-muted-foreground">Won</p>
+              <p className="text-lg font-bold tabular-nums">{stats?.won ?? 0}</p>
+            </div>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label>Generate count (1–50)</Label>
@@ -471,6 +507,10 @@ function BotManagementTab() {
               </Button>
             </div>
           </div>
+
+          <Button variant="destructive" className="h-11 w-full" disabled={deleting || loading} onClick={() => void deleteAllBots()}>
+            {deleting ? "Deleting…" : "Delete all bots"}
+          </Button>
 
           <div className="rounded-xl border border-border/60 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border/60 bg-muted/20">
