@@ -178,8 +178,6 @@ router.get("/", async (req, res) => {
         .from(poolTicketsTable)
         .where(and(eq(poolTicketsTable.poolId, w.poolId), eq(poolTicketsTable.userId, w.userId)))
         .orderBy(poolTicketsTable.ticketNumber);
-      const prizeAmount = parseFloat(String(w.prize ?? "0"));
-      const verified = String(w.paymentStatus ?? "") === "paid";
       return {
       id: w.id,
       poolId: w.poolId,
@@ -189,14 +187,11 @@ router.get("/", async (req, res) => {
       // Backward-compatible aliases used by older/mobile ticker UIs.
       winnerName: privacyDisplayName(w.userName),
       place: w.place,
-      prize: prizeAmount,
-      amount: prizeAmount,
-      prizeAmount,
+      prize: parseFloat(w.prize),
+      amount: parseFloat(w.prize),
       awardedAt: w.awardedAt,
       createdAt: w.awardedAt,
       withdrawalStatus: w.paymentStatus,
-      verified,
-      txId: null as string | null,
       walletAddressTruncated: truncateWallet(w.cryptoAddress),
       screenshotUrl: null as string | null,
       winnerTicketCount: ticketRows.length,
