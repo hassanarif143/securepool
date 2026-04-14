@@ -311,14 +311,14 @@ export default function LandingPage() {
                     <span className="font-medium text-[#e2e8f0]">{maskWinnerName(w.userName)}</span>
                     <span className="text-[#64748b]">won</span>
                     <span className="landing-mono font-extrabold text-emerald-300 landing-amount-glow">
-                      ${Number(w.prize).toFixed(2)}
+                      ${Number.isFinite(Number(w.prize)) ? Number(w.prize).toFixed(2) : "0.00"}
                     </span>
                     <span className="text-[#64748b]">on</span>
                     <span className="text-[#00D4FF] font-semibold truncate max-w-[45vw] sm:max-w-none">
                       {String((w as any).poolTitle ?? (w as any).poolName ?? "SecurePool")}
                     </span>
-                    <span className="text-xs text-[#64748b]">{timeAgoShort(w.awardedAt)}</span>
-                    <span className="ml-auto rounded-full bg-emerald-500/20 px-2.5 py-1 text-[11px] font-semibold text-white border border-emerald-500/25">
+                    <span className="text-[12px] text-[#9e9e9e]">{timeAgoShort(w.awardedAt)}</span>
+                    <span className="ml-auto rounded-full bg-emerald-500/20 px-2.5 py-1 text-[12px] font-semibold text-white border border-emerald-500/25">
                       Verified
                     </span>
                   </li>
