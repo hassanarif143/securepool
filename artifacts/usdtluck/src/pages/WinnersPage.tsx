@@ -8,6 +8,7 @@ import { LiveWinnerTicker } from "@/components/winners/LiveWinnerTicker";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import { apiUrl } from "@/lib/api-base";
 import { useCountUp } from "@/hooks/useCountUp";
+import { cn } from "@/lib/utils";
 
 /* ── Place metadata — dark-mode aware ── */
 const PLACE: Record<number, {
@@ -242,6 +243,17 @@ export default function WinnersPage() {
   /* Grab the most recent top-3 for the podium — sorted by place so 1st/2nd/3rd are correct */
   const latestRound = winnersList.slice(0, 3).sort((a: any, b: any) => a.place - b.place);
   const hasLatestRound = latestRound.length > 0;
+  const latestPoolMembers = useMemo(() => {
+    const any = latestRound[0] as any;
+    const sold = Number(any?.poolSoldTickets ?? 0);
+    return Number.isFinite(sold) && sold > 0 ? sold : 0;
+  }, [latestRound]);
+
+  function latestRoundPoolTag(rows: any[]) {
+    const any = rows[0] as any;
+    const t = String(any?.poolTitle ?? "SecurePool");
+    return t;
+  }
 
   /* All winners for the feed below */
   const feedWinners = winnersList;
@@ -398,18 +410,49 @@ export default function WinnersPage() {
       {/* ── Latest round podium ── */}
       {!isLoading && hasLatestRound && (
         <div className="pt-2">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="h-px flex-1" style={{ background: "hsl(217,28%,16%)" }} />
-            <span className="px-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Latest Round
-            </span>
-            <div className="h-px flex-1" style={{ background: "hsl(217,28%,16%)" }} />
-          </div>
-          <div className="grid grid-cols-3 gap-3 sm:gap-4">
-            {/* Reorder: 2nd | 1st | 3rd for podium effect */}
-            {[latestRound[1], latestRound[0], latestRound[2]].map((w, i) =>
-              w ? <PodiumCard key={w.id} winner={w} /> : <div key={i} />
-            )}
+          <div className="sp-podium-wrap">
+            <p className="sp-podium-label">LATEST ROUND</p>
+            <div className="sp-pool-tag">
+              {latestRoundPoolTag(latestRound)}
+              {(latestRound[0] as any)?.poolId ? ` · #${(latestRound[0] as any).poolId}` : ""}
+            </div>
+
+            <div className="sp-podium-row" aria-label="Latest round winners podium">
+              {latestRound[1] ? <PodiumWinnerCard winner={latestRound[1]} place={2} /> : null}
+              {latestRound[0] ? <PodiumWinnerCard winner={latestRound[0]} place={1} /> : null}
+              {latestRound[2] ? <PodiumWinnerCard winner={latestRound[2]} place={3} /> : null}
+            </div>
+
+            <div className="sp-pedestals" aria-hidden>
+              <div className="sp-step sp-step-2" />
+              <div className="sp-step sp-step-1" />
+              <div className="sp-step sp-step-3" />
+            </div>
+
+            <div className="sp-summary">
+              <div className="sp-summary-row">
+                <span className="sp-summary-k">Total prize pool</span>
+                <span className="sp-summary-v sp-green">
+                  {Number.isFinite(latestRound.reduce((s: number, w: any) => s + Number(w?.prize ?? 0), 0))
+                    ? `${latestRound.reduce((s: number, w: any) => s + Number(w?.prize ?? 0), 0).toFixed(2)} USDT`
+                    : "—"}
+                </span>
+              </div>
+              <div className="sp-summary-row">
+                <span className="sp-summary-k">Players</span>
+                <span className="sp-summary-v">{latestPoolMembers > 0 ? `${latestPoolMembers} participants` : "—"}</span>
+              </div>
+              <div className="sp-summary-row">
+                <span className="sp-summary-k">Draw method</span>
+                <span className="sp-summary-v sp-cyan">Provably fair</span>
+              </div>
+            </div>
+
+            <div className="sp-verified">
+              <span className="sp-dot" aria-hidden />
+              <span>Verified · results on-chain</span>
+            </div>
+            <div className="sp-ts">{timeAgo(String((latestRound[0] as any)?.awardedAt ?? new Date().toISOString()))}</div>
           </div>
         </div>
       )}
@@ -608,7 +651,258 @@ export default function WinnersPage() {
         @media (prefers-reduced-motion: reduce) {
           .sp-stat-icon { animation: none; }
         }
+
+        .sp-podium-wrap {
+          max-width: 420px;
+          margin: 0 auto;
+          padding: 20px 16px;
+        }
+        .sp-podium-label {
+          text-align: center;
+          font-size: 11px;
+          letter-spacing: 3px;
+          text-transform: uppercase;
+          color: rgba(158,158,158,0.9);
+          margin: 0;
+        }
+        .sp-pool-tag {
+          width: fit-content;
+          margin: 10px auto 14px;
+          padding: 4px 14px;
+          font-size: 12px;
+          color: #00D4FF;
+          background: rgba(0,229,255,0.08);
+          border: 1px solid rgba(0,229,255,0.22);
+          border-radius: 20px;
+          text-align: center;
+          white-space: nowrap;
+        }
+        .sp-podium-row {
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          gap: 8px;
+        }
+        .sp-podium-card {
+          width: 112px;
+          border-radius: 14px;
+          padding: 14px 12px 16px;
+          text-align: center;
+          opacity: 0;
+          transform: translateY(16px);
+          animation: sp-fade-up 0.5s ease forwards;
+          will-change: transform, opacity;
+        }
+        .sp-podium-second { order: 1; animation-delay: 0.25s; }
+        .sp-podium-first { order: 2; transform: translateY(12px); animation-delay: 0.4s; }
+        .sp-podium-third { order: 3; animation-delay: 0.25s; }
+        .sp-rank-badge {
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          display: grid;
+          place-items: center;
+          font-size: 13px;
+          font-weight: 800;
+          margin: 0 auto 10px;
+        }
+        .sp-avatar {
+          width: 40px;
+          height: 40px;
+          border-radius: 999px;
+          display: grid;
+          place-items: center;
+          border: 1.5px solid rgba(255,255,255,0.10);
+          margin: 0 auto 10px;
+          font-weight: 800;
+        }
+        .sp-name {
+          font-size: 13px;
+          font-weight: 600;
+          color: #ffffff;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .sp-amt {
+          font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+          margin-top: 8px;
+          font-weight: 800;
+          font-size: 17px;
+          line-height: 1.05;
+        }
+        .sp-podium-first .sp-amt { font-size: 20px; }
+        .sp-pkr {
+          font-size: 10px;
+          margin-top: 6px;
+          color: rgba(158,158,158,0.95);
+        }
+        .sp-place-pill {
+          margin: 10px auto 0;
+          width: fit-content;
+          padding: 3px 10px;
+          border-radius: 12px;
+          font-size: 10px;
+          font-weight: 600;
+        }
+        .sp-pedestals {
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          gap: 0px;
+          margin-top: 10px;
+        }
+        .sp-step { width: 112px; border-radius: 8px 8px 0 0; }
+        .sp-step-1 { height: 56px; order: 2; background: linear-gradient(180deg, rgba(245,166,35,0.35), rgba(245,166,35,0.08)); }
+        .sp-step-2 { height: 40px; order: 1; background: linear-gradient(180deg, rgba(168,180,196,0.28), rgba(168,180,196,0.06)); border-top-left-radius: 8px; border-top-right-radius: 0; }
+        .sp-step-3 { height: 28px; order: 3; background: linear-gradient(180deg, rgba(205,127,80,0.28), rgba(205,127,80,0.06)); border-top-right-radius: 8px; border-top-left-radius: 0; }
+        .sp-summary {
+          margin-top: 12px;
+          background: #0d1117;
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 12px;
+          padding: 14px 16px;
+          opacity: 0;
+          transform: translateY(16px);
+          animation: sp-fade-up 0.5s ease forwards;
+          animation-delay: 0.55s;
+        }
+        .sp-summary-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 10px 0;
+          border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .sp-summary-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .sp-summary-k { color: rgba(158,158,158,0.95); font-size: 12px; }
+        .sp-summary-v { color: #ffffff; font-size: 13px; font-weight: 600; }
+        .sp-green { color: #00e676; }
+        .sp-cyan { color: #00D4FF; }
+        .sp-verified {
+          margin-top: 14px;
+          display: flex;
+          gap: 6px;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+          font-weight: 500;
+          color: #00e676;
+          opacity: 0;
+          transform: translateY(16px);
+          animation: sp-fade-up 0.5s ease forwards;
+          animation-delay: 0.7s;
+        }
+        .sp-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 999px;
+          background: #00e676;
+          animation: sp-pulse 2s ease-in-out infinite;
+        }
+        .sp-ts {
+          margin-top: 8px;
+          text-align: center;
+          font-size: 11px;
+          color: rgba(158,158,158,0.9);
+        }
+        @keyframes sp-fade-up {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes sp-pulse {
+          0% { opacity: 1; }
+          50% { opacity: 0.4; }
+          100% { opacity: 1; }
+        }
+        @media (max-width: 420px) {
+          .sp-podium-card, .sp-step { width: 100px; }
+          .sp-amt { font-size: 16px; }
+          .sp-podium-first .sp-amt { font-size: 18px; }
+        }
+        @media (min-width: 768px) {
+          .sp-podium-wrap { max-width: 500px; }
+          .sp-podium-card, .sp-step { width: 130px; }
+          .sp-amt { font-size: 18px; }
+          .sp-podium-first .sp-amt { font-size: 22px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .sp-podium-card, .sp-summary, .sp-verified { animation: none; opacity: 1; transform: none; }
+          .sp-dot { animation: none; }
+        }
       `}</style>
+    </div>
+  );
+}
+
+function podiumColors(place: 1 | 2 | 3): {
+  color: string;
+  dim: string;
+  border: string;
+  bg: string;
+  label: string;
+  cls: string;
+} {
+  if (place === 1) {
+    return {
+      color: "#f5a623",
+      dim: "rgba(245,166,35,0.12)",
+      border: "rgba(245,166,35,0.20)",
+      bg: "linear-gradient(165deg, rgba(245,166,35,0.08), rgba(245,166,35,0.02))",
+      label: "1st place",
+      cls: "sp-podium-first",
+    };
+  }
+  if (place === 2) {
+    return {
+      color: "#a8b4c4",
+      dim: "rgba(168,180,196,0.10)",
+      border: "rgba(168,180,196,0.15)",
+      bg: "linear-gradient(165deg, rgba(168,180,196,0.08), rgba(168,180,196,0.02))",
+      label: "2nd place",
+      cls: "sp-podium-second",
+    };
+  }
+  return {
+    color: "#cd7f50",
+    dim: "rgba(205,127,80,0.10)",
+    border: "rgba(205,127,80,0.15)",
+    bg: "linear-gradient(165deg, rgba(205,127,80,0.08), rgba(205,127,80,0.02))",
+    label: "3rd place",
+    cls: "sp-podium-third",
+  };
+}
+
+function formatPkrApprox(amt: number): string {
+  const rate = 279.3;
+  const v = Math.round(Math.max(0, amt) * rate);
+  return `≈ ${v.toLocaleString()} PKR`;
+}
+
+function PodiumWinnerCard({ winner, place }: { winner: any; place: 1 | 2 | 3 }) {
+  const c = podiumColors(place);
+  const name = String(winner?.userName ?? winner?.winnerName ?? "Winner");
+  const initial = name.trim().charAt(0).toUpperCase() || "W";
+  const amtRaw = winner?.amount ?? winner?.prize ?? winner?.prizeAmount ?? 0;
+  const n = typeof amtRaw === "string" ? Number.parseFloat(amtRaw) : Number(amtRaw);
+  const amt = Number.isFinite(n) ? n : 0;
+  return (
+    <div className={cn("sp-podium-card", c.cls)} style={{ background: c.bg, border: `1px solid ${c.border}` }}>
+      <div className="sp-rank-badge" style={{ background: c.color, color: "#0b0f16" }}>
+        {place}
+      </div>
+      <div className="sp-avatar" style={{ background: c.dim, borderColor: c.border, color: c.color }}>
+        {initial}
+      </div>
+      <div className="sp-name">{name}</div>
+      <div className="sp-amt" style={{ color: c.color }}>
+        +{amt.toFixed(2)}
+      </div>
+      <div className="sp-pkr">{formatPkrApprox(amt)}</div>
+      <div className="sp-place-pill" style={{ background: c.dim, color: c.color }}>
+        {c.label}
+      </div>
     </div>
   );
 }

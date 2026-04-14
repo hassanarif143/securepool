@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, winnersTable, usersTable, poolsTable } from "@workspace/db";
 import { poolTicketsTable } from "@workspace/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { getAuthedUserId, requireAuth, type AuthedRequest } from "../middleware/auth";
 import { privacyDisplayName } from "../lib/privacy-name";
 
@@ -157,6 +157,8 @@ router.get("/", async (req, res) => {
       id: winnersTable.id,
       poolId: winnersTable.poolId,
       poolTitle: poolsTable.title,
+      poolTotalTickets: poolsTable.totalTickets,
+      poolMaxUsers: poolsTable.maxUsers,
       userId: winnersTable.userId,
       userName: usersTable.name,
       cryptoAddress: usersTable.cryptoAddress,
@@ -171,6 +173,20 @@ router.get("/", async (req, res) => {
     .orderBy(desc(winnersTable.awardedAt))
     .limit(lim);
 
+  const poolIds = Array.from(new Set(winners.map((w) => w.poolId)));
+  const poolSoldTicketsById = new Map<number, number>();
+  if (poolIds.length > 0) {
+    const counts = await db
+      .select({
+        poolId: poolTicketsTable.poolId,
+        sold: sql<number>`count(*)`.mapWith(Number),
+      })
+      .from(poolTicketsTable)
+      .where(inArray(poolTicketsTable.poolId, poolIds))
+      .groupBy(poolTicketsTable.poolId);
+    for (const c of counts) poolSoldTicketsById.set(c.poolId, Number(c.sold ?? 0));
+  }
+
   const enriched = await Promise.all(
     winners.map(async (w) => {
       const ticketRows = await db
@@ -182,16 +198,23 @@ router.get("/", async (req, res) => {
       id: w.id,
       poolId: w.poolId,
       poolTitle: w.poolTitle,
+      poolNumber: w.poolId,
+      poolSoldTickets: poolSoldTicketsById.get(w.poolId) ?? null,
+      poolTotalTickets: w.poolTotalTickets != null ? Number(w.poolTotalTickets) : null,
+      poolMaxUsers: Number.isFinite(Number(w.poolMaxUsers)) ? Number(w.poolMaxUsers) : null,
       userId: w.userId,
       userName: privacyDisplayName(w.userName),
       // Backward-compatible aliases used by older/mobile ticker UIs.
       winnerName: privacyDisplayName(w.userName),
       place: w.place,
-      prize: parseFloat(w.prize),
-      amount: parseFloat(w.prize),
+      prize: parseFloat(String(w.prize ?? "0")),
+      amount: parseFloat(String(w.prize ?? "0")),
+      prizeAmount: parseFloat(String(w.prize ?? "0")),
       awardedAt: w.awardedAt,
       createdAt: w.awardedAt,
       withdrawalStatus: w.paymentStatus,
+      verified: String(w.paymentStatus ?? "") === "paid",
+      txId: null as string | null,
       walletAddressTruncated: truncateWallet(w.cryptoAddress),
       screenshotUrl: null as string | null,
       winnerTicketCount: ticketRows.length,

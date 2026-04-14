@@ -101,7 +101,27 @@ export default function LandingPage() {
     return Math.min(...fees);
   }, [activePools]);
 
-  const recentWinners = useMemo(() => (winners ?? []).slice(0, 5), [winners]);
+  const verifiedRows = useMemo(() => {
+    const list = (winners ?? []) as any[];
+    return list
+      .map((w) => {
+        const raw = w.prizeAmount ?? w.prize ?? w.amount ?? 0;
+        const n = typeof raw === "string" ? Number.parseFloat(raw) : Number(raw);
+        const amt = Number.isFinite(n) ? n : 0;
+        return {
+          id: Number(w.id),
+          place: Number(w.place ?? 0),
+          userName: String(w.userName ?? w.winnerName ?? "Member"),
+          poolTitle: String(w.poolTitle ?? w.poolName ?? "SecurePool"),
+          awardedAt: String(w.awardedAt ?? w.createdAt ?? new Date().toISOString()),
+          amount: amt,
+          verified: Boolean(w.verified ?? String(w.withdrawalStatus ?? w.status ?? "") === "paid"),
+        };
+      })
+      .filter((w) => w.id > 0 && w.amount > 0);
+  }, [winners]);
+
+  const recentWinners = useMemo(() => verifiedRows.slice(0, 5), [verifiedRows]);
 
   const paidOut = stats?.totalUsdtDistributed ?? 0;
   const drawsDone = stats?.totalPoolsCompleted ?? 0;
@@ -311,11 +331,11 @@ export default function LandingPage() {
                     <span className="font-medium text-[#e2e8f0]">{maskWinnerName(w.userName)}</span>
                     <span className="text-[#64748b]">won</span>
                     <span className="landing-mono font-extrabold text-emerald-300 landing-amount-glow">
-                      ${Number(w.prize).toFixed(2)}
+                      ${Number(w.amount).toFixed(2)}
                     </span>
                     <span className="text-[#64748b]">on</span>
                     <span className="text-[#00D4FF] font-semibold truncate max-w-[45vw] sm:max-w-none">
-                      {String((w as any).poolTitle ?? (w as any).poolName ?? "SecurePool")}
+                      {String(w.poolTitle ?? "SecurePool")}
                     </span>
                     <span className="text-xs text-[#64748b]">{timeAgoShort(w.awardedAt)}</span>
                     <span className="ml-auto rounded-full bg-emerald-500/20 px-2.5 py-1 text-[11px] font-semibold text-white border border-emerald-500/25">
