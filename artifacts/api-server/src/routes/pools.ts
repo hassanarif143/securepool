@@ -1947,7 +1947,8 @@ async function executePoolDistribution(
 
       const [winner] = await tx
         .insert(winnersTable)
-        .values({ poolId, userId: winRow.userId, place, prize: String(prize) })
+        // Draw settlement credits the user immediately, so this is a completed payout.
+        .values({ poolId, userId: winRow.userId, place, prize: String(prize), paymentStatus: "paid" })
         .returning();
       if (!winner) {
         const e = new Error("WINNER_INSERT_FAILED");

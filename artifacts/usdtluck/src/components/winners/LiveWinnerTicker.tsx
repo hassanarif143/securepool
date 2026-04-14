@@ -70,7 +70,9 @@ export function LiveWinnerTicker() {
           <div className="sp-marquee-track group-hover:[animation-play-state:paused]">
             {loop.map((w, i) => {
               const name = w.winnerName ?? w.userName ?? "Winner";
-              const amt = Number(w.amount ?? w.prize ?? w.prizeAmount ?? 0);
+              const raw = w.amount ?? w.prize ?? w.prizeAmount ?? 0;
+              const n = typeof raw === "string" ? Number.parseFloat(raw) : Number(raw);
+              const amt = Number.isFinite(n) ? n : 0;
               const pool = w.poolTitle ?? "SecurePool";
               const t = timeAgoShort(w.createdAt ?? w.awardedAt);
               return (
