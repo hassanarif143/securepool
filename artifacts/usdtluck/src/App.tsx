@@ -1,6 +1,6 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Component, Suspense, lazy, useEffect } from "react";
+import { Component, Suspense, lazy, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,6 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Layout } from "@/components/Layout";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { PageLoading } from "@/components/PageLoading";
+import { Spinner } from "@/components/ui/spinner";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/LandingPage";
 import LoginPage from "@/pages/LoginPage";
@@ -159,10 +160,37 @@ function PersistAndRestoreRoute() {
   return null;
 }
 
+function RouteChangeLoader() {
+  const [location] = useLocation();
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    // Show immediately on route change, hide shortly after paint.
+    setShow(true);
+    const raf = window.requestAnimationFrame(() => {
+      window.setTimeout(() => setShow(false), 250);
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [location]);
+
+  if (!show) return null;
+  return (
+    <div className="fixed inset-x-0 top-0 z-[60] pointer-events-none">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-black/30 px-3 py-1.5 text-xs font-semibold text-cyan-100 shadow-[0_0_0_1px_rgba(34,211,238,0.12),0_0_24px_rgba(34,211,238,0.12)] backdrop-blur">
+          <Spinner className="size-4 text-cyan-200" />
+          Loading…
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Router() {
   return (
     <Layout>
       <PersistAndRestoreRoute />
+      <RouteChangeLoader />
       <InstallPrompt />
       <Switch>
         <Route path="/" component={LandingPage} />
