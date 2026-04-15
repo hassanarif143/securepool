@@ -183,6 +183,12 @@ function SimulatorTab() {
   const [userRows, setUserRows] = useState<Array<{ id: number; name: string; isBot: boolean; region: string | null }>>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [actions, setActions] = useState<any[]>([]);
+  const userRowsLoadMore = useLoadMore({
+    initialLimit: 6,
+    incrementSize: 5,
+    totalItems: userRows.length,
+    resetKey: `${userQuery}:${userRows.length}`,
+  });
 
   useEffect(() => {
     if (!poolId && openPools.length > 0) setPoolId(Number(openPools[0]?.id ?? 0));
@@ -334,7 +340,7 @@ function SimulatorTab() {
                       <p className="p-3 text-xs text-muted-foreground">No results.</p>
                     ) : (
                       <ul className="divide-y divide-border">
-                        {userRows.slice(0, 80).map((u) => {
+                        {userRows.slice(0, userRowsLoadMore.visibleCount).map((u) => {
                           const checked = selectedIds.includes(u.id);
                           return (
                             <li key={u.id} className="px-3 py-2 flex items-center justify-between gap-2">
@@ -359,6 +365,11 @@ function SimulatorTab() {
                       </ul>
                     )}
                   </div>
+                  {userRowsLoadMore.canLoadMore && (
+                    <div className="pt-2 flex justify-center">
+                      <LoadMoreButton onClick={() => void userRowsLoadMore.loadMore()} isLoading={userRowsLoadMore.isLoadingMore} />
+                    </div>
+                  )}
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs text-muted-foreground">Selected: {selectedIds.length}</p>
                     <Button className="h-11" disabled={loading || !poolId || selectedIds.length === 0} onClick={() => void runFill("select")}>
@@ -426,6 +437,12 @@ function BotManagementTab() {
   const [region, setRegion] = useState<"mix" | "pk" | "in" | "uae">("mix");
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const botsLoadMore = useLoadMore({
+    initialLimit: 6,
+    incrementSize: 5,
+    totalItems: bots.length,
+    resetKey: `${region}:${bots.length}`,
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -554,7 +571,7 @@ function BotManagementTab() {
               <p className="p-4 text-sm text-muted-foreground">No bots yet. Generate some.</p>
             ) : (
               <ul className="divide-y divide-border/60">
-                {bots.slice(0, 80).map((b) => (
+                {bots.slice(0, botsLoadMore.visibleCount).map((b) => (
                   <li key={b.id} className="px-4 py-3 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold truncate">{b.botDisplayName ?? b.name}</p>
@@ -568,6 +585,11 @@ function BotManagementTab() {
               </ul>
             )}
           </div>
+          {!loading && bots.length > 0 && botsLoadMore.canLoadMore && (
+            <div className="pt-2 flex justify-center">
+              <LoadMoreButton onClick={() => void botsLoadMore.loadMore()} isLoading={botsLoadMore.isLoadingMore} />
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
