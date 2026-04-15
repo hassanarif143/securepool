@@ -168,7 +168,8 @@ function RouteChangeLoader() {
     // Show immediately on route change, hide shortly after paint.
     setShow(true);
     const raf = window.requestAnimationFrame(() => {
-      window.setTimeout(() => setShow(false), 250);
+      // Small minimum duration to avoid flicker.
+      window.setTimeout(() => setShow(false), 420);
     });
     return () => window.cancelAnimationFrame(raf);
   }, [location]);
@@ -176,10 +177,23 @@ function RouteChangeLoader() {
   if (!show) return null;
   return (
     <div className="fixed inset-x-0 top-0 z-[60] pointer-events-none">
+      {/* Glow wash */}
+      <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-cyan-500/10 via-cyan-500/5 to-transparent" />
+
+      {/* Progress bar */}
+      <div className="relative h-[3px] w-full bg-white/5">
+        <div
+          className="h-full w-[68%] bg-gradient-to-r from-cyan-400 via-[#00E5CC] to-emerald-400 shadow-[0_0_18px_rgba(34,211,238,0.35)] animate-pulse"
+          style={{ filter: "saturate(1.2)" }}
+        />
+        <div className="absolute -bottom-2 left-0 right-0 h-6 blur-xl bg-cyan-400/15" />
+      </div>
+
+      {/* Tiny indicator (optional, subtle) */}
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-black/30 px-3 py-1.5 text-xs font-semibold text-cyan-100 shadow-[0_0_0_1px_rgba(34,211,238,0.12),0_0_24px_rgba(34,211,238,0.12)] backdrop-blur">
-          <Spinner className="size-4 text-cyan-200" />
-          Loading…
+        <div className="mt-2 inline-flex items-center gap-2 text-[11px] font-semibold text-cyan-200/80">
+          <Spinner className="size-3.5 text-cyan-200/80" />
+          Loading
         </div>
       </div>
     </div>
