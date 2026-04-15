@@ -1310,11 +1310,14 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
   const feePerListEntry = platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin);
   const platformJoinFee =
     useFreeEntry || grossTotal <= 0 ? 0 : Math.min(grossTotal, feePerListEntry * ticketQty);
-  const netDue = grossTotal - platformJoinFee;
+  const netDue = grossTotal - platformJoinFee; // informational only (used for UI breakdown)
 
-  if (!useFreeEntry && userBalance < netDue) {
+  // Wallet deduction must match ticket price paid.
+  const walletDeduction = grossTotal;
+
+  if (!useFreeEntry && userBalance < walletDeduction) {
     res.status(400).json({
-      error: `Insufficient balance. Wallet deduction is ${netDue.toFixed(2)} USDT (${grossTotal.toFixed(2)} USDT tickets − ${platformJoinFee.toFixed(2)} USDT platform fee) for ${ticketQty} ticket(s). Current balance: ${userBalance.toFixed(2)} USDT.`,
+      error: `Insufficient balance. Wallet deduction is ${walletDeduction.toFixed(2)} USDT for ${ticketQty} ticket(s). Current balance: ${userBalance.toFixed(2)} USDT.`,
     });
     return;
   }
@@ -1364,12 +1367,12 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
         }
         const freshBuckets = parseUserBuckets(freshUser);
         const freshTotal = totalWallet(freshBuckets);
-        if (freshTotal < netDue) {
+        if (freshTotal < walletDeduction) {
           const e = new Error("INSUFFICIENT_BALANCE");
           (e as { code?: string }).code = "INSUFFICIENT_BALANCE";
           throw e;
         }
-        const d = deductForPoolEntry(freshBuckets, netDue, { allowRewardPoints: true });
+        const d = deductForPoolEntry(freshBuckets, walletDeduction, { allowRewardPoints: true });
         logger.info(
           {
             poolId,
@@ -1395,14 +1398,6 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
           })
           .where(eq(usersTable.id, sessionUserId));
         await mirrorAvailableFromUser(trx, sessionUserId);
-        if (platformJoinFee > 0) {
-          await appendPoolJoinPlatformFee(trx, {
-            poolId,
-            userId: sessionUserId,
-            amount: platformJoinFee,
-            description: `Pool join fee — pool #${poolId} (gross ${grossTotal.toFixed(2)} USDT, net wallet ${netDue.toFixed(2)} USDT)`,
-          });
-        }
       }
 
       if (isFirstInPool) {
@@ -1410,7 +1405,7 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
           poolId,
           userId: sessionUserId,
           ticketCount: ticketQty,
-          amountPaid: String(useFreeEntry ? 0 : netDue),
+          amountPaid: String(useFreeEntry ? 0 : walletDeduction),
           paidFromBonus: String(fromPointsUsdt),
           paidFromWithdrawable: String(fromWithdrawable),
         });
@@ -1424,7 +1419,7 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
           .update(poolParticipantsTable)
           .set({
             ticketCount: prevTc + ticketQty,
-            amountPaid: (prevPaid + (useFreeEntry ? 0 : netDue)).toFixed(2),
+            amountPaid: (prevPaid + (useFreeEntry ? 0 : walletDeduction)).toFixed(2),
             paidFromBonus: (prevFb + fromPointsUsdt).toFixed(2),
             paidFromWithdrawable: (prevWd + fromWithdrawable).toFixed(2),
           })
@@ -1511,10 +1506,10 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
     void logPoolLifecycle(poolId, pool.templateId ?? null, "draw_scheduled", { delayMinutes: delayMin });
   }
 
-  const txAmountStr = useFreeEntry ? "0" : netDue.toFixed(2);
+  const txAmountStr = useFreeEntry ? "0" : walletDeduction.toFixed(2);
   const txNoteWithPricing =
     !useFreeEntry && platformJoinFee > 0
-      ? `${txNote} — gross ${grossTotal.toFixed(2)} USDT; platform fee ${platformJoinFee.toFixed(2)} USDT; wallet ${netDue.toFixed(2)} USDT`
+      ? `${txNote} — ${grossTotal.toFixed(2)} USDT (${ticketQty} ticket${ticketQty === 1 ? "" : "s"})`
       : txNote;
   const txNoteFinal =
     ticketQty > 1 && !useFreeEntry
@@ -1569,7 +1564,7 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
     poolTitle: pool.title,
     participantCountAfterJoin: ticketCountAfterJoin,
     maxUsers: pool.maxUsers,
-    entryFeePaid: useFreeEntry ? undefined : netDue,
+    entryFeePaid: useFreeEntry ? undefined : walletDeduction,
     additionalTicketsOnly: !isFirstInPool,
   });
 
@@ -1579,14 +1574,14 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
         ? `Successfully bought ${ticketQty} tickets!`
         : "Successfully joined the pool!",
     usedFreeEntry: useFreeEntry,
-    amountPaid: useFreeEntry ? 0 : netDue,
+    amountPaid: useFreeEntry ? 0 : walletDeduction,
     paymentBreakdown:
       useFreeEntry || grossTotal <= 0
         ? undefined
         : {
             grossTotal,
             platformFee: platformJoinFee,
-            netDeductedFromWallet: netDue,
+            netDeductedFromWallet: walletDeduction,
           },
     ticketQuantity: ticketQty,
     luckyNumbers: luckyNumbers.map(formatLuckyNumberDisplay),
@@ -1672,12 +1667,6 @@ router.post("/:poolId/exit", async (req, res) => {
           amount: String(chargeApplied),
           status: "completed",
           note: `Pre-exit charge — ${pool.title} — ${chargeApplied} USDT (50% of platform fee)`,
-        });
-        await appendPoolJoinPlatformFee(tx, {
-          poolId,
-          userId,
-          amount: chargeApplied,
-          description: `Pre-exit charge — pool #${poolId} (${ticketCount} ticket${ticketCount === 1 ? "" : "s"})`,
         });
       }
 

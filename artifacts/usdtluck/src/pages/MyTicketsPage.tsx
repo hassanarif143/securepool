@@ -32,8 +32,9 @@ export default function MyTicketsPage() {
     })();
   }, []);
 
-  const active = useMemo(() => rows.filter((r) => r.status === "open"), [rows]);
-  const history = useMemo(() => rows.filter((r) => r.status !== "open"), [rows]);
+  const isActiveStatus = (s: string) => s === "open" || s === "filled" || s === "drawing" || s === "upcoming";
+  const active = useMemo(() => rows.filter((r) => isActiveStatus(r.status)), [rows]);
+  const history = useMemo(() => rows.filter((r) => !isActiveStatus(r.status)), [rows]);
   const list = tab === "active" ? active : history;
 
   return (

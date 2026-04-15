@@ -128,7 +128,8 @@ export default function DashboardPage() {
 
   const openPoolCount = pools?.filter((p) => p.status === "open").length ?? 0;
   const winCount = transactions?.filter(isPoolPrizeWinTx).length ?? 0;
-  const activeEntryCount = user ? myEntries.filter((e) => e.status === "open").length : 0;
+  const isActiveEntryStatus = (s: string) => s === "open" || s === "filled" || s === "drawing" || s === "upcoming";
+  const activeEntryCount = user ? myEntries.filter((e) => isActiveEntryStatus(String(e.status ?? ""))).length : 0;
   const animOpenPools = useAnimatedNumber(openPoolCount);
   const animWins = useAnimatedNumber(winCount);
   const animMyEntries = useAnimatedNumber(activeEntryCount);
@@ -175,7 +176,7 @@ export default function DashboardPage() {
   const recentTxs = transactions?.slice(0, 8) ?? [];
   const totalWins = transactions?.filter(isPoolPrizeWinTx).length ?? 0;
 
-  const activeJoined = myEntries.filter((e) => e.status === "open");
+  const activeJoined = myEntries.filter((e) => isActiveEntryStatus(String(e.status ?? "")));
   const firstName = user.name.split(" ")[0] ?? user.name;
   const rewardsUsdt = Number((user.rewardPoints ?? 0) as number) / 300;
   const lockedEstimated = Math.max(0, Number(user.walletBalance ?? 0) - Number(user.withdrawableBalance ?? 0) - rewardsUsdt);
