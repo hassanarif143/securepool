@@ -6,7 +6,7 @@ import { getAuthedUserId } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
 import { mirrorAvailableFromUser, recordStakeLockDebit, recordStakeReturnCredit } from "../services/user-wallet-service";
 import { appendDepositFromTicketPurchase, appendWithdrawalForPayout } from "../services/admin-wallet-service";
-import { createStakeV2, listMyStakesV2, listVisiblePlans, claimStakeV2, withdrawEarningsV2 } from "../services/staking-v2-service";
+import { createStakeV2, listMyStakesV2, listVisiblePlans, claimStakeV2, withdrawEarningsV2, earlyExitStakeV2 } from "../services/staking-v2-service";
 import { getRecentSimEvents, getSimTodayFinance } from "../services/staking-sim-service";
 
 const router = Router();
@@ -283,6 +283,33 @@ router.post("/:stakeId/withdraw-earnings", async (req, res) => {
     if (msg === "DAILY_PAYOUT_LIMIT") return res.status(429).json({ error: "Daily payout limit reached. Try again later." });
     res.status(500).json({ error: "Server error" });
     return;
+  }
+});
+
+router.post("/:stakeId/unstake", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  if (!(await assertEmailVerified(res, userId))) return;
+  const stakeId = Number(req.params.stakeId);
+  if (!Number.isFinite(stakeId) || stakeId <= 0) {
+    res.status(400).json({ error: "Invalid stake id" });
+    return;
+  }
+  try {
+    const out = await earlyExitStakeV2({ userId, stakeId });
+    res.json(out);
+    return;
+  } catch (e: any) {
+    const msg = e?.message ?? "Error";
+    if (msg === "STAKE_NOT_FOUND") return res.status(404).json({ error: "Stake not found" });
+    if (msg === "STAKE_NOT_ACTIVE") return res.status(400).json({ error: "Stake not active" });
+    if (msg === "STAKING_DISABLED" || msg === "EMERGENCY_STOP") return res.status(403).json({ error: "Temporarily unavailable" });
+    if (msg === "THROTTLED") return res.status(429).json({ error: "Please wait a moment and try again" });
+    if (msg === "DAILY_PAYOUT_LIMIT") return res.status(429).json({ error: "Daily payout limit reached. Try again later." });
+    return res.status(500).json({ error: "Server error" });
   }
 });
 

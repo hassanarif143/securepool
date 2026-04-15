@@ -331,6 +331,7 @@ export async function withdrawEarningsV2(args: { userId: number; stakeId: number
         select coalesce(sum(
           case
             when stx.type = 'maturity_claim' then stx.amount::numeric
+            when stx.type = 'early_exit' then stx.amount::numeric
             when stx.type = 'earning_withdraw' then -stx.amount::numeric
             else 0
           end
@@ -340,7 +341,7 @@ export async function withdrawEarningsV2(args: { userId: number; stakeId: number
         where s.is_bot_stake = false
           and stx.created_at >= ${dayStart}
           and stx.created_at <= ${dayEnd}
-          and stx.type in ('maturity_claim','earning_withdraw')
+          and stx.type in ('maturity_claim','early_exit','earning_withdraw')
       `);
       const used = Number((sumRows.rows as any[])[0]?.t ?? 0);
       if (used + earned > safety.maxDailyPayoutUsdt + 0.0001) throw new Error("DAILY_PAYOUT_LIMIT");
@@ -382,6 +383,130 @@ export async function withdrawEarningsV2(args: { userId: number; stakeId: number
 
     await mirrorAvailableFromUser(tx, args.userId);
     return { ok: true as const, withdrawn: earned, balanceAfter: nextWd };
+  });
+}
+
+export async function earlyExitStakeV2(args: { userId: number; stakeId: number }) {
+  const now = new Date();
+  const safety = await getStakingSafetyConfig();
+  if (!safety.enabled) throw new Error("STAKING_DISABLED");
+  if (safety.emergencyStop) throw new Error("EMERGENCY_STOP");
+
+  return await db.transaction(async (tx) => {
+    const [stake] = await tx
+      .select()
+      .from(userStakesTable)
+      .where(and(eq(userStakesTable.id, args.stakeId), eq(userStakesTable.userId, args.userId)))
+      .limit(1);
+    if (!stake) throw new Error("STAKE_NOT_FOUND");
+    if (String(stake.status) !== "active") throw new Error("STAKE_NOT_ACTIVE");
+
+    const isBot = Boolean(stake.isBotStake);
+    if (isBot) throw new Error("BOT_STAKE");
+
+    const principal = round2(toNum(stake.stakedAmount));
+    const earned = round2(toNum(stake.earnedAmount));
+
+    // Keep it simple for users: you can unstake anytime, but earnings may be reduced.
+    const penaltyPctRaw = toNum((stake as any).earlyExitPenaltyPercent);
+    const penaltyPct = Number.isFinite(penaltyPctRaw) && penaltyPctRaw >= 0 ? Math.min(90, penaltyPctRaw) : 50;
+    const penalty = round2((earned * penaltyPct) / 100);
+    const paidEarnings = round2(Math.max(0, earned - penalty));
+    const totalPaid = round2(principal + paidEarnings);
+
+    if (safety.withdrawThrottleSec > 0) {
+      const since = new Date(Date.now() - safety.withdrawThrottleSec * 1000);
+      const recent = await tx.execute(sql`
+        select 1
+        from staking_transactions stx
+        inner join user_stakes s on s.id = stx.stake_id
+        where stx.user_id = ${args.userId}
+          and s.is_bot_stake = false
+          and stx.type in ('earning_withdraw','early_exit','maturity_claim')
+          and stx.created_at >= ${since}
+        limit 1
+      `);
+      if ((recent.rows as any[]).length > 0) throw new Error("THROTTLED");
+    }
+
+    if (safety.maxDailyPayoutUsdt > 0) {
+      const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
+      const dayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+      const sumRows = await tx.execute(sql`
+        select coalesce(sum(
+          case
+            when stx.type = 'maturity_claim' then stx.amount::numeric
+            when stx.type = 'early_exit' then stx.amount::numeric
+            when stx.type = 'earning_withdraw' then -stx.amount::numeric
+            else 0
+          end
+        ),0)::text as t
+        from staking_transactions stx
+        inner join user_stakes s on s.id = stx.stake_id
+        where s.is_bot_stake = false
+          and stx.created_at >= ${dayStart}
+          and stx.created_at <= ${dayEnd}
+          and stx.type in ('maturity_claim','early_exit','earning_withdraw')
+      `);
+      const used = Number((sumRows.rows as any[])[0]?.t ?? 0);
+      if (used + totalPaid > safety.maxDailyPayoutUsdt + 0.0001) throw new Error("DAILY_PAYOUT_LIMIT");
+    }
+
+    const [u] = await tx.select().from(usersTable).where(eq(usersTable.id, args.userId)).limit(1);
+    if (!u) throw new Error("USER_NOT_FOUND");
+
+    const wd = toNum(u.withdrawableBalance);
+    const bonus = toNum(u.bonusBalance);
+    const nextWd = wd + totalPaid;
+    const nextWallet = round2(bonus + nextWd);
+
+    await tx
+      .update(usersTable)
+      .set({ withdrawableBalance: nextWd.toFixed(2), walletBalance: nextWallet.toFixed(2) })
+      .where(eq(usersTable.id, args.userId));
+
+    await tx
+      .update(userStakesTable)
+      .set({
+        status: "early_exit",
+        earlyExitAt: now as any,
+        earlyExitPenaltyPercent: penaltyPct.toFixed(2) as any,
+        claimedAt: now,
+        claimedAmount: totalPaid.toFixed(2),
+        updatedAt: now,
+      } as any)
+      .where(eq(userStakesTable.id, stake.id));
+
+    await tx.insert(stakingTransactionsTable).values({
+      stakeId: stake.id,
+      userId: args.userId,
+      type: "early_exit",
+      amount: totalPaid.toFixed(2),
+      description: `Unstaked early — principal ${principal.toFixed(2)} + earnings ${paidEarnings.toFixed(2)} (penalty ${penalty.toFixed(2)}) USDT`,
+    });
+
+    const [plan] = await tx.select().from(stakingPlansTable).where(eq(stakingPlansTable.id, stake.planId)).limit(1);
+    if (plan) {
+      await tx
+        .update(stakingPlansTable)
+        .set({
+          currentPoolAmount: sql`${stakingPlansTable.currentPoolAmount}::numeric - ${principal.toFixed(2)}::numeric`,
+          currentStakers: sql`GREATEST(0, ${stakingPlansTable.currentStakers} - 1)`,
+          updatedAt: now,
+        })
+        .where(eq(stakingPlansTable.id, plan.id));
+    }
+
+    await tx.insert(transactionsTable).values({
+      userId: args.userId,
+      txType: "stake_release",
+      amount: totalPaid.toFixed(2),
+      status: "completed",
+      note: `Unstaked early — stake #${stake.id}`,
+    });
+
+    await mirrorAvailableFromUser(tx, args.userId);
+    return { ok: true as const, totalPaid, principal, earned, penaltyPct, penalty, paidEarnings };
   });
 }
 

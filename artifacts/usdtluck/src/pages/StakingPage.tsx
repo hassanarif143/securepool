@@ -76,8 +76,19 @@ export default function StakingPage() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number>(Date.now());
   const [liveDailyEarnings, setLiveDailyEarnings] = useState(0);
   const [withdrawingId, setWithdrawingId] = useState<number | null>(null);
-  const [withdrawDialog, setWithdrawDialog] = useState<{ open: boolean; stakeId: number | null; amount: number }>({ open: false, stakeId: null, amount: 0 });
-  const feedSeed = useRef<number>(Math.floor(Math.random() * 1_000_000));
+  const [withdrawDialog, setWithdrawDialog] = useState<{ open: boolean; stakeId: number | null; amount: number }>({
+    open: false,
+    stakeId: null,
+    amount: 0,
+  });
+  const [unstakeDialog, setUnstakeDialog] = useState<{
+    open: boolean;
+    stakeId: number | null;
+    principal: number;
+    earned: number;
+    penaltyPct: number;
+  }>({ open: false, stakeId: null, principal: 0, earned: 0, penaltyPct: 50 });
+  const [unstakingId, setUnstakingId] = useState<number | null>(null);
   const [feed, setFeed] = useState<Array<{ id: string; text: string; ts: number }>>([]);
   const [openStakeIds, setOpenStakeIds] = useState<Record<number, boolean>>(() => {
     try {
@@ -145,8 +156,23 @@ export default function StakingPage() {
         const res = await fetch(apiUrl("/api/staking/activity"), { credentials: "include" });
         if (!res.ok) return;
         const j = (await res.json()) as { feed?: Array<{ id: string; text: string; createdAt: string }> };
-        const rows = (j.feed ?? []).map((e) => ({ id: e.id, text: e.text, ts: new Date(e.createdAt).getTime() }));
-        setFeed(rows);
+        const rows = (j.feed ?? [])
+          .map((e) => ({ id: e.id, text: e.text, ts: new Date(e.createdAt).getTime() }))
+          .sort((a, b) => b.ts - a.ts);
+
+        setFeed((prev) => {
+          if (rows.length === 0) return prev;
+          const prevIds = new Set(prev.map((x) => x.id));
+          const incomingNew = rows.filter((x) => !prevIds.has(x.id));
+          if (incomingNew.length === 0) return prev;
+
+          // Only animate *new* items; keep stable order to avoid "jerk".
+          const merged = [...incomingNew, ...prev]
+            .filter((x, i, arr) => arr.findIndex((y) => y.id === x.id) === i)
+            .sort((a, b) => b.ts - a.ts)
+            .slice(0, 5);
+          return merged;
+        });
       } catch {
         /* ignore */
       }
@@ -270,6 +296,29 @@ export default function StakingPage() {
     } finally {
       setWithdrawingId(null);
       setWithdrawDialog({ open: false, stakeId: null, amount: 0 });
+    }
+  }
+
+  async function openUnstake(stakeId: number, principal: number, earned: number) {
+    // UI-only preview: simple, consistent messaging.
+    setUnstakeDialog({ open: true, stakeId, principal, earned, penaltyPct: 50 });
+  }
+
+  async function confirmUnstake() {
+    if (!unstakeDialog.stakeId) return;
+    setUnstakingId(unstakeDialog.stakeId);
+    try {
+      const res = await fetch(apiUrl(`/api/staking/${unstakeDialog.stakeId}/unstake`), { method: "POST", credentials: "include" });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      ConfettiPresets.smallWin();
+      appToast.success({ title: "Unstaked", description: "Funds are returning to your wallet. This may take a few seconds." });
+      await refresh();
+      await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+    } catch (e: unknown) {
+      appToast.error({ title: "Unstake failed", description: String(e) });
+    } finally {
+      setUnstakingId(null);
+      setUnstakeDialog({ open: false, stakeId: null, principal: 0, earned: 0, penaltyPct: 50 });
     }
   }
 
@@ -515,13 +564,23 @@ export default function StakingPage() {
                           <p className="text-[11px] text-muted-foreground">
                             Withdraw may take a few seconds.
                           </p>
-                          <Button
-                            className="h-10 rounded-2xl"
-                            disabled={withdrawingId === s.id || s.earnedAmount <= 0.009}
-                            onClick={() => void withdrawEarnings(s.id, s.earnedAmount)}
-                          >
-                            {withdrawingId === s.id ? "Withdrawing…" : "Withdraw"}
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              className="h-10 rounded-2xl"
+                              disabled={unstakingId === s.id}
+                              onClick={() => void openUnstake(s.id, s.stakedAmount, s.earnedAmount)}
+                            >
+                              {unstakingId === s.id ? "Unstaking…" : "Unstake"}
+                            </Button>
+                            <Button
+                              className="h-10 rounded-2xl"
+                              disabled={withdrawingId === s.id || s.earnedAmount <= 0.009}
+                              onClick={() => void withdrawEarnings(s.id, s.earnedAmount)}
+                            >
+                              {withdrawingId === s.id ? "Withdrawing…" : "Withdraw"}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </CollapsibleContent>
@@ -570,14 +629,15 @@ export default function StakingPage() {
         </CardHeader>
         <CardContent>
           <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-muted/10 p-2">
-            <AnimatePresence initial={false}>
+            <AnimatePresence initial={false} mode="popLayout">
               {feed.slice(0, 5).map((e) => (
                 <motion.div
-                  key={`${feedSeed.current}-${e.id}`}
+                  layout
+                  key={e.id}
                   initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
                   animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                   exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                  transition={{ duration: 0.24, ease: "easeOut" }}
+                  transition={{ duration: 0.28, ease: "easeOut" }}
                   className="px-3 py-2 flex items-center justify-between gap-3"
                 >
                   <span className="text-sm truncate">{e.text}</span>
@@ -595,7 +655,7 @@ export default function StakingPage() {
       <Card className="border-border/60">
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Performance insights</CardTitle>
-          <p className="text-xs text-muted-foreground">Simple trends to build trust. Not a dashboard.</p>
+          <p className="text-xs text-muted-foreground">Easy signals to understand your earnings.</p>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -633,24 +693,26 @@ export default function StakingPage() {
                   </RechartsPrimitive.LineChart>
                 </ChartContainer>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-2">Smooth tracking, no hidden charges.</p>
+              <p className="text-[11px] text-muted-foreground mt-2">Updates automatically — no hidden charges.</p>
             </div>
 
             <div className="rounded-2xl border border-border/60 bg-muted/10 p-3">
-              <p className="text-[11px] font-semibold">Weekly trend (simple)</p>
-              <div className="mt-2 h-20">
-                <ChartContainer
-                  config={{
-                    v: { label: "Trend", color: "#00e5ff" },
-                  }}
-                  className="h-20 w-full"
-                >
-                  <RechartsPrimitive.LineChart data={earningsPoints.map((x, i) => ({ v: x.v + (i % 5 === 0 ? 0.0002 : 0) }))} margin={{ left: 0, right: 0, top: 6, bottom: 0 }}>
-                    <RechartsPrimitive.Line type="monotone" dataKey="v" stroke="var(--color-v)" strokeWidth={2} dot={false} />
-                  </RechartsPrimitive.LineChart>
-                </ChartContainer>
+              <p className="text-[11px] font-semibold">How this works (transparent)</p>
+              <div className="mt-3 space-y-2 text-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-muted-foreground">Real-time reward calculation</span>
+                  <span className="text-emerald-200 font-semibold">Live</span>
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-muted-foreground">No hidden charges</span>
+                  <span className="text-cyan-200 font-semibold">0 fees</span>
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-muted-foreground">Unstake anytime</span>
+                  <span className="text-amber-200 font-semibold">Allowed</span>
+                </div>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-2">Returns vary with platform performance.</p>
+              <p className="text-[11px] text-muted-foreground mt-3">Earnings are estimated and may vary with platform activity.</p>
             </div>
           </div>
         </CardContent>
@@ -670,6 +732,32 @@ export default function StakingPage() {
             </div>
             <Button className="w-full h-11 rounded-2xl" disabled={withdrawingId != null} onClick={() => void confirmWithdraw()}>
               {withdrawingId != null ? "Processing…" : "Withdraw now"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unstake dialog (anytime) */}
+      <Dialog open={unstakeDialog.open} onOpenChange={(o) => setUnstakeDialog((prev) => ({ ...prev, open: o }))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Unstake anytime</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-border/60 bg-muted/10 p-3">
+              <p className="text-xs text-muted-foreground">You’re about to unstake</p>
+              <p className="text-sm font-semibold mt-1">
+                Principal <span className="font-mono">{unstakeDialog.principal.toFixed(2)} USDT</span>
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Current earnings <span className="font-mono">{unstakeDialog.earned.toFixed(2)} USDT</span>
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Early unstake may reduce earnings. Withdraw may take a few seconds.
+              </p>
+            </div>
+            <Button className="w-full h-11 rounded-2xl" disabled={unstakingId != null} onClick={() => void confirmUnstake()}>
+              {unstakingId != null ? "Processing…" : "Unstake now"}
             </Button>
           </div>
         </DialogContent>
