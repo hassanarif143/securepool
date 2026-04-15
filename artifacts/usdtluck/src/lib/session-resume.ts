@@ -81,7 +81,10 @@ export function loadAppSession(): StoredAppSession | null {
   return parsed;
 }
 
-export function saveGameState(game: StoredGameState["kind"], state: Omit<StoredGameState, "v" | "updatedAt" | "kind">) {
+export function saveGameState<K extends StoredGameState["kind"]>(
+  game: K,
+  state: Omit<Extract<StoredGameState, { kind: K }>, "v" | "updatedAt" | "kind">,
+) {
   if (typeof window === "undefined") return;
   const payload = { v: 1 as const, updatedAt: Date.now(), kind: game, ...(state as any) } as StoredGameState;
   try {

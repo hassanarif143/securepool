@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ProgressiveList } from "@/components/ProgressiveList";
 import { ArrowRight, Inbox, Shield } from "lucide-react";
 import { ConfirmActionModal } from "@/components/feedback/ConfirmActionModal";
 import { appToast } from "@/components/feedback/AppToast";
@@ -870,48 +871,61 @@ export default function WalletPage() {
               <div className="py-8 text-center text-sm text-muted-foreground">No transactions in this filter.</div>
             ) : (
               <div className="divide-y divide-[hsl(217,28%,13%)]">
-                {filteredTx.map((tx) => {
-                  const meta = rowTxMeta(tx);
-                  return (
-                    <div key={tx.id} className="flex items-center gap-0 hover:bg-white/[0.01] transition-colors">
-                      <div className="w-1 self-stretch shrink-0" style={{ background: meta.isCredit ? "#10b981" : "#f87171", minHeight: 52 }} />
-                      <div className="flex items-center gap-3 flex-1 px-4 py-3.5">
-                        {/* Icon */}
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 border border-[hsl(217,28%,20%)]"
-                          style={{ background: "hsl(217,28%,13%)", color: meta.color }}>
-                          {meta.icon}
-                        </div>
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-xs font-semibold">{meta.label}</p>
-                            <TransactionStatusBadge status={tx.status} />
+                <ProgressiveList
+                  items={filteredTx}
+                  initialLimit={6}
+                  incrementSize={5}
+                  resetKey={`${txFilter}:${filteredTx.length}`}
+                  getKey={(tx) => tx.id}
+                  renderItem={(tx) => {
+                    const meta = rowTxMeta(tx);
+                    return (
+                      <div className="flex items-center gap-0 hover:bg-white/[0.01] transition-colors">
+                        <div
+                          className="w-1 self-stretch shrink-0"
+                          style={{ background: meta.isCredit ? "#10b981" : "#f87171", minHeight: 52 }}
+                        />
+                        <div className="flex items-center gap-3 flex-1 px-4 py-3.5">
+                          <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 border border-[hsl(217,28%,20%)]"
+                            style={{ background: "hsl(217,28%,13%)", color: meta.color }}
+                          >
+                            {meta.icon}
                           </div>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                            {timeAgo(tx.createdAt)}
-                            {txExplain(tx) ? <span> · {txExplain(tx)}</span> : null}
-                          </p>
-                        </div>
-                        {/* Amount + receipt */}
-                        <div className="text-right shrink-0">
-                          <UsdtAmount
-                            amount={parseFloat(tx.amount)}
-                            prefix={meta.sign}
-                            amountClassName="text-sm font-extrabold tabular-nums"
-                            currencyClassName="text-[10px] text-muted-foreground"
-                            className="items-end"
-                          />
-                          {tx.screenshotUrl && (
-                            <a href={apiAssetUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer"
-                              className="text-[10px] text-primary hover:underline block mt-0.5">
-                              View receipt
-                            </a>
-                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-xs font-semibold">{meta.label}</p>
+                              <TransactionStatusBadge status={tx.status} />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              {timeAgo(tx.createdAt)}
+                              {txExplain(tx) ? <span> · {txExplain(tx)}</span> : null}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <UsdtAmount
+                              amount={parseFloat(tx.amount)}
+                              prefix={meta.sign}
+                              amountClassName="text-sm font-extrabold tabular-nums"
+                              currencyClassName="text-[10px] text-muted-foreground"
+                              className="items-end"
+                            />
+                            {tx.screenshotUrl && (
+                              <a
+                                href={apiAssetUrl(tx.screenshotUrl)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-primary hover:underline block mt-0.5"
+                              >
+                                View receipt
+                              </a>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  }}
+                />
               </div>
             )}
           </div>

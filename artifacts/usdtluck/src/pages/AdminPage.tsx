@@ -21,6 +21,8 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { ProgressiveList } from "@/components/ProgressiveList";
+import { LoadMoreButton } from "@/components/LoadMoreButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,6 +74,7 @@ import {
 import { PoolFactoryDashboard } from "@/components/admin/PoolFactoryDashboard";
 import { ShareAnalyticsStrip } from "@/components/admin/ShareAnalyticsStrip";
 import { DEPOSIT_REJECTION_OPTIONS } from "@/lib/payment-rejection-reasons";
+import { useLoadMore } from "@/hooks/useLoadMore";
 
 function parseSuperAdminIds(): number[] {
   const raw = import.meta.env.VITE_SUPER_ADMIN_IDS as string | undefined;
@@ -908,6 +911,12 @@ function FinanceTab() {
   const { data: ledger, isLoading: ledgerLoading } = useListAdminWalletTransactions(ledgerParams, {
     query: { queryKey: ["/api/admin/finance/wallet-transactions", ledgerParams] as const },
   });
+  const ledgerLoadMore = useLoadMore({
+    initialLimit: 6,
+    incrementSize: 5,
+    totalItems: (ledger ?? []).length,
+    resetKey: `${ledgerType}:${fromDate}:${toDate}:${(ledger ?? []).length}`,
+  });
 
   const [detailPoolId, setDetailPoolId] = useState<number | null>(null);
   const drawDetail = useGetAdminDrawFinancials(detailPoolId ?? 0, {
@@ -1345,13 +1354,18 @@ function FinanceTab() {
           {drawRows.length === 0 ? (
             <p className="text-sm text-muted-foreground">No completed draws with financials yet.</p>
           ) : (
-            drawRows.map((d) => (
-              <button
-                key={d.poolId}
-                type="button"
-                onClick={() => setDetailPoolId(d.poolId)}
-                className="w-full text-left rounded-lg p-3 space-y-2 transition-colors hover:bg-muted/50 border border-border/60"
-              >
+            <ProgressiveList
+              items={drawRows}
+              initialLimit={6}
+              incrementSize={5}
+              resetKey={drawRows.length}
+              getKey={(d) => d.poolId}
+              renderItem={(d) => (
+                <button
+                  type="button"
+                  onClick={() => setDetailPoolId(d.poolId)}
+                  className="w-full text-left rounded-lg p-3 space-y-2 transition-colors hover:bg-muted/50 border border-border/60"
+                >
                 <div className="flex justify-between text-sm">
                   <span className="font-medium truncate pr-2">{d.poolTitle}</span>
                   <span className="text-muted-foreground shrink-0 text-xs">Pool #{d.poolId}</span>
@@ -1399,15 +1413,14 @@ function FinanceTab() {
                   </div>
                 </div>
               </button>
-            ))
+              )}
+            />
           )}
           {drawHasMore ? (
             <div className="pt-1 flex justify-center">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
+              <LoadMoreButton
                 disabled={drawLoadingMore}
+                isLoading={drawLoadingMore}
                 onClick={async () => {
                   setDrawLoadingMore(true);
                   try {
@@ -1426,9 +1439,7 @@ function FinanceTab() {
                     setDrawLoadingMore(false);
                   }
                 }}
-              >
-                {drawLoadingMore ? "Loading…" : "Load more"}
-              </Button>
+              />
             </div>
           ) : null}
         </CardContent>
@@ -1492,7 +1503,7 @@ function FinanceTab() {
                 </tr>
               </thead>
               <tbody>
-                {(ledger ?? []).map((row) => (
+                {(ledger ?? []).slice(0, ledgerLoadMore.visibleCount).map((row) => (
                   <tr key={row.id} className="border-b border-border/40">
                     <td className="py-2 pr-2 whitespace-nowrap text-xs">
                       {row.createdAt ? new Date(row.createdAt).toLocaleString() : "—"}
@@ -1505,6 +1516,11 @@ function FinanceTab() {
                 ))}
               </tbody>
             </table>
+          )}
+          {!ledgerLoading && (ledger ?? []).length > 0 && ledgerLoadMore.canLoadMore && (
+            <div className="pt-3 flex justify-center">
+              <LoadMoreButton onClick={() => void ledgerLoadMore.loadMore()} isLoading={ledgerLoadMore.isLoadingMore} />
+            </div>
           )}
         </CardContent>
       </Card>
@@ -1662,19 +1678,31 @@ function StatsTab() {
       {stats.recentWinners.length > 0 && (
         <div>
           <h2 className="font-semibold mb-3">Recent Winners</h2>
-          <div className="space-y-2">
-            {stats.recentWinners.map((w) => (
-              <Card key={w.id}>
+          <ProgressiveList
+            items={stats.recentWinners}
+            initialLimit={6}
+            incrementSize={5}
+            resetKey={stats.recentWinners.length}
+            getKey={(w) => w.id}
+            renderItem={(w) => (
+              <Card>
                 <CardContent className="p-3 flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-sm">{w.userName} <span className="text-muted-foreground">— Place {w.place}</span></p>
+                    <p className="font-medium text-sm">
+                      {w.userName} <span className="text-muted-foreground">— Place {w.place}</span>
+                    </p>
                     <p className="text-xs text-muted-foreground">{w.poolTitle}</p>
                   </div>
-                  <UsdtAmount amount={w.prize} amountClassName="font-bold text-primary" currencyClassName="text-[10px] text-[#64748b]" className="items-end" />
+                  <UsdtAmount
+                    amount={w.prize}
+                    amountClassName="font-bold text-primary"
+                    currencyClassName="text-[10px] text-[#64748b]"
+                    className="items-end"
+                  />
                 </CardContent>
               </Card>
-            ))}
-          </div>
+            )}
+          />
         </div>
       )}
     </div>
@@ -1998,6 +2026,12 @@ function PoolsTab() {
   const filteredPools = (pools ?? []).filter(
     (p) => filterStatus === "all" || p.status === filterStatus
   );
+  const poolsLoadMore = useLoadMore({
+    initialLimit: 6,
+    incrementSize: 5,
+    totalItems: filteredPools.length,
+    resetKey: `${filterStatus}:${filteredPools.length}`,
+  });
 
   const counts = {
     all: pools?.length ?? 0,
@@ -2158,7 +2192,7 @@ function PoolsTab() {
           <p className="text-4xl mb-2">🎱</p>
           <p className="text-muted-foreground">No pools {filterStatus !== "all" ? `with status "${filterStatus}"` : "yet"}</p>
         </div>
-      ) : filteredPools.map((pool) => {
+      ) : filteredPools.slice(0, poolsLoadMore.visibleCount).map((pool) => {
         const fillPct = Math.min(100, Math.round((pool.participantCount / pool.maxUsers) * 100));
         const isEditing = editingId === pool.id;
         const showParticipants = participantsPoolId === pool.id;
@@ -2630,6 +2664,12 @@ function PoolsTab() {
           </div>
         );
       })}
+
+      {filteredPools.length > 0 && poolsLoadMore.canLoadMore && (
+        <div className="pt-2 flex justify-center">
+          <LoadMoreButton onClick={() => void poolsLoadMore.loadMore()} isLoading={poolsLoadMore.isLoadingMore} />
+        </div>
+      )}
     </div>
     </>
   );
@@ -4130,55 +4170,106 @@ function UserProfileModal({ user, onClose }: { user: any; onClose: () => void })
             <p className="text-sm text-muted-foreground text-center py-6">Loading...</p>
           ) : txs.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">No transactions yet</p>
-          ) : txs.map((tx) => (
-            <div key={tx.id} className="border rounded-lg p-3 space-y-2">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`font-bold ${txColor(tx.txType)}`}>
-                      <UsdtAmount
-                        amount={tx.amount}
-                        prefix={
-                          tx.txType === "deposit" ||
-                          tx.txType === "reward" ||
-                          tx.txType === "pool_refund" ||
-                          tx.txType === "promo_credit"
-                            ? "+"
-                            : "-"
-                        }
-                        amountClassName={`font-bold ${txColor(tx.txType)}`}
-                        currencyClassName="text-[10px] text-[#64748b]"
+          ) : (
+            <ProgressiveList
+              items={txs}
+              initialLimit={6}
+              incrementSize={5}
+              resetKey={`${user.id}:${txs.length}`}
+              getKey={(tx) => tx.id}
+              renderItem={(tx) => (
+                <div className="border rounded-lg p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`font-bold ${txColor(tx.txType)}`}>
+                          <UsdtAmount
+                            amount={tx.amount}
+                            prefix={
+                              tx.txType === "deposit" ||
+                              tx.txType === "reward" ||
+                              tx.txType === "pool_refund" ||
+                              tx.txType === "promo_credit"
+                                ? "+"
+                                : "-"
+                            }
+                            amountClassName={`font-bold ${txColor(tx.txType)}`}
+                            currencyClassName="text-[10px] text-[#64748b]"
+                          />
+                        </span>
+                        <span className="text-xs text-muted-foreground capitalize">{tx.txType.replace("_", " ")}</span>
+                        {tx.status === "pending" && (
+                          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">Pending</Badge>
+                        )}
+                        {tx.status === "under_review" && (
+                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-xs">Under review</Badge>
+                        )}
+                        {tx.status === "completed" && (
+                          <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">Completed</Badge>
+                        )}
+                        {(tx.status === "rejected" || tx.status === "failed") && (
+                          <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">Rejected</Badge>
+                        )}
+                      </div>
+                      {tx.note && <p className="text-xs text-muted-foreground truncate">{tx.note}</p>}
+                      <p className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleString()}</p>
+                    </div>
+                    {tx.status === "pending" && (tx.txType === "deposit" || tx.txType === "withdraw") && (
+                      <div className="flex gap-1 shrink-0">
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
+                          onClick={() => handleAction(tx.id, "approve", tx)}
+                          disabled={acting === tx.id}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-7 text-xs"
+                          onClick={() => handleAction(tx.id, "reject", tx)}
+                          disabled={acting === tx.id}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                    {tx.status === "under_review" && tx.txType === "withdraw" && (
+                      <div className="flex gap-1 shrink-0">
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                          onClick={() => handleComplete(tx.id)}
+                          disabled={acting === tx.id}
+                        >
+                          Mark complete
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-7 text-xs"
+                          onClick={() => handleAction(tx.id, "reject", tx)}
+                          disabled={acting === tx.id}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  {tx.screenshotUrl && (
+                    <a href={getFullImageUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={getFullImageUrl(tx.screenshotUrl)}
+                        alt="Screenshot"
+                        className="w-full max-h-32 object-contain rounded border bg-muted cursor-pointer hover:opacity-90"
                       />
-                    </span>
-                    <span className="text-xs text-muted-foreground capitalize">{tx.txType.replace("_", " ")}</span>
-                    {tx.status === "pending" && <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">Pending</Badge>}
-                    {tx.status === "under_review" && <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-xs">Under review</Badge>}
-                    {tx.status === "completed" && <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">Completed</Badge>}
-                    {(tx.status === "rejected" || tx.status === "failed") && <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">Rejected</Badge>}
-                  </div>
-                  {tx.note && <p className="text-xs text-muted-foreground truncate">{tx.note}</p>}
-                  <p className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleString()}</p>
+                    </a>
+                  )}
                 </div>
-                {tx.status === "pending" && (tx.txType === "deposit" || tx.txType === "withdraw") && (
-                  <div className="flex gap-1 shrink-0">
-                    <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white" onClick={() => handleAction(tx.id, "approve", tx)} disabled={acting === tx.id}>Approve</Button>
-                    <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => handleAction(tx.id, "reject", tx)} disabled={acting === tx.id}>Reject</Button>
-                  </div>
-                )}
-                {tx.status === "under_review" && tx.txType === "withdraw" && (
-                  <div className="flex gap-1 shrink-0">
-                    <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleComplete(tx.id)} disabled={acting === tx.id}>Mark complete</Button>
-                    <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => handleAction(tx.id, "reject", tx)} disabled={acting === tx.id}>Reject</Button>
-                  </div>
-                )}
-              </div>
-              {tx.screenshotUrl && (
-                <a href={getFullImageUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer">
-                  <img src={getFullImageUrl(tx.screenshotUrl)} alt="Screenshot" className="w-full max-h-32 object-contain rounded border bg-muted cursor-pointer hover:opacity-90" />
-                </a>
               )}
-            </div>
-          ))}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -4204,6 +4295,12 @@ function WalletRequestsTab() {
   const [detail, setDetail] = useState<WalletReqRow | null>(null);
   const [rejectNote, setRejectNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const walletReqs = useLoadMore({
+    initialLimit: 6,
+    incrementSize: 5,
+    totalItems: rows.length,
+    resetKey: rows.length,
+  });
 
   async function load() {
     setLoading(true);
@@ -4299,7 +4396,7 @@ function WalletRequestsTab() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {rows.slice(0, walletReqs.visibleCount).map((row) => (
                 <tr key={row.id} className="border-b border-border/60">
                   <td className="p-2">
                     <p className="font-medium">{row.userName}</p>
@@ -4323,6 +4420,12 @@ function WalletRequestsTab() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {walletReqs.canLoadMore && (
+        <div className="pt-2 flex justify-center">
+          <LoadMoreButton onClick={() => void walletReqs.loadMore()} isLoading={walletReqs.isLoadingMore} />
         </div>
       )}
 
@@ -4402,6 +4505,12 @@ function AuditLogsTab() {
     const matchType = filterType === "all" || l.actionType === filterType;
     return matchSearch && matchType;
   });
+  const logsLoadMore = useLoadMore({
+    initialLimit: 6,
+    incrementSize: 5,
+    totalItems: filtered.length,
+    resetKey: `${search}:${filterType}:${filtered.length}`,
+  });
 
   const actionTypes = [...new Set(logs.map((l) => l.actionType))];
 
@@ -4445,20 +4554,30 @@ function AuditLogsTab() {
       <p className="text-xs text-muted-foreground">{filtered.length} log entr{filtered.length !== 1 ? "ies" : "y"}</p>
       {filtered.length === 0 ? (
         <p className="text-muted-foreground text-center py-8">No audit logs yet</p>
-      ) : filtered.map((log) => (
-        <div key={log.id} className="flex items-start gap-3 border rounded-lg p-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`text-xs font-medium px-2 py-0.5 rounded border capitalize ${actionColor(log.actionType)}`}>
-                {log.actionType.replace(/_/g, " ")}
-              </span>
-              <span className="text-xs text-muted-foreground">by {log.adminName}</span>
+      ) : (
+        <>
+          {filtered.slice(0, logsLoadMore.visibleCount).map((log) => (
+            <div key={log.id} className="flex items-start gap-3 border rounded-lg p-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded border capitalize ${actionColor(log.actionType)}`}>
+                    {log.actionType.replace(/_/g, " ")}
+                  </span>
+                  <span className="text-xs text-muted-foreground">by {log.adminName}</span>
+                </div>
+                <p className="text-sm mt-1">{log.description}</p>
+                <p className="text-xs text-muted-foreground">{new Date(log.createdAt).toLocaleString()}</p>
+              </div>
             </div>
-            <p className="text-sm mt-1">{log.description}</p>
-            <p className="text-xs text-muted-foreground">{new Date(log.createdAt).toLocaleString()}</p>
-          </div>
-        </div>
-      ))}
+          ))}
+
+          {logsLoadMore.canLoadMore && (
+            <div className="pt-2 flex justify-center">
+              <LoadMoreButton onClick={() => void logsLoadMore.loadMore()} isLoading={logsLoadMore.isLoadingMore} />
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -4615,85 +4734,98 @@ function PendingTransactionsTab() {
 
       {pendingTxs.length === 0 ? (
         <p className="text-muted-foreground text-center py-8">No pending requests</p>
-      ) : pendingTxs.map((tx) => (
-        <Card key={tx.id} className="border-yellow-200">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold">{tx.userName}</p>
-                  <Badge className="capitalize border border-muted-foreground/20">{tx.txType}</Badge>
+      ) : (
+        <ProgressiveList
+          items={pendingTxs}
+          initialLimit={6}
+          incrementSize={5}
+          resetKey={pendingTxs.length}
+          getKey={(tx) => tx.id}
+          renderItem={(tx) => (
+            <Card className="border-yellow-200">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold">{tx.userName}</p>
+                      <Badge className="capitalize border border-muted-foreground/20">{tx.txType}</Badge>
+                      {tx.status === "pending" && (
+                        <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Pending</Badge>
+                      )}
+                      {tx.status === "under_review" && (
+                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">Under review</Badge>
+                      )}
+                      <UsdtAmount
+                        amount={tx.amount}
+                        amountClassName="font-bold text-primary"
+                        currencyClassName="text-[10px] text-[#64748b]"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">{tx.userEmail}</p>
+                    {tx.userCryptoAddress && (
+                      <p className="text-xs font-mono text-muted-foreground mt-0.5">Wallet: {tx.userCryptoAddress}</p>
+                    )}
+                    {tx.note && <p className="text-xs text-muted-foreground">Note: {tx.note}</p>}
+                    <p className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleString()}</p>
+                  </div>
                   {tx.status === "pending" && (
-                    <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Pending</Badge>
+                    <div className="flex gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        onClick={() => handleAction(tx, "approve")}
+                        disabled={acting === tx.id}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleAction(tx, "reject")}
+                        disabled={acting === tx.id}
+                      >
+                        Reject
+                      </Button>
+                    </div>
                   )}
-                  {tx.status === "under_review" && (
-                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">Under review</Badge>
+                  {tx.status === "under_review" && tx.txType === "withdraw" && (
+                    <div className="flex gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        onClick={() => handleComplete(tx.id)}
+                        disabled={acting === tx.id}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      >
+                        Mark complete
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleAction(tx, "reject")}
+                        disabled={acting === tx.id}
+                      >
+                        Reject
+                      </Button>
+                    </div>
                   )}
-                  <UsdtAmount amount={tx.amount} amountClassName="font-bold text-primary" currencyClassName="text-[10px] text-[#64748b]" />
                 </div>
-                <p className="text-xs text-muted-foreground">{tx.userEmail}</p>
-                {tx.userCryptoAddress && (
-                  <p className="text-xs font-mono text-muted-foreground mt-0.5">Wallet: {tx.userCryptoAddress}</p>
+                {tx.screenshotUrl && (
+                  <div className="rounded border overflow-hidden">
+                    <a href={getFullImageUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={getFullImageUrl(tx.screenshotUrl)}
+                        alt="Payment screenshot"
+                        className="max-h-64 w-full object-contain bg-muted"
+                      />
+                    </a>
+                    <p className="text-xs text-muted-foreground text-center py-1">Click image to view full size</p>
+                  </div>
                 )}
-                {tx.note && <p className="text-xs text-muted-foreground">Note: {tx.note}</p>}
-                <p className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleString()}</p>
-              </div>
-              {tx.status === "pending" && (
-                <div className="flex gap-2 shrink-0">
-                  <Button
-                    size="sm"
-                    onClick={() => handleAction(tx, "approve")}
-                    disabled={acting === tx.id}
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    Approve
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleAction(tx, "reject")}
-                    disabled={acting === tx.id}
-                  >
-                    Reject
-                  </Button>
-                </div>
-              )}
-              {tx.status === "under_review" && tx.txType === "withdraw" && (
-                <div className="flex gap-2 shrink-0">
-                  <Button
-                    size="sm"
-                    onClick={() => handleComplete(tx.id)}
-                    disabled={acting === tx.id}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                  >
-                    Mark complete
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleAction(tx, "reject")}
-                    disabled={acting === tx.id}
-                  >
-                    Reject
-                  </Button>
-                </div>
-              )}
-            </div>
-            {tx.screenshotUrl && (
-              <div className="rounded border overflow-hidden">
-                <a href={getFullImageUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer">
-                  <img
-                    src={getFullImageUrl(tx.screenshotUrl)}
-                    alt="Payment screenshot"
-                    className="max-h-64 w-full object-contain bg-muted"
-                  />
-                </a>
-                <p className="text-xs text-muted-foreground text-center py-1">Click image to view full size</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+              </CardContent>
+            </Card>
+          )}
+        />
+      )}
     </div>
   );
 }
@@ -4709,6 +4841,12 @@ function TransactionsTab() {
     const matchType = filterType === "all" || tx.txType === filterType;
     const matchStatus = filterStatus === "all" || tx.status === filterStatus;
     return matchSearch && matchType && matchStatus;
+  });
+  const txsLoadMore = useLoadMore({
+    initialLimit: 6,
+    incrementSize: 5,
+    totalItems: filtered.length,
+    resetKey: `${search}:${filterType}:${filterStatus}:${filtered.length}`,
   });
 
   function txColor(type: string) {
@@ -4774,29 +4912,44 @@ function TransactionsTab() {
 
       {filtered.length === 0 ? (
         <p className="text-muted-foreground text-center py-8">No transactions match your filters</p>
-      ) : filtered.map((tx) => (
-        <Card key={tx.id}>
-          <CardContent className="p-3 flex items-center justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-medium text-sm">{tx.userName}</p>
-                <span className="text-xs text-muted-foreground capitalize">{tx.txType.replace("_", " ")}</span>
-                <TxStatus status={tx.status} />
-              </div>
-              {tx.note && <p className="text-xs text-muted-foreground truncate">{tx.note}</p>}
-              <p className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleString()}</p>
+      ) : (
+        <>
+          {filtered.slice(0, txsLoadMore.visibleCount).map((tx) => (
+            <Card key={tx.id}>
+              <CardContent className="p-3 flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-sm">{tx.userName}</p>
+                    <span className="text-xs text-muted-foreground capitalize">{tx.txType.replace("_", " ")}</span>
+                    <TxStatus status={tx.status} />
+                  </div>
+                  {tx.note && <p className="text-xs text-muted-foreground truncate">{tx.note}</p>}
+                  <p className="text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleString()}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <UsdtAmount
+                    amount={tx.amount}
+                    amountClassName={`font-bold ${txColor(tx.txType)}`}
+                    currencyClassName="text-[10px] text-[#64748b]"
+                    className="items-end"
+                  />
+                  {tx.screenshotUrl && (
+                    <a href={getFullImageUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline">
+                      Receipt
+                    </a>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {txsLoadMore.canLoadMore && (
+            <div className="pt-2 flex justify-center">
+              <LoadMoreButton onClick={() => void txsLoadMore.loadMore()} isLoading={txsLoadMore.isLoadingMore} />
             </div>
-            <div className="text-right shrink-0">
-              <UsdtAmount amount={tx.amount} amountClassName={`font-bold ${txColor(tx.txType)}`} currencyClassName="text-[10px] text-[#64748b]" className="items-end" />
-              {tx.screenshotUrl && (
-                <a href={getFullImageUrl(tx.screenshotUrl)} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline">
-                  Receipt
-                </a>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -4884,6 +5037,12 @@ function ReviewsTab() {
       (filterVisible === "visible" && r.isVisible) ||
       (filterVisible === "hidden" && !r.isVisible);
     return matchSearch && matchWinner && matchVisible;
+  });
+  const reviewsLoadMore = useLoadMore({
+    initialLimit: 6,
+    incrementSize: 5,
+    totalItems: filtered.length,
+    resetKey: `${search}:${filterWinner}:${filterVisible}:${filtered.length}`,
   });
 
   /* Aggregate stats */
@@ -4982,7 +5141,7 @@ function ReviewsTab() {
           <p className="text-center text-muted-foreground py-8">No reviews match your filters</p>
         ) : (
           <div className="space-y-2">
-            {filtered.map((r) => (
+            {filtered.slice(0, reviewsLoadMore.visibleCount).map((r) => (
               <Card key={r.id} className={!r.isVisible ? "opacity-50" : ""}>
                 <CardContent className="p-4 space-y-2">
                   {/* Header row */}
@@ -5062,6 +5221,11 @@ function ReviewsTab() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        )}
+        {!loading && filtered.length > 0 && reviewsLoadMore.canLoadMore && (
+          <div className="pt-3 flex justify-center">
+            <LoadMoreButton onClick={() => void reviewsLoadMore.loadMore()} isLoading={reviewsLoadMore.isLoadingMore} />
           </div>
         )}
       </div>
