@@ -1845,7 +1845,12 @@ async function executePoolDistribution(
     const totalPoolCents = clampCents(toCents(filledSeats * ticketPrice));
     const platformFeeCents = Math.floor(totalPoolCents * 0.1); // 10%
     const prizePoolCents = clampCents(totalPoolCents - platformFeeCents);
-    const adjustedPrizePoolCents = Math.floor(prizePoolCents * fillRatio);
+    let adjustedPrizePoolCents = Math.floor(prizePoolCents * fillRatio);
+    // Guarantee: never allow a zero/negative effective prize pool if there was activity.
+    // If scaling collapses to 0 (e.g. extreme rounding / bad inputs), fall back to 80% of prize pool.
+    if (adjustedPrizePoolCents <= 0 && prizePoolCents > 0 && filledSeats > 0) {
+      adjustedPrizePoolCents = Math.max(1, Math.floor(prizePoolCents * 0.8));
+    }
 
     // Base prize split always uses: 60/25/10 and keeps remainder in reserve.
     const firstCentsRaw = Math.floor(adjustedPrizePoolCents * 0.6);

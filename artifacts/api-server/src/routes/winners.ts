@@ -159,6 +159,7 @@ router.get("/", async (req, res) => {
       poolTitle: poolsTable.title,
       poolTotalTickets: poolsTable.totalTickets,
       poolMaxUsers: poolsTable.maxUsers,
+      entryFee: poolsTable.entryFee,
       userId: winnersTable.userId,
       userName: usersTable.name,
       cryptoAddress: usersTable.cryptoAddress,
@@ -194,6 +195,23 @@ router.get("/", async (req, res) => {
         .from(poolTicketsTable)
         .where(and(eq(poolTicketsTable.poolId, w.poolId), eq(poolTicketsTable.userId, w.userId)))
         .orderBy(poolTicketsTable.ticketNumber);
+
+      const sold = poolSoldTicketsById.get(w.poolId) ?? 0;
+      const totalSeats = w.poolTotalTickets != null ? Number(w.poolTotalTickets) : (Number.isFinite(Number(w.poolMaxUsers)) ? Number(w.poolMaxUsers) : 0);
+      const ticketPrice = Number((w as any).entryFee ?? NaN);
+      const ticketPriceFallback = Number.isFinite(ticketPrice) ? ticketPrice : 0;
+      const fillRatio = totalSeats > 0 ? Math.max(0, Math.min(1, sold / totalSeats)) : 0;
+      const totalPool = sold > 0 ? sold * ticketPriceFallback : 0;
+      const platformFee = totalPool * 0.1;
+      const prizePool = Math.max(0, totalPool - platformFee);
+      const adjustedPrizePool = prizePool * fillRatio;
+      const effectivePool =
+        adjustedPrizePool > 0.0001 ? adjustedPrizePool : prizePool > 0.0001 && sold > 0 ? prizePool * 0.8 : 0;
+      const dist = w.place === 1 ? 0.6 : w.place === 2 ? 0.25 : w.place === 3 ? 0.1 : 0;
+      const fallbackPrize = effectivePool > 0 ? Number((effectivePool * dist).toFixed(2)) : 0;
+
+      const rawPrize = parseFloat(String(w.prize ?? "0"));
+      const safePrize = rawPrize > 0.0001 ? rawPrize : fallbackPrize;
       return {
       id: w.id,
       poolId: w.poolId,
@@ -207,9 +225,9 @@ router.get("/", async (req, res) => {
       // Backward-compatible aliases used by older/mobile ticker UIs.
       winnerName: privacyDisplayName(w.userName),
       place: w.place,
-      prize: parseFloat(String(w.prize ?? "0")),
-      amount: parseFloat(String(w.prize ?? "0")),
-      prizeAmount: parseFloat(String(w.prize ?? "0")),
+      prize: safePrize,
+      amount: safePrize,
+      prizeAmount: safePrize,
       awardedAt: w.awardedAt,
       createdAt: w.awardedAt,
       withdrawalStatus: w.paymentStatus,
