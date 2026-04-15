@@ -35,9 +35,9 @@ const steps = [
     n: 4,
     icon: "💸",
     title: "Everyone Else Gets a Refund",
-    body: "Didn't win? No problem. You get your entry back minus a small platform fee.",
+    body: "Didn't win? Depending on fill level, real users may receive a partial refund from the pool reserve.",
     highlight:
-      "Example: 10 USDT list price → 2 USDT platform fee (1 per 5 USDT, rounded up) → 8 USDT back if you don't win.",
+      "Platform fee is 10% of the total pool. Your wallet is only deducted by the ticket price you confirm.",
   },
 ] as const;
 
@@ -49,7 +49,7 @@ const trustPoints = [
   {
     icon: Sparkles,
     title: "Clear platform fee",
-    desc: "About 1 USDT per 5 USDT of list price (rounded up). The exact fee is always shown before you pay.",
+    desc: "Platform fee is 10% of the total pool. Your wallet deduction is always exactly the ticket price you confirm.",
   },
 ] as const;
 

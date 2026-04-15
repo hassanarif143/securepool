@@ -62,7 +62,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { MoreHorizontal } from "lucide-react";
 import { apiUrl, getFullImageUrl, readApiErrorMessage } from "@/lib/api-base";
-import { platformFeeUsdtForPoolEntry } from "@/lib/platform-fee";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import {
   Select,
