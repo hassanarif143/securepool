@@ -202,9 +202,8 @@ router.get("/", async (req, res) => {
       const ticketPriceFallback = Number.isFinite(ticketPrice) ? ticketPrice : 0;
       const fillRatio = totalSeats > 0 ? Math.max(0, Math.min(1, sold / totalSeats)) : 0;
       const totalPool = sold > 0 ? sold * ticketPriceFallback : 0;
-      // Fee rule aligns with server join fee bands: ceil(entry/5) per ticket (fallback only).
-      const feePerTicket = ticketPriceFallback > 0 ? Math.ceil(ticketPriceFallback / 5) : 0;
-      const platformFee = sold > 0 ? sold * feePerTicket : 0;
+      // Fallback math must match pool settlement: platformFee is 10% of total pool (not per-ticket).
+      const platformFee = totalPool > 0 ? totalPool * 0.1 : 0;
       const prizePool = Math.max(0, totalPool - platformFee);
       const adjustedPrizePool = prizePool * fillRatio;
       const effectivePool =

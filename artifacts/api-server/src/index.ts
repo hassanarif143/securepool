@@ -18,6 +18,13 @@ process.on("unhandledRejection", (reason: unknown) => {
 });
 
 process.on("uncaughtException", (err: Error) => {
+  // In some dev environments (VPN / flaky interfaces), TLS sockets can emit EADDRNOTAVAIL.
+  // Treat as non-fatal so local verification/dev servers don't continuously crash.
+  const code = (err as unknown as { code?: string })?.code ?? "";
+  if (code === "EADDRNOTAVAIL") {
+    logger.warn({ err }, "[process] uncaughtException (EADDRNOTAVAIL) — continuing");
+    return;
+  }
   logger.fatal({ err }, "[process] uncaughtException — exiting");
   process.exit(1);
 });

@@ -130,6 +130,20 @@ function buildRows(): Row[] {
     { drawDelayMinutes: 5, minActivePools: 1, maxActivePools: 2, sortOrder: 1, badgeText: "Beginner", badgeColor: "green", tierIcon: "🟢", tierColor: "#10b981" },
   );
   add(
+    "micro",
+    "$3 Pool",
+    "$3 Pool",
+    "Quick entry — steady activity",
+    "daily",
+    "always_on",
+    3,
+    12,
+    3,
+    [0, 0, 0],
+    0,
+    { drawDelayMinutes: 7, minActivePools: 1, maxActivePools: 2, sortOrder: 2, badgeText: "Popular", badgeColor: "cyan", tierIcon: "✨", tierColor: "#06b6d4" },
+  );
+  add(
     "standard",
     "Standard Pool",
     "Standard Pool",
@@ -141,7 +155,7 @@ function buildRows(): Row[] {
     3,
     [25, 12, 8],
     30,
-    { drawDelayMinutes: 10, minActivePools: 1, maxActivePools: 2, sortOrder: 2 },
+    { drawDelayMinutes: 10, minActivePools: 1, maxActivePools: 2, sortOrder: 3 },
   );
   add(
     "classic",
@@ -155,7 +169,35 @@ function buildRows(): Row[] {
     3,
     [70, 35, 20],
     75,
-    { drawDelayMinutes: 15, minActivePools: 1, maxActivePools: 3, sortOrder: 3, badgeText: "Best Value", badgeColor: "cyan", tierIcon: "⭐", tierColor: "#06b6d4" },
+    { drawDelayMinutes: 15, minActivePools: 1, maxActivePools: 3, sortOrder: 4, badgeText: "Best Value", badgeColor: "cyan", tierIcon: "⭐", tierColor: "#06b6d4" },
+  );
+  add(
+    "mid",
+    "$15 Pool",
+    "$15 Pool",
+    "Higher entry — bigger prize pool",
+    "daily",
+    "always_on",
+    15,
+    20,
+    3,
+    [0, 0, 0],
+    0,
+    { drawDelayMinutes: 15, minActivePools: 1, maxActivePools: 2, sortOrder: 5, badgeText: "High", badgeColor: "gold", tierIcon: "💠", tierColor: "#eab308" },
+  );
+  add(
+    "upper",
+    "$20 Pool",
+    "$20 Pool",
+    "Premium entry — strong rewards",
+    "daily",
+    "always_on",
+    20,
+    20,
+    3,
+    [0, 0, 0],
+    0,
+    { drawDelayMinutes: 15, minActivePools: 1, maxActivePools: 2, sortOrder: 6, badgeText: "Premium", badgeColor: "gold", tierIcon: "🏅", tierColor: "#eab308" },
   );
   add(
     "pro",
@@ -169,7 +211,7 @@ function buildRows(): Row[] {
     3,
     [180, 80, 40],
     200,
-    { drawDelayMinutes: 15, minActivePools: 1, maxActivePools: 2, sortOrder: 4, badgeText: "Pro", badgeColor: "purple" },
+    { drawDelayMinutes: 15, minActivePools: 1, maxActivePools: 2, sortOrder: 7, badgeText: "Pro", badgeColor: "purple" },
   );
   add(
     "blitz",
@@ -183,7 +225,7 @@ function buildRows(): Row[] {
     2,
     [18, 8],
     14,
-    { drawDelayMinutes: 2, minActivePools: 1, maxActivePools: 3, sortOrder: 5, badgeText: "Fast", badgeColor: "orange", tierIcon: "⚡", tierColor: "#f97316" },
+    { drawDelayMinutes: 2, autoRecreate: false, minActivePools: 0, maxActivePools: 0, sortOrder: 50, badgeText: "Fast", badgeColor: "orange", tierIcon: "⚡", tierColor: "#f97316" },
   );
   add(
     "weekend-jackpot",
@@ -265,6 +307,7 @@ export async function ensureSmartPoolTemplates(): Promise<void> {
         platformFeePct: r.platformFeePct,
         tierIcon: r.tierIcon,
         tierColor: r.tierColor,
+        isActive: true,
         sortOrder: r.sortOrder,
         poolType: r.poolType,
         drawDelayMinutes: r.drawDelayMinutes,

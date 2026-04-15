@@ -38,6 +38,46 @@ import { logger } from "../lib/logger";
 import { getAuthedUserId, requireAdmin, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
 import { pickUniqueWinners, pickWeightedWinnersByTickets, secureShuffle } from "../services/draw-service";
+import { createPoolFromTemplateByName } from "../services/pool-template-service";
+
+let lastEnsureDefaultPoolsAt = 0;
+async function ensureRequiredDefaultPools(): Promise<void> {
+  // Throttle to keep public endpoints fast.
+  const now = Date.now();
+  if (now - lastEnsureDefaultPoolsAt < 30_000) return;
+  lastEnsureDefaultPoolsAt = now;
+
+  const required = [
+    { ticketPrice: 2, templateName: "Starter Pool" },
+    { ticketPrice: 3, templateName: "$3 Pool" },
+    { ticketPrice: 5, templateName: "Standard Pool" },
+    { ticketPrice: 10, templateName: "Classic Pool" },
+    { ticketPrice: 15, templateName: "$15 Pool" },
+    { ticketPrice: 20, templateName: "$20 Pool" },
+    { ticketPrice: 25, templateName: "Pro Pool" },
+  ];
+
+  // Look only at active pools; if a required price is missing, create one from its template.
+  const active = await db
+    .select({ entryFee: poolsTable.entryFee, ticketPrice: poolsTable.ticketPrice })
+    .from(poolsTable)
+    .where(inArray(poolsTable.status, ["open", "filled", "drawing"]));
+  const have = new Set(
+    active
+      .map((p) => Math.round(Number(p.ticketPrice != null ? parseFloat(String(p.ticketPrice)) : parseFloat(String(p.entryFee)))))
+      .filter((n) => Number.isFinite(n) && n > 0),
+  );
+
+  for (const r of required) {
+    if (have.has(r.ticketPrice)) continue;
+    try {
+      await createPoolFromTemplateByName(r.templateName, { autoCreated: true });
+    } catch (err) {
+      // Safe to ignore: caps/cooldowns can block creation; cron rotation will retry.
+      logger.warn({ err, templateName: r.templateName }, "[pools] ensureRequiredDefaultPools create failed");
+    }
+  }
+}
 import { logActivity } from "../services/activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { runJoinSideEffects } from "../services/join-side-effects";
@@ -234,6 +274,7 @@ function preExitChargeUsdt(entryFee: number, poolPlatformFeeOverride: string | n
 }
 
 router.get("/", async (_req, res) => {
+  await ensureRequiredDefaultPools();
   const pools = await db.select().from(poolsTable).orderBy(desc(poolsTable.createdAt));
   const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
 
@@ -269,6 +310,7 @@ router.get("/public-stats", async (_req, res) => {
 });
 
 router.get("/active", async (_req, res) => {
+  await ensureRequiredDefaultPools();
   const pools = await db
     .select()
     .from(poolsTable)
@@ -1843,9 +1885,8 @@ async function executePoolDistribution(
     const clampCents = (c: number) => Math.max(0, Math.floor(c));
 
     const totalPoolCents = clampCents(toCents(filledSeats * ticketPrice));
-    // Platform fee uses the existing per-ticket fee rule (same as join pricing / admin override).
-    const feePerTicketCents = clampCents(toCents(platformFeePerJoinUsdt(ticketPrice, pool.platformFeePerJoin)));
-    const platformFeeCents = clampCents(feePerTicketCents * filledSeats);
+    // Platform fee applies ONLY to the total pool (10%).
+    const platformFeeCents = Math.floor(totalPoolCents * 0.1);
     const prizePoolCents = clampCents(totalPoolCents - platformFeeCents);
     let adjustedPrizePoolCents = Math.floor(prizePoolCents * fillRatio);
     // Guarantee: never allow a zero/negative effective prize pool if there was activity.
@@ -1867,38 +1908,59 @@ async function executePoolDistribution(
     let secondCents = secondCentsRaw;
     let thirdCents = thirdCentsRaw;
 
-    // Refund system (real users only, non-winners). Refunds are sourced from reserve only.
-    // Expected behavior: refund "ticketPrice − feePerTicket" per ticket when reserve allows.
-    const maxRefundPerTicketCents = clampCents(Math.max(0, toCents(ticketPrice) - feePerTicketCents));
+    // Refund system (real users only, non-winners). Refund is DIRECTLY from ticket price, by fill ratio:
+    // - fillRatio < 0.5 → 80%
+    // - 0.5–0.8 → 50%
+    // - > 0.8 → 20%
+    let refundPct = 0.2;
+    if (fillRatio < 0.5) refundPct = 0.8;
+    else if (fillRatio <= 0.8) refundPct = 0.5;
+    else refundPct = 0.2;
 
     const loserRefundByUserId = new Map<number, number>();
     let refundsCents = 0;
-    if (!simulatedOnlyPool && reserveCents > 0 && maxRefundPerTicketCents > 0) {
+    if (!simulatedOnlyPool && refundPct > 0) {
       type Want = { userId: number; wantCents: number; frac: number };
       const wants: Want[] = [];
-
       for (const row of participants) {
         if (winnerIdSet.has(row.userId)) continue;
         if (isSimulatedByUserId(row.userId)) continue;
         const tc = Math.max(1, row.ticketCount ?? 1);
         const paid = clampCents(toCents(parseFloat(String(row.amountPaid ?? "0"))));
-        const want = Math.min(paid, clampCents(maxRefundPerTicketCents * tc));
-        if (want <= 0) continue;
-        wants.push({ userId: row.userId, wantCents: want, frac: 0 });
+        const want = clampCents(toCents(ticketPrice * refundPct) * tc);
+        const capped = Math.min(paid, want);
+        if (capped <= 0) continue;
+        wants.push({ userId: row.userId, wantCents: capped, frac: 0 });
       }
 
       const totalWant = wants.reduce((s, w) => s + w.wantCents, 0);
-      const budget = Math.min(reserveCents, totalWant);
-      if (budget > 0 && wants.length > 0) {
-        if (budget >= totalWant) {
+      // Refunds come from reserve first; if reserve isn't enough, reduce prizes to fund refunds.
+      const maxAvailable = clampCents(reserveCents + firstCents + secondCents + thirdCents);
+      const budget = Math.min(maxAvailable, totalWant);
+
+      if (budget > reserveCents) {
+        // Pull from prizes (third → second → first) into reserve until budget is covered.
+        let need = budget - reserveCents;
+        const take = (c: number, n: number) => {
+          const t = Math.min(c, n);
+          return [c - t, n - t] as const;
+        };
+        [thirdCents, need] = take(thirdCents, need);
+        [secondCents, need] = take(secondCents, need);
+        [firstCents, need] = take(firstCents, need);
+        reserveCents = clampCents(reserveCents + (budget - reserveCents - need));
+      }
+
+      const finalBudget = Math.min(reserveCents, totalWant);
+      if (finalBudget > 0 && wants.length > 0) {
+        if (finalBudget >= totalWant) {
           for (const w of wants) {
             loserRefundByUserId.set(w.userId, fromCents(w.wantCents));
             refundsCents += w.wantCents;
           }
         } else {
-          // Scale down proportionally, ledger-safe rounding to cents.
-          const scale = budget / totalWant;
-          const targetCents = Math.round(budget);
+          const scale = finalBudget / totalWant;
+          const targetCents = Math.round(finalBudget);
           for (const w of wants) {
             const raw = w.wantCents * scale;
             const base = Math.floor(raw);

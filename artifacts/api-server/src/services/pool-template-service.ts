@@ -8,7 +8,9 @@ function round2(n: number): number {
 }
 
 const MAX_ACTIVE_POOLS = Math.min(100, Math.max(5, parseInt(process.env.MAX_ACTIVE_POOLS ?? "15", 10) || 15));
-const MAX_DAILY_POOLS = Math.min(500, Math.max(10, parseInt(process.env.MAX_DAILY_POOLS ?? "30", 10) || 30));
+// Defaults are tuned to keep pools always available (auto-renew) in production-like traffic.
+// Env can still clamp down if needed.
+const MAX_DAILY_POOLS = Math.min(500, Math.max(10, parseInt(process.env.MAX_DAILY_POOLS ?? "200", 10) || 200));
 
 export function getMaxActivePoolsLimit(): number {
   return MAX_ACTIVE_POOLS;
