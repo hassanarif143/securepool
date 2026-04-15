@@ -11,6 +11,7 @@ export * from "./usdtStakes";
 export * from "./stakingPlans";
 export * from "./userStakes";
 export * from "./stakingTransactions";
+export * from "./stakingSim";
 export * from "./winners";
 export * from "./adminActions";
 export * from "./referrals";

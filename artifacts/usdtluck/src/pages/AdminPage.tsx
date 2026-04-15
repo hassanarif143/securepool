@@ -75,6 +75,9 @@ import { PoolFactoryDashboard } from "@/components/admin/PoolFactoryDashboard";
 import { ShareAnalyticsStrip } from "@/components/admin/ShareAnalyticsStrip";
 import { DEPOSIT_REJECTION_OPTIONS } from "@/lib/payment-rejection-reasons";
 import { useLoadMore } from "@/hooks/useLoadMore";
+import { ConfirmActionModal } from "@/components/feedback/ConfirmActionModal";
+import * as RechartsPrimitive from "recharts";
+import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 
 function parseSuperAdminIds(): number[] {
   const raw = import.meta.env.VITE_SUPER_ADMIN_IDS as string | undefined;
@@ -152,7 +155,7 @@ export default function AdminPage() {
         </TabsList>
         <TabsContent value="finance"><FinanceTab /></TabsContent>
         <TabsContent value="rewards"><RewardsConfigTab /></TabsContent>
-        <TabsContent value="staking"><StakingAdminTab /></TabsContent>
+        <TabsContent value="staking"><StakingAdminTab superAdmin={superAdmin} /></TabsContent>
         <TabsContent value="pending"><PendingTransactionsTab /></TabsContent>
         <TabsContent value="stats"><StatsTab /></TabsContent>
         <TabsContent value="pools"><PoolsTab /></TabsContent>
@@ -719,7 +722,7 @@ function RewardsConfigTab() {
   );
 }
 
-function StakingAdminTab() {
+function StakingAdminTab({ superAdmin }: { superAdmin: boolean }) {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [plans, setPlans] = useState<Array<{ id: number; name: string; slug: string; lockDays: number; currentApy: number }>>([]);
@@ -731,16 +734,36 @@ function StakingAdminTab() {
   const [simMax, setSimMax] = useState(200);
   const [simBackdateDays, setSimBackdateDays] = useState(0);
   const [stakes, setStakes] = useState<any[]>([]);
+  const [purgingBots, setPurgingBots] = useState(false);
+  const [confirmPurgeOpen, setConfirmPurgeOpen] = useState(false);
+  const [simCfg, setSimCfg] = useState<any>(null);
+  const [simCfgSaving, setSimCfgSaving] = useState(false);
+  const [simEvents, setSimEvents] = useState<any[]>([]);
+  const [simFinanceToday, setSimFinanceToday] = useState<any>(null);
+  const [series, setSeries] = useState<any[]>([]);
+  const [applyingDynamic, setApplyingDynamic] = useState(false);
+  const [safety, setSafety] = useState<any>(null);
+  const [savingSafety, setSavingSafety] = useState(false);
 
   async function load() {
     setLoading(true);
     try {
-      const [res, stakesRes] = await Promise.all([
+      const [res, stakesRes, simCfgRes, simEventsRes, simFinRes, seriesRes, safetyRes] = await Promise.all([
         fetch(apiUrl("/api/admin/staking/plans"), { credentials: "include" }),
         fetch(apiUrl("/api/admin/staking/stakes"), { credentials: "include" }),
+        fetch(apiUrl("/api/admin/staking/sim/config"), { credentials: "include" }),
+        fetch(apiUrl("/api/admin/staking/sim/events"), { credentials: "include" }),
+        fetch(apiUrl("/api/admin/staking/sim/finance-today"), { credentials: "include" }),
+        fetch(apiUrl("/api/admin/staking/series?days=14"), { credentials: "include" }),
+        fetch(apiUrl("/api/admin/staking/safety"), { credentials: "include" }),
       ]);
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
       if (!stakesRes.ok) throw new Error(await readApiErrorMessage(stakesRes));
+      if (simCfgRes.ok) setSimCfg(await simCfgRes.json());
+      if (simEventsRes.ok) setSimEvents(((await simEventsRes.json()) as any).events ?? []);
+      if (simFinRes.ok) setSimFinanceToday(await simFinRes.json());
+      if (seriesRes.ok) setSeries(await seriesRes.json());
+      if (safetyRes.ok) setSafety(await safetyRes.json());
       const rows = (await res.json()) as any[];
       const norm = rows.map((r) => ({
         id: Number(r.id),
@@ -810,10 +833,296 @@ function StakingAdminTab() {
     }
   }
 
+  async function saveSimConfig(patch: any) {
+    setSimCfgSaving(true);
+    try {
+      const res = await fetch(apiUrl("/api/admin/staking/sim/config"), {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      setSimCfg(await res.json());
+      appToast.success({ title: "Simulation settings updated" });
+    } catch (err: any) {
+      appToast.error({ title: "Update failed", description: err?.message });
+    } finally {
+      setSimCfgSaving(false);
+    }
+  }
+
+  async function simTick() {
+    try {
+      await fetch(apiUrl("/api/admin/staking/sim/tick"), { method: "POST", credentials: "include" });
+      await load();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function applyDynamic() {
+    setApplyingDynamic(true);
+    try {
+      const res = await fetch(apiUrl("/api/admin/staking/dynamic/apply"), { method: "POST", credentials: "include" });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      appToast.success({ title: "Dynamic returns applied" });
+      await load();
+    } catch (err: any) {
+      appToast.error({ title: "Apply failed", description: err?.message });
+    } finally {
+      setApplyingDynamic(false);
+    }
+  }
+
+  async function purgeBotStakes() {
+    setPurgingBots(true);
+    try {
+      const res = await fetch(apiUrl("/api/admin/staking/bot-stakes"), {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      const j = (await res.json()) as { deleted?: number };
+      appToast.success({ title: "Bot stakes removed", description: `${Number(j.deleted ?? 0)} deleted.` });
+      await load();
+    } catch (err: any) {
+      appToast.error({ title: "Remove failed", description: err?.message });
+    } finally {
+      setPurgingBots(false);
+    }
+  }
+
   if (loading) return <p className="text-muted-foreground py-8 text-center">Loading staking plans…</p>;
+
+  async function saveSafety(patch: any) {
+    setSavingSafety(true);
+    try {
+      const res = await fetch(apiUrl("/api/admin/staking/safety"), {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      setSafety(await res.json());
+      appToast.success({ title: "Safety controls updated" });
+    } catch (err: any) {
+      appToast.error({ title: "Update failed", description: err?.message });
+    } finally {
+      setSavingSafety(false);
+    }
+  }
 
   return (
     <div className="space-y-4 mt-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Staking Control Panel</CardTitle>
+          <p className="text-xs text-muted-foreground">Real finance and system simulation are tracked separately (admin-only).</p>
+        </CardHeader>
+        <CardContent className="grid sm:grid-cols-3 gap-3">
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">System (sim) staked</p>
+            <p className="text-lg font-bold">{Number(simFinanceToday?.total_staked ?? 0).toFixed(2)} USDT</p>
+          </div>
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">System paid today</p>
+            <p className="text-lg font-bold text-emerald-300">+{Number(simFinanceToday?.paid_out ?? 0).toFixed(2)} USDT</p>
+          </div>
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">System profit</p>
+            <p className="text-lg font-bold">{Number(simFinanceToday?.profit ?? 0).toFixed(2)} USDT</p>
+          </div>
+        </CardContent>
+        <CardContent className="pt-0">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Last 14 days</p>
+            <Button size="sm" variant="outline" onClick={() => void applyDynamic()} disabled={applyingDynamic} className="h-8">
+              {applyingDynamic ? "Applying…" : "Apply dynamic returns now"}
+            </Button>
+          </div>
+          <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+            <ChartContainer
+              config={{
+                combinedPaid: { label: "Combined paid", color: "hsl(var(--primary))" },
+                systemPaid: { label: "System paid", color: "hsl(160 84% 39%)" },
+                realPaid: { label: "Real paid", color: "hsl(200 92% 60%)" },
+              }}
+              className="h-[220px] w-full"
+            >
+              <RechartsPrimitive.LineChart data={series.map((r) => ({ day: r.day.slice(5), realPaid: r.real.paid, systemPaid: r.system.paid, combinedPaid: r.combined.paid }))}>
+                <RechartsPrimitive.CartesianGrid strokeDasharray="3 3" />
+                <RechartsPrimitive.XAxis dataKey="day" tickLine={false} axisLine={false} />
+                <RechartsPrimitive.YAxis tickLine={false} axisLine={false} />
+                <RechartsPrimitive.Tooltip content={<ChartTooltipContent />} />
+                <RechartsPrimitive.Line type="monotone" dataKey="combinedPaid" stroke="var(--color-combinedPaid)" strokeWidth={2} dot={false} />
+                <RechartsPrimitive.Line type="monotone" dataKey="realPaid" stroke="var(--color-realPaid)" strokeWidth={1.5} dot={false} />
+                <RechartsPrimitive.Line type="monotone" dataKey="systemPaid" stroke="var(--color-systemPaid)" strokeWidth={1.5} dot={false} />
+              </RechartsPrimitive.LineChart>
+            </ChartContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Safety Controls</CardTitle>
+          <p className="text-xs text-muted-foreground">Server-enforced limits: emergency stop, daily payout cap, and throttles.</p>
+        </CardHeader>
+        <CardContent className="grid sm:grid-cols-3 gap-3">
+          <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+            <Label className="text-[11px] text-muted-foreground">Staking</Label>
+            <select
+              className="mt-1 h-9 w-full rounded-md border border-border/60 bg-background px-2 text-sm"
+              value={String(Boolean(safety?.enabled ?? true))}
+              onChange={(e) => void saveSafety({ enabled: e.target.value === "true" })}
+              disabled={savingSafety}
+            >
+              <option value="true">ON</option>
+              <option value="false">OFF</option>
+            </select>
+          </div>
+          <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+            <Label className="text-[11px] text-muted-foreground">Emergency stop</Label>
+            <select
+              className="mt-1 h-9 w-full rounded-md border border-border/60 bg-background px-2 text-sm"
+              value={String(Boolean(safety?.emergencyStop ?? false))}
+              onChange={(e) => void saveSafety({ emergencyStop: e.target.value === "true" })}
+              disabled={savingSafety}
+            >
+              <option value="false">OFF</option>
+              <option value="true">ON</option>
+            </select>
+          </div>
+          <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+            <Label className="text-[11px] text-muted-foreground">Max daily payout (USDT)</Label>
+            <div className="flex gap-2 mt-1">
+              <Input
+                type="number"
+                className="h-9"
+                value={String(safety?.maxDailyPayoutUsdt ?? 25000)}
+                onChange={(e) => setSafety((s: any) => ({ ...s, maxDailyPayoutUsdt: Number(e.target.value) }))}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9"
+                onClick={() => void saveSafety({ maxDailyPayoutUsdt: Number(safety?.maxDailyPayoutUsdt ?? 25000) })}
+                disabled={savingSafety}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+          <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+            <Label className="text-[11px] text-muted-foreground">Withdraw throttle (sec)</Label>
+            <div className="flex gap-2 mt-1">
+              <Input
+                type="number"
+                className="h-9"
+                value={String(safety?.withdrawThrottleSec ?? 20)}
+                onChange={(e) => setSafety((s: any) => ({ ...s, withdrawThrottleSec: Number(e.target.value) }))}
+              />
+              <Button size="sm" variant="outline" className="h-9" onClick={() => void saveSafety({ withdrawThrottleSec: Number(safety?.withdrawThrottleSec ?? 20) })} disabled={savingSafety}>
+                Save
+              </Button>
+            </div>
+          </div>
+          <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+            <Label className="text-[11px] text-muted-foreground">Create throttle (sec)</Label>
+            <div className="flex gap-2 mt-1">
+              <Input
+                type="number"
+                className="h-9"
+                value={String(safety?.stakeCreateThrottleSec ?? 8)}
+                onChange={(e) => setSafety((s: any) => ({ ...s, stakeCreateThrottleSec: Number(e.target.value) }))}
+              />
+              <Button size="sm" variant="outline" className="h-9" onClick={() => void saveSafety({ stakeCreateThrottleSec: Number(safety?.stakeCreateThrottleSec ?? 8) })} disabled={savingSafety}>
+                Save
+              </Button>
+            </div>
+          </div>
+          <div className="rounded-xl border border-border/60 bg-muted/10 p-3 flex items-center justify-between">
+            <div>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Tip</p>
+              <p className="text-xs text-muted-foreground">Emergency stop blocks create/withdraw/claim instantly.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Simulation Controls</CardTitle>
+          <p className="text-xs text-muted-foreground">Controls live activity feed frequency. Not visible to users.</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid sm:grid-cols-4 gap-2">
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Enabled</Label>
+              <select
+                className="mt-1 h-9 w-full rounded-md border border-border/60 bg-background px-2 text-sm"
+                value={String(Boolean(simCfg?.enabled))}
+                onChange={(e) => void saveSimConfig({ enabled: e.target.value === "true" })}
+                disabled={simCfgSaving}
+              >
+                <option value="true">ON</option>
+                <option value="false">OFF</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Stake freq (sec)</Label>
+              <Input
+                type="number"
+                className="h-9 mt-1"
+                value={String(simCfg?.stakeFrequencySec ?? 12)}
+                onChange={(e) => setSimCfg((s: any) => ({ ...s, stakeFrequencySec: Number(e.target.value) }))}
+              />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Earn freq (sec)</Label>
+              <Input
+                type="number"
+                className="h-9 mt-1"
+                value={String(simCfg?.earningFrequencySec ?? 9)}
+                onChange={(e) => setSimCfg((s: any) => ({ ...s, earningFrequencySec: Number(e.target.value) }))}
+              />
+            </div>
+            <div className="flex items-end justify-end gap-2">
+              <Button
+                variant="outline"
+                className="h-9"
+                onClick={() => void saveSimConfig({ stakeFrequencySec: Number(simCfg?.stakeFrequencySec ?? 12), earningFrequencySec: Number(simCfg?.earningFrequencySec ?? 9) })}
+                disabled={simCfgSaving}
+              >
+                {simCfgSaving ? "Saving…" : "Save"}
+              </Button>
+              <Button className="h-9" onClick={() => void simTick()}>
+                Run tick
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+            <p className="text-xs font-semibold mb-2">Latest system events</p>
+            {simEvents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No events yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {simEvents.slice(0, 8).map((e) => (
+                  <div key={e.id} className="flex items-center justify-between text-sm">
+                    <span className="truncate">{e.displayName} · {e.eventType} · {e.planLabel}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {e.eventType === "stake" ? `${Number(e.amount).toFixed(0)} USDT` : e.eventType === "earn" ? `+${Number(e.earned).toFixed(2)}` : "upgrade"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Staking Simulator (Bots)</CardTitle>
@@ -853,9 +1162,18 @@ function StakingAdminTab() {
               <Label className="text-[11px] text-muted-foreground">Backdate (days)</Label>
               <Input type="number" className="h-9 mt-1" value={String(simBackdateDays)} onChange={(e) => setSimBackdateDays(Number(e.target.value))} />
             </div>
-            <div className="sm:col-span-2 flex items-end justify-end">
+            <div className="sm:col-span-2 flex items-end justify-end gap-2">
               <Button onClick={() => void simulate()} disabled={simulating} className="h-9">
                 {simulating ? "Simulating…" : "Simulate bot stakes"}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => setConfirmPurgeOpen(true)}
+                disabled={!superAdmin || purgingBots}
+                className="h-9"
+                title={!superAdmin ? "Super admin only" : "Delete all bot stakes"}
+              >
+                {purgingBots ? "Removing…" : "Remove all bot stakes"}
               </Button>
             </div>
           </div>
@@ -932,6 +1250,20 @@ function StakingAdminTab() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmActionModal
+        open={confirmPurgeOpen}
+        title="Remove all bot stakes?"
+        description="This will delete all staking v2 bot stakes and their staking transaction history, and will update plan totals."
+        confirmLabel="Remove all"
+        cancelLabel="Cancel"
+        loading={purgingBots}
+        onCancel={() => setConfirmPurgeOpen(false)}
+        onConfirm={() => {
+          setConfirmPurgeOpen(false);
+          void purgeBotStakes();
+        }}
+      />
     </div>
   );
 }

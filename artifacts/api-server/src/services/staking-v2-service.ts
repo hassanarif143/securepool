@@ -1,6 +1,7 @@
 import { db, stakingPlansTable, userStakesTable, stakingTransactionsTable, usersTable, transactionsTable } from "@workspace/db";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { mirrorAvailableFromUser } from "./user-wallet-service";
+import { getStakingSafetyConfig } from "./staking-safety";
 
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -47,6 +48,10 @@ export async function createStakeV2(args: { userId: number; planId: number; amou
   const amt = round2(args.amount);
   if (!Number.isFinite(amt) || amt <= 0) throw new Error("INVALID_AMOUNT");
 
+  const safety = await getStakingSafetyConfig();
+  if (!safety.enabled) throw new Error("STAKING_DISABLED");
+  if (safety.emergencyStop) throw new Error("EMERGENCY_STOP");
+
   return await db.transaction(async (tx) => {
     const [plan] = await tx.select().from(stakingPlansTable).where(eq(stakingPlansTable.id, args.planId)).limit(1);
     if (!plan || !plan.isActive) throw new Error("PLAN_NOT_FOUND");
@@ -68,6 +73,20 @@ export async function createStakeV2(args: { userId: number; planId: number; amou
 
     const isBot = Boolean((u as any).isBot) || args.isBotStake === true;
     if (!isBot) {
+      if (safety.stakeCreateThrottleSec > 0) {
+        const since = new Date(Date.now() - safety.stakeCreateThrottleSec * 1000);
+        const recent = await tx.execute(sql`
+          select 1
+          from staking_transactions stx
+          inner join user_stakes s on s.id = stx.stake_id
+          where stx.user_id = ${args.userId}
+            and s.is_bot_stake = false
+            and stx.type = 'stake_lock'
+            and stx.created_at >= ${since}
+          limit 1
+        `);
+        if ((recent.rows as any[]).length > 0) throw new Error("THROTTLED");
+      }
       const wd = toNum(u.withdrawableBalance);
       if (wd < amt - 0.0001) throw new Error("INSUFFICIENT_BALANCE");
       const bonus = toNum(u.bonusBalance);
@@ -172,6 +191,9 @@ export async function listMyStakesV2(userId: number) {
 
 export async function claimStakeV2(args: { userId: number; stakeId: number }) {
   const now = new Date();
+  const safety = await getStakingSafetyConfig();
+  if (!safety.enabled) throw new Error("STAKING_DISABLED");
+  if (safety.emergencyStop) throw new Error("EMERGENCY_STOP");
   return await db.transaction(async (tx) => {
     const [stake] = await tx
       .select()
@@ -189,6 +211,27 @@ export async function claimStakeV2(args: { userId: number; stakeId: number }) {
 
     const isBot = Boolean(stake.isBotStake);
     if (!isBot) {
+      if (safety.maxDailyPayoutUsdt > 0) {
+        const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
+        const dayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+        const sumRows = await tx.execute(sql`
+          select coalesce(sum(
+            case
+              when stx.type = 'maturity_claim' then stx.amount::numeric
+              when stx.type = 'earning_withdraw' then -stx.amount::numeric
+              else 0
+            end
+          ),0)::text as t
+          from staking_transactions stx
+          inner join user_stakes s on s.id = stx.stake_id
+          where s.is_bot_stake = false
+            and stx.created_at >= ${dayStart}
+            and stx.created_at <= ${dayEnd}
+            and stx.type in ('maturity_claim','earning_withdraw')
+        `);
+        const used = Number((sumRows.rows as any[])[0]?.t ?? 0);
+        if (used + total > safety.maxDailyPayoutUsdt + 0.0001) throw new Error("DAILY_PAYOUT_LIMIT");
+      }
       const [u] = await tx.select().from(usersTable).where(eq(usersTable.id, args.userId)).limit(1);
       if (!u) throw new Error("USER_NOT_FOUND");
       const wd = toNum(u.withdrawableBalance);
@@ -243,6 +286,102 @@ export async function claimStakeV2(args: { userId: number; stakeId: number }) {
     }
 
     return { ok: true as const, claimedAmount: total, principal, earned, isBotStake: isBot };
+  });
+}
+
+export async function withdrawEarningsV2(args: { userId: number; stakeId: number }) {
+  const now = new Date();
+  const safety = await getStakingSafetyConfig();
+  if (!safety.enabled) throw new Error("STAKING_DISABLED");
+  if (safety.emergencyStop) throw new Error("EMERGENCY_STOP");
+  return await db.transaction(async (tx) => {
+    const [stake] = await tx
+      .select()
+      .from(userStakesTable)
+      .where(and(eq(userStakesTable.id, args.stakeId), eq(userStakesTable.userId, args.userId)))
+      .limit(1);
+    if (!stake) throw new Error("STAKE_NOT_FOUND");
+    if (String(stake.status) !== "active") throw new Error("STAKE_NOT_ACTIVE");
+
+    const isBot = Boolean(stake.isBotStake);
+    if (isBot) throw new Error("BOT_STAKE");
+
+    const earned = round2(toNum(stake.earnedAmount));
+    if (earned <= 0.009) throw new Error("NOTHING_TO_WITHDRAW");
+
+    if (safety.withdrawThrottleSec > 0) {
+      const since = new Date(Date.now() - safety.withdrawThrottleSec * 1000);
+      const recent = await tx.execute(sql`
+        select 1
+        from staking_transactions stx
+        inner join user_stakes s on s.id = stx.stake_id
+        where stx.user_id = ${args.userId}
+          and s.is_bot_stake = false
+          and stx.type = 'earning_withdraw'
+          and stx.created_at >= ${since}
+        limit 1
+      `);
+      if ((recent.rows as any[]).length > 0) throw new Error("THROTTLED");
+    }
+
+    if (safety.maxDailyPayoutUsdt > 0) {
+      const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
+      const dayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+      const sumRows = await tx.execute(sql`
+        select coalesce(sum(
+          case
+            when stx.type = 'maturity_claim' then stx.amount::numeric
+            when stx.type = 'earning_withdraw' then -stx.amount::numeric
+            else 0
+          end
+        ),0)::text as t
+        from staking_transactions stx
+        inner join user_stakes s on s.id = stx.stake_id
+        where s.is_bot_stake = false
+          and stx.created_at >= ${dayStart}
+          and stx.created_at <= ${dayEnd}
+          and stx.type in ('maturity_claim','earning_withdraw')
+      `);
+      const used = Number((sumRows.rows as any[])[0]?.t ?? 0);
+      if (used + earned > safety.maxDailyPayoutUsdt + 0.0001) throw new Error("DAILY_PAYOUT_LIMIT");
+    }
+
+    const [u] = await tx.select().from(usersTable).where(eq(usersTable.id, args.userId)).limit(1);
+    if (!u) throw new Error("USER_NOT_FOUND");
+
+    const wd = toNum(u.withdrawableBalance);
+    const bonus = toNum(u.bonusBalance);
+    const nextWd = wd + earned;
+    const nextWallet = round2(bonus + nextWd);
+
+    await tx
+      .update(usersTable)
+      .set({ withdrawableBalance: nextWd.toFixed(2), walletBalance: nextWallet.toFixed(2) })
+      .where(eq(usersTable.id, args.userId));
+
+    await tx
+      .update(userStakesTable)
+      .set({ earnedAmount: "0", updatedAt: now })
+      .where(eq(userStakesTable.id, stake.id));
+
+    await tx.insert(stakingTransactionsTable).values({
+      stakeId: stake.id,
+      userId: args.userId,
+      type: "earning_withdraw",
+      amount: (-earned).toFixed(2),
+      description: `Earnings withdrawn to wallet`,
+    });
+
+    await tx.insert(transactionsTable).values({
+      userId: args.userId,
+      txType: "stake_release",
+      amount: earned.toFixed(2),
+      status: "completed",
+      note: `Staking earnings withdrawal — stake #${stake.id}`,
+    });
+
+    await mirrorAvailableFromUser(tx, args.userId);
+    return { ok: true as const, withdrawn: earned, balanceAfter: nextWd };
   });
 }
 

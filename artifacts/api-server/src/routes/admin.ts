@@ -18,6 +18,8 @@ import {
   securityConfigTable,
   securityEventsTable,
   stakingPlansTable,
+  userStakesTable,
+  stakingTransactionsTable,
 } from "@workspace/db";
 import { eq, ne, count, sum, desc, and, sql, inArray, gte, lte } from "drizzle-orm";
 import { sendWithdrawalStatusEmail } from "../lib/email";
@@ -62,6 +64,9 @@ import { countPoolTickets, insertPoolTicketsWithLuckyNumbers } from "../services
 import poolFactoryV2Router from "./pool-factory-v2";
 import { botNamePoolTable, poolTicketsTable } from "@workspace/db/schema";
 import { createStakeV2 } from "../services/staking-v2-service";
+import { getRecentSimEvents, getSimConfig, updateSimConfig, tickSimulationOnce, getSimTodayFinance } from "../services/staking-sim-service";
+import { applyDynamicReturnsNow } from "../services/staking-dynamic-returns";
+import { getStakingSafetyConfig, patchStakingSafetyConfig } from "../services/staking-safety";
 
 const router: IRouter = Router();
 
@@ -218,6 +223,169 @@ router.get("/staking/stakes", async (_req, res) => {
     limit 500
   `);
   res.json(rows.rows);
+});
+
+router.delete("/staking/bot-stakes", async (req, res) => {
+  const adminId = getAdminId(req);
+  const allow = superAdminIds().includes(adminId);
+  if (!allow) {
+    res.status(403).json({ error: "SUPER_ADMIN_ONLY" });
+    return;
+  }
+
+  const out = await db.transaction(async (tx) => {
+    const stakes = await tx
+      .select({ id: userStakesTable.id, planId: userStakesTable.planId, principal: userStakesTable.stakedAmount })
+      .from(userStakesTable)
+      .where(eq(userStakesTable.isBotStake, true))
+      .limit(5000);
+
+    if (stakes.length === 0) return { deleted: 0 };
+
+    // Roll up principal and staker count by plan.
+    const planTotals = new Map<number, { amt: number; n: number }>();
+    for (const s of stakes) {
+      const planId = Number(s.planId);
+      const amt = Number(s.principal ?? 0);
+      const prev = planTotals.get(planId) ?? { amt: 0, n: 0 };
+      prev.amt += Number.isFinite(amt) ? amt : 0;
+      prev.n += 1;
+      planTotals.set(planId, prev);
+    }
+
+    const ids = stakes.map((s) => s.id);
+    await tx.delete(stakingTransactionsTable).where(inArray(stakingTransactionsTable.stakeId, ids));
+    await tx.delete(userStakesTable).where(inArray(userStakesTable.id, ids));
+
+    for (const [planId, t] of planTotals.entries()) {
+      await tx
+        .update(stakingPlansTable)
+        .set({
+          currentPoolAmount: sql`GREATEST(0, ${stakingPlansTable.currentPoolAmount}::numeric - ${t.amt.toFixed(2)}::numeric)`,
+          currentStakers: sql`GREATEST(0, ${stakingPlansTable.currentStakers} - ${t.n})`,
+          updatedAt: new Date(),
+        })
+        .where(eq(stakingPlansTable.id, planId));
+    }
+
+    return { deleted: ids.length };
+  });
+
+  await logAction(adminId, "staking", null, "delete_bot_stakes", `Deleted ${out.deleted} bot stake(s) (v2).`);
+  res.json({ ok: true, deleted: out.deleted });
+});
+
+// ─── Staking simulation controls (separate system) ─────────────────────────────
+router.get("/staking/sim/config", async (_req, res) => {
+  res.json(await getSimConfig());
+});
+
+router.patch("/staking/sim/config", async (req, res) => {
+  const parsed = z
+    .object({
+      enabled: z.boolean().optional(),
+      activeUsersTarget: z.number().int().min(0).max(100000).optional(),
+      stakeFrequencySec: z.number().int().min(2).max(3600).optional(),
+      earningFrequencySec: z.number().int().min(2).max(3600).optional(),
+      upgradeFrequencySec: z.number().int().min(2).max(3600).optional(),
+      minAmount: z.number().min(0).max(1_000_000).optional(),
+      maxAmount: z.number().min(0).max(1_000_000).optional(),
+      winRate: z.number().min(0).max(1).optional(),
+    })
+    .safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body" });
+    return;
+  }
+  res.json(await updateSimConfig(parsed.data));
+});
+
+router.post("/staking/sim/tick", async (_req, res) => {
+  res.json(await tickSimulationOnce());
+});
+
+router.get("/staking/sim/events", async (_req, res) => {
+  res.json({ events: await getRecentSimEvents(100) });
+});
+
+router.get("/staking/sim/finance-today", async (_req, res) => {
+  res.json(await getSimTodayFinance());
+});
+
+router.post("/staking/dynamic/apply", async (_req, res) => {
+  res.json(await applyDynamicReturnsNow());
+});
+
+router.get("/staking/series", async (req, res) => {
+  const days = Math.max(7, Math.min(30, Number(req.query.days ?? 14) || 14));
+  const rows = await db.execute(sql`
+    with real_paid as (
+      select date_trunc('day', created_at) as d,
+        coalesce(sum(case when type in ('maturity_claim','earning_withdraw') then amount::numeric else 0 end),0) as paid
+      from staking_transactions
+      group by 1
+    ),
+    real_staked as (
+      select date_trunc('day', started_at) as d,
+        coalesce(sum(staked_amount::numeric),0) as staked
+      from user_stakes
+      where is_bot_stake = false
+      group by 1
+    ),
+    sim as (
+      select day::timestamptz as d, total_staked::numeric as staked, paid_out::numeric as paid, profit::numeric as profit
+      from staking_sim_daily_finance
+    ),
+    series as (
+      select (current_date - (gs.i||' days')::interval)::date as day
+      from generate_series(0, ${days - 1}) as gs(i)
+    )
+    select
+      s.day,
+      coalesce(rs.staked,0)::text as real_staked,
+      coalesce(rp.paid,0)::text as real_paid,
+      coalesce(sim.staked,0)::text as sim_staked,
+      coalesce(sim.paid,0)::text as sim_paid,
+      coalesce(sim.profit,0)::text as sim_profit
+    from series s
+    left join real_staked rs on rs.d::date = s.day
+    left join real_paid rp on rp.d::date = s.day
+    left join sim on sim.d::date = s.day
+    order by s.day asc
+  `);
+  res.json(
+    (rows.rows as any[]).map((r) => ({
+      day: String(r.day),
+      real: { staked: Number(r.real_staked ?? 0), paid: Number(r.real_paid ?? 0) },
+      system: { staked: Number(r.sim_staked ?? 0), paid: Number(r.sim_paid ?? 0), profit: Number(r.sim_profit ?? 0) },
+      combined: {
+        staked: Number(r.real_staked ?? 0) + Number(r.sim_staked ?? 0),
+        paid: Number(r.real_paid ?? 0) + Number(r.sim_paid ?? 0),
+      },
+    })),
+  );
+});
+
+// ─── Safety controls (server-enforced) ─────────────────────────────────────────
+router.get("/staking/safety", async (_req, res) => {
+  res.json(await getStakingSafetyConfig());
+});
+
+router.patch("/staking/safety", async (req, res) => {
+  const parsed = z
+    .object({
+      enabled: z.boolean().optional(),
+      emergencyStop: z.boolean().optional(),
+      maxDailyPayoutUsdt: z.number().min(0).max(10_000_000).optional(),
+      withdrawThrottleSec: z.number().int().min(0).max(3600).optional(),
+      stakeCreateThrottleSec: z.number().int().min(0).max(3600).optional(),
+    })
+    .safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body" });
+    return;
+  }
+  res.json(await patchStakingSafetyConfig(parsed.data));
 });
 
 // Backend source-of-truth for admin privilege display (do not rely on frontend env).

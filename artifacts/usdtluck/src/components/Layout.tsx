@@ -799,6 +799,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             [
               { href: "/dashboard", label: "Home", icon: "🏠" },
               { href: "/pools", label: "Pools", icon: "🎱" },
+              { href: "/staking", label: "Stake", icon: "📈" },
               { href: "/wallet", label: "Wallet", icon: "💰" },
               { href: "/profile", label: "Me", icon: "👤" },
             ] as const
@@ -808,7 +809,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 ? location === "/dashboard" || location === "/"
                 : location.startsWith(item.href);
             return (
-              <Link key={item.href} href={item.href} className="flex-1 min-w-0 basis-0 max-w-[25%]">
+              <Link key={item.href} href={item.href} className="flex-1 min-w-0 basis-0 max-w-[20%]">
                 <span
                   className={cn(
                     "flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[10px] font-semibold tracking-tight transition-colors duration-200 active:scale-[0.98] touch-manipulation",

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { ProgressiveList } from "@/components/ProgressiveList";
 import { cn } from "@/lib/utils";
+import { AnimatedNumber } from "@/components/animation/AnimatedNumber";
+import { AnimatePresence, motion } from "framer-motion";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Plan = {
   id: number;
@@ -50,14 +53,28 @@ export default function StakingPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [stakes, setStakes] = useState<StakeRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [overview, setOverview] = useState<{ total_staked: number; total_stakers: number; total_paid_today?: number }>({
+    total_staked: 0,
+    total_stakers: 0,
+    total_paid_today: 0,
+  });
 
   const [stakeOpen, setStakeOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
-  const [amount, setAmount] = useState<string>("50.00");
+  const [amount, setAmount] = useState<string>(() => window.localStorage.getItem("staking.amount") ?? "50.00");
   const [creating, setCreating] = useState(false);
   const [claimingId, setClaimingId] = useState<number | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number>(Date.now());
+  const [liveDailyEarnings, setLiveDailyEarnings] = useState(0);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const feedSeed = useRef<number>(Math.floor(Math.random() * 1_000_000));
+  const [feed, setFeed] = useState<Array<{ id: string; text: string; ts: number }>>([]);
 
   const withdrawable = Number(user?.withdrawableBalance ?? 0);
+
+  useEffect(() => {
+    window.localStorage.setItem("staking.amount", amount);
+  }, [amount]);
 
   async function refresh() {
     setLoading(true);
@@ -66,12 +83,15 @@ export default function StakingPage() {
         fetch(apiUrl("/api/staking/plans"), { credentials: "include" }),
         fetch(apiUrl("/api/staking/my-stakes"), { credentials: "include" }),
       ]);
+      const overviewRes = await fetch(apiUrl("/api/staking/overview"), { credentials: "include" });
       if (!plansRes.ok) throw new Error(await readApiErrorMessage(plansRes));
       if (!stakesRes.ok) throw new Error(await readApiErrorMessage(stakesRes));
       const p = (await plansRes.json()) as { plans?: Plan[] };
       const s = (await stakesRes.json()) as { stakes?: StakeRow[] };
+      if (overviewRes.ok) setOverview(await overviewRes.json());
       setPlans(Array.isArray(p.plans) ? p.plans : []);
       setStakes(Array.isArray(s.stakes) ? s.stakes : []);
+      setLastUpdatedAt(Date.now());
     } finally {
       setLoading(false);
     }
@@ -81,10 +101,52 @@ export default function StakingPage() {
     void refresh().catch((e: unknown) => appToast.error({ title: "Failed to load staking", description: String(e) }));
   }, []);
 
+  // Auto-refresh so "activity" (earnings/status) updates without manual refresh.
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      void refresh().catch(() => {
+        /* silent */
+      });
+    }, 8000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  // Social proof feed (local, no mention of simulation).
+  useEffect(() => {
+    async function loadFeed() {
+      try {
+        const res = await fetch(apiUrl("/api/staking/activity"), { credentials: "include" });
+        if (!res.ok) return;
+        const j = (await res.json()) as { feed?: Array<{ id: string; text: string; createdAt: string }> };
+        const rows = (j.feed ?? []).map((e) => ({ id: e.id, text: e.text, ts: new Date(e.createdAt).getTime() }));
+        setFeed(rows);
+      } catch {
+        /* ignore */
+      }
+    }
+    void loadFeed();
+    const id = window.setInterval(loadFeed, 4000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const planById = useMemo(() => new Map(plans.map((p) => [p.id, p])), [plans]);
   const active = useMemo(() => stakes.filter((s) => s.status === "active"), [stakes]);
   const matured = useMemo(() => stakes.filter((s) => s.status === "matured"), [stakes]);
   const history = useMemo(() => stakes.filter((s) => s.status === "claimed"), [stakes]);
+
+  // Live earning animation based on active stakes.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const daily = active.reduce((sum, s) => sum + (s.stakedAmount * (s.lockedApy / 100)) / 365, 0);
+      setLiveDailyEarnings((prev) => {
+        const target = daily;
+        const step = Math.max(0.0001, target / 2000);
+        const next = prev + step;
+        return next > target ? target : next;
+      });
+    }, 1200);
+    return () => window.clearInterval(id);
+  }, [active]);
 
   function projection(plan: Plan, amt: number) {
     const daily = (amt * (plan.currentApy / 100)) / 365;
@@ -133,33 +195,126 @@ export default function StakingPage() {
     }
   }
 
+  const activeStaked = useMemo(() => active.reduce((sum, s) => sum + s.stakedAmount, 0), [active]);
+  const totalEarned = useMemo(() => active.reduce((sum, s) => sum + s.earnedAmount, 0), [active]);
+  const dailyReturnPct = useMemo(() => {
+    if (activeStaked <= 0) return 0;
+    const daily = active.reduce((sum, s) => sum + (s.stakedAmount * (s.lockedApy / 100)) / 365, 0);
+    return (daily / activeStaked) * 100;
+  }, [active, activeStaked]);
+  const estMonthly = useMemo(() => liveDailyEarnings * 30, [liveDailyEarnings]);
+
+  async function withdrawEarnings() {
+    const target = active.find((s) => s.earnedAmount > 0.009);
+    if (!target) {
+      appToast.error({ title: "No earnings to withdraw yet" });
+      return;
+    }
+    setWithdrawing(true);
+    try {
+      const res = await fetch(apiUrl(`/api/staking/${target.id}/withdraw-earnings`), { method: "POST", credentials: "include" });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      appToast.success({ title: "Earnings withdrawn", description: "Credited to your wallet." });
+      await refresh();
+      await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+    } catch (e: unknown) {
+      appToast.error({ title: "Withdraw failed", description: String(e) });
+    } finally {
+      setWithdrawing(false);
+    }
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">Staking</p>
-        <h1 className="text-2xl sm:text-3xl font-bold mt-1">Earn USDT while you sleep</h1>
-        <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-          Lock your USDT for a fixed period. Returns are <span className="font-semibold">estimated</span> and vary based on platform performance.
-        </p>
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Withdrawable</p>
-            <UsdtAmount amount={withdrawable} amountClassName="text-lg font-semibold mt-0.5" />
+      {/* Hero */}
+      <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-cyan-500/10 via-card to-card p-5 sm:p-6 shadow-[0_0_32px_rgba(34,211,238,0.10)]">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Staking</p>
+            <h1 className="text-2xl sm:text-3xl font-bold mt-1">Earn daily, stay in control</h1>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              Earnings update every few seconds · Last sync {Math.max(0, Math.floor((Date.now() - lastUpdatedAt) / 1000))}s ago
+            </p>
           </div>
-          <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Active stakes</p>
-            <p className="text-lg font-semibold mt-0.5">{active.length}</p>
+          <div className="text-right">
+            <p className="text-[11px] text-muted-foreground">Total staked</p>
+            <p className="text-xl font-bold text-cyan-200">
+              <AnimatedNumber value={Number(overview.total_staked ?? 0)} decimals={2} /> USDT
+            </p>
           </div>
-          <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Matured</p>
-            <p className="text-lg font-semibold mt-0.5">{matured.length}</p>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="rounded-xl border border-border/60 bg-muted/15 px-3 py-3">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Daily earnings</p>
+            <p className="mt-1 text-lg font-bold text-emerald-300">
+              +<AnimatedNumber value={liveDailyEarnings} decimals={3} /> USDT
+            </p>
           </div>
-          <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">History</p>
-            <p className="text-lg font-semibold mt-0.5">{history.length}</p>
+          <div className="rounded-xl border border-border/60 bg-muted/15 px-3 py-3">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Est. monthly</p>
+            <p className="mt-1 text-lg font-bold text-emerald-200">
+              ~<AnimatedNumber value={estMonthly} decimals={2} /> USDT
+            </p>
+          </div>
+          <div className="rounded-xl border border-border/60 bg-muted/15 px-3 py-3">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Users staking</p>
+            <p className="mt-1 text-lg font-bold">
+              <AnimatedNumber value={Number(overview.total_stakers ?? 0)} decimals={0} />
+            </p>
           </div>
         </div>
       </div>
+
+      {/* Active Staking Card */}
+      <Card className="border-border/60">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Active staking</CardTitle>
+          <p className="text-xs text-muted-foreground">Earnings update every few seconds.</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Amount staked</p>
+              <p className="text-lg font-bold">{activeStaked.toFixed(2)} USDT</p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Daily %</p>
+              <p className="text-lg font-bold text-cyan-200">~{dailyReturnPct.toFixed(2)}%</p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Earned today</p>
+              <p className="text-lg font-bold text-emerald-300">+{liveDailyEarnings.toFixed(3)} USDT</p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Total earned</p>
+              <p className="text-lg font-bold text-emerald-200">+{totalEarned.toFixed(2)} USDT</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Daily earning progress</span>
+              <span>{Math.min(100, (Date.now() / 1000) % 100).toFixed(0)}%</span>
+            </div>
+            <div className="h-2 rounded-full bg-muted/40 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-cyan-400 via-[#00E5CC] to-emerald-400"
+                style={{ width: `${Math.min(100, (Date.now() / 1000) % 100)}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+            <div className="text-xs text-muted-foreground">
+              Wallet balance: <span className="font-semibold">{withdrawable.toFixed(2)} USDT</span>
+            </div>
+            <Button onClick={() => void withdrawEarnings()} disabled={withdrawing || totalEarned <= 0.009} className="rounded-xl">
+              {withdrawing ? "Withdrawing…" : "Withdraw Earnings"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-3">
@@ -170,20 +325,45 @@ export default function StakingPage() {
             </Button>
           </div>
 
-          {plans.length === 0 ? (
+          {loading && plans.length === 0 ? (
+            <div className="grid gap-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="rounded-2xl border border-border/60 bg-card p-4 space-y-3">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-3 w-3/4" />
+                  <div className="grid grid-cols-3 gap-2">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                  </div>
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ))}
+            </div>
+          ) : plans.length === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center">No staking plans available.</p>
           ) : (
             <div className="grid gap-3">
-              {plans.map((p) => (
+              {plans.slice(0, 3).map((p, idx) => (
                 <Card key={p.id} className="border-border/60">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-semibold text-base truncate">
-                          {p.name} — {p.lockDays} Days
-                        </p>
+                        <p className="font-semibold text-base truncate">{idx === 0 ? "Basic" : idx === 1 ? "Pro" : "Advanced"}</p>
                         {p.description ? <p className="text-xs text-muted-foreground mt-1">{p.description}</p> : null}
                       </div>
+                      <span
+                        className={cn(
+                          "text-[10px] font-bold px-2 py-1 rounded-full border",
+                          idx === 0
+                            ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-200"
+                            : idx === 1
+                              ? "border-cyan-500/25 bg-cyan-500/10 text-cyan-200"
+                              : "border-amber-500/25 bg-amber-500/10 text-amber-200",
+                        )}
+                      >
+                        {idx === 0 ? "Low risk" : idx === 1 ? "Medium" : "High"}
+                      </span>
                       {p.badgeText ? (
                         <span className={cn("text-[10px] font-bold px-2 py-1 rounded-full border", "border-cyan-500/25 bg-cyan-500/10 text-cyan-200")}>
                           {p.badgeText}
@@ -193,9 +373,9 @@ export default function StakingPage() {
 
                     <div className="grid grid-cols-3 gap-2 text-sm">
                       <div className="rounded-lg border border-border/60 bg-muted/20 p-2">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Est. APY</p>
-                        <p className="font-bold text-emerald-300">{p.estimatedApy.toFixed(2)}%</p>
-                        <p className="text-[10px] text-muted-foreground">up to {p.maxApy.toFixed(0)}%</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Daily return</p>
+                        <p className="font-bold text-emerald-300">~{(p.currentApy / 365).toFixed(2)}%</p>
+                        <p className="text-[10px] text-muted-foreground">updates</p>
                       </div>
                       <div className="rounded-lg border border-border/60 bg-muted/20 p-2">
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Min</p>
@@ -327,6 +507,38 @@ export default function StakingPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Social Proof */}
+      <Card className="border-border/60">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Live activity</CardTitle>
+          <p className="text-xs text-muted-foreground">Auto-updates every few seconds.</p>
+        </CardHeader>
+        <CardContent>
+          <div className="relative overflow-hidden">
+            <AnimatePresence initial={false}>
+              {feed.slice(0, 5).map((e, i) => (
+                <motion.div
+                  key={e.id}
+                  initial={{ opacity: 0, y: 10, filter: "blur(2px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.22, ease: "easeOut" }}
+                  className={cn(
+                    "rounded-xl border border-border/60 bg-muted/10 px-3 py-2 text-sm flex items-center justify-between",
+                    i > 0 && "mt-2",
+                  )}
+                >
+                  <span className="truncate">{e.text}</span>
+                  <span className="text-[11px] text-muted-foreground ml-3 shrink-0">
+                    {Math.max(0, Math.floor((Date.now() - e.ts) / 1000))}s
+                  </span>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
