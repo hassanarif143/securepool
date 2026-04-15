@@ -58,8 +58,14 @@ function fixedPrizeDistribution(winnerCount: number): Array<{ place: number; per
 function feePerTicketUsdt(ticketPrice: number): number {
   // Must match `calculatePlatformFee` logic in `api-server/src/lib/user-balances.ts`
   const e = Number(ticketPrice);
-  if (!Number.isFinite(e) || e <= 0) return 1;
-  return Math.ceil(e / 5);
+  if (!Number.isFinite(e) || e <= 0) return 0.5;
+  if (e <= 3) return 0.5;
+  if (e <= 5) return 1;
+  if (e <= 10) return 2;
+  if (e <= 15) return 3;
+  if (e <= 20) return 4;
+  if (e <= 25) return 5;
+  return 5 + Math.ceil((e - 25) / 5);
 }
 
 function buildRows(): Row[] {

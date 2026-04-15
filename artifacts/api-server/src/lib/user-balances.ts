@@ -150,12 +150,25 @@ export const FIRST_DEPOSIT_BONUS_USDT = 1;
 
 /**
  * Platform fee per pool join (one checkout), from list entry fee (USDT).
- * +1 USDT each 5 USDT band: ceil(entry/5) → 1–5→1, 6–10→2, …, 21–25→5, 26–30→6, unbounded.
+ * Fee bands (USDT):
+ * - 1–3  → 0.50
+ * - >3–5 → 1.00
+ * - >5–10 → 2.00
+ * - >10–15 → 3.00
+ * - >15–20 → 4.00
+ * - >20–25 → 5.00
  */
 export function calculatePlatformFee(listEntryFeeUsdt: number): number {
   const e = Number(listEntryFeeUsdt);
-  if (!Number.isFinite(e) || e <= 0) return 1;
-  return Math.ceil(e / 5);
+  if (!Number.isFinite(e) || e <= 0) return 0.5;
+  if (e <= 3) return 0.5;
+  if (e <= 5) return 1;
+  if (e <= 10) return 2;
+  if (e <= 15) return 3;
+  if (e <= 20) return 4;
+  if (e <= 25) return 5;
+  // Extend conservatively beyond 25 using +1 per 5 band starting at 25→5.
+  return 5 + Math.ceil((e - 25) / 5);
 }
 
 /**
