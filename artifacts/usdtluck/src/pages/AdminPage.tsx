@@ -570,26 +570,28 @@ function BotManagementTab() {
             ) : bots.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">No bots yet. Generate some.</p>
             ) : (
-              <ul className="divide-y divide-border/60">
-                {bots.slice(0, botsLoadMore.visibleCount).map((b) => (
-                  <li key={b.id} className="px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold truncate">{b.botDisplayName ?? b.name}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        #{b.id} · {(b.botRegion ?? "mix").toUpperCase()}
-                      </p>
-                    </div>
-                    <Badge variant="secondary">bot</Badge>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <ul className="divide-y divide-border/60">
+                  {bots.slice(0, botsLoadMore.visibleCount).map((b) => (
+                    <li key={b.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate">{b.botDisplayName ?? b.name}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          #{b.id} · {(b.botRegion ?? "mix").toUpperCase()}
+                        </p>
+                      </div>
+                      <Badge variant="secondary">bot</Badge>
+                    </li>
+                  ))}
+                </ul>
+                {botsLoadMore.canLoadMore && (
+                  <div className="border-t border-border/60 bg-muted/10 px-4 py-3 flex justify-center">
+                    <LoadMoreButton onClick={() => void botsLoadMore.loadMore()} isLoading={botsLoadMore.isLoadingMore} />
+                  </div>
+                )}
+              </>
             )}
           </div>
-          {!loading && bots.length > 0 && botsLoadMore.canLoadMore && (
-            <div className="pt-2 flex justify-center">
-              <LoadMoreButton onClick={() => void botsLoadMore.loadMore()} isLoading={botsLoadMore.isLoadingMore} />
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>
@@ -3390,6 +3392,12 @@ function UsersTab() {
       if (userFilter === "admins") return u.isAdmin;
       return true;
     });
+  const usersLoadMore = useLoadMore({
+    initialLimit: 6,
+    incrementSize: 5,
+    totalItems: filtered.length,
+    resetKey: `${search}:${userFilter}:${filtered.length}`,
+  });
 
   async function exportServerCsv() {
     try {
@@ -3753,7 +3761,7 @@ function UsersTab() {
           <p className="text-muted-foreground text-center py-8">
             {list.length === 0 ? "No users in database yet." : "No users match your search."}
           </p>
-        ) : filtered.map((u) => (
+        ) : filtered.slice(0, usersLoadMore.visibleCount).map((u) => (
           <Card
             key={u.id}
             className={`mb-3 w-full max-w-full ${u.isBlocked ? "border-red-500/35 bg-red-500/[0.03]" : ""}`}
@@ -4069,6 +4077,11 @@ function UsersTab() {
             </CardContent>
           </Card>
         ))}
+        {usersLoadMore.canLoadMore && (
+          <div className="pt-2 flex justify-center">
+            <LoadMoreButton onClick={() => void usersLoadMore.loadMore()} isLoading={usersLoadMore.isLoadingMore} />
+          </div>
+        )}
       </div>
       )}
 
