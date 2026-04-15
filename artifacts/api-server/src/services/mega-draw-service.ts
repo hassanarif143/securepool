@@ -257,7 +257,13 @@ export async function buyMegaDrawTickets(
       }
 
       const spend = round2(TICKET_PRICE * cleaned.length);
-      await debitGameBet(tx, userId, spend, `Mega Draw — ${cleaned.length} ticket(s) round ${round.roundNumber}`);
+      await debitGameBet(
+        tx,
+        userId,
+        spend,
+        `Mega Draw — ${cleaned.length} ticket(s) round ${round.roundNumber}`,
+        "spin_wheel",
+      );
 
       for (const num of cleaned) {
         await tx.insert(megaDrawTicketsTable).values({
@@ -341,7 +347,7 @@ export async function runMegaDrawForRoundTx(tx: DbTx, roundId: number): Promise<
         .update(megaDrawTicketsTable)
         .set({ matchCount: m, winAmount: w.toFixed(2) })
         .where(eq(megaDrawTicketsTable.id, t.id));
-      await creditGameWin(tx, t.userId, w, `Mega Draw 3/4 — round ${round.roundNumber}`);
+      await creditGameWin(tx, t.userId, w, `Mega Draw 3/4 — round ${round.roundNumber}`, "spin_wheel");
     } else if (m === 2) {
       const w = 6;
       paid += w;
@@ -349,7 +355,7 @@ export async function runMegaDrawForRoundTx(tx: DbTx, roundId: number): Promise<
         .update(megaDrawTicketsTable)
         .set({ matchCount: m, winAmount: w.toFixed(2) })
         .where(eq(megaDrawTicketsTable.id, t.id));
-      await creditGameWin(tx, t.userId, w, `Mega Draw 2/4 — round ${round.roundNumber}`);
+      await creditGameWin(tx, t.userId, w, `Mega Draw 2/4 — round ${round.roundNumber}`, "spin_wheel");
     } else if (m === 1) {
       const w = 2;
       paid += w;
@@ -357,7 +363,7 @@ export async function runMegaDrawForRoundTx(tx: DbTx, roundId: number): Promise<
         .update(megaDrawTicketsTable)
         .set({ matchCount: m, winAmount: w.toFixed(2) })
         .where(eq(megaDrawTicketsTable.id, t.id));
-      await creditGameWin(tx, t.userId, w, `Mega Draw 1/4 — round ${round.roundNumber}`);
+      await creditGameWin(tx, t.userId, w, `Mega Draw 1/4 — round ${round.roundNumber}`, "spin_wheel");
     } else {
       await tx
         .update(megaDrawTicketsTable)
@@ -374,7 +380,7 @@ export async function runMegaDrawForRoundTx(tx: DbTx, roundId: number): Promise<
         .update(megaDrawTicketsTable)
         .set({ matchCount: 4, winAmount: each.toFixed(2) })
         .where(eq(megaDrawTicketsTable.id, t.id));
-      await creditGameWin(tx, t.userId, each, `Mega Draw JACKPOT 4/4 — round ${round.roundNumber}`);
+      await creditGameWin(tx, t.userId, each, `Mega Draw JACKPOT 4/4 — round ${round.roundNumber}`, "spin_wheel");
     }
   }
 

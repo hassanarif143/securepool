@@ -17,6 +17,7 @@ import {
   platformSettingsTable,
   securityConfigTable,
   securityEventsTable,
+  stakingPlansTable,
 } from "@workspace/db";
 import { eq, ne, count, sum, desc, and, sql, inArray, gte, lte } from "drizzle-orm";
 import { sendWithdrawalStatusEmail } from "../lib/email";
@@ -60,10 +61,164 @@ import { getSecurityConfig } from "../lib/security";
 import { countPoolTickets, insertPoolTicketsWithLuckyNumbers } from "../services/lucky-pool-ticket-service";
 import poolFactoryV2Router from "./pool-factory-v2";
 import { botNamePoolTable, poolTicketsTable } from "@workspace/db/schema";
+import { createStakeV2 } from "../services/staking-v2-service";
 
 const router: IRouter = Router();
 
 router.use(requireAdmin);
+
+// ─── Staking v2 admin (plans + APY control) ────────────────────────────────────
+router.get("/staking/plans", async (_req, res) => {
+  const plans = await db.select().from(stakingPlansTable).orderBy(stakingPlansTable.displayOrder, stakingPlansTable.id);
+  res.json(plans);
+});
+
+router.put("/staking/plans/:planId/apy", async (req, res) => {
+  const planId = Number(req.params.planId);
+  if (!Number.isFinite(planId) || planId <= 0) {
+    res.status(400).json({ error: "Invalid plan id" });
+    return;
+  }
+  const parsed = z.object({ current_apy: z.coerce.number().min(0).max(200), reason: z.string().trim().max(500).optional() }).safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body" });
+    return;
+  }
+  const now = new Date();
+  const [row] = await db
+    .update(stakingPlansTable)
+    .set({ currentApy: parsed.data.current_apy.toFixed(2), updatedAt: now } as any)
+    .where(eq(stakingPlansTable.id, planId))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Plan not found" });
+    return;
+  }
+  res.json({ ok: true, planId, currentApy: parsed.data.current_apy, reason: parsed.data.reason ?? null });
+});
+
+const AdminSimulateStakesBody = z.object({
+  mode: z.enum(["single", "bulk"]).default("bulk"),
+  planId: z.number().int().positive().optional(),
+  userId: z.number().int().positive().optional(),
+  amount: z.number().positive().optional(),
+  count: z.number().int().min(1).max(50).optional(),
+  amountRange: z.object({ min: z.number().positive(), max: z.number().positive() }).optional(),
+  backdateDays: z.number().int().min(0).max(365).optional(),
+});
+
+function stakingRound2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+router.post("/staking/simulate", async (req, res) => {
+  const adminId = getAdminId(req);
+  const parsed = AdminSimulateStakesBody.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
+    return;
+  }
+
+  const { planId, userId, amount, amountRange, backdateDays } = parsed.data;
+  const count = parsed.data.mode === "single" ? 1 : Number(parsed.data.count ?? 10);
+
+  const bots = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq((usersTable as any).isBot, true))
+    .orderBy(sql`RANDOM()`)
+    .limit(userId ? 1 : Math.min(500, count * 5));
+
+  if (bots.length === 0 && !userId) {
+    res.status(400).json({ error: "NO_BOT_USERS" });
+    return;
+  }
+
+  const plans = await db
+    .select()
+    .from(stakingPlansTable)
+    .where(and(eq(stakingPlansTable.isActive, true), eq(stakingPlansTable.isVisible, true)))
+    .orderBy(stakingPlansTable.displayOrder, stakingPlansTable.id);
+
+  const planPick = planId ? plans.find((p) => Number(p.id) === planId) : null;
+  if (planId && !planPick) {
+    res.status(404).json({ error: "PLAN_NOT_FOUND" });
+    return;
+  }
+  if (!planPick && plans.length === 0) {
+    res.status(400).json({ error: "NO_ACTIVE_PLANS" });
+    return;
+  }
+
+  const created: any[] = [];
+  for (let i = 0; i < count; i++) {
+    const targetPlan = planPick ?? plans[Math.floor(Math.random() * plans.length)]!;
+    const botUserId = userId ?? bots[Math.floor(Math.random() * bots.length)]!.id;
+    const a =
+      amount ??
+      (() => {
+        const min = amountRange?.min ?? Number(targetPlan.minStake ?? 1);
+        const max = amountRange?.max ?? Number(targetPlan.maxStake ?? min);
+        const v = min + Math.random() * Math.max(0, max - min);
+        return stakingRound2(v);
+      })();
+
+    try {
+      const out = await createStakeV2({
+        userId: botUserId,
+        planId: Number(targetPlan.id),
+        amount: a,
+        createdBy: adminId,
+        isBotStake: true,
+      });
+      created.push(out);
+    } catch (e: any) {
+      created.push({ ok: false, error: e?.message ?? "ERR", planId: Number(targetPlan.id), userId: botUserId });
+    }
+  }
+
+  // Optional: quick backdate (only updates stake timestamps + earned_amount aggregate for display)
+  if ((backdateDays ?? 0) > 0) {
+    const days = Number(backdateDays ?? 0);
+    await db.execute(sql`
+      update user_stakes
+      set
+        started_at = now() - (${days}::int || ' days')::interval,
+        ends_at = (now() - (${days}::int || ' days')::interval) + (staking_plans.lock_days::int || ' days')::interval
+      from staking_plans
+      where user_stakes.plan_id = staking_plans.id
+        and user_stakes.is_bot_stake = true
+        and user_stakes.created_by = ${adminId}
+        and user_stakes.created_at > now() - interval '10 minutes'
+    `);
+  }
+
+  await logAction(adminId, "staking", null, "simulate_stakes", `Simulated ${count} bot stake(s).`);
+  res.json({ ok: true, createdCount: created.length, created });
+});
+
+router.get("/staking/stakes", async (_req, res) => {
+  const rows = await db.execute(sql`
+    select
+      s.id,
+      s.user_id,
+      s.plan_id,
+      p.name as plan_name,
+      s.staked_amount,
+      s.locked_apy,
+      s.earned_amount,
+      s.status,
+      s.started_at,
+      s.ends_at,
+      s.is_bot_stake,
+      s.created_at
+    from user_stakes s
+    join staking_plans p on p.id = s.plan_id
+    order by s.id desc
+    limit 500
+  `);
+  res.json(rows.rows);
+});
 
 // Backend source-of-truth for admin privilege display (do not rely on frontend env).
 router.get("/me", async (req, res) => {

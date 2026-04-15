@@ -6,6 +6,7 @@ import { getAuthedUserId } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
 import { mirrorAvailableFromUser, recordStakeLockDebit, recordStakeReturnCredit } from "../services/user-wallet-service";
 import { appendDepositFromTicketPurchase, appendWithdrawalForPayout } from "../services/admin-wallet-service";
+import { createStakeV2, listMyStakesV2, listVisiblePlans, claimStakeV2 } from "../services/staking-v2-service";
 
 const router = Router();
 const MIN_STAKE_USDT = 10;
@@ -124,6 +125,111 @@ router.get("/config", async (_req, res) => {
     earlyPenaltyRule: "Early unstake applies dynamic penalty up to 50% on principal before maturity.",
     rewardFormula: "reward = stake × tierRate × poolBoost",
   });
+});
+
+// ─── Staking v2 (plans + variable APY + claim at maturity) ──────────────────────
+router.get("/plans", async (_req, res) => {
+  res.json({ plans: await listVisiblePlans() });
+});
+
+router.get("/overview", async (_req, res) => {
+  const plans = await listVisiblePlans();
+  const rows = await db.execute(sql`
+    select
+      coalesce(sum(staked_amount::numeric), 0)::text as total_staked,
+      count(*)::int as total_stakers
+    from user_stakes
+    where status in ('active','matured')
+  `);
+  const r = (rows.rows as Array<{ total_staked: string; total_stakers: number }>)[0];
+  res.json({
+    total_staked: Number(r?.total_staked ?? 0),
+    total_stakers: Number(r?.total_stakers ?? 0),
+    plans,
+  });
+});
+
+router.get("/my-stakes", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  if (!(await assertEmailVerified(res, userId))) return;
+  res.json({ stakes: await listMyStakesV2(userId) });
+  return;
+});
+
+router.post("/create", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  if (!(await assertEmailVerified(res, userId))) return;
+  const parsed = z
+    .object({
+      planId: z.coerce.number().int().positive(),
+      amount: z.coerce.number().positive(),
+    })
+    .safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", message: parsed.error.message });
+    return;
+  }
+  try {
+    const out = await createStakeV2({ userId, planId: parsed.data.planId, amount: parsed.data.amount });
+    res.json(out);
+    return;
+  } catch (e: any) {
+    const msg = e?.message ?? "Error";
+    const map: Record<string, { code: number; error: string }> = {
+      PLAN_NOT_FOUND: { code: 404, error: "Plan not found" },
+      AMOUNT_TOO_LOW: { code: 400, error: "Amount below plan minimum" },
+      AMOUNT_TOO_HIGH: { code: 400, error: "Amount above plan maximum" },
+      PLAN_CAPACITY_FULL: { code: 400, error: "Plan capacity full" },
+      PLAN_STAKERS_FULL: { code: 400, error: "Plan stakers limit reached" },
+      INSUFFICIENT_BALANCE: { code: 400, error: "Insufficient balance" },
+    };
+    const hit = map[msg];
+    if (hit) {
+      res.status(hit.code).json({ error: hit.error });
+      return;
+    }
+    res.status(500).json({ error: "Server error" });
+    return;
+  }
+});
+
+router.post("/:stakeId/claim", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  if (!(await assertEmailVerified(res, userId))) return;
+  const stakeId = Number(req.params.stakeId);
+  if (!Number.isFinite(stakeId) || stakeId <= 0) {
+    res.status(400).json({ error: "Invalid stake id" });
+    return;
+  }
+  try {
+    const out = await claimStakeV2({ userId, stakeId });
+    res.json(out);
+    return;
+  } catch (e: any) {
+    const msg = e?.message ?? "Error";
+    if (msg === "STAKE_NOT_FOUND") {
+      res.status(404).json({ error: "Stake not found" });
+      return;
+    }
+    if (msg === "STAKE_NOT_MATURED") {
+      res.status(400).json({ error: "Stake not matured" });
+      return;
+    }
+    res.status(500).json({ error: "Server error" });
+    return;
+  }
 });
 
 router.get("/me", async (req, res) => {

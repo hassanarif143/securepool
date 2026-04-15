@@ -136,6 +136,7 @@ export default function AdminPage() {
         <TabsList className="flex h-auto min-h-11 w-full flex-wrap sm:flex-nowrap gap-1.5 overflow-x-auto p-1.5 justify-start rounded-xl bg-muted/40 border border-border/50">
           <TabsTrigger value="finance" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Finance</TabsTrigger>
           <TabsTrigger value="rewards" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Rewards</TabsTrigger>
+          <TabsTrigger value="staking" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Staking</TabsTrigger>
           <TabsTrigger value="pending" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Pending</TabsTrigger>
           <TabsTrigger value="stats" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Stats</TabsTrigger>
           <TabsTrigger value="pools" className="text-xs sm:text-sm shrink-0 px-3 py-2 min-h-10 data-[state=active]:font-semibold">Pools</TabsTrigger>
@@ -151,6 +152,7 @@ export default function AdminPage() {
         </TabsList>
         <TabsContent value="finance"><FinanceTab /></TabsContent>
         <TabsContent value="rewards"><RewardsConfigTab /></TabsContent>
+        <TabsContent value="staking"><StakingAdminTab /></TabsContent>
         <TabsContent value="pending"><PendingTransactionsTab /></TabsContent>
         <TabsContent value="stats"><StatsTab /></TabsContent>
         <TabsContent value="pools"><PoolsTab /></TabsContent>
@@ -713,6 +715,223 @@ function RewardsConfigTab() {
       <div className="flex justify-end">
         <Button onClick={() => void save()} disabled={saving}>{saving ? "Saving..." : "Save all rewards"}</Button>
       </div>
+    </div>
+  );
+}
+
+function StakingAdminTab() {
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const [plans, setPlans] = useState<Array<{ id: number; name: string; slug: string; lockDays: number; currentApy: number }>>([]);
+  const [edits, setEdits] = useState<Record<number, number>>({});
+  const [simulating, setSimulating] = useState(false);
+  const [simPlanId, setSimPlanId] = useState<number | "any">("any");
+  const [simCount, setSimCount] = useState(10);
+  const [simMin, setSimMin] = useState(10);
+  const [simMax, setSimMax] = useState(200);
+  const [simBackdateDays, setSimBackdateDays] = useState(0);
+  const [stakes, setStakes] = useState<any[]>([]);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const [res, stakesRes] = await Promise.all([
+        fetch(apiUrl("/api/admin/staking/plans"), { credentials: "include" }),
+        fetch(apiUrl("/api/admin/staking/stakes"), { credentials: "include" }),
+      ]);
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      if (!stakesRes.ok) throw new Error(await readApiErrorMessage(stakesRes));
+      const rows = (await res.json()) as any[];
+      const norm = rows.map((r) => ({
+        id: Number(r.id),
+        name: String(r.name ?? ""),
+        slug: String(r.slug ?? ""),
+        lockDays: Number(r.lockDays ?? r.lock_days ?? 0),
+        currentApy: Number(r.currentApy ?? r.current_apy ?? 0),
+      }));
+      setPlans(norm);
+      setEdits(Object.fromEntries(norm.map((p) => [p.id, p.currentApy])));
+      setStakes((await stakesRes.json()) as any[]);
+    } catch (err: any) {
+      appToast.error({ title: "Failed to load staking plans", description: err?.message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function saveApy(planId: number) {
+    const v = Number(edits[planId]);
+    if (!Number.isFinite(v) || v < 0) return;
+    setSavingId(planId);
+    try {
+      const res = await fetch(apiUrl(`/api/admin/staking/plans/${planId}/apy`), {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_apy: v, reason: "Admin update" }),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      appToast.success({ title: "APY updated" });
+      await load();
+    } catch (err: any) {
+      appToast.error({ title: "Update failed", description: err?.message });
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function simulate() {
+    setSimulating(true);
+    try {
+      const body: any = {
+        mode: "bulk",
+        count: simCount,
+        amountRange: { min: simMin, max: simMax },
+        backdateDays: simBackdateDays,
+      };
+      if (simPlanId !== "any") body.planId = simPlanId;
+      const res = await fetch(apiUrl("/api/admin/staking/simulate"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(await readApiErrorMessage(res));
+      appToast.success({ title: "Simulated stakes created" });
+      await load();
+    } catch (err: any) {
+      appToast.error({ title: "Simulation failed", description: err?.message });
+    } finally {
+      setSimulating(false);
+    }
+  }
+
+  if (loading) return <p className="text-muted-foreground py-8 text-center">Loading staking plans…</p>;
+
+  return (
+    <div className="space-y-4 mt-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Staking Simulator (Bots)</CardTitle>
+          <p className="text-xs text-muted-foreground">Creates bot stakes for social proof. Bots do not spend real wallet balance.</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid sm:grid-cols-5 gap-2">
+            <div className="sm:col-span-2">
+              <Label className="text-[11px] text-muted-foreground">Plan</Label>
+              <select
+                className="mt-1 h-9 w-full rounded-md border border-border/60 bg-background px-2 text-sm"
+                value={String(simPlanId)}
+                onChange={(e) => setSimPlanId(e.target.value === "any" ? "any" : Number(e.target.value))}
+              >
+                <option value="any">Any plan</option>
+                {plans.map((p) => (
+                  <option key={p.id} value={String(p.id)}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Count</Label>
+              <Input type="number" className="h-9 mt-1" value={String(simCount)} onChange={(e) => setSimCount(Number(e.target.value))} />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Min (USDT)</Label>
+              <Input type="number" className="h-9 mt-1" value={String(simMin)} onChange={(e) => setSimMin(Number(e.target.value))} />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Max (USDT)</Label>
+              <Input type="number" className="h-9 mt-1" value={String(simMax)} onChange={(e) => setSimMax(Number(e.target.value))} />
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-2">
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Backdate (days)</Label>
+              <Input type="number" className="h-9 mt-1" value={String(simBackdateDays)} onChange={(e) => setSimBackdateDays(Number(e.target.value))} />
+            </div>
+            <div className="sm:col-span-2 flex items-end justify-end">
+              <Button onClick={() => void simulate()} disabled={simulating} className="h-9">
+                {simulating ? "Simulating…" : "Simulate bot stakes"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Plan APY Management</CardTitle>
+          <p className="text-xs text-muted-foreground">Updates affect new stakes only. Existing stakes keep their locked APY.</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {plans.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No plans found.</p>
+          ) : (
+            <div className="space-y-2">
+              {plans.map((p) => (
+                <div key={p.id} className="rounded-xl border border-border/60 bg-muted/20 p-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">
+                        {p.name} <span className="text-xs text-muted-foreground">({p.lockDays}d)</span>
+                      </p>
+                      <p className="text-[11px] text-muted-foreground truncate">{p.slug}</p>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <div className="min-w-[170px]">
+                        <Label className="text-[11px] text-muted-foreground">Current APY (%)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={String(edits[p.id] ?? p.currentApy)}
+                          onChange={(e) => setEdits((s) => ({ ...s, [p.id]: Number(e.target.value) }))}
+                          className="h-9"
+                        />
+                      </div>
+                      <Button size="sm" onClick={() => void saveApy(p.id)} disabled={savingId === p.id}>
+                        {savingId === p.id ? "Saving…" : "Save"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Recent Stakes (v2)</CardTitle>
+          <p className="text-xs text-muted-foreground">Latest 500 stakes (real + bot).</p>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {stakes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No stakes yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {stakes.slice(0, 30).map((s) => (
+                <div key={s.id} className="rounded-xl border border-border/60 bg-muted/20 p-3 text-sm flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold truncate">#{s.id} · {s.plan_name}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      user #{s.user_id} · {String(s.status)} · unlocks {new Date(s.ends_at).toLocaleDateString()} {s.is_bot_stake ? "· bot" : ""}
+                    </p>
+                  </div>
+                  <div className="text-right whitespace-nowrap">
+                    <p className="font-semibold">{Number(s.staked_amount).toFixed(2)} USDT</p>
+                    <p className="text-[11px] text-emerald-300">+{Number(s.earned_amount).toFixed(2)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
