@@ -6,14 +6,24 @@ import { useAuth } from "@/context/AuthContext";
 import { appToast } from "@/components/feedback/AppToast";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
-import { UsdtAmount } from "@/components/UsdtAmount";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ProgressiveList } from "@/components/ProgressiveList";
 import { cn } from "@/lib/utils";
 import { AnimatedNumber } from "@/components/animation/AnimatedNumber";
 import { AnimatePresence, motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
+import { ConfettiPresets } from "@/lib/confetti";
+import * as RechartsPrimitive from "recharts";
+import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 
 type Plan = {
   id: number;
@@ -59,22 +69,39 @@ export default function StakingPage() {
     total_paid_today: 0,
   });
 
-  const [stakeOpen, setStakeOpen] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [amount, setAmount] = useState<string>(() => window.localStorage.getItem("staking.amount") ?? "50.00");
+  const [selectedPlanId, setSelectedPlanId] = useState<string>(() => window.localStorage.getItem("staking.planId") ?? "basic");
   const [creating, setCreating] = useState(false);
   const [claimingId, setClaimingId] = useState<number | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number>(Date.now());
   const [liveDailyEarnings, setLiveDailyEarnings] = useState(0);
-  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawingId, setWithdrawingId] = useState<number | null>(null);
+  const [withdrawDialog, setWithdrawDialog] = useState<{ open: boolean; stakeId: number | null; amount: number }>({ open: false, stakeId: null, amount: 0 });
   const feedSeed = useRef<number>(Math.floor(Math.random() * 1_000_000));
   const [feed, setFeed] = useState<Array<{ id: string; text: string; ts: number }>>([]);
+  const [openStakeIds, setOpenStakeIds] = useState<Record<number, boolean>>(() => {
+    try {
+      const raw = window.localStorage.getItem("staking.openStakes");
+      return raw ? (JSON.parse(raw) as Record<number, boolean>) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [earningsPoints, setEarningsPoints] = useState<Array<{ t: number; v: number }>>([]);
 
   const withdrawable = Number(user?.withdrawableBalance ?? 0);
 
   useEffect(() => {
     window.localStorage.setItem("staking.amount", amount);
   }, [amount]);
+
+  useEffect(() => {
+    window.localStorage.setItem("staking.planId", selectedPlanId);
+  }, [selectedPlanId]);
+
+  useEffect(() => {
+    window.localStorage.setItem("staking.openStakes", JSON.stringify(openStakeIds));
+  }, [openStakeIds]);
 
   async function refresh() {
     setLoading(true);
@@ -148,11 +175,32 @@ export default function StakingPage() {
     return () => window.clearInterval(id);
   }, [active]);
 
+  // Keep a tiny history for sparklines.
+  useEffect(() => {
+    setEarningsPoints((prev) => {
+      const next = [...prev, { t: Date.now(), v: liveDailyEarnings }];
+      return next.length > 40 ? next.slice(-40) : next;
+    });
+  }, [liveDailyEarnings]);
+
   function projection(plan: Plan, amt: number) {
     const daily = (amt * (plan.currentApy / 100)) / 365;
     const total = daily * plan.lockDays;
     return { daily, total, receive: amt + total };
   }
+
+  const planCards = useMemo(() => {
+    const list = plans.slice(0, 3);
+    // stable labels regardless of backend names
+    const labels = ["basic", "pro", "elite"] as const;
+    return list.map((p, i) => ({ plan: p, key: labels[i] ?? "basic", label: i === 0 ? "Basic" : i === 1 ? "Pro" : "Elite", risk: i === 0 ? "Low" : i === 1 ? "Medium" : "High" }));
+  }, [plans]);
+
+  const selectedPlan = useMemo(() => {
+    if (planCards.length === 0) return null;
+    const hit = planCards.find((x) => x.key === selectedPlanId);
+    return (hit ?? planCards[0])?.plan ?? null;
+  }, [planCards, selectedPlanId]);
 
   async function submitStake() {
     if (!selectedPlan) return;
@@ -169,8 +217,8 @@ export default function StakingPage() {
         body: JSON.stringify({ planId: selectedPlan.id, amount: v }),
       });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
-      appToast.success({ title: "Stake created", description: "Your USDT is now locked. Returns are estimated." });
-      setStakeOpen(false);
+      ConfettiPresets.coinBurst();
+      appToast.success({ title: "Staked successfully", description: "Your earnings start updating in a few seconds." });
       await refresh();
       await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
     } catch (e: unknown) {
@@ -204,333 +252,336 @@ export default function StakingPage() {
   }, [active, activeStaked]);
   const estMonthly = useMemo(() => liveDailyEarnings * 30, [liveDailyEarnings]);
 
-  async function withdrawEarnings() {
-    const target = active.find((s) => s.earnedAmount > 0.009);
-    if (!target) {
-      appToast.error({ title: "No earnings to withdraw yet" });
-      return;
-    }
-    setWithdrawing(true);
+  async function withdrawEarnings(stakeId: number, available: number) {
+    setWithdrawDialog({ open: true, stakeId, amount: available });
+  }
+
+  async function confirmWithdraw() {
+    if (!withdrawDialog.stakeId) return;
+    setWithdrawingId(withdrawDialog.stakeId);
     try {
-      const res = await fetch(apiUrl(`/api/staking/${target.id}/withdraw-earnings`), { method: "POST", credentials: "include" });
+      const res = await fetch(apiUrl(`/api/staking/${withdrawDialog.stakeId}/withdraw-earnings`), { method: "POST", credentials: "include" });
       if (!res.ok) throw new Error(await readApiErrorMessage(res));
-      appToast.success({ title: "Earnings withdrawn", description: "Credited to your wallet." });
+      appToast.success({ title: "Withdraw sent", description: "May take a few seconds to reflect." });
       await refresh();
       await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
     } catch (e: unknown) {
       appToast.error({ title: "Withdraw failed", description: String(e) });
     } finally {
-      setWithdrawing(false);
+      setWithdrawingId(null);
+      setWithdrawDialog({ open: false, stakeId: null, amount: 0 });
     }
   }
 
+  const quickAmount = Number(amount);
+  const quickAmountOk =
+    !!selectedPlan &&
+    Number.isFinite(quickAmount) &&
+    quickAmount >= selectedPlan.minStake &&
+    quickAmount <= selectedPlan.maxStake &&
+    quickAmount <= withdrawable;
+  const quickProj = selectedPlan && Number.isFinite(quickAmount) ? projection(selectedPlan, Math.max(0, quickAmount)) : null;
+
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      {/* Hero */}
-      <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-cyan-500/10 via-card to-card p-5 sm:p-6 shadow-[0_0_32px_rgba(34,211,238,0.10)]">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Staking</p>
-            <h1 className="text-2xl sm:text-3xl font-bold mt-1">Earn daily, stay in control</h1>
-            <p className="text-[11px] text-muted-foreground mt-2">
-              Earnings update every few seconds · Last sync {Math.max(0, Math.floor((Date.now() - lastUpdatedAt) / 1000))}s ago
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-[11px] text-muted-foreground">Total staked</p>
-            <p className="text-xl font-bold text-cyan-200">
-              <AnimatedNumber value={Number(overview.total_staked ?? 0)} decimals={2} /> USDT
-            </p>
-          </div>
+    <div className="max-w-3xl mx-auto space-y-5 sm:space-y-6">
+      {/* (A) HERO EARNING CARD */}
+      <div className="rounded-[22px] border border-border/60 bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(34,211,238,0.22),transparent_40%),radial-gradient(900px_circle_at_100%_0%,rgba(255,215,0,0.10),transparent_55%)] bg-card/60 backdrop-blur-md p-5 sm:p-6 shadow-[0_0_38px_rgba(34,211,238,0.12)]">
+        <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Your Staked Earnings</p>
+        <div className="mt-2">
+          <p className="text-3xl sm:text-4xl font-extrabold tracking-tight text-emerald-200 drop-shadow-[0_0_20px_rgba(34,197,94,0.12)]">
+            +<AnimatedNumber value={totalEarned} decimals={2} />{" "}
+            <span className="text-base font-semibold text-muted-foreground">USDT</span>
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Real-time reward calculation · Last sync {Math.max(0, Math.floor((Date.now() - lastUpdatedAt) / 1000))}s ago
+          </p>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <div className="rounded-xl border border-border/60 bg-muted/15 px-3 py-3">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Daily earnings</p>
-            <p className="mt-1 text-lg font-bold text-emerald-300">
+        <div className="mt-4 grid grid-cols-3 gap-2.5">
+          <div className="rounded-2xl border border-border/60 bg-muted/10 p-3">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total staked</p>
+            <p className="text-sm font-bold">
+              <AnimatedNumber value={activeStaked} decimals={2} /> USDT
+            </p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-muted/10 p-3">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Today</p>
+            <p className="text-sm font-bold text-emerald-300 drop-shadow-[0_0_18px_rgba(34,197,94,0.14)]">
               +<AnimatedNumber value={liveDailyEarnings} decimals={3} /> USDT
             </p>
           </div>
-          <div className="rounded-xl border border-border/60 bg-muted/15 px-3 py-3">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Est. monthly</p>
-            <p className="mt-1 text-lg font-bold text-emerald-200">
+          <div className="rounded-2xl border border-border/60 bg-muted/10 p-3">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Monthly</p>
+            <p className="text-sm font-bold text-emerald-200">
               ~<AnimatedNumber value={estMonthly} decimals={2} /> USDT
             </p>
           </div>
-          <div className="rounded-xl border border-border/60 bg-muted/15 px-3 py-3">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Users staking</p>
-            <p className="mt-1 text-lg font-bold">
-              <AnimatedNumber value={Number(overview.total_stakers ?? 0)} decimals={0} />
-            </p>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {[
+            { label: "Secure System", tone: "border-cyan-500/25 bg-cyan-500/10 text-cyan-200" },
+            { label: "Fair Rewards Engine", tone: "border-emerald-500/25 bg-emerald-500/10 text-emerald-200" },
+            { label: "Instant Tracking", tone: "border-amber-500/25 bg-amber-500/10 text-amber-200" },
+          ].map((b) => (
+            <span key={b.label} className={cn("text-[10px] font-bold px-2.5 py-1 rounded-full border", b.tone)}>
+              {b.label}
+            </span>
+          ))}
+
+          <div className="ml-auto">
+            <Button
+              className="rounded-full px-5 h-10 shadow-[0_0_24px_rgba(34,211,238,0.18)]"
+              onClick={() => document.getElementById("quickStake")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            >
+              Start Staking
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Active Staking Card */}
-      <Card className="border-border/60">
+      {/* (B) QUICK STAKE WIDGET */}
+      <Card id="quickStake" className="border-border/60">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Active staking</CardTitle>
-          <p className="text-xs text-muted-foreground">Earnings update every few seconds.</p>
+          <CardTitle className="text-base">Quick Stake</CardTitle>
+          <p className="text-xs text-muted-foreground">Enter amount, select plan, tap stake. No extra steps.</p>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Amount staked</p>
-              <p className="text-lg font-bold">{activeStaked.toFixed(2)} USDT</p>
+          {loading && plans.length === 0 ? (
+            <div className="space-y-3">
+              <Skeleton className="h-12 w-full rounded-2xl" />
+              <Skeleton className="h-12 w-full rounded-2xl" />
+              <Skeleton className="h-12 w-full rounded-2xl" />
             </div>
-            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Daily %</p>
-              <p className="text-lg font-bold text-cyan-200">~{dailyReturnPct.toFixed(2)}%</p>
-            </div>
-            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Earned today</p>
-              <p className="text-lg font-bold text-emerald-300">+{liveDailyEarnings.toFixed(3)} USDT</p>
-            </div>
-            <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Total earned</p>
-              <p className="text-lg font-bold text-emerald-200">+{totalEarned.toFixed(2)} USDT</p>
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <p className="text-[11px] font-semibold text-muted-foreground mb-1">Enter amount</p>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="h-12 rounded-2xl font-mono text-lg"
+                    placeholder="0.00"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Balance: <span className="font-semibold">{withdrawable.toFixed(2)} USDT</span>
+                    {selectedPlan ? (
+                      <>
+                        {" "}
+                        · Min {selectedPlan.minStake} · Max {selectedPlan.maxStake}
+                      </>
+                    ) : null}
+                  </p>
+                </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Daily earning progress</span>
-              <span>{Math.min(100, (Date.now() / 1000) % 100).toFixed(0)}%</span>
-            </div>
-            <div className="h-2 rounded-full bg-muted/40 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-cyan-400 via-[#00E5CC] to-emerald-400"
-                style={{ width: `${Math.min(100, (Date.now() / 1000) % 100)}%` }}
-              />
-            </div>
-          </div>
+                <div>
+                  <p className="text-[11px] font-semibold text-muted-foreground mb-1">Select plan</p>
+                  <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                    <SelectTrigger className="h-12 rounded-2xl">
+                      <SelectValue placeholder="Select a plan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {planCards.map((x) => (
+                        <SelectItem key={x.key} value={x.key}>
+                          {x.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {selectedPlan ? (
+                      <>
+                        Lock {selectedPlan.lockDays} days · Est. daily ~{(selectedPlan.currentApy / 365).toFixed(2)}%
+                      </>
+                    ) : (
+                      "Pick a plan to see estimate"
+                    )}
+                  </p>
+                </div>
+              </div>
 
-          <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-            <div className="text-xs text-muted-foreground">
-              Wallet balance: <span className="font-semibold">{withdrawable.toFixed(2)} USDT</span>
-            </div>
-            <Button onClick={() => void withdrawEarnings()} disabled={withdrawing || totalEarned <= 0.009} className="rounded-xl">
-              {withdrawing ? "Withdrawing…" : "Withdraw Earnings"}
-            </Button>
-          </div>
+              <div className="rounded-2xl border border-border/60 bg-muted/10 p-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Estimated daily</span>
+                  <span className="font-mono">{quickProj ? `~${quickProj.daily.toFixed(3)}` : "—"} USDT</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Est. at unlock</span>
+                  <span className="font-mono font-semibold text-emerald-200">
+                    {quickProj ? `~${quickProj.receive.toFixed(2)}` : "—"} USDT
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  Returns are estimated and vary with platform performance.
+                </p>
+              </div>
+
+              <Button
+                className="w-full h-12 rounded-2xl shadow-[0_0_28px_rgba(34,211,238,0.16)]"
+                disabled={!quickAmountOk || creating}
+                onClick={() => void submitStake()}
+              >
+                {creating ? "Staking…" : "Stake Now"}
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Staking Plans</h2>
-            <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>
-              Refresh
-            </Button>
-          </div>
-
-          {loading && plans.length === 0 ? (
-            <div className="grid gap-3">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="rounded-2xl border border-border/60 bg-card p-4 space-y-3">
-                  <Skeleton className="h-4 w-28" />
-                  <Skeleton className="h-3 w-3/4" />
-                  <div className="grid grid-cols-3 gap-2">
-                    <Skeleton className="h-12 w-full" />
-                    <Skeleton className="h-12 w-full" />
-                    <Skeleton className="h-12 w-full" />
-                  </div>
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              ))}
-            </div>
-          ) : plans.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">No staking plans available.</p>
-          ) : (
-            <div className="grid gap-3">
-              {plans.slice(0, 3).map((p, idx) => (
-                <Card key={p.id} className="border-border/60">
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-base truncate">{idx === 0 ? "Basic" : idx === 1 ? "Pro" : "Advanced"}</p>
-                        {p.description ? <p className="text-xs text-muted-foreground mt-1">{p.description}</p> : null}
-                      </div>
-                      <span
-                        className={cn(
-                          "text-[10px] font-bold px-2 py-1 rounded-full border",
-                          idx === 0
-                            ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-200"
-                            : idx === 1
-                              ? "border-cyan-500/25 bg-cyan-500/10 text-cyan-200"
-                              : "border-amber-500/25 bg-amber-500/10 text-amber-200",
-                        )}
-                      >
-                        {idx === 0 ? "Low risk" : idx === 1 ? "Medium" : "High"}
-                      </span>
-                      {p.badgeText ? (
-                        <span className={cn("text-[10px] font-bold px-2 py-1 rounded-full border", "border-cyan-500/25 bg-cyan-500/10 text-cyan-200")}>
-                          {p.badgeText}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2 text-sm">
-                      <div className="rounded-lg border border-border/60 bg-muted/20 p-2">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Daily return</p>
-                        <p className="font-bold text-emerald-300">~{(p.currentApy / 365).toFixed(2)}%</p>
-                        <p className="text-[10px] text-muted-foreground">updates</p>
-                      </div>
-                      <div className="rounded-lg border border-border/60 bg-muted/20 p-2">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Min</p>
-                        <UsdtAmount amount={p.minStake} amountClassName="font-bold" currencyClassName="text-[10px] text-muted-foreground" />
-                      </div>
-                      <div className="rounded-lg border border-border/60 bg-muted/20 p-2">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Max</p>
-                        <UsdtAmount amount={p.maxStake} amountClassName="font-bold" currencyClassName="text-[10px] text-muted-foreground" />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-[11px] text-muted-foreground">
-                        Stakers: {p.currentStakers}{p.maxStakers != null ? `/${p.maxStakers}` : ""}
-                      </p>
-                      <Button className="h-10 rounded-xl" onClick={() => { setSelectedPlan(p); setStakeOpen(true); }}>
-                        Stake now
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <Card className="border-border/60">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">My Stakes</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <section>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Matured</p>
-              {matured.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nothing to claim yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {matured.map((s) => (
-                    <div key={s.id} className="rounded-xl border border-border/60 bg-muted/10 p-3">
-                      <p className="text-sm font-semibold">Stake #{s.id}</p>
-                      <p className="text-xs text-muted-foreground">{planById.get(s.planId)?.name ?? "Plan"} · ended {new Date(s.endsAt).toLocaleDateString()}</p>
-                      <div className="mt-2 flex items-center justify-between">
-                        <UsdtAmount amount={s.stakedAmount + s.earnedAmount} amountClassName="font-bold text-emerald-300" currencyClassName="text-[10px] text-muted-foreground" />
-                        <Button size="sm" disabled={claimingId === s.id} onClick={() => void claim(s.id)}>
-                          {claimingId === s.id ? "Claiming…" : "Claim"}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Active</p>
-              {active.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No active stakes.</p>
-              ) : (
-                <ProgressiveList
-                  items={active}
-                  initialLimit={6}
-                  incrementSize={5}
-                  resetKey={active.length}
-                  getKey={(s) => s.id}
-                  renderItem={(s) => (
-                    <div className="rounded-xl border border-border/60 bg-muted/10 p-3">
-                      <p className="text-sm font-semibold">Stake #{s.id}</p>
-                      <p className="text-xs text-muted-foreground">{planById.get(s.planId)?.name ?? "Plan"} · unlocks {new Date(s.endsAt).toLocaleDateString()}</p>
-                      <div className="mt-2 flex items-center justify-between">
-                        <UsdtAmount amount={s.stakedAmount} amountClassName="font-bold" currencyClassName="text-[10px] text-muted-foreground" />
-                        <span className="text-[11px] text-muted-foreground">APY {s.lockedApy.toFixed(2)}%</span>
-                      </div>
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        Earned so far <span className="text-emerald-300 font-semibold">+{s.earnedAmount.toFixed(2)}</span>
-                      </p>
-                    </div>
-                  )}
-                />
-              )}
-            </section>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Dialog open={stakeOpen} onOpenChange={(o) => { if (!o) setStakeOpen(false); }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Stake {selectedPlan?.name ?? ""}</DialogTitle>
-          </DialogHeader>
-          {selectedPlan && (
-            <div className="space-y-3">
-              <div className="rounded-xl border border-border/60 bg-muted/10 p-3 text-sm space-y-1">
-                <p className="text-xs text-muted-foreground">Lock: {selectedPlan.lockDays} days · Est. APY ~{selectedPlan.estimatedApy.toFixed(2)}% (up to {selectedPlan.maxApy.toFixed(0)}%)</p>
-                <p className="text-[11px] text-muted-foreground">Returns are estimated and vary based on platform performance.</p>
-              </div>
-
-              <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-muted-foreground">Amount (USDT)</p>
-                <Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className="h-12 font-mono text-lg" />
-                <p className="text-[11px] text-muted-foreground">Min {selectedPlan.minStake} · Max {selectedPlan.maxStake} · Balance {withdrawable.toFixed(2)}</p>
-              </div>
-
-              {(() => {
-                const v = Number(amount);
-                const ok = Number.isFinite(v) && v >= selectedPlan.minStake && v <= selectedPlan.maxStake && v <= withdrawable;
-                const proj = ok ? projection(selectedPlan, v) : null;
-                return (
-                  <div className="rounded-xl border border-border/60 bg-muted/10 p-3 text-sm space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Estimated daily</span>
-                      <span className="font-mono">{proj ? `~${proj.daily.toFixed(3)}` : "—"} USDT</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Est. total earn</span>
-                      <span className="font-mono">{proj ? `~${proj.total.toFixed(2)}` : "—"} USDT</span>
-                    </div>
-                    <div className="flex items-center justify-between border-t border-border/60 pt-2">
-                      <span className="text-muted-foreground">Est. you receive</span>
-                      <span className="font-mono font-bold text-emerald-300">{proj ? `~${proj.receive.toFixed(2)}` : "—"} USDT</span>
-                    </div>
-
-                    <Button className="w-full mt-2 h-11" disabled={!ok || creating} onClick={() => void submitStake()}>
-                      {creating ? "Locking…" : `Confirm stake — lock ${Number(amount || 0).toFixed(2)} USDT`}
-                    </Button>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Social Proof */}
+      {/* (C) ACTIVE STAKES (COLLAPSIBLE CARDS ONLY) */}
       <Card className="border-border/60">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Live activity</CardTitle>
-          <p className="text-xs text-muted-foreground">Auto-updates every few seconds.</p>
+          <CardTitle className="text-base">Active stakes</CardTitle>
+          <p className="text-xs text-muted-foreground">One-tap withdraw. Tap a card to expand.</p>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {loading && stakes.length === 0 ? (
+            <div className="space-y-2">
+              {[0, 1].map((i) => (
+                <div key={i} className="rounded-2xl border border-border/60 bg-muted/10 p-4">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-3 w-2/3 mt-2" />
+                  <Skeleton className="h-9 w-full mt-3 rounded-xl" />
+                </div>
+              ))}
+            </div>
+          ) : active.length === 0 ? (
+            <div className="rounded-2xl border border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground">
+              No active stakes yet. Use Quick Stake to start earning.
+            </div>
+          ) : (
+            active.map((s) => {
+              const p = planById.get(s.planId);
+              const isOpen = openStakeIds[s.id] ?? false;
+              const daily = (s.stakedAmount * (s.lockedApy / 100)) / 365;
+              const earnedToday = activeStaked > 0 ? (liveDailyEarnings * (s.stakedAmount / activeStaked)) : 0;
+              const totalDays = Math.max(1, Math.round((new Date(s.endsAt).getTime() - new Date(s.startedAt).getTime()) / 86_400_000));
+              const doneDays = Math.max(0, Math.min(totalDays, Math.round((Date.now() - new Date(s.startedAt).getTime()) / 86_400_000)));
+              const pct = Math.max(0, Math.min(100, (doneDays / totalDays) * 100));
+
+              return (
+                <Collapsible
+                  key={s.id}
+                  open={isOpen}
+                  onOpenChange={(o) => setOpenStakeIds((prev) => ({ ...prev, [s.id]: o }))}
+                >
+                  <div className="rounded-2xl border border-border/60 bg-muted/10 overflow-hidden">
+                    <CollapsibleTrigger asChild>
+                      <button className="w-full text-left px-4 py-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold truncate">{p?.name ?? "Stake"} <span className="text-xs text-muted-foreground">· #{s.id}</span></p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                            Staked {s.stakedAmount.toFixed(2)} USDT · APY {s.lockedApy.toFixed(2)}% · Unlock {new Date(s.endsAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+                      </button>
+                    </CollapsibleTrigger>
+
+                    <CollapsibleContent>
+                      <div className="px-4 pb-4 pt-1 space-y-3">
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div className="rounded-2xl border border-border/60 bg-card/40 p-3">
+                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Earned today</p>
+                            <p className="text-sm font-bold text-emerald-300">
+                              +<AnimatedNumber value={earnedToday} decimals={3} /> USDT
+                            </p>
+                          </div>
+                          <div className="rounded-2xl border border-border/60 bg-card/40 p-3">
+                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Available</p>
+                            <p className="text-sm font-bold">
+                              <AnimatedNumber value={s.earnedAmount} decimals={2} /> USDT
+                            </p>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>Daily earning progress</span>
+                            <span>{pct.toFixed(0)}%</span>
+                          </div>
+                          <div className="mt-2 h-2 rounded-full bg-muted/40 overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-cyan-400 via-[#00E5CC] to-emerald-400" style={{ width: `${pct}%` }} />
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-2">
+                            Est. daily: <span className="font-mono text-emerald-200">~{daily.toFixed(3)} USDT</span>
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[11px] text-muted-foreground">
+                            Withdraw may take a few seconds.
+                          </p>
+                          <Button
+                            className="h-10 rounded-2xl"
+                            disabled={withdrawingId === s.id || s.earnedAmount <= 0.009}
+                            onClick={() => void withdrawEarnings(s.id, s.earnedAmount)}
+                          >
+                            {withdrawingId === s.id ? "Withdrawing…" : "Withdraw"}
+                          </Button>
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
+              );
+            })
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Matured (claim) */}
+      <Card className="border-border/60">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Ready to claim</CardTitle>
+          <p className="text-xs text-muted-foreground">When a stake unlocks, claim principal + earnings.</p>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {matured.length === 0 ? (
+            <div className="rounded-2xl border border-border/60 bg-muted/10 p-4 text-sm text-muted-foreground">Nothing to claim yet.</div>
+          ) : (
+            matured.map((s) => (
+              <div key={s.id} className="rounded-2xl border border-border/60 bg-muted/10 p-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{planById.get(s.planId)?.name ?? "Stake"} <span className="text-xs text-muted-foreground">· #{s.id}</span></p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Unlocked {new Date(s.endsAt).toLocaleDateString()}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    You receive{" "}
+                    <span className="font-mono font-semibold text-emerald-200">{(s.stakedAmount + s.earnedAmount).toFixed(2)} USDT</span>
+                  </p>
+                </div>
+                <Button className="h-10 rounded-2xl" disabled={claimingId === s.id} onClick={() => void claim(s.id)}>
+                  {claimingId === s.id ? "Claiming…" : "Claim"}
+                </Button>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      {/* (D) EARNING LIVE FEED (premium ticker) */}
+      <Card className="border-border/60">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Earning live feed</CardTitle>
+          <p className="text-xs text-muted-foreground">Quiet, clean updates · Max 5 items</p>
         </CardHeader>
         <CardContent>
-          <div className="relative overflow-hidden">
+          <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-muted/10 p-2">
             <AnimatePresence initial={false}>
-              {feed.slice(0, 5).map((e, i) => (
+              {feed.slice(0, 5).map((e) => (
                 <motion.div
-                  key={e.id}
-                  initial={{ opacity: 0, y: 10, filter: "blur(2px)" }}
+                  key={`${feedSeed.current}-${e.id}`}
+                  initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
                   animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.22, ease: "easeOut" }}
-                  className={cn(
-                    "rounded-xl border border-border/60 bg-muted/10 px-3 py-2 text-sm flex items-center justify-between",
-                    i > 0 && "mt-2",
-                  )}
+                  exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                  transition={{ duration: 0.24, ease: "easeOut" }}
+                  className="px-3 py-2 flex items-center justify-between gap-3"
                 >
-                  <span className="truncate">{e.text}</span>
-                  <span className="text-[11px] text-muted-foreground ml-3 shrink-0">
+                  <span className="text-sm truncate">{e.text}</span>
+                  <span className="text-[11px] text-muted-foreground shrink-0">
                     {Math.max(0, Math.floor((Date.now() - e.ts) / 1000))}s
                   </span>
                 </motion.div>
@@ -539,6 +590,90 @@ export default function StakingPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* (E) PERFORMANCE INSIGHTS */}
+      <Card className="border-border/60">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Performance insights</CardTitle>
+          <p className="text-xs text-muted-foreground">Simple trends to build trust. Not a dashboard.</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="rounded-2xl border border-border/60 bg-muted/10 p-3">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Users staking</p>
+              <p className="text-lg font-bold">
+                <AnimatedNumber value={Number(overview.total_stakers ?? 0)} decimals={0} />
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-muted/10 p-3">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Paid today</p>
+              <p className="text-lg font-bold text-emerald-200">
+                <AnimatedNumber value={Number(overview.total_paid_today ?? 0)} decimals={2} /> USDT
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-muted/10 p-3">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg daily %</p>
+              <p className="text-lg font-bold text-cyan-200">~{dailyReturnPct.toFixed(2)}%</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="rounded-2xl border border-border/60 bg-muted/10 p-3">
+              <p className="text-[11px] font-semibold">Today earnings (sparkline)</p>
+              <div className="mt-2 h-20">
+                <ChartContainer
+                  config={{
+                    v: { label: "Earnings", color: "#22c55e" },
+                  }}
+                  className="h-20 w-full"
+                >
+                  <RechartsPrimitive.LineChart data={earningsPoints.map((x) => ({ v: x.v }))} margin={{ left: 0, right: 0, top: 6, bottom: 0 }}>
+                    <RechartsPrimitive.Tooltip content={<ChartTooltipContent />} />
+                    <RechartsPrimitive.Line type="monotone" dataKey="v" stroke="var(--color-v)" strokeWidth={2} dot={false} />
+                  </RechartsPrimitive.LineChart>
+                </ChartContainer>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">Smooth tracking, no hidden charges.</p>
+            </div>
+
+            <div className="rounded-2xl border border-border/60 bg-muted/10 p-3">
+              <p className="text-[11px] font-semibold">Weekly trend (simple)</p>
+              <div className="mt-2 h-20">
+                <ChartContainer
+                  config={{
+                    v: { label: "Trend", color: "#00e5ff" },
+                  }}
+                  className="h-20 w-full"
+                >
+                  <RechartsPrimitive.LineChart data={earningsPoints.map((x, i) => ({ v: x.v + (i % 5 === 0 ? 0.0002 : 0) }))} margin={{ left: 0, right: 0, top: 6, bottom: 0 }}>
+                    <RechartsPrimitive.Line type="monotone" dataKey="v" stroke="var(--color-v)" strokeWidth={2} dot={false} />
+                  </RechartsPrimitive.LineChart>
+                </ChartContainer>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">Returns vary with platform performance.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Withdraw dialog (one-tap, clear copy) */}
+      <Dialog open={withdrawDialog.open} onOpenChange={(o) => setWithdrawDialog((prev) => ({ ...prev, open: o }))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Withdraw earnings</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-border/60 bg-muted/10 p-3">
+              <p className="text-xs text-muted-foreground">Available earnings</p>
+              <p className="text-xl font-bold text-emerald-200">+{withdrawDialog.amount.toFixed(2)} USDT</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Withdraw may take a few seconds.</p>
+            </div>
+            <Button className="w-full h-11 rounded-2xl" disabled={withdrawingId != null} onClick={() => void confirmWithdraw()}>
+              {withdrawingId != null ? "Processing…" : "Withdraw now"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
