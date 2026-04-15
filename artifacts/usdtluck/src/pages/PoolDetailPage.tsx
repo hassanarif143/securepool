@@ -17,7 +17,7 @@ import { getGetMeQueryKey } from "@workspace/api-client-react";
 import confetti from "canvas-confetti";
 import { apiUrl } from "@/lib/api-base";
 import { friendlyApiError, friendlyErrorFromResponse, friendlyNetworkError } from "@/lib/user-facing-errors";
-import { platformFeeUsdtForPoolTotal } from "@/lib/platform-fee";
+import { platformFeeUsdtForPoolEntry } from "@/lib/platform-fee";
 import { PoolStatusBar } from "@/components/PoolStatusBar";
 
 function timeAgoShort(iso: string) {
@@ -593,8 +593,7 @@ export default function PoolDetailPage() {
 
   const canFreeJoin = Boolean(user && (user.freeEntries ?? 0) > 0);
   const effectiveEntryDue = poolDetails?.entry_pricing?.amountDue ?? pool.entryFee;
-  const totalPoolNow = (poolDetails?.current_entries ?? pool.participantCount) * pool.entryFee;
-  const platformFeeEstimate = platformFeeUsdtForPoolTotal(totalPoolNow);
+  const platformFeePerTicket = platformFeeUsdtForPoolEntry(pool.entryFee);
   const freeThisPurchase = Boolean(!userJoinedEffective && useFreeEntry && canFreeJoin);
   const grossTicketTotal = freeThisPurchase ? 0 : effectiveEntryDue * ticketQty;
   const displayPayUsdt = grossTicketTotal;
@@ -865,7 +864,7 @@ export default function PoolDetailPage() {
                 <ul className="text-[11px] text-muted-foreground space-y-1 list-disc list-inside leading-relaxed">
                   <li>Fair draw uses weighted random selection on your tickets.</li>
                   <li>Your wallet is deducted only by the ticket price you confirm.</li>
-                  <li>Platform fee is 10% of the pool total (applied inside the pool system).</li>
+                  <li>Platform fee is based on ticket price bands (see fee table in How it works).</li>
                   <li>Early exit may apply a charge (see notice below if you already hold tickets).</li>
                 </ul>
               </div>
@@ -1119,7 +1118,7 @@ export default function PoolDetailPage() {
             <div className="flex justify-between"><span className="text-muted-foreground">Wallet before</span><span className="font-medium">{Number(user?.walletBalance ?? 0).toFixed(2)} USDT</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Wallet after</span><span className="font-medium">{Math.max(0, Number(user?.walletBalance ?? 0) - displayPayUsdt).toFixed(2)} USDT</span></div>
             <div className="text-[11px] text-muted-foreground pt-1.5 border-t border-border/40">
-              Platform fee is applied inside the pool system (10% of pool total). Estimate right now: ~{platformFeeEstimate.toFixed(2)} USDT.
+              Platform fee per ticket (by band): {platformFeePerTicket.toFixed(2)} USDT.
             </div>
           </div>
         ) : null}

@@ -17,7 +17,7 @@ export function PlatformFeeRuleExplainer({ variant = "full", className = "" }: P
         <p className="font-medium text-foreground/90 mb-1">How the platform fee works</p>
         <p>{PLATFORM_FEE_RULE_ONE_LINER}</p>
         <p className="mt-1.5 text-[10px]">
-          Fee is calculated on the pool total (not added on top of your ticket). Your wallet deduction is always exactly the ticket price you confirm.
+          Simple: 1–5 USDT → 1 fee, 6–10 → 2, … up to 25 → 5.
         </p>
         <Link href="/how-it-works#fees" className="mt-2 inline-block text-[10px] text-primary underline underline-offset-2">
           Full fee table &amp; examples
@@ -30,13 +30,13 @@ export function PlatformFeeRuleExplainer({ variant = "full", className = "" }: P
     <div className={`rounded-xl border border-emerald-500/20 bg-emerald-950/15 px-4 py-4 sm:px-5 sm:py-5 ${className}`}>
       <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400/90 mb-2">Platform fee rule</p>
       <p className="text-sm text-muted-foreground leading-relaxed mb-4">{PLATFORM_FEE_RULE_ONE_LINER}</p>
-      <p className="text-xs text-muted-foreground mb-2">Quick guide (pool total → platform fee):</p>
+      <p className="text-xs text-muted-foreground mb-2">Quick guide (ticket price → fee per ticket):</p>
       <div className="overflow-x-auto rounded-lg border border-border/40 bg-background/40">
         <table className="w-full text-xs sm:text-sm">
           <thead>
             <tr className="border-b border-border/50 text-left text-muted-foreground">
-              <th className="px-3 py-2 font-medium">Pool total up to</th>
-              <th className="px-3 py-2 font-medium">Platform fee (10%)</th>
+              <th className="px-3 py-2 font-medium">Ticket price up to</th>
+              <th className="px-3 py-2 font-medium">Fee per ticket</th>
             </tr>
           </thead>
           <tbody>
@@ -50,7 +50,7 @@ export function PlatformFeeRuleExplainer({ variant = "full", className = "" }: P
         </table>
       </div>
       <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
-        Your checkout always shows exactly what will be deducted from your wallet (ticket price).
+        Example: 5 USDT ticket → fee 1 → non-winner refund target = 4 USDT (when reserve allows).
       </p>
     </div>
   );
