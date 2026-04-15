@@ -1843,7 +1843,9 @@ async function executePoolDistribution(
     const clampCents = (c: number) => Math.max(0, Math.floor(c));
 
     const totalPoolCents = clampCents(toCents(filledSeats * ticketPrice));
-    const platformFeeCents = Math.floor(totalPoolCents * 0.1); // 10%
+    // Platform fee uses the existing per-ticket fee rule (same as join pricing / admin override).
+    const feePerTicketCents = clampCents(toCents(platformFeePerJoinUsdt(ticketPrice, pool.platformFeePerJoin)));
+    const platformFeeCents = clampCents(feePerTicketCents * filledSeats);
     const prizePoolCents = clampCents(totalPoolCents - platformFeeCents);
     let adjustedPrizePoolCents = Math.floor(prizePoolCents * fillRatio);
     // Guarantee: never allow a zero/negative effective prize pool if there was activity.
@@ -1866,31 +1868,58 @@ async function executePoolDistribution(
     let thirdCents = thirdCentsRaw;
 
     // Refund system (real users only, non-winners). Refunds are sourced from reserve only.
-    let refundRate = 0.1;
-    if (fillRatio < 0.5) refundRate = 0.3;
-    else if (fillRatio <= 0.8) refundRate = 0.2;
-    else refundRate = 0.1;
-    const perUserRefundCentsBase = clampCents(toCents(ticketPrice * refundRate));
-
-    const realLoserUserIds = participants
-      .map((p) => p.userId)
-      .filter((uid) => !winnerIdSet.has(uid))
-      .filter((uid, idx, arr) => arr.indexOf(uid) === idx)
-      .filter((uid) => !isSimulatedByUserId(uid));
+    // Expected behavior: refund "ticketPrice − feePerTicket" per ticket when reserve allows.
+    const maxRefundPerTicketCents = clampCents(Math.max(0, toCents(ticketPrice) - feePerTicketCents));
 
     const loserRefundByUserId = new Map<number, number>();
     let refundsCents = 0;
-    if (!simulatedOnlyPool && realLoserUserIds.length > 0 && perUserRefundCentsBase > 0 && reserveCents > 0) {
-      const maxTotalRefundsCents = clampCents(perUserRefundCentsBase * realLoserUserIds.length);
-      const allowedRefundsCents = Math.min(reserveCents, maxTotalRefundsCents);
-      const perUserRefundCents =
-        realLoserUserIds.length > 0 ? Math.floor(allowedRefundsCents / realLoserUserIds.length) : 0;
-      for (const uid of realLoserUserIds) {
-        if (perUserRefundCents <= 0) break;
-        loserRefundByUserId.set(uid, fromCents(perUserRefundCents));
-        refundsCents += perUserRefundCents;
+    if (!simulatedOnlyPool && reserveCents > 0 && maxRefundPerTicketCents > 0) {
+      type Want = { userId: number; wantCents: number; frac: number };
+      const wants: Want[] = [];
+
+      for (const row of participants) {
+        if (winnerIdSet.has(row.userId)) continue;
+        if (isSimulatedByUserId(row.userId)) continue;
+        const tc = Math.max(1, row.ticketCount ?? 1);
+        const paid = clampCents(toCents(parseFloat(String(row.amountPaid ?? "0"))));
+        const want = Math.min(paid, clampCents(maxRefundPerTicketCents * tc));
+        if (want <= 0) continue;
+        wants.push({ userId: row.userId, wantCents: want, frac: 0 });
       }
-      reserveCents = clampCents(reserveCents - refundsCents);
+
+      const totalWant = wants.reduce((s, w) => s + w.wantCents, 0);
+      const budget = Math.min(reserveCents, totalWant);
+      if (budget > 0 && wants.length > 0) {
+        if (budget >= totalWant) {
+          for (const w of wants) {
+            loserRefundByUserId.set(w.userId, fromCents(w.wantCents));
+            refundsCents += w.wantCents;
+          }
+        } else {
+          // Scale down proportionally, ledger-safe rounding to cents.
+          const scale = budget / totalWant;
+          const targetCents = Math.round(budget);
+          for (const w of wants) {
+            const raw = w.wantCents * scale;
+            const base = Math.floor(raw);
+            w.frac = raw - base;
+            w.wantCents = base;
+          }
+          let sum = wants.reduce((s, w) => s + w.wantCents, 0);
+          let give = targetCents - sum;
+          wants.sort((a, b) => b.frac - a.frac);
+          for (let i = 0; i < wants.length && give > 0; i++) {
+            wants[i]!.wantCents += 1;
+            give -= 1;
+          }
+          for (const w of wants) {
+            if (w.wantCents <= 0) continue;
+            loserRefundByUserId.set(w.userId, fromCents(w.wantCents));
+            refundsCents += w.wantCents;
+          }
+        }
+        reserveCents = clampCents(reserveCents - refundsCents);
+      }
     }
 
     // Exclude simulated users from payouts: if a winner is simulated, move their prize to reserve.
@@ -1941,7 +1970,7 @@ async function executePoolDistribution(
     const totalLoserRefunds = fromCents(refundsCents);
     const settlementRemainder = fromCents(reserveCents);
 
-    // For legacy code below: use feePerListEntry only in refund notes (keep existing variable shape).
+    // For refund notes (user-facing history).
     const feePerListEntry = platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin);
 
     const prizes = [
