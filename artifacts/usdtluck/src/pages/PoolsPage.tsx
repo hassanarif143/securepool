@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiUrl } from "@/lib/api-base";
 import { premiumPanel } from "@/lib/premium-panel";
+import { ProgressiveList } from "@/components/ProgressiveList";
 
 const BANNER_KEY = "securepool_pools_onboarding_dismissed";
 
@@ -241,9 +242,16 @@ function PoolGrid({ pools, empty }: { pools: Pool[]; empty: string }) {
   }
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-      {pools.map((pool) => (
-        <PoolCard key={pool.id} pool={pool} />
-      ))}
+      <ProgressiveList
+        items={pools}
+        initialLimit={6}
+        incrementSize={5}
+        resetKey={pools.length}
+        getKey={(pool) => pool.id}
+        className="contents"
+        buttonClassName="col-span-full"
+        renderItem={(pool) => <PoolCard pool={pool} />}
+      />
     </div>
   );
 }
