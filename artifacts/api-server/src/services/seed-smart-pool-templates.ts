@@ -41,6 +41,20 @@ function pctFromPrizes(prizes: number[], prizeBudget: number): Array<{ place: nu
     .filter((r) => r.percentage > 0);
 }
 
+function fixedPrizeDistribution(winnerCount: number): Array<{ place: number; percentage: number }> {
+  const w = Math.min(3, Math.max(1, Math.floor(Number(winnerCount)) || 3));
+  if (w === 1) return [{ place: 1, percentage: 100 }];
+  if (w === 2) return [
+    { place: 1, percentage: 70 },
+    { place: 2, percentage: 30 },
+  ];
+  return [
+    { place: 1, percentage: 60 },
+    { place: 2, percentage: 25 },
+    { place: 3, percentage: 10 },
+  ];
+}
+
 function buildRows(): Row[] {
   const rows: Row[] = [];
 
@@ -61,9 +75,11 @@ function buildRows(): Row[] {
     } = {},
   ) => {
     const totalPool = ticketPrice * totalTickets;
-    const prizeBudget = Math.max(0, totalPool - platformFeeAbs);
-    const platformFeePct = totalPool > 0 ? ((platformFeeAbs / totalPool) * 100).toFixed(2) : "10";
-    const prizeDistribution = pctFromPrizes(prizeAbs.slice(0, winnerCount), prizeBudget);
+    // Updated economics: platform fee is always 10% of total pool.
+    // Template "prizeDistribution" is a percentage split of the prize pool (after platform fee),
+    // with any remainder implicitly treated as reserve by settlement logic.
+    const platformFeePct = "10.00";
+    const prizeDistribution = fixedPrizeDistribution(winnerCount);
     rows.push({
       slug,
       name,
@@ -193,34 +209,64 @@ export async function ensureSmartPoolTemplates(): Promise<void> {
   const rows = buildRows();
   for (const r of rows) {
     const [exists] = await db.select({ id: poolTemplatesTable.id }).from(poolTemplatesTable).where(eq(poolTemplatesTable.slug, r.slug)).limit(1);
-    if (exists) continue;
+    if (!exists) {
+      await db.insert(poolTemplatesTable).values({
+        name: r.name,
+        displayName: r.displayName,
+        slug: r.slug,
+        description: r.description,
+        category: r.category,
+        scheduleType: r.scheduleType,
+        ticketPrice: r.ticketPrice,
+        totalTickets: r.totalTickets,
+        winnerCount: r.winnerCount,
+        prizeDistribution: r.prizeDistribution,
+        platformFeePct: r.platformFeePct,
+        durationHours: 24,
+        tierIcon: r.tierIcon,
+        tierColor: r.tierColor,
+        isActive: true,
+        sortOrder: r.sortOrder,
+        poolType: r.poolType,
+        drawDelayMinutes: r.drawDelayMinutes,
+        autoRecreate: r.autoRecreate,
+        minActivePools: r.minActivePools,
+        maxActivePools: r.maxActivePools,
+        cooldownHours: r.cooldownHours,
+        badgeText: r.badgeText,
+        badgeColor: r.badgeColor,
+      } as any);
+      logger.info({ slug: r.slug }, "[seed-smart-templates] inserted template");
+      continue;
+    }
 
-    await db.insert(poolTemplatesTable).values({
-      name: r.name,
-      displayName: r.displayName,
-      slug: r.slug,
-      description: r.description,
-      category: r.category,
-      scheduleType: r.scheduleType,
-      ticketPrice: r.ticketPrice,
-      totalTickets: r.totalTickets,
-      winnerCount: r.winnerCount,
-      prizeDistribution: r.prizeDistribution,
-      platformFeePct: r.platformFeePct,
-      durationHours: 24,
-      tierIcon: r.tierIcon,
-      tierColor: r.tierColor,
-      isActive: true,
-      sortOrder: r.sortOrder,
-      poolType: r.poolType,
-      drawDelayMinutes: r.drawDelayMinutes,
-      autoRecreate: r.autoRecreate,
-      minActivePools: r.minActivePools,
-      maxActivePools: r.maxActivePools,
-      cooldownHours: r.cooldownHours,
-      badgeText: r.badgeText,
-      badgeColor: r.badgeColor,
-    } as any);
-    logger.info({ slug: r.slug }, "[seed-smart-templates] inserted template");
+    // Regenerate existing template rows to keep them aligned with updated pool economics.
+    await db
+      .update(poolTemplatesTable)
+      .set({
+        name: r.name,
+        displayName: r.displayName,
+        description: r.description,
+        category: r.category,
+        scheduleType: r.scheduleType,
+        ticketPrice: r.ticketPrice,
+        totalTickets: r.totalTickets,
+        winnerCount: r.winnerCount,
+        prizeDistribution: r.prizeDistribution,
+        platformFeePct: r.platformFeePct,
+        tierIcon: r.tierIcon,
+        tierColor: r.tierColor,
+        sortOrder: r.sortOrder,
+        poolType: r.poolType,
+        drawDelayMinutes: r.drawDelayMinutes,
+        autoRecreate: r.autoRecreate,
+        minActivePools: r.minActivePools,
+        maxActivePools: r.maxActivePools,
+        cooldownHours: r.cooldownHours,
+        badgeText: r.badgeText,
+        badgeColor: r.badgeColor,
+      } as any)
+      .where(eq(poolTemplatesTable.slug, r.slug));
+    logger.info({ slug: r.slug }, "[seed-smart-templates] regenerated template");
   }
 }
