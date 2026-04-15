@@ -55,6 +55,13 @@ function fixedPrizeDistribution(winnerCount: number): Array<{ place: number; per
   ];
 }
 
+function feePerTicketUsdt(ticketPrice: number): number {
+  // Must match `calculatePlatformFee` logic in `api-server/src/lib/user-balances.ts`
+  const e = Number(ticketPrice);
+  if (!Number.isFinite(e) || e <= 0) return 1;
+  return Math.ceil(e / 5);
+}
+
 function buildRows(): Row[] {
   const rows: Row[] = [];
 
@@ -74,11 +81,13 @@ function buildRows(): Row[] {
       poolType?: "small" | "large";
     } = {},
   ) => {
-    const totalPool = ticketPrice * totalTickets;
-    // Updated economics: platform fee is always 10% of total pool.
-    // Template "prizeDistribution" is a percentage split of the prize pool (after platform fee),
-    // with any remainder implicitly treated as reserve by settlement logic.
-    const platformFeePct = "10.00";
+    // Updated economics (auto-generated pools):
+    // - Platform fee is charged per-ticket using fee bands (ceil(ticketPrice/5)).
+    // - We store `platformFeePct` such that `createPoolFromTemplate` produces a per-join fee
+    //   equal to the band fee (platformFeeAmount/totalTickets = feePerTicket).
+    const feePerTicket = feePerTicketUsdt(ticketPrice);
+    const pct = ticketPrice > 0 ? (feePerTicket / ticketPrice) * 100 : 0;
+    const platformFeePct = Number.isFinite(pct) ? pct.toFixed(2) : "20.00";
     const prizeDistribution = fixedPrizeDistribution(winnerCount);
     rows.push({
       slug,
