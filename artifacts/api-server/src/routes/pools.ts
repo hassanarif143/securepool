@@ -1829,110 +1829,131 @@ async function executePoolDistribution(
       }
     }
 
-    let totalRevenue = 0;
-    if (simulatedOnlyPool) {
-      // Virtual revenue for simulated pools; used for display only.
-      totalRevenue = Number((effectiveTicketCount * entryFee).toFixed(2));
-    } else {
-      for (const p of participants) {
-        const paid =
-          p.amountPaid != null && String(p.amountPaid).trim() !== ""
-            ? parseFloat(String(p.amountPaid))
-            : entryFee;
-        totalRevenue += paid;
-      }
-    }
+    // ─── Updated pool economics (ledger-safe) ──────────────────────────────────
+    // Inputs we derive from the pool state:
+    const totalSeats = getTotalTickets(pool);
+    const filledSeats = Math.max(0, Math.min(totalSeats, effectiveTicketCount));
+    const ticketPrice = entryFee;
+    const fillRatio = totalSeats > 0 ? Math.max(0, Math.min(1, filledSeats / totalSeats)) : 0;
 
-    const feePerListEntry = platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin);
-    const stakeReturnPerTicket = Math.max(0, entryFee - feePerListEntry);
+    const isSimulatedByUserId = (userId: number) => Boolean(botsById.get(userId));
     const winnerIdSet = new Set(manualWinnerUserIds);
 
-    /** Per-loser cap: list stake returned (net of join fee), never more than they paid. */
-    const loserFullRefundByUserId = new Map<number, number>();
-    for (const row of participants) {
-      if (winnerIdSet.has(row.userId)) continue;
-      const paid = parseFloat(String(row.amountPaid ?? "0"));
-      if (paid <= 0) continue;
-      const tc = row.ticketCount ?? 1;
-      const theoretical = tc * stakeReturnPerTicket;
-      const fullRefund = Number(Math.min(paid, theoretical).toFixed(2));
-      if (fullRefund <= 0) continue;
-      loserFullRefundByUserId.set(row.userId, fullRefund);
+    let realUsersCount = 0;
+    let simulatedUsersCount = 0;
+    for (const uid of participantUserIds) {
+      if (isSimulatedByUserId(uid)) simulatedUsersCount++;
+      else realUsersCount++;
     }
+    const totalUsersCount = realUsersCount + simulatedUsersCount;
+    const botUsersRatio = totalUsersCount > 0 ? simulatedUsersCount / totalUsersCount : 0;
 
-    const totalPrizes = prizeTotalForWinnerSlots(p1, p2, p3, winnerCount);
-    if (!simulatedOnlyPool && totalRevenue + 0.02 < totalPrizes) {
-      const e = new Error(
-        `Pool settlement is short by ${Math.abs(totalRevenue - totalPrizes).toFixed(2)} USDT (wallet revenue ${totalRevenue.toFixed(2)} vs ${totalPrizes.toFixed(2)} prizes). Lower prizes or add participants.`,
-      );
-      (e as { code?: string }).code = "INSUFFICIENT_SETTLEMENT";
-      throw e;
-    }
+    // Total pool uses filled seats (real + simulated) at ticket price.
+    const toCents = (n: number) => Math.round((Number.isFinite(n) ? n : 0) * 100);
+    const fromCents = (c: number) => Number((c / 100).toFixed(2));
+    const clampCents = (c: number) => Math.max(0, Math.floor(c));
 
-    // Full stake-back to every loser would need W*net >= prizes + profit (impossible for typical templates).
-    // Split whatever remains after prizes + target platform profit across losers, proportional to their caps.
-    const refundBudget = Number(
-      Math.max(0, totalRevenue - totalPrizes - desiredProfit).toFixed(2),
-    );
-    let totalTheoretical = 0;
-    for (const v of loserFullRefundByUserId.values()) totalTheoretical += v;
+    const totalPoolCents = clampCents(toCents(filledSeats * ticketPrice));
+    const platformFeeCents = Math.floor(totalPoolCents * 0.1); // 10%
+    const prizePoolCents = clampCents(totalPoolCents - platformFeeCents);
+    const adjustedPrizePoolCents = Math.floor(prizePoolCents * fillRatio);
+
+    // Base prize split always uses: 60/25/10 and keeps remainder in reserve.
+    const firstCentsRaw = Math.floor(adjustedPrizePoolCents * 0.6);
+    const secondCentsRaw = Math.floor(adjustedPrizePoolCents * 0.25);
+    const thirdCentsRaw = Math.floor(adjustedPrizePoolCents * 0.1);
+    const prizesCentsRaw = clampCents(firstCentsRaw + secondCentsRaw + thirdCentsRaw);
+    const reserveFromAdjustedCents = clampCents(adjustedPrizePoolCents - prizesCentsRaw);
+    const reserveUnallocatedCents = clampCents(prizePoolCents - adjustedPrizePoolCents);
+    let reserveCents = clampCents(reserveFromAdjustedCents + reserveUnallocatedCents);
+
+    let firstCents = firstCentsRaw;
+    let secondCents = secondCentsRaw;
+    let thirdCents = thirdCentsRaw;
+
+    // Refund system (real users only, non-winners). Refunds are sourced from reserve only.
+    let refundRate = 0.1;
+    if (fillRatio < 0.5) refundRate = 0.3;
+    else if (fillRatio <= 0.8) refundRate = 0.2;
+    else refundRate = 0.1;
+    const perUserRefundCentsBase = clampCents(toCents(ticketPrice * refundRate));
+
+    const realLoserUserIds = participants
+      .map((p) => p.userId)
+      .filter((uid) => !winnerIdSet.has(uid))
+      .filter((uid, idx, arr) => arr.indexOf(uid) === idx)
+      .filter((uid) => !isSimulatedByUserId(uid));
 
     const loserRefundByUserId = new Map<number, number>();
-    let totalLoserRefunds = 0;
-
-    if (totalTheoretical <= 0) {
-      // no paid losers or all winners
-    } else if (totalTheoretical <= refundBudget + 0.01) {
-      for (const [userId, full] of loserFullRefundByUserId) {
-        loserRefundByUserId.set(userId, full);
-        totalLoserRefunds += full;
+    let refundsCents = 0;
+    if (!simulatedOnlyPool && realLoserUserIds.length > 0 && perUserRefundCentsBase > 0 && reserveCents > 0) {
+      const maxTotalRefundsCents = clampCents(perUserRefundCentsBase * realLoserUserIds.length);
+      const allowedRefundsCents = Math.min(reserveCents, maxTotalRefundsCents);
+      const perUserRefundCents =
+        realLoserUserIds.length > 0 ? Math.floor(allowedRefundsCents / realLoserUserIds.length) : 0;
+      for (const uid of realLoserUserIds) {
+        if (perUserRefundCents <= 0) break;
+        loserRefundByUserId.set(uid, fromCents(perUserRefundCents));
+        refundsCents += perUserRefundCents;
       }
-    } else {
-      const scale = refundBudget / totalTheoretical;
-      const targetCents = Math.round(refundBudget * 100);
-      type RRow = { userId: number; fullCents: number; cents: number; frac: number };
-      const rows: RRow[] = [];
-      for (const [userId, full] of loserFullRefundByUserId) {
-        const fullCents = Math.round(full * 100);
-        const rawCents = full * scale * 100;
-        const base = Math.floor(rawCents + 1e-9);
-        rows.push({
-          userId,
-          fullCents,
-          cents: Math.min(base, fullCents),
-          frac: rawCents - Math.floor(rawCents + 1e-9),
-        });
-      }
-      let sumCents = rows.reduce((a, r) => a + r.cents, 0);
-      let give = targetCents - sumCents;
-      rows.sort((a, b) => b.frac - a.frac);
-      for (let i = 0; i < rows.length && give > 0; i++) {
-        const room = rows[i].fullCents - rows[i].cents;
-        const add = Math.min(give, room);
-        rows[i].cents += add;
-        give -= add;
-      }
-      for (const r of rows) {
-        if (r.cents <= 0) continue;
-        const amt = r.cents / 100;
-        loserRefundByUserId.set(r.userId, amt);
-        totalLoserRefunds += amt;
-      }
+      reserveCents = clampCents(reserveCents - refundsCents);
     }
 
-    const settlementRemainder = totalRevenue - totalPrizes - totalLoserRefunds;
-    if (settlementRemainder < -0.02) {
-      const e = new Error(
-        `Pool settlement is short by ${Math.abs(settlementRemainder).toFixed(2)} USDT (wallet revenue ${totalRevenue.toFixed(2)} vs ${totalPrizes.toFixed(2)} prizes + ${totalLoserRefunds.toFixed(2)} loser refunds). Lower prizes or adjust entries.`,
-      );
-      (e as { code?: string }).code = "INSUFFICIENT_SETTLEMENT";
-      throw e;
+    // Exclude simulated users from payouts: if a winner is simulated, move their prize to reserve.
+    if (!simulatedOnlyPool) {
+      const winners = manualWinnerUserIds.slice(0, 3);
+      const prizeCentsByIndex = [firstCents, secondCents, thirdCents];
+      for (let i = 0; i < Math.min(winnerCount, winners.length); i++) {
+        const uid = winners[i]!;
+        if (isSimulatedByUserId(uid)) {
+          reserveCents = clampCents(reserveCents + prizeCentsByIndex[i]!);
+          prizeCentsByIndex[i] = 0;
+        }
+      }
+      firstCents = prizeCentsByIndex[0] ?? 0;
+      secondCents = prizeCentsByIndex[1] ?? 0;
+      thirdCents = prizeCentsByIndex[2] ?? 0;
     }
+
+    // Ledger rule: totalPool = platformFee + prizes + refunds + reserve
+    const prizesPaidCents = clampCents(firstCents + secondCents + thirdCents);
+    const ledgerSumCents = clampCents(platformFeeCents + prizesPaidCents + refundsCents + reserveCents);
+    const correction: string[] = [];
+    if (ledgerSumCents !== totalPoolCents) {
+      // Adjust reserve first
+      const delta = totalPoolCents - ledgerSumCents;
+      reserveCents = clampCents(reserveCents + delta);
+      correction.push(`reserve ${delta >= 0 ? "+" : ""}${fromCents(delta)}`);
+    }
+    // If reserve went negative due to rounding, reduce prizes (third → second → first).
+    if (reserveCents < 0) {
+      let short = -reserveCents;
+      const take = (c: number, n: number) => {
+        const t = Math.min(c, n);
+        return [c - t, n - t] as const;
+      };
+      [thirdCents, short] = take(thirdCents, short);
+      [secondCents, short] = take(secondCents, short);
+      [firstCents, short] = take(firstCents, short);
+      reserveCents = 0;
+      correction.push("reduced prizes to balance");
+    }
+
+    const totalPool = fromCents(totalPoolCents);
+    const platformFee = fromCents(platformFeeCents);
+    const prizePool = fromCents(prizePoolCents);
+    const adjustedPrizePool = fromCents(adjustedPrizePoolCents);
+    const totalPrizes = fromCents(firstCents + secondCents + thirdCents);
+    const totalLoserRefunds = fromCents(refundsCents);
+    const settlementRemainder = fromCents(reserveCents);
+
+    // For legacy code below: use feePerListEntry only in refund notes (keep existing variable shape).
+    const feePerListEntry = platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin);
 
     const prizes = [
-      { place: 1 as const, prize: p1 },
-      { place: 2 as const, prize: p2 },
-      { place: 3 as const, prize: p3 },
+      { place: 1 as const, prize: fromCents(firstCents) },
+      { place: 2 as const, prize: fromCents(secondCents) },
+      { place: 3 as const, prize: fromCents(thirdCents) },
     ];
 
     const winnerRecords: Array<{
@@ -2104,10 +2125,8 @@ async function executePoolDistribution(
     }
 
     const ticketsSold = ticketTotal > 0 ? ticketTotal : participants.length;
-    const ticketPrice = entryFee;
-    // For simulated-only pools, we still compute and store a "virtual" profit so finance testing works,
-    // but we never post it to the real platform fee ledger (see appendPlatformFeeForDraw below).
-    const platformFee = settlementRemainder;
+    // Updated economics:
+    const totalRevenue = totalPool;
     const profitMarginPercent = totalRevenue > 0 ? (platformFee / totalRevenue) * 100 : 0;
 
     await tx.insert(poolDrawFinancialsTable).values({
@@ -2115,9 +2134,9 @@ async function executePoolDistribution(
       ticketsSold,
       ticketPrice: String(ticketPrice),
       totalRevenue: String(totalRevenue),
-      prizeFirst: String(p1),
-      prizeSecond: String(p2),
-      prizeThird: String(p3),
+      prizeFirst: String(fromCents(firstCents)),
+      prizeSecond: String(fromCents(secondCents)),
+      prizeThird: String(fromCents(thirdCents)),
       winnerFirstName: w1name,
       winnerSecondName: w2name,
       winnerThirdName: w3name,
@@ -2131,7 +2150,7 @@ async function executePoolDistribution(
       await appendPlatformFeeForDraw(tx, {
         poolId,
         platformFee,
-        description: `Draw #${poolId} — settlement (${totalRevenue.toFixed(2)} revenue − ${totalPrizes.toFixed(2)} prizes − ${totalLoserRefunds.toFixed(2)} loser refunds)`,
+        description: `Draw #${poolId} — platform fee (10% of ${totalRevenue.toFixed(2)} total pool)`,
       });
     }
 
