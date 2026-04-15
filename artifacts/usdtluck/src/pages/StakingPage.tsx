@@ -90,6 +90,9 @@ export default function StakingPage() {
   }>({ open: false, stakeId: null, principal: 0, earned: 0, penaltyPct: 50 });
   const [unstakingId, setUnstakingId] = useState<number | null>(null);
   const [feed, setFeed] = useState<Array<{ id: string; text: string; ts: number }>>([]);
+  const [feedPaused, setFeedPaused] = useState(false);
+  const [feedOffset, setFeedOffset] = useState(0);
+  const [feedLastFetchedAt, setFeedLastFetchedAt] = useState<number>(0);
   const [openStakeIds, setOpenStakeIds] = useState<Record<number, boolean>>(() => {
     try {
       const raw = window.localStorage.getItem("staking.openStakes");
@@ -173,6 +176,8 @@ export default function StakingPage() {
             .slice(0, 5);
           return merged;
         });
+
+        setFeedLastFetchedAt(Date.now());
       } catch {
         /* ignore */
       }
@@ -181,6 +186,47 @@ export default function StakingPage() {
     const id = window.setInterval(loadFeed, 4000);
     return () => window.clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    if (feedPaused) return;
+    const t = window.setInterval(() => {
+      setFeedOffset((o) => {
+        const len = feed.length;
+        if (len <= 1) return 0;
+        return (o + 1) % len;
+      });
+    }, 3800);
+    return () => window.clearInterval(t);
+  }, [feed.length, feedPaused]);
+
+  const visibleFeed = useMemo(() => {
+    const len = feed.length;
+    if (len <= 5) return feed;
+    const out: Array<{ id: string; text: string; ts: number }> = [];
+    for (let i = 0; i < 5; i++) out.push(feed[(feedOffset + i) % len]);
+    return out;
+  }, [feed, feedOffset]);
+
+  function activityMeta(text: string) {
+    const t = text.toLowerCase();
+    if (t.includes("earned") || t.includes("+")) return { kind: "earn" as const, accent: "from-amber-400/30 via-amber-300/10 to-transparent", ring: "ring-amber-400/20" };
+    if (t.includes("withdraw")) return { kind: "withdraw" as const, accent: "from-rose-400/25 via-rose-300/10 to-transparent", ring: "ring-rose-400/20" };
+    return { kind: "stake" as const, accent: "from-cyan-400/30 via-cyan-300/10 to-transparent", ring: "ring-cyan-400/20" };
+  }
+  function avatarInitial(text: string) {
+    const name = text.split(" ")[0]?.trim?.() ?? "";
+    const c = name[0] ?? "U";
+    return c.toUpperCase();
+  }
+  function timeLabel(ts: number) {
+    const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    if (s <= 8) return "Just now";
+    if (s < 60) return `${s}s ago`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    return `${h}h ago`;
+  }
 
   const planById = useMemo(() => new Map(plans.map((p) => [p.id, p])), [plans]);
   const active = useMemo(() => stakes.filter((s) => s.status === "active"), [stakes]);
@@ -623,30 +669,87 @@ export default function StakingPage() {
 
       {/* (D) EARNING LIVE FEED (premium ticker) */}
       <Card className="border-border/60">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Earning live feed</CardTitle>
-          <p className="text-xs text-muted-foreground">Quiet, clean updates · Max 5 items</p>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="relative inline-flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400/60 animate-ping" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+                </span>
+                <CardTitle className="text-base">Live Activity</CardTitle>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Real-time staking activity</p>
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              {feedLastFetchedAt === 0
+                ? "Updating…"
+                : Date.now() - feedLastFetchedAt < 1500
+                  ? "Updated just now"
+                  : `Updated ${Math.max(1, Math.floor((Date.now() - feedLastFetchedAt) / 1000))}s ago`}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-muted/10 p-2">
-            <AnimatePresence initial={false} mode="popLayout">
-              {feed.slice(0, 5).map((e) => (
-                <motion.div
-                  layout
-                  key={e.id}
-                  initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
-                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                  exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                  transition={{ duration: 0.28, ease: "easeOut" }}
-                  className="px-3 py-2 flex items-center justify-between gap-3"
-                >
-                  <span className="text-sm truncate">{e.text}</span>
-                  <span className="text-[11px] text-muted-foreground shrink-0">
-                    {Math.max(0, Math.floor((Date.now() - e.ts) / 1000))}s
-                  </span>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+          <div
+            className="relative overflow-hidden rounded-[20px] border border-border/60 bg-[radial-gradient(900px_circle_at_20%_0%,rgba(34,211,238,0.14),transparent_42%),radial-gradient(700px_circle_at_100%_40%,rgba(255,215,0,0.08),transparent_55%)] bg-card/40 backdrop-blur-md shadow-[0_0_32px_rgba(34,211,238,0.08)]"
+            onPointerEnter={() => setFeedPaused(true)}
+            onPointerLeave={() => setFeedPaused(false)}
+            onTouchStart={() => {
+              setFeedPaused(true);
+              window.setTimeout(() => setFeedPaused(false), 6000);
+            }}
+          >
+            <div className="px-3 pt-2 pb-2">
+              <AnimatePresence initial={false} mode="popLayout">
+                {visibleFeed.map((e, idx) => {
+                  const meta = activityMeta(e.text);
+                  const isNewest = idx === 0;
+                  return (
+                    <motion.div
+                      layout
+                      key={e.id}
+                      initial={{ opacity: 0, y: 12, filter: "blur(6px)" }}
+                      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                      exit={{ opacity: 0, y: -12, filter: "blur(6px)" }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                      className={cn(
+                        "relative rounded-[18px] border border-border/60 px-3 py-2.5 flex items-center justify-between gap-3",
+                        "bg-muted/10 backdrop-blur",
+                        "shadow-[0_0_26px_rgba(255,255,255,0.02)]",
+                        "ring-1",
+                        meta.ring,
+                        idx > 0 && "mt-2",
+                        isNewest && "shadow-[0_0_28px_rgba(34,197,94,0.10)]",
+                      )}
+                    >
+                      <div className={cn("absolute inset-0 rounded-[18px] pointer-events-none bg-gradient-to-r opacity-70", meta.accent)} />
+                      <div className="relative flex items-center gap-3 min-w-0">
+                        <div className={cn("h-9 w-9 rounded-full grid place-items-center border border-border/60 bg-card/50", meta.ring)}>
+                          <span className="text-sm font-bold text-foreground/90">{avatarInitial(e.text)}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate">{e.text}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            {meta.kind === "stake" ? "Staking" : meta.kind === "earn" ? "Earnings" : "Withdraw"} · Activity signal
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="relative shrink-0 text-right">
+                        <p className="text-[11px] text-muted-foreground">{timeLabel(e.ts)}</p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+
+            <div className="px-3 pb-3">
+              <div className="text-[11px] text-muted-foreground/80 border-t border-border/60 pt-2">
+                Activity is updated from system network
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
