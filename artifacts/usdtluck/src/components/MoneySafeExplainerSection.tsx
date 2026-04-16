@@ -37,7 +37,7 @@ const steps = [
     title: "Everyone Else Gets a Refund",
     body: "Didn't win? Depending on fill level, real users may receive a partial refund from the pool reserve.",
     highlight:
-      "Platform fee is 10% of the total pool. Your wallet is only deducted by the ticket price you confirm.",
+      "Platform fee is based on ticket price bands. Your wallet is only deducted by the ticket price you confirm.",
   },
 ] as const;
 
@@ -49,7 +49,7 @@ const trustPoints = [
   {
     icon: Sparkles,
     title: "Clear platform fee",
-    desc: "Platform fee is 10% of the total pool. Your wallet deduction is always exactly the ticket price you confirm.",
+    desc: "Platform fee is based on ticket price bands. Your wallet deduction is always exactly the ticket price you confirm.",
   },
 ] as const;
 
@@ -198,11 +198,11 @@ export function MoneySafeExplainerSection() {
             </div>
             <div className="flex justify-between items-center gap-4 pt-1">
               <span className="text-muted-foreground">Platform fee</span>
-              <span className="font-semibold text-foreground/90 tabular-nums">Only $2 — that&apos;s it.</span>
+              <span className="font-semibold text-foreground/90 tabular-nums">Based on your ticket band.</span>
             </div>
           </div>
           <p className="relative text-center text-[11px] text-muted-foreground mt-4 max-w-sm mx-auto leading-relaxed">
-            Example uses a typical 10 USDT list price. Refund = your paid amount minus the same fee rule (see table below).
+            Fee and refund amounts depend on your ticket band (see table below).
           </p>
         </div>
 

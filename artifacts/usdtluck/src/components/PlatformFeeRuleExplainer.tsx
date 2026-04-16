@@ -17,7 +17,7 @@ export function PlatformFeeRuleExplainer({ variant = "full", className = "" }: P
         <p className="font-medium text-foreground/90 mb-1">How the platform fee works</p>
         <p>{PLATFORM_FEE_RULE_ONE_LINER}</p>
         <p className="mt-1.5 text-[10px]">
-          Simple: 1–5 USDT → 1 fee, 6–10 → 2, … up to 25 → 5.
+          Simple: 1–3 → 0.5, 3–5 → 1, 5–10 → 2, 10–15 → 3.
         </p>
         <Link href="/how-it-works#fees" className="mt-2 inline-block text-[10px] text-primary underline underline-offset-2">
           Full fee table &amp; examples
@@ -50,7 +50,7 @@ export function PlatformFeeRuleExplainer({ variant = "full", className = "" }: P
         </table>
       </div>
       <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
-        Example: 5 USDT ticket → fee 1 → non-winner refund target = 4 USDT (when reserve allows).
+        Example: 3 USDT ticket → fee 0.5 → fee is applied per ticket.
       </p>
     </div>
   );

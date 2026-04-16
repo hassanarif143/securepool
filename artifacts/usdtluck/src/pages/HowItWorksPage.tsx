@@ -82,7 +82,7 @@ export default function HowItWorksPage() {
             Platform fees &amp; refunds
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-center text-sm text-[#94a3b8]">
-            Platform fee is calculated inside the pool (10% of the total pool). Your wallet is deducted only by the ticket price you confirm.
+            Platform fee is based on ticket price bands (see table below). Your wallet is deducted only by the ticket price you confirm.
           </p>
           <div className="mt-8 rounded-2xl border border-white/[0.08] bg-[#0a0f1a]/60 p-4 sm:p-6">
             <PlatformFeeRuleExplainer variant="full" />
