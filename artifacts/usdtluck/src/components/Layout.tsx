@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo, useId } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,21 @@ import { LiveJoinNotification } from "@/components/LiveJoinNotification";
 import { SharePromptGate } from "@/components/share/SharePromptGate";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import { SiteFooter } from "@/components/SiteFooter";
-import { SPTBalanceWidget } from "@/components/spt/SPTBalanceWidget";
+import { SPTNavPill } from "@/components/spt/SPTNavPill";
+import { SPTCoin } from "@/components/spt/SPTCoin";
 import { cn } from "@/lib/utils";
+
+type NavPrimary =
+  | { href: string; label: string; kind: "emoji"; icon: string }
+  | { href: string; label: string; kind: "spt" };
+
+/** Middle slot: Games when arcade is on; Wallet otherwise (incl. while availability is loading). */
+type MobileBottomItem =
+  | { href: string; label: string; mode: "emoji"; icon: string }
+  | { href: string; label: string; mode: "spt" };
+
+const NAV_GAMES_PRIMARY: NavPrimary = { href: "/games", label: "Games", kind: "emoji", icon: "🎮" };
+const MORE_GAMES = { href: "/games", label: "Games", icon: "🎮" } as const;
 
 function playNotifSound() {
   try {
@@ -139,6 +152,7 @@ function NotificationBell() {
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         onClick={openDropdown}
         className="relative p-2 rounded-xl transition-all hover:bg-white/[0.05] focus:outline-none"
         aria-label="Notifications"
@@ -382,15 +396,17 @@ function WalletDropdown({
           </div>
           <div className="p-2 space-y-0.5">
             {actions.map((a) => (
-              <Link key={a.href} href={a.href}>
-                <button onClick={() => setOpen(false)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-white/5 group">
-                  <span className="text-lg w-6 text-center shrink-0">{a.icon}</span>
-                  <div>
-                    <p className="text-sm font-medium group-hover:text-primary transition-colors">{a.label}</p>
-                    <p className="text-xs text-muted-foreground">{a.desc}</p>
-                  </div>
-                </button>
+              <Link
+                key={a.href}
+                href={a.href}
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-white/5 group"
+              >
+                <span className="text-lg w-6 text-center shrink-0">{a.icon}</span>
+                <div>
+                  <p className="text-sm font-medium group-hover:text-primary transition-colors">{a.label}</p>
+                  <p className="text-xs text-muted-foreground">{a.desc}</p>
+                </div>
               </Link>
             ))}
           </div>
@@ -418,6 +434,7 @@ function UserMenu({ user, logout }: { user: any; logout: () => void }) {
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "flex items-center gap-2 rounded-xl px-2 py-1.5 transition-all focus:outline-none hover:bg-white/5 border",
@@ -449,23 +466,31 @@ function UserMenu({ user, logout }: { user: any; logout: () => void }) {
           </div>
 
           <div className="p-2 space-y-0.5">
-            <Link href="/profile">
-              <button onClick={() => setOpen(false)}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground">
-                <span className="w-5 text-center">👤</span> Profile & Settings
-              </button>
+            <Link
+              href="/profile"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground"
+            >
+              <span className="w-5 text-center">👤</span> Profile & Settings
             </Link>
-            <Link href="/wallet">
-              <button onClick={() => setOpen(false)}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground">
-                <span className="w-5 text-center">💼</span> My Wallet
-              </button>
+            <Link
+              href="/wallet"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground"
+            >
+              <span className="w-5 text-center">💼</span> My Wallet
             </Link>
           </div>
 
           <div className="p-2 border-t border-border">
-            <button onClick={() => { logout(); setOpen(false); }}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors text-red-400 hover:bg-red-500/10">
+            <button
+              type="button"
+              onClick={() => {
+                logout();
+                setOpen(false);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors text-red-400 hover:bg-red-500/10"
+            >
               <span className="w-5 text-center">🚪</span> Sign Out
             </button>
           </div>
@@ -481,6 +506,7 @@ function UserMenu({ user, logout }: { user: any; logout: () => void }) {
 function MoreMenu({ links, location }: { links: { href: string; label: string; icon: string }[]; location: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const moreMenuId = useId();
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -495,7 +521,11 @@ function MoreMenu({ links, location }: { links: { href: string; label: string; i
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="true"
+        aria-controls={moreMenuId}
         className={cn(
           "relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
           anyActive ? "text-primary bg-primary/10 border border-primary/20" : "text-muted-foreground hover:text-foreground"
@@ -509,20 +539,26 @@ function MoreMenu({ links, location }: { links: { href: string; label: string; i
       </button>
 
       {open && (
-        <div className="absolute left-0 mt-2 w-48 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden z-50">
+        <div
+          id={moreMenuId}
+          className="absolute left-0 mt-2 w-48 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden z-50"
+        >
           <div className="p-2 space-y-0.5">
             {links.map((link) => {
               const active = location.startsWith(link.href);
               return (
-                <Link key={link.href} href={link.href}>
-                  <button onClick={() => setOpen(false)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors ${
-                      active ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                    }`}>
-                    <span className="w-5 text-center">{link.icon}</span>
-                    <span className="font-medium">{link.label}</span>
-                    {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
-                  </button>
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => setOpen(false)}
+                  className={`flex w-full items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors ${
+                    active ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  }`}
+                >
+                  <span className="w-5 text-center">{link.icon}</span>
+                  <span className="font-medium">{link.label}</span>
+                  {active && <span className="ml-auto w-1.5 h-1.5 shrink-0 rounded-full bg-primary" />}
                 </Link>
               );
             })}
@@ -544,7 +580,7 @@ function MobileMenu({
   logout,
   onClose,
 }: {
-  primaryLinks: { href: string; label: string; icon: string }[];
+  primaryLinks: NavPrimary[];
   secondaryLinks: { href: string; label: string; icon: string }[];
   location: string;
   user: any;
@@ -575,34 +611,62 @@ function MobileMenu({
         </div>
       </div>
 
-      <nav className="px-3 pt-3 pb-6 space-y-1 safe-area-pb">
-        {allLinks.map((link) => (
-          <Link key={link.href} href={link.href}>
-            <span onClick={onClose}
-              className={`flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium transition-colors cursor-pointer min-h-12 ${
-                location.startsWith(link.href)
-                  ? "bg-primary/12 text-primary"
+      <nav className="px-3 pt-3 pb-6 space-y-1 safe-area-pb" aria-label="Mobile menu">
+        {allLinks.map((link) => {
+          const active = location.startsWith(link.href);
+          const isSpt = "kind" in link && link.kind === "spt";
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              aria-current={active ? "page" : undefined}
+              onClick={onClose}
+              className={`flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium transition-colors min-h-12 ${
+                active
+                  ? isSpt
+                    ? "bg-[#FFD166]/12 text-[#FFD166]"
+                    : "bg-primary/12 text-primary"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-              }`}>
-              <span className="text-base w-5 text-center">{link.icon}</span>
+              }`}
+            >
+              {isSpt ? (
+                <span className="w-5 flex justify-center shrink-0">
+                  <SPTCoin size="sm" />
+                </span>
+              ) : (
+                <span className="text-base w-5 text-center">{(link as { icon: string }).icon}</span>
+              )}
               {link.label}
-              {location.startsWith(link.href) && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
-            </span>
-          </Link>
-        ))}
+              {active && (
+                <span className={`ml-auto w-1.5 h-1.5 shrink-0 rounded-full ${isSpt ? "bg-[#FFD166]" : "bg-primary"}`} />
+              )}
+            </Link>
+          );
+        })}
 
         <div className="pt-2 mt-2 border-t border-border space-y-0.5">
-          <Link href="/profile">
-            <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12">
-              <span className="w-5 text-center">👤</span> Profile & Settings
-            </button>
+          <Link
+            href="/profile"
+            aria-current={location.startsWith("/profile") ? "page" : undefined}
+            onClick={onClose}
+            className="flex w-full items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12"
+          >
+            <span className="w-5 text-center">👤</span> Profile & Settings
           </Link>
-          <Link href="/wallet">
-            <button onClick={onClose} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12">
-              <span className="w-5 text-center">💼</span> My Wallet
-            </button>
+          <Link
+            href="/wallet"
+            aria-current={location.startsWith("/wallet") ? "page" : undefined}
+            onClick={onClose}
+            className="flex w-full items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors min-h-12"
+          >
+            <span className="w-5 text-center">💼</span> My Wallet
           </Link>
-          <button onClick={() => { logout(); onClose(); }}
+          <button
+            type="button"
+            onClick={() => {
+              logout();
+              onClose();
+            }}
             className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium text-red-400 hover:bg-red-500/10 transition-colors min-h-12">
             <span className="w-5 text-center">🚪</span> Sign Out
           </button>
@@ -623,28 +687,49 @@ export function Layout({ children }: { children: React.ReactNode }) {
   /* Close mobile menu on navigation */
   useEffect(() => { setMobileOpen(false); }, [location]);
 
-  /* Center nav: Pools + Winners (Home via logo) */
-  const primaryLinks = user ? [
-    { href: "/pools", label: "Pools", icon: "🎱" },
-    { href: "/winners", label: "Winners", icon: "🏆" },
-  ] : [];
+  /** Single source of truth: arcade in primary bar ⇔ Games in bottom middle slot; else Wallet + Games in More. */
+  const arcadeInBar = !gamesLoading && miniGamesEnabled;
 
-  /* Secondary links — tucked into "More" dropdown on desktop */
-  const secondaryLinks = user ? [
-    { href: "/dashboard", label: "Home", icon: "🏠" },
-    { href: "/my-tickets", label: "My Tickets", icon: "🎟️" },
-    { href: "/rewards", label: "Rewards", icon: "🎁" },
-    { href: "/referral", label: "Referral", icon: "🔗" },
-    { href: "/my-shares", label: "My Shares", icon: "📤" },
-    { href: "/staking", label: "Staking", icon: "🔒" },
-    { href: "/p2p", label: "P2P Trading", icon: "💱" },
-    ...(!gamesLoading && miniGamesEnabled ? [{ href: "/games", label: "Games", icon: "🎮" }] : []),
-    { href: "/how-it-works", label: "How It Works", icon: "📘" },
-    { href: "/provably-fair", label: "Provably Fair", icon: "🧪" },
-    { href: "/reviews",    label: "Reviews",    icon: "💬" },
-    ...(user.isAdmin ? [{ href: "/admin", label: "Admin", icon: "⚙️" }] : []),
-  ] : [];
+  const primaryLinks = useMemo<NavPrimary[]>(() => {
+    if (!user) return [];
+    return [
+      { href: "/pools", label: "Pools", kind: "emoji", icon: "🎱" },
+      ...(arcadeInBar ? [NAV_GAMES_PRIMARY] : []),
+      { href: "/spt", label: "SPT", kind: "spt" },
+      { href: "/winners", label: "Winners", kind: "emoji", icon: "🏆" },
+    ];
+  }, [user, arcadeInBar]);
 
+  const secondaryLinks = useMemo(() => {
+    if (!user) return [];
+    return [
+      { href: "/dashboard", label: "Home", icon: "🏠" },
+      ...(!arcadeInBar ? [MORE_GAMES] : []),
+      { href: "/my-tickets", label: "My Tickets", icon: "🎟️" },
+      { href: "/rewards", label: "Rewards", icon: "🎁" },
+      { href: "/referral", label: "Referral", icon: "🔗" },
+      { href: "/my-shares", label: "My Shares", icon: "📤" },
+      { href: "/staking", label: "Staking", icon: "🔒" },
+      { href: "/p2p", label: "P2P Trading", icon: "💱" },
+      { href: "/how-it-works", label: "How It Works", icon: "📘" },
+      { href: "/provably-fair", label: "Provably Fair", icon: "🧪" },
+      { href: "/reviews", label: "Reviews", icon: "💬" },
+      ...(user.isAdmin ? [{ href: "/admin", label: "Admin", icon: "⚙️" }] : []),
+    ];
+  }, [user, arcadeInBar]);
+
+  const mobileBottomItems = useMemo<MobileBottomItem[]>(
+    () => [
+      { href: "/dashboard", label: "Home", mode: "emoji", icon: "🏠" },
+      { href: "/pools", label: "Pools", mode: "emoji", icon: "🎱" },
+      arcadeInBar
+        ? { href: "/games", label: "Games", mode: "emoji", icon: "🎮" }
+        : { href: "/wallet", label: "Wallet", mode: "emoji", icon: "💰" },
+      { href: "/spt", label: "SPT", mode: "spt" },
+      { href: "/profile", label: "Me", mode: "emoji", icon: "👤" },
+    ],
+    [arcadeInBar],
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -660,22 +745,38 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
             {/* ── Desktop primary nav ── */}
             {user && (
-              <nav className="hidden md:flex items-center gap-0.5 flex-1">
+              <nav className="hidden md:flex items-center gap-0.5 flex-1" aria-label="Primary">
                 {primaryLinks.map((link) => {
                   const active = location.startsWith(link.href);
+                  const isSpt = link.kind === "spt";
                   return (
-                    <Link key={link.href} href={link.href}>
+                    <Link key={link.href} href={link.href} aria-current={active ? "page" : undefined}>
                       <span
                         className={cn(
                           "relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer whitespace-nowrap",
-                          active
-                            ? "text-primary bg-primary/10 border border-primary/20"
-                            : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+                          isSpt
+                            ? active
+                              ? "text-[#FFD166] bg-[#FFD166]/12 border border-[#FFD166]/25"
+                              : "text-[#FFD166]/85 hover:text-[#FFD166] hover:bg-[#FFD166]/[0.08] border border-transparent"
+                            : active
+                              ? "text-primary bg-primary/10 border border-primary/20"
+                              : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]",
                         )}
                       >
-                        <span>{link.icon}</span>
+                        {link.kind === "spt" ? (
+                          <SPTCoin size="sm" className="shrink-0" />
+                        ) : (
+                          <span>{link.icon}</span>
+                        )}
                         <span>{link.label}</span>
-                        {active && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 h-0.5 rounded-full bg-primary opacity-60" />}
+                        {active && (
+                          <span
+                            className={cn(
+                              "absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 h-0.5 rounded-full opacity-80",
+                              isSpt ? "bg-[#FFD166]" : "bg-primary",
+                            )}
+                          />
+                        )}
                       </span>
                     </Link>
                   );
@@ -695,7 +796,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   {/* Notification bell */}
                   <NotificationBell />
 
-                  <SPTBalanceWidget />
+                  <SPTNavPill />
 
                   {/* Wallet balance */}
                   <WalletDropdown
@@ -703,15 +804,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     bonusBalance={user.bonusBalance}
                     isLoading={isLoading}
                   />
-                  <Link href="/wallet?tab=deposit">
-                    <button
-                      type="button"
-                      className="h-8 w-8 rounded-lg border border-primary/35 text-primary font-bold text-base leading-none transition-colors hover:bg-primary/10"
-                      aria-label="Deposit"
-                      title="Deposit"
-                    >
-                      +
-                    </button>
+                  <Link
+                    href="/wallet?tab=deposit"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-primary/35 text-primary font-bold text-base leading-none transition-colors hover:bg-primary/10"
+                    aria-label="Deposit"
+                    title="Deposit"
+                  >
+                    +
                   </Link>
 
                   {/* Divider */}
@@ -724,6 +823,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
                   {/* Hamburger — mobile only */}
                   <button
+                    type="button"
                     onClick={() => setMobileOpen((v) => !v)}
                     className={cn("md:hidden p-2 rounded-lg transition-colors", mobileOpen ? "text-primary" : undefined)}
                     aria-label="Menu"
@@ -743,26 +843,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
               {!isLoading && !user && (
                 <div className="flex items-center gap-2">
-                  <Link href="/how-it-works">
-                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm hidden sm:inline-flex">
-                      How It Works
-                    </Button>
-                  </Link>
-                  <Link href="/provably-fair">
-                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm hidden sm:inline-flex">
-                      Provably Fair
-                    </Button>
-                  </Link>
-                  <Link href="/login">
-                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm">
-                      Login
-                    </Button>
-                  </Link>
-                  <Link href="/signup">
-                    <Button size="sm" className="font-semibold text-sm shadow-sm">
-                      Get Started
-                    </Button>
-                  </Link>
+                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm hidden sm:inline-flex" asChild>
+                    <Link href="/how-it-works">How It Works</Link>
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm hidden sm:inline-flex" asChild>
+                    <Link href="/provably-fair">Provably Fair</Link>
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-sm" asChild>
+                    <Link href="/login">Login</Link>
+                  </Button>
+                  <Button size="sm" className="font-semibold text-sm shadow-sm" asChild>
+                    <Link href="/signup">Get Started</Link>
+                  </Button>
                 </div>
               )}
             </div>
@@ -798,30 +890,38 @@ export function Layout({ children }: { children: React.ReactNode }) {
           className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/96 backdrop-blur-md flex justify-between items-stretch min-h-[4.25rem] py-1 px-1 safe-area-pb touch-manipulation shadow-[0_-8px_32px_rgba(0,0,0,0.35)]"
           aria-label="Main"
         >
-          {(
-            [
-              { href: "/dashboard", label: "Home", icon: "🏠" },
-              { href: "/pools", label: "Pools", icon: "🎱" },
-              { href: "/staking", label: "Stake", icon: "📈" },
-              { href: "/wallet", label: "Wallet", icon: "💰" },
-              { href: "/profile", label: "Me", icon: "👤" },
-            ] as const
-          ).map((item) => {
+          {mobileBottomItems.map((item) => {
             const active =
               item.href === "/dashboard"
                 ? location === "/dashboard" || location === "/"
                 : location.startsWith(item.href);
+            const goldTab = item.mode === "spt";
             return (
-              <Link key={item.href} href={item.href} className="flex-1 min-w-0 basis-0 max-w-[20%]">
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex-1 min-w-0 basis-0 max-w-[20%]"
+                aria-current={active ? "page" : undefined}
+              >
                 <span
                   className={cn(
                     "flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[10px] font-semibold tracking-tight transition-colors duration-200 active:scale-[0.98] touch-manipulation",
-                    active ? "text-primary bg-primary/12" : "text-muted-foreground hover:text-foreground/90"
+                    goldTab && active
+                      ? "text-[#FFD166] bg-[#FFD166]/12"
+                      : active
+                        ? "text-primary bg-primary/12"
+                        : "text-muted-foreground hover:text-foreground/90",
                   )}
                 >
-                  <span className="text-lg leading-none" aria-hidden>
-                    {item.icon}
-                  </span>
+                  {item.mode === "spt" ? (
+                    <span className="leading-none flex items-center justify-center scale-90" aria-hidden>
+                      <SPTCoin size="sm" />
+                    </span>
+                  ) : (
+                    <span className="text-lg leading-none" aria-hidden>
+                      {item.icon}
+                    </span>
+                  )}
                   <span className="leading-tight text-center truncate w-full">{item.label}</span>
                 </span>
               </Link>

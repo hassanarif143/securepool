@@ -96,24 +96,28 @@ export function MarketingNav({
               >
                 {mobileOpen ? "✕" : "☰"}
               </button>
-              <Link href="/login" className="hidden sm:block">
-                <Button variant="ghost" size="sm" className="text-[#94a3b8] hover:text-[#f0f0f0]">
-                  Login
-                </Button>
-              </Link>
-              <Link href="/signup">
-                <Button
-                  size="sm"
-                  className={cn(
-                    "font-semibold shadow-lg sm:px-5",
-                    "bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:from-emerald-400 hover:to-green-500",
-                  )}
-                  style={{ boxShadow: "0 4px 20px rgba(34,197,94,0.25)" }}
-                >
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="hidden text-[#94a3b8] hover:text-[#f0f0f0] sm:block"
+              >
+                <Link href="/login">Login</Link>
+              </Button>
+              <Button
+                asChild
+                size="sm"
+                className={cn(
+                  "font-semibold shadow-lg sm:px-5",
+                  "bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:from-emerald-400 hover:to-green-500",
+                )}
+                style={{ boxShadow: "0 4px 20px rgba(34,197,94,0.25)" }}
+              >
+                <Link href="/signup">
                   <span className="hidden sm:inline">Sign Up Free</span>
                   <span className="sm:hidden">Sign Up</span>
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </>
           )}
         </div>

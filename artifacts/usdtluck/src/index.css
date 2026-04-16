@@ -820,3 +820,35 @@
     font-family: "JetBrains Mono", ui-monospace, monospace;
   }
 }
+
+@keyframes coinFloat {
+  0%,
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  33% {
+    transform: translateY(-8px) rotate(2deg);
+  }
+  66% {
+    transform: translateY(-4px) rotate(-1deg);
+  }
+}
+
+@keyframes coinSpin {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+.spt-coin-float {
+  animation: coinFloat 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spt-coin-float {
+    animation: none;
+  }
+}

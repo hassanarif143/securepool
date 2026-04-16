@@ -38,11 +38,11 @@ export function NearMissModal({ position, total, tier, message, onClose }: Props
         <p className="text-xs text-center text-muted-foreground mb-5">
           #{position} of {total}
         </p>
-        <Link href="/pools">
-          <Button className="w-full" onClick={onClose}>
+        <Button asChild className="w-full">
+          <Link href="/pools" onClick={onClose}>
             Join next pool
-          </Button>
-        </Link>
+          </Link>
+        </Button>
         <button type="button" className="w-full mt-2 text-xs text-muted-foreground hover:text-foreground" onClick={onClose}>
           Dismiss
         </button>

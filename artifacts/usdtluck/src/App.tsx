@@ -39,6 +39,7 @@ import RefRedirectPage from "@/pages/RefRedirectPage";
 import HowToBuyUsdtPage from "@/pages/HowToBuyUsdtPage";
 
 const GamesPage = lazy(() => import("@/pages/GamesPage"));
+const SptPage = lazy(() => import("@/pages/SptPage"));
 const ArcadeGamePlay = lazy(() =>
   import("@/components/games/ArcadeGamePlay").then((m) => ({ default: m.ArcadeGamePlay })),
 );
@@ -350,6 +351,15 @@ function Router() {
             <LazyRouteBoundary>
               <Suspense fallback={<PageFallback />}>
                 <GamesPage />
+              </Suspense>
+            </LazyRouteBoundary>
+          </RequireAuth>
+        </Route>
+        <Route path="/spt">
+          <RequireAuth>
+            <LazyRouteBoundary>
+              <Suspense fallback={<PageFallback />}>
+                <SptPage />
               </Suspense>
             </LazyRouteBoundary>
           </RequireAuth>

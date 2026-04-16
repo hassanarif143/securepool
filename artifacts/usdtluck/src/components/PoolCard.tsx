@@ -449,14 +449,13 @@ function PoolCardActions({
 }) {
   if (isCompleted || isClosed) {
     return (
-      <Link href={`/pools/${poolId}`} className="w-full sm:w-auto sm:flex-1">
-        <Button
-          size="lg"
-          className="w-full min-h-12 font-semibold bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 text-white border-0"
-        >
-          View results
-        </Button>
-      </Link>
+      <Button
+        asChild
+        size="lg"
+        className="w-full min-h-12 font-semibold bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 text-white border-0 sm:w-auto sm:flex-1"
+      >
+        <Link href={`/pools/${poolId}`}>View results</Link>
+      </Button>
     );
   }
 
@@ -466,15 +465,14 @@ function PoolCardActions({
         <Button size="lg" variant="secondary" disabled className="w-full sm:w-auto sm:flex-1 min-h-14 opacity-80">
           ⏳ Waiting for draw…
         </Button>
-        <Link href={`/pools/${poolId}`} className="w-full sm:w-auto sm:flex-1">
-          <Button
-            size="lg"
-            variant="outline"
-            className="w-full min-h-14 border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10 sp-watch-live"
-          >
-            ▶︎ Live
-          </Button>
-        </Link>
+        <Button
+          asChild
+          size="lg"
+          variant="outline"
+          className="w-full min-h-14 border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10 sp-watch-live sm:w-auto sm:flex-1"
+        >
+          <Link href={`/pools/${poolId}`}>▶︎ Live</Link>
+        </Button>
         <style>{`
           .sp-watch-live { animation: sp-watch-pulse 2.2s ease-in-out infinite; }
           @keyframes sp-watch-pulse {
@@ -490,29 +488,29 @@ function PoolCardActions({
   if (status === "open" || status === "upcoming") {
     return (
       <>
-        <Link href={`/pools/${poolId}`} className="w-full sm:w-auto sm:flex-1">
-          <Button
-            size="lg"
-            className="w-full min-h-14 font-extrabold text-white border-0"
-            style={{ background: "linear-gradient(135deg, #22c55e, #15803d)" }}
-          >
-            {userJoined ? "🎟️ Buy more tickets" : "🎟️ Buy ticket"}
-          </Button>
-        </Link>
-        <Link href={`/pools/${poolId}`} className="w-full sm:w-auto sm:flex-1">
-          <Button size="lg" variant="outline" className="w-full min-h-14 border-slate-600 text-slate-200">
-            Details
-          </Button>
-        </Link>
+        <Button
+          asChild
+          size="lg"
+          className="w-full min-h-14 font-extrabold text-white border-0 sm:w-auto sm:flex-1"
+          style={{ background: "linear-gradient(135deg, #22c55e, #15803d)" }}
+        >
+          <Link href={`/pools/${poolId}`}>{userJoined ? "🎟️ Buy more tickets" : "🎟️ Buy ticket"}</Link>
+        </Button>
+        <Button
+          asChild
+          size="lg"
+          variant="outline"
+          className="w-full min-h-14 border-slate-600 text-slate-200 sm:w-auto sm:flex-1"
+        >
+          <Link href={`/pools/${poolId}`}>Details</Link>
+        </Button>
       </>
     );
   }
 
   return (
-    <Link href={`/pools/${poolId}`} className="w-full sm:w-auto sm:flex-1">
-      <Button size="lg" variant="outline" className="w-full min-h-12">
-        View pool
-      </Button>
-    </Link>
+    <Button asChild size="lg" variant="outline" className="w-full min-h-12 sm:w-auto sm:flex-1">
+      <Link href={`/pools/${poolId}`}>View pool</Link>
+    </Button>
   );
 }

@@ -46,25 +46,25 @@ export default function HowItWorksPage() {
             Account, deposit, join a pool, draw, payout — plus fees and questions people ask first.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link href="/signup">
-              <Button
-                size="lg"
-                className="landing-mono rounded-[14px] bg-gradient-to-r from-emerald-500 to-green-600 px-8 font-bold text-white shadow-lg hover:from-emerald-400 hover:to-green-500"
-                style={{ boxShadow: "0 4px 24px rgba(34,197,94,0.25)" }}
-              >
-                Sign up free
-              </Button>
-            </Link>
-            <Link href="/pools">
-              <Button size="lg" variant="outline" className="rounded-[14px] border-white/15 bg-white/[0.03] text-[#e2e8f0] hover:bg-white/[0.06]">
-                Browse pools
-              </Button>
-            </Link>
-            <Link href="/">
-              <Button size="lg" variant="ghost" className="text-[#94a3b8] hover:text-[#f0f0f0]">
-                ← Home
-              </Button>
-            </Link>
+            <Button
+              asChild
+              size="lg"
+              className="landing-mono rounded-[14px] bg-gradient-to-r from-emerald-500 to-green-600 px-8 font-bold text-white shadow-lg hover:from-emerald-400 hover:to-green-500"
+              style={{ boxShadow: "0 4px 24px rgba(34,197,94,0.25)" }}
+            >
+              <Link href="/signup">Sign up free</Link>
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="rounded-[14px] border-white/15 bg-white/[0.03] text-[#e2e8f0] hover:bg-white/[0.06]"
+            >
+              <Link href="/pools">Browse pools</Link>
+            </Button>
+            <Button asChild size="lg" variant="ghost" className="text-[#94a3b8] hover:text-[#f0f0f0]">
+              <Link href="/">← Home</Link>
+            </Button>
           </div>
         </div>
       </section>

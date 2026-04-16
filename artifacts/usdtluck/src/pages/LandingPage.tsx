@@ -233,18 +233,17 @@ export default function LandingPage() {
           </p>
 
           <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Link href="/pools" className="w-full max-w-sm sm:w-auto">
-              <Button
-                size="lg"
-                className="landing-mono h-14 w-full rounded-[14px] bg-gradient-to-r from-emerald-500 to-green-600 px-10 text-base font-bold text-white shadow-lg hover:from-emerald-400 hover:to-green-500 sm:min-w-[280px]"
-                style={{
-                  boxShadow: "0 4px 24px rgba(34,197,94,0.25)",
-                  animation: "landing-cta-glow 3s ease-in-out infinite",
-                }}
-              >
-                🎟️ Join a Pool — Starting at ${minEntry.toFixed(0)}
-              </Button>
-            </Link>
+            <Button
+              asChild
+              size="lg"
+              className="landing-mono h-14 w-full max-w-sm rounded-[14px] bg-gradient-to-r from-emerald-500 to-green-600 px-10 text-base font-bold text-white shadow-lg hover:from-emerald-400 hover:to-green-500 sm:min-w-[280px] sm:w-auto"
+              style={{
+                boxShadow: "0 4px 24px rgba(34,197,94,0.25)",
+                animation: "landing-cta-glow 3s ease-in-out infinite",
+              }}
+            >
+              <Link href="/pools">{`🎟️ Join a Pool — Starting at $${minEntry.toFixed(0)}`}</Link>
+            </Button>
           </div>
 
           <div className="mx-auto mt-10 flex max-w-lg flex-wrap justify-center gap-x-6 gap-y-3 text-left text-[13px] text-[#64748b] sm:justify-center">
@@ -345,14 +344,13 @@ export default function LandingPage() {
               </ul>
             )}
             <div className="border-t border-white/[0.06] p-4 text-center">
-              <Link href="/winners" className="inline-flex w-full sm:w-auto">
-                <Button
-                  variant="outline"
-                  className="w-full h-12 rounded-xl border-cyan-500/35 text-cyan-200 hover:bg-cyan-500/10"
-                >
-                  View All Winners →
-                </Button>
-              </Link>
+              <Button
+                asChild
+                variant="outline"
+                className="h-12 w-full rounded-xl border-cyan-500/35 text-cyan-200 hover:bg-cyan-500/10 sm:inline-flex sm:w-auto"
+              >
+                <Link href="/winners">View All Winners →</Link>
+              </Button>
             </div>
           </div>
 

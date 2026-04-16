@@ -209,18 +209,17 @@ export function MoneySafeExplainerSection() {
         <PlatformFeeRuleExplainer variant="full" className="mb-10" />
 
         <div className="relative text-center">
-          <Link href="/pools">
-            <Button
-              size="lg"
-              className="px-8 sm:px-10 font-semibold text-base"
-              style={{
-                background: "linear-gradient(135deg, #22c55e, #15803d)",
-                boxShadow: "0 8px 28px rgba(22,163,74,0.35)",
-              }}
-            >
-              Join a Pool Now →
-            </Button>
-          </Link>
+          <Button
+            asChild
+            size="lg"
+            className="px-8 sm:px-10 font-semibold text-base"
+            style={{
+              background: "linear-gradient(135deg, #22c55e, #15803d)",
+              boxShadow: "0 8px 28px rgba(22,163,74,0.35)",
+            }}
+          >
+            <Link href="/pools">Join a Pool Now →</Link>
+          </Button>
         </div>
       </div>
     </motion.section>

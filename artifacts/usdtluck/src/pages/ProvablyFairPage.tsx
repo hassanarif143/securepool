@@ -214,9 +214,9 @@ export default function ProvablyFairPage() {
       </section>
 
       <div className="text-center">
-        <Link href="/how-it-works">
-          <Button variant="outline">Back to How It Works</Button>
-        </Link>
+        <Button asChild variant="outline">
+          <Link href="/how-it-works">Back to How It Works</Link>
+        </Button>
       </div>
     </div>
   );
