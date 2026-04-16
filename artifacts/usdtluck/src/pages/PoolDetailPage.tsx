@@ -597,7 +597,12 @@ export default function PoolDetailPage() {
   const freeThisPurchase = Boolean(!userJoinedEffective && useFreeEntry && canFreeJoin);
   const grossTicketTotal = freeThisPurchase ? 0 : effectiveEntryDue * ticketQty;
   const displayPayUsdt = grossTicketTotal;
-  const canPayJoin = Boolean(user && (freeThisPurchase || Number(user.walletBalance) >= displayPayUsdt));
+  // UI wallet number in header is Withdrawable + Bonus (not including reward-points conversion).
+  // Keep Pool purchase confirmation consistent with that display to avoid confusion.
+  const spendableBalanceUsdt = Number(user?.withdrawableBalance ?? 0) + Number((user as any)?.bonusBalance ?? 0);
+  const rewardsUsdt = Number(user?.rewardPoints ?? 0) / 300;
+  const totalAvailableUsdt = spendableBalanceUsdt + rewardsUsdt;
+  const canPayJoin = Boolean(user && (freeThisPurchase || totalAvailableUsdt >= displayPayUsdt));
   const vipLocked = false;
   const poolFull = displayCount >= pool.maxUsers || spotsLeft <= 0;
   const noTimeLimit = new Date(pool.endTime).getUTCFullYear() >= 2099;
@@ -957,9 +962,14 @@ export default function PoolDetailPage() {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Your balance</span>
                     <span className={`font-medium ${canPayJoin ? "text-primary" : "text-red-400"}`}>
-                      {user?.walletBalance.toFixed(2) ?? "—"} USDT
+                      {spendableBalanceUsdt.toFixed(2)} USDT
                     </span>
                   </div>
+                  {user && rewardsUsdt > 0.0001 ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      Rewards balance: {rewardsUsdt.toFixed(2)} USDT · Total available: {totalAvailableUsdt.toFixed(2)} USDT
+                    </p>
+                  ) : null}
                   {user && !freeThisPurchase && !canPayJoin && !vipLocked && showJoinActions && (
                     <p className="text-sm text-destructive">
                       Insufficient balance. You need {displayPayUsdt.toFixed(2)} USDT for {ticketQty} ticket
@@ -1115,8 +1125,8 @@ export default function PoolDetailPage() {
             <div className="flex justify-between"><span className="text-muted-foreground">Tickets</span><span className="font-medium">{ticketQty}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Ticket total</span><span className="font-medium">{grossTicketTotal.toFixed(2)} USDT</span></div>
             <div className="flex justify-between border-t border-border/70 pt-1.5"><span className="text-muted-foreground">Final payable</span><span className="font-semibold text-primary">{displayPayUsdt.toFixed(2)} USDT</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Wallet before</span><span className="font-medium">{Number(user?.walletBalance ?? 0).toFixed(2)} USDT</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Wallet after</span><span className="font-medium">{Math.max(0, Number(user?.walletBalance ?? 0) - displayPayUsdt).toFixed(2)} USDT</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Wallet before</span><span className="font-medium">{spendableBalanceUsdt.toFixed(2)} USDT</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Wallet after</span><span className="font-medium">{Math.max(0, spendableBalanceUsdt - displayPayUsdt).toFixed(2)} USDT</span></div>
             <div className="text-[11px] text-muted-foreground pt-1.5 border-t border-border/40">
               Platform fee per ticket (by band): {platformFeePerTicket.toFixed(2)} USDT.
             </div>
