@@ -208,6 +208,10 @@ async function maybeGrantReferralJoinBonus(referredUserId: number) {
 
   await maybeGrantReferralTierMilestones(ref.referrerId);
 
+  void import("./spt-service.js")
+    .then(({ awardSPT }) => awardSPT(ref.referrerId, 75, "referral_success", String(referredUserId)).catch(() => {}))
+    .catch(() => {});
+
   void import("./share-card-service.js")
     .then((m) =>
       m

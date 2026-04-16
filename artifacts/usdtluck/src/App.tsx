@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/context/AuthContext";
 import { CelebrationProvider } from "@/context/CelebrationContext";
+import { SPTToastProvider } from "@/components/spt/SPTToastContext";
 import { useAuth } from "@/context/AuthContext";
 import { Layout } from "@/components/Layout";
 import { InstallPrompt } from "@/components/InstallPrompt";
@@ -384,9 +385,11 @@ function App() {
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <AuthProvider>
-            <CelebrationProvider>
-              <Router />
-            </CelebrationProvider>
+            <SPTToastProvider>
+              <CelebrationProvider>
+                <Router />
+              </CelebrationProvider>
+            </SPTToastProvider>
           </AuthProvider>
         </WouterRouter>
         <Toaster />

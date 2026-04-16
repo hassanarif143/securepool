@@ -1,4 +1,4 @@
-import { pgTable, serial, text, boolean, numeric, timestamp, integer, date, jsonb, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, varchar, boolean, numeric, timestamp, integer, date, jsonb, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -83,6 +83,13 @@ export const usersTable = pgTable("users", {
   riskLevel: riskLevelEnum("risk_level").notNull().default("low"),
   withdrawPinHash: text("withdraw_pin_hash"),
   lastDepositAt: timestamp("last_deposit_at", { withTimezone: true }),
+  /** SecurePool Token — off-chain loyalty points (not withdrawable). */
+  sptBalance: integer("spt_balance").notNull().default(0),
+  sptLifetimeEarned: integer("spt_lifetime_earned").notNull().default(0),
+  sptLevel: varchar("spt_level", { length: 20 }).notNull().default("Bronze"),
+  sptLastClaimDate: date("spt_last_claim_date"),
+  sptStreakCount: integer("spt_streak_count").notNull().default(0),
+  sptOnboardingDone: boolean("spt_onboarding_done").notNull().default(false),
 });
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({
@@ -122,6 +129,12 @@ export const insertUserSchema = createInsertSchema(usersTable).omit({
   firstWinAt: true,
   lastWinAt: true,
   winCount7d: true,
+  sptBalance: true,
+  sptLifetimeEarned: true,
+  sptLevel: true,
+  sptLastClaimDate: true,
+  sptStreakCount: true,
+  sptOnboardingDone: true,
 });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof usersTable.$inferSelect;

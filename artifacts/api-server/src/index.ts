@@ -10,6 +10,7 @@ import { schedulePoolFactoryJobs } from "./lib/pool-factory-scheduler";
 import { scheduleMegaDrawJob } from "./lib/mega-draw-scheduler";
 import { scheduleStakingV2Jobs } from "./lib/staking-v2-scheduler";
 import { scheduleStakingSimJobs } from "./lib/staking-sim-scheduler";
+import { scheduleSptJobs } from "./lib/spt-scheduler";
 import { assertSecurityStartupRequirements } from "./lib/security";
 import { ensureSmartPoolTemplates } from "./services/pool-lifecycle";
 
@@ -66,6 +67,7 @@ async function main() {
     scheduleMegaDrawJob();
     scheduleStakingV2Jobs();
     scheduleStakingSimJobs();
+    scheduleSptJobs();
   });
 }
 

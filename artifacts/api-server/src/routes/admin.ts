@@ -2622,6 +2622,7 @@ router.post("/transactions/:id/approve", async (req, res) => {
 
   const nextStatus = txn.txType === "withdraw" ? "under_review" : "completed";
   const depositFlags = { grantedFirstTicketBonus: false };
+  let awardFirstDepositSpt = false;
 
   try {
     await db.transaction(async (trx) => {
@@ -2649,6 +2650,7 @@ router.post("/transactions/:id/approve", async (req, res) => {
         let nextFirstDepositClaimed = alreadyClaimedFirst;
         if (!alreadyClaimedFirst) {
           nextFirstDepositClaimed = true;
+          awardFirstDepositSpt = true;
         }
         const walletNum = (rewardPoints / 300) + wdB;
         const walletStr = walletNum.toFixed(2);
@@ -2684,6 +2686,12 @@ router.post("/transactions/:id/approve", async (req, res) => {
       return;
     }
     throw err;
+  }
+
+  if (awardFirstDepositSpt) {
+    void import("../services/spt-service.js")
+      .then(({ awardSPT }) => awardSPT(txn.userId, 500, "first_deposit", String(txId)).catch(() => {}))
+      .catch(() => {});
   }
 
   if (txn.txType === "deposit") {

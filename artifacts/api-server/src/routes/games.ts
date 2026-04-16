@@ -181,6 +181,14 @@ router.post("/play", miniGamesMutationLimiter, idempotencyGuard, async (req, res
       const status = code === "INSUFFICIENT_BALANCE" ? 400 : 400;
       return res.status(status).json({ error: code });
     }
+    let sptEarn: { amount: number; balance: number } | null = null;
+    try {
+      const { awardSPT } = await import("../services/spt-service.js");
+      const r = await awardSPT(userId, 10, "game_played", String(out.roundId ?? 0), { ip: req.ip });
+      sptEarn = { amount: r.amount_awarded, balance: r.new_balance };
+    } catch {
+      /* ignore */
+    }
     return res.json({
       success: true,
       roundId: out.roundId,
@@ -188,6 +196,7 @@ router.post("/play", miniGamesMutationLimiter, idempotencyGuard, async (req, res
       multiplier: out.multiplier,
       winAmount: out.winAmount,
       newBalance: out.withdrawableBalance,
+      spt_earn: sptEarn,
       ...(out.riskWheel ? { riskWheel: out.riskWheel } : {}),
       ...(out.luckyNumbers ? { luckyNumbers: out.luckyNumbers } : {}),
     });

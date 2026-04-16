@@ -93,6 +93,7 @@ export type PlayResult = {
   multiplier: number;
   winAmount: number;
   newBalance: number;
+  spt_earn?: { amount: number; balance: number } | null;
   riskWheel?: RiskWheelPayload;
   luckyNumbers?: {
     winningNumbers: number[];

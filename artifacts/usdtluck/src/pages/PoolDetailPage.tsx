@@ -473,6 +473,14 @@ export default function PoolDetailPage() {
         });
         return;
       }
+      const sptEarn = (data as { spt_earn?: { amount: number; balance: number } | null }).spt_earn;
+      if (sptEarn && typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("spt-earn", {
+            detail: { amount: sptEarn.amount, balance: sptEarn.balance, reason: "Pool joined" },
+          }),
+        );
+      }
       const usedFree = Boolean((data as { usedFreeEntry?: boolean }).usedFreeEntry);
       const breakdown = (data as {
         paymentBreakdown?: { grossTotal: number; platformFee: number; netDeductedFromWallet: number };

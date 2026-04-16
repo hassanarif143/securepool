@@ -1619,6 +1619,15 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
     additionalTicketsOnly: !isFirstInPool,
   });
 
+  let sptEarn: { amount: number; balance: number } | null = null;
+  try {
+    const { awardSPT } = await import("../services/spt-service.js");
+    const r = await awardSPT(sessionUserId, 10, "pool_join", String(poolId), { ip: req.ip });
+    sptEarn = { amount: r.amount_awarded, balance: r.new_balance };
+  } catch {
+    /* ignore SPT errors — join already succeeded */
+  }
+
   res.json({
     message:
       ticketQty > 1
@@ -1637,6 +1646,7 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
     ticketQuantity: ticketQty,
     luckyNumbers: luckyNumbers.map(formatLuckyNumberDisplay),
     listEntryFee: entryFee,
+    spt_earn: sptEarn,
   });
 });
 
@@ -1770,7 +1780,7 @@ async function executePoolDistribution(
   manualWinnerUserIds: number[],
   opts?: { skipMinParticipantsCheck?: boolean },
 ) {
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [pool] = await tx.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
     if (!pool) {
       const e = new Error("POOL_NOT_FOUND");
@@ -2320,6 +2330,21 @@ async function executePoolDistribution(
       },
     };
   });
+
+  const winRows = await db
+    .select({ userId: winnersTable.userId, isBot: usersTable.isBot })
+    .from(winnersTable)
+    .innerJoin(usersTable, eq(winnersTable.userId, usersTable.id))
+    .where(eq(winnersTable.poolId, poolId));
+  void import("../services/spt-service")
+    .then(({ awardSPT }) => {
+      for (const w of winRows) {
+        if (!w.isBot) void awardSPT(w.userId, 150, "pool_win", String(poolId)).catch(() => {});
+      }
+    })
+    .catch(() => {});
+
+  return result;
 }
 
 type DistributedPoolResult = Awaited<ReturnType<typeof executePoolDistribution>>;

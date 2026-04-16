@@ -6,6 +6,7 @@ export type ArcadePlaySuccess = {
   multiplier: number;
   winAmount: number;
   newBalance: number;
+  sptEarn?: { amount: number; balance: number } | null;
   riskWheel?: RiskWheelPayload;
   luckyNumbers?: {
     winningNumbers: number[];
@@ -26,12 +27,20 @@ export async function arcadePlay(
 ): Promise<ArcadePlayResult> {
   try {
     const r = await postPlay(gameType, betAmount, idempotencyKey ?? idem(), luckyNumbers);
+    if (r.spt_earn && typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("spt-earn", {
+          detail: { amount: r.spt_earn.amount, balance: r.spt_earn.balance, reason: "Game played" },
+        }),
+      );
+    }
     return {
       success: true,
       resultType: r.resultType,
       multiplier: r.multiplier,
       winAmount: r.winAmount,
       newBalance: r.newBalance,
+      sptEarn: r.spt_earn ?? null,
       riskWheel: r.riskWheel,
       luckyNumbers: r.luckyNumbers,
     };

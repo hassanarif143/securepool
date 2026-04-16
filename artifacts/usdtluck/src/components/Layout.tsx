@@ -9,6 +9,7 @@ import { LiveJoinNotification } from "@/components/LiveJoinNotification";
 import { SharePromptGate } from "@/components/share/SharePromptGate";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import { SiteFooter } from "@/components/SiteFooter";
+import { SPTBalanceWidget } from "@/components/spt/SPTBalanceWidget";
 import { cn } from "@/lib/utils";
 
 function playNotifSound() {
@@ -693,6 +694,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <>
                   {/* Notification bell */}
                   <NotificationBell />
+
+                  <SPTBalanceWidget />
 
                   {/* Wallet balance */}
                   <WalletDropdown

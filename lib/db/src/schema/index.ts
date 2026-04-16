@@ -41,3 +41,4 @@ export * from "./shareCards";
 export * from "./arcadeGames";
 export * from "./arcadeSessions";
 export * from "./megaDraw";
+export * from "./spt";
