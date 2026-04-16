@@ -472,7 +472,12 @@ router.get("/details/:poolId", async (req, res) => {
     winnersPublic = wr.map((w) => ({
       place: w.place,
       name: privacyDisplayName(w.name),
-      prize: parseFloat(String(w.prize)),
+      prize: (() => {
+        const raw = parseFloat(String(w.prize ?? "0"));
+        const configured = w.place === 1 ? p1 : w.place === 2 ? p2 : w.place === 3 ? p3 : 0;
+        // If legacy/buggy rows stored 0, show configured prize instead.
+        return raw > 0.0001 ? raw : configured;
+      })(),
     }));
   }
 
