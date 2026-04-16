@@ -1314,7 +1314,8 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
 
   const entryFee = parseFloat(pool.entryFee);
   const buckets = parseUserBuckets(user);
-  const userBalance = totalWallet(buckets);
+  // Pool entries must deduct from withdrawable wallet immediately (do not spend reward points).
+  const userBalance = Number(buckets.withdrawableBalance ?? 0);
   const useFreeEntry = bodyParse.success && bodyParse.data.useFreeEntry === true;
   const freeAvail = user.freeEntries ?? 0;
   const applyComeback =
@@ -1411,13 +1412,13 @@ router.post("/:poolId/join", strictFinancialLimiter, idempotencyGuard, async (re
           throw e;
         }
         const freshBuckets = parseUserBuckets(freshUser);
-        const freshTotal = totalWallet(freshBuckets);
-        if (freshTotal < walletDeduction) {
+        const freshWithdrawable = Number(freshBuckets.withdrawableBalance ?? 0);
+        if (freshWithdrawable < walletDeduction) {
           const e = new Error("INSUFFICIENT_BALANCE");
           (e as { code?: string }).code = "INSUFFICIENT_BALANCE";
           throw e;
         }
-        const d = deductForPoolEntry(freshBuckets, walletDeduction, { allowRewardPoints: true });
+        const d = deductForPoolEntry(freshBuckets, walletDeduction, { allowRewardPoints: false });
         logger.info(
           {
             poolId,

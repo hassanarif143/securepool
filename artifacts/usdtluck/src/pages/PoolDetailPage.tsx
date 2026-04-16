@@ -603,8 +603,8 @@ export default function PoolDetailPage() {
   // Keep Pool purchase confirmation consistent with that display to avoid confusion.
   const spendableBalanceUsdt = Number(user?.withdrawableBalance ?? 0) + Number((user as any)?.bonusBalance ?? 0);
   const rewardsUsdt = Number(user?.rewardPoints ?? 0) / 300;
-  const totalAvailableUsdt = spendableBalanceUsdt + rewardsUsdt;
-  const canPayJoin = Boolean(user && (freeThisPurchase || totalAvailableUsdt >= displayPayUsdt));
+  // Pool entries deduct only from spendable (withdrawable + bonus). Rewards are not used for ticket purchases.
+  const canPayJoin = Boolean(user && (freeThisPurchase || spendableBalanceUsdt >= displayPayUsdt));
   const vipLocked = false;
   const poolFull = displayCount >= pool.maxUsers || spotsLeft <= 0;
   const noTimeLimit = new Date(pool.endTime).getUTCFullYear() >= 2099;
@@ -969,7 +969,7 @@ export default function PoolDetailPage() {
                   </div>
                   {user && rewardsUsdt > 0.0001 ? (
                     <p className="text-[11px] text-muted-foreground">
-                      Rewards balance: {rewardsUsdt.toFixed(2)} USDT · Total available: {totalAvailableUsdt.toFixed(2)} USDT
+                      Rewards balance: {rewardsUsdt.toFixed(2)} USDT (not used for ticket purchase)
                     </p>
                   ) : null}
                   {user && !freeThisPurchase && !canPayJoin && !vipLocked && showJoinActions && (
