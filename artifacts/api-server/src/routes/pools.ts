@@ -1922,6 +1922,12 @@ async function executePoolDistribution(
     let secondCents = secondCentsRaw;
     let thirdCents = thirdCentsRaw;
 
+    // Keep a display snapshot of prizes BEFORE excluding bot/simulated winners.
+    // User-facing winner reveal should show the real prize amounts even if a bot winner doesn't receive wallet credit.
+    const displayFirstCents = firstCents;
+    const displaySecondCents = secondCents;
+    const displayThirdCents = thirdCents;
+
     // Refund system (real users only, non-winners).
     // Requirement: refund per losing ticket = ticketPrice − platform fee per ticket (no double deduction).
     const maxRefundPerTicketCents = clampCents(Math.max(0, toCents(ticketPrice) - feePerTicketCents));
@@ -2044,7 +2050,12 @@ async function executePoolDistribution(
     // For refund notes (user-facing history).
     const feePerListEntry = calculatePlatformFee(entryFee);
 
-    const prizes = [
+    const prizesDisplay = [
+      { place: 1 as const, prize: fromCents(displayFirstCents) },
+      { place: 2 as const, prize: fromCents(displaySecondCents) },
+      { place: 3 as const, prize: fromCents(displayThirdCents) },
+    ];
+    const prizesPayout = [
       { place: 1 as const, prize: fromCents(firstCents) },
       { place: 2 as const, prize: fromCents(secondCents) },
       { place: 3 as const, prize: fromCents(thirdCents) },
@@ -2069,7 +2080,8 @@ async function executePoolDistribution(
     for (let i = 0; i < winnerCount; i++) {
       const winRow = picked[i];
       if (!winRow) break;
-      const { place, prize } = prizes[i]!;
+      const { place, prize: displayPrize } = prizesDisplay[i]!;
+      const payoutPrize = prizesPayout[i]?.prize ?? 0;
 
       const [winner] = await tx
         .insert(winnersTable)
@@ -2077,7 +2089,7 @@ async function executePoolDistribution(
           poolId,
           userId: winRow.userId,
           place,
-          prize: String(prize),
+          prize: String(displayPrize),
           paymentStatus: "paid",
           awardedAt: new Date(),
         })
@@ -2103,7 +2115,7 @@ async function executePoolDistribution(
       // Never move real balances for bots or fully simulated pools.
       if (!simulatedOnlyPool && !userIsBot) {
         const beforeBuckets = parseUserBuckets(user);
-        const afterBuckets = distributeWinnings(beforeBuckets, prize);
+        const afterBuckets = distributeWinnings(beforeBuckets, payoutPrize);
         const rewardPoints = afterBuckets.rewardPoints;
         const wdB = afterBuckets.withdrawableBalance;
         const newBalance = pointsToUsdt(rewardPoints) + wdB;
@@ -2111,7 +2123,7 @@ async function executePoolDistribution(
           {
             poolId,
             userId: winRow.userId,
-            prize,
+            prize: payoutPrize,
             before: beforeBuckets,
             after: afterBuckets,
           },
@@ -2140,7 +2152,7 @@ async function executePoolDistribution(
 
         await recordPrizeWon(tx, {
           userId: winRow.userId,
-          amount: prize,
+          amount: payoutPrize,
           poolId,
           place,
           poolTitle: pool.title,
@@ -2152,7 +2164,7 @@ async function executePoolDistribution(
         await tx.insert(transactionsTable).values({
           userId: winRow.userId,
           txType: "reward",
-          amount: String(prize),
+          amount: String(payoutPrize),
           status: "completed",
           note: `Winner - Place ${place} in pool: ${pool.title}`,
         });
