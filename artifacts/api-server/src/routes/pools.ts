@@ -1885,8 +1885,9 @@ async function executePoolDistribution(
     const clampCents = (c: number) => Math.max(0, Math.floor(c));
 
     const totalPoolCents = clampCents(toCents(filledSeats * ticketPrice));
-    // Platform fee applies ONLY to the total pool (10%).
-    const platformFeeCents = Math.floor(totalPoolCents * 0.1);
+    // Platform fee is charged per ticket (fee bands) to match join pricing.
+    const feePerTicketCents = clampCents(toCents(platformFeePerJoinUsdt(ticketPrice, pool.platformFeePerJoin)));
+    const platformFeeCents = clampCents(feePerTicketCents * filledSeats);
     const prizePoolCents = clampCents(totalPoolCents - platformFeeCents);
     let adjustedPrizePoolCents = Math.floor(prizePoolCents * fillRatio);
     // Guarantee: never allow a zero/negative effective prize pool if there was activity.
@@ -1908,18 +1909,13 @@ async function executePoolDistribution(
     let secondCents = secondCentsRaw;
     let thirdCents = thirdCentsRaw;
 
-    // Refund system (real users only, non-winners). Refund is DIRECTLY from ticket price, by fill ratio:
-    // - fillRatio < 0.5 → 80%
-    // - 0.5–0.8 → 50%
-    // - > 0.8 → 20%
-    let refundPct = 0.2;
-    if (fillRatio < 0.5) refundPct = 0.8;
-    else if (fillRatio <= 0.8) refundPct = 0.5;
-    else refundPct = 0.2;
+    // Refund system (real users only, non-winners).
+    // Requirement: refund per losing ticket = ticketPrice − platform fee per ticket (no double deduction).
+    const maxRefundPerTicketCents = clampCents(Math.max(0, toCents(ticketPrice) - feePerTicketCents));
 
     const loserRefundByUserId = new Map<number, number>();
     let refundsCents = 0;
-    if (!simulatedOnlyPool && refundPct > 0) {
+    if (!simulatedOnlyPool && maxRefundPerTicketCents > 0) {
       type Want = { userId: number; wantCents: number; frac: number };
       const wants: Want[] = [];
       for (const row of participants) {
@@ -1927,7 +1923,7 @@ async function executePoolDistribution(
         if (isSimulatedByUserId(row.userId)) continue;
         const tc = Math.max(1, row.ticketCount ?? 1);
         const paid = clampCents(toCents(parseFloat(String(row.amountPaid ?? "0"))));
-        const want = clampCents(toCents(ticketPrice * refundPct) * tc);
+        const want = clampCents(maxRefundPerTicketCents * tc);
         const capped = Math.min(paid, want);
         if (capped <= 0) continue;
         wants.push({ userId: row.userId, wantCents: capped, frac: 0 });
