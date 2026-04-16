@@ -521,6 +521,8 @@ export default function PoolDetailPage() {
       queryClient.invalidateQueries({ queryKey: getGetPoolQueryKey(id) });
       queryClient.invalidateQueries({ queryKey: getGetPoolParticipantsQueryKey(id) });
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      // Force immediate balance refresh so header wallet updates right after purchase.
+      await queryClient.refetchQueries({ queryKey: getGetMeQueryKey() });
       setCelebrationUsedFree(usedFree);
       setShowCelebration(true);
       void fetch(apiUrl(`/api/pools/details/${id}`), { credentials: "include" })
