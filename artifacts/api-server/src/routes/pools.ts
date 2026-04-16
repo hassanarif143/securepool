@@ -20,6 +20,7 @@ import {
   distributeWinnings,
   parseUserBuckets,
   processRefund,
+  calculatePlatformFee,
   pointsToUsdt,
   totalWallet,
   walletBalanceFromBuckets,
@@ -269,7 +270,9 @@ function computeTicketWeightForUser(
 }
 
 function preExitChargeUsdt(entryFee: number, poolPlatformFeeOverride: string | null, ticketCount: number): number {
-  const feePerTicket = platformFeePerJoinUsdt(entryFee, poolPlatformFeeOverride);
+  // Early exit rule: charge ONLY 50% of the platform fee (fee bands), per ticket.
+  // Do not use per-pool overrides — fee must follow the global structure.
+  const feePerTicket = calculatePlatformFee(entryFee);
   return Number((feePerTicket * 0.5 * Math.max(1, ticketCount)).toFixed(2));
 }
 
@@ -1727,6 +1730,15 @@ router.post("/:poolId/exit", async (req, res) => {
       return { refundAmount, chargeApplied, ticketCount };
     });
 
+    // User notification: fee deducted + remaining refunded.
+    void notifyUser(
+      userId,
+      "Early exit processed",
+      `${out.chargeApplied.toFixed(2)} USDT fee has been deducted. Remaining ${out.refundAmount.toFixed(2)} USDT has been refunded to your wallet.`,
+      "success",
+      poolId,
+    );
+
     res.json({
       message: "Exited pool successfully",
       refundAmount: out.refundAmount,
@@ -1886,7 +1898,7 @@ async function executePoolDistribution(
 
     const totalPoolCents = clampCents(toCents(filledSeats * ticketPrice));
     // Platform fee is charged per ticket (fee bands) to match join pricing.
-    const feePerTicketCents = clampCents(toCents(platformFeePerJoinUsdt(ticketPrice, pool.platformFeePerJoin)));
+    const feePerTicketCents = clampCents(toCents(calculatePlatformFee(ticketPrice)));
     const platformFeeCents = clampCents(feePerTicketCents * filledSeats);
     const prizePoolCents = clampCents(totalPoolCents - platformFeeCents);
     let adjustedPrizePoolCents = Math.floor(prizePoolCents * fillRatio);
@@ -2029,7 +2041,7 @@ async function executePoolDistribution(
     const settlementRemainder = fromCents(reserveCents);
 
     // For refund notes (user-facing history).
-    const feePerListEntry = platformFeePerJoinUsdt(entryFee, pool.platformFeePerJoin);
+    const feePerListEntry = calculatePlatformFee(entryFee);
 
     const prizes = [
       { place: 1 as const, prize: fromCents(firstCents) },
@@ -2151,6 +2163,9 @@ async function executePoolDistribution(
       else if (place === 3) w3name = user.name;
     }
 
+    const ticketCountByUserId = new Map<number, number>();
+    for (const row of participants) ticketCountByUserId.set(row.userId, Math.max(1, row.ticketCount ?? 1));
+
     if (!simulatedOnlyPool) for (const [userId, amt] of loserRefundByUserId) {
       const [u] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
       if (!u) continue;
@@ -2185,6 +2200,16 @@ async function executePoolDistribution(
         note: `Pool loser refund — ${pool.title} — ${amt} USDT (list entry ${entryFee} USDT − ${feePerListEntry} USDT platform fee per ticket)`,
       });
       await mirrorAvailableFromUser(tx, userId);
+
+      const tc = ticketCountByUserId.get(userId) ?? 1;
+      const feeDeducted = Number((feePerListEntry * tc).toFixed(2));
+      void notifyUser(
+        userId,
+        "Pool result",
+        `${feeDeducted.toFixed(2)} USDT fee has been deducted. Remaining ${Number(amt).toFixed(2)} USDT has been refunded to your wallet.`,
+        "pool_update",
+        poolId,
+      );
     }
 
     let drawLuckyNumber: number | null = null;
@@ -2231,7 +2256,7 @@ async function executePoolDistribution(
       await appendPlatformFeeForDraw(tx, {
         poolId,
         platformFee,
-        description: `Draw #${poolId} — platform fee (10% of ${totalRevenue.toFixed(2)} total pool)`,
+        description: `Draw #${poolId} — platform fee (fee bands × tickets sold)`,
       });
     }
 
