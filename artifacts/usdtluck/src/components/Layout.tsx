@@ -10,6 +10,7 @@ import { SharePromptGate } from "@/components/share/SharePromptGate";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SPTLevelBadge } from "@/components/spt/SPTLevelBadge";
+import { SPTOpportunityBar } from "@/components/spt/SPTOpportunityBar";
 import { SupportChatBubble } from "@/components/support/SupportChatBubble";
 import { cn } from "@/lib/utils";
 
@@ -937,6 +938,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           />
         )}
       </header>
+      {user ? <SPTOpportunityBar pathname={location} onDismissKey={location.split("?")[0] ?? location} /> : null}
       </div>
 
       <main

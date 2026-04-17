@@ -103,12 +103,19 @@ export default function ReferralPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
-      <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-[hsl(222,30%,10%)] via-[hsl(222,30%,9%)] to-[hsl(224,30%,8%)] p-5 sm:p-6">
-        <p className="text-xs uppercase tracking-[0.18em] text-primary/90">Invite friends</p>
-        <h1 className="text-2xl font-bold mt-1">Invite friends &amp; earn</h1>
-        <p className="text-sm text-muted-foreground mt-2">
-          When a friend signs up with your link and buys their first pool ticket, you get{" "}
-          <span className="font-semibold text-foreground">2 USDT</span> added to your withdrawable balance.
+      <div className="rounded-2xl border border-[#FFD166]/20 bg-gradient-to-br from-[#0D1526] to-[#121D35] p-6 sm:p-8 text-center">
+        <div className="text-4xl mb-3" aria-hidden>
+          👥
+        </div>
+        <p className="text-xs uppercase tracking-[0.18em] text-[#8899BB]">Referral rewards</p>
+        <h1 className="font-sp-display text-3xl font-extrabold mt-2 text-[#FFD166]">+75 SPT Each</h1>
+        <p className="text-sm text-[#8899BB] mt-3 leading-relaxed">
+          Dost ko refer karo — <span className="text-[#F0F4FF] font-semibold">dono ko milega!</span>
+          <br />
+          Tum: <span className="text-[#FFD166] font-semibold">+75 SPT</span> • Dost:{" "}
+          <span className="text-[#FFD166] font-semibold">+75 SPT</span> first deposit pe
+          <br />
+          <span className="text-emerald-400 text-[13px] font-semibold">≈ 0.75 USDT each — bilkul free</span>
         </p>
       </div>
 

@@ -204,6 +204,22 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
           </div>
         </div>
 
+        {/* SPT earn — FOMO */}
+        {status === "open" || status === "upcoming" ? (
+          <div className="rounded-xl border border-[#FFD166]/15 bg-[#FFD166]/[0.06] px-3.5 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-base" aria-hidden>
+                🪙
+              </span>
+              <span className="text-[12px] text-slate-300">
+                Join karo aur kamao{" "}
+                <span className="text-[#FFD166] font-semibold">+10 SPT</span>
+              </span>
+            </div>
+            <span className="text-[13px] font-extrabold text-[#FFD166] font-display tabular-nums">+10 SPT</span>
+          </div>
+        ) : null}
+
         {/* CTAs */}
         <div className="flex flex-col sm:flex-row gap-2 pt-1 sp-cta-wrap">
           <PoolCardActions
@@ -488,14 +504,19 @@ function PoolCardActions({
   if (status === "open" || status === "upcoming") {
     return (
       <>
-        <Button
-          asChild
-          size="lg"
-          className="w-full min-h-14 font-extrabold text-white border-0 sm:w-auto sm:flex-1"
-          style={{ background: "linear-gradient(135deg, #22c55e, #15803d)" }}
-        >
-          <Link href={`/pools/${poolId}`}>{userJoined ? "🎟️ Buy more tickets" : "🎟️ Buy ticket"}</Link>
-        </Button>
+        <div className="w-full sm:w-auto sm:flex-1">
+          <Button
+            asChild
+            size="lg"
+            className="w-full min-h-14 font-extrabold text-white border-0"
+            style={{ background: "linear-gradient(135deg, #22c55e, #15803d)" }}
+          >
+            <Link href={`/pools/${poolId}`}>{userJoined ? "🎟️ Buy more tickets" : "🎟️ Buy ticket"}</Link>
+          </Button>
+          <p className="mt-1.5 text-center text-[11px] text-[#FFD166]/90 font-semibold">
+            🪙 +10 SPT bonus milega join karne pe
+          </p>
+        </div>
         <Button
           asChild
           size="lg"

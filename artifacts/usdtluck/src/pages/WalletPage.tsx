@@ -270,6 +270,7 @@ export default function WalletPage() {
   const totalWalletBal = Number(currentUser.walletBalance ?? 0);
 
   const pendingDeposit = txArr.find((t) => t.txType === "deposit" && t.status === "pending");
+  const firstDepositClaimed = txArr.some((t: any) => t.txType === "deposit" && (t.status === "approved" || t.status === "completed"));
   const pendingAll = txArr.filter((t) => t.status === "pending" || t.status === "under_review");
 
   function openWithdrawConfirm(e: React.FormEvent) {
@@ -530,6 +531,24 @@ export default function WalletPage() {
               <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                 Har step ek-ek kar ke — USDT bhejna, screenshot, aur verification. Roman Urdu + English dono.
               </p>
+            </div>
+
+            {/* SPT deposit bonus (FOMO) */}
+            <div className="rounded-xl border border-[#FFD166]/20 bg-[linear-gradient(135deg,rgba(255,209,102,0.08),rgba(16,185,129,0.06))] px-4 py-4">
+              <p className="text-[13px] text-[#8899BB] mb-2">🎁 Deposit Bonus</p>
+              {firstDepositClaimed ? (
+                <>
+                  <p className="text-[14px] font-semibold text-emerald-300">✅ First deposit bonus claim ho gaya</p>
+                  <p className="text-[12px] text-[#8899BB] mt-1">+500 SPT aapke account mein add ho chuka hai.</p>
+                </>
+              ) : (
+                <>
+                  <p className="font-sp-display font-extrabold text-[22px] text-[#FFD166]">+500 SPT</p>
+                  <p className="text-[12px] text-[#8899BB] mt-1">
+                    Pehli deposit pe milega — ≈ <span className="text-emerald-300 font-semibold">5 USDT</span> value bilkul free
+                  </p>
+                </>
+              )}
             </div>
             {!currentUser.cryptoAddress && (
               <div className="flex items-start gap-3 p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/8">

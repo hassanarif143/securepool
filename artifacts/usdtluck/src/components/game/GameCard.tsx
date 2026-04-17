@@ -48,6 +48,16 @@ export function GameCard({ href, title, tagline, stats, accent = "cyan", icon, l
       >
         <div className={cn("absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100", "bg-gradient-to-br", a.glow)} />
         <div className="relative">
+          {/* SPT earn badge (FOMO) */}
+          <div className="absolute right-0 top-0">
+            <div className="inline-flex items-center gap-1 rounded-full border border-[#FFD166]/30 bg-[#FFD166]/15 px-2.5 py-1">
+              <span className="text-[12px]" aria-hidden>
+                🪙
+              </span>
+              <span className="font-sp-display text-[12px] font-extrabold text-[#FFD166]">+10 SPT</span>
+            </div>
+          </div>
+
           <div className="flex items-start justify-between gap-3">
             <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ring-1 ring-white/10", a.iconBg)}>
               <div className="text-2xl">{icon}</div>

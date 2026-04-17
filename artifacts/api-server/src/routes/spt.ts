@@ -251,6 +251,59 @@ router.post("/staking/waitlist", (req, res, next) => requireAuth(req as AuthedRe
   res.json({ ok: true });
 });
 
+/** GET /spt/recent-activity — recent earn rows, anonymized (auth optional) */
+router.get("/recent-activity", async (_req, res) => {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const rows = await db
+    .select({
+      amount: sptTransactionsTable.amount,
+      reason: sptTransactionsTable.reason,
+      created_at: sptTransactionsTable.createdAt,
+      display_name: usersTable.name,
+      user_id: usersTable.id,
+    })
+    .from(sptTransactionsTable)
+    .innerJoin(usersTable, eq(sptTransactionsTable.userId, usersTable.id))
+    .where(and(eq(sptTransactionsTable.type, "earn"), gte(sptTransactionsTable.createdAt, since)))
+    .orderBy(desc(sptTransactionsTable.createdAt))
+    .limit(20);
+
+  function fmtReason(r: string | null) {
+    const x = String(r ?? "");
+    const m: Record<string, string> = {
+      pool_join: "pool join karke",
+      pool_win: "pool jeet ke",
+      daily_login: "daily login se",
+      referral_success: "referral se",
+      game_played: "game khel ke",
+      first_deposit: "first deposit pe",
+    };
+    return m[x] ?? x.replace(/_/g, " ");
+  }
+
+  function timeAgo(d: Date | null) {
+    if (!d) return "";
+    const diff = Date.now() - new Date(d).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "abhi abhi";
+    if (mins < 60) return `${mins} min pehle`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs} ghante pehle`;
+    return `${Math.floor(hrs / 24)} din pehle`;
+  }
+
+  res.json(
+    rows.map((r) => ({
+      amount: r.amount ?? 0,
+      reason: fmtReason(r.reason),
+      created_at: r.created_at,
+      display_name: `${maskSptLeaderboardName(r.display_name ?? "User")}`,
+      user_id: r.user_id,
+      time_ago: timeAgo(r.created_at),
+    })),
+  );
+});
+
 /** Leaderboard with "you" highlight if authed */
 router.get("/leaderboard/me", (req, res, next) => requireAuth(req as AuthedRequest, res, next), async (req, res) => {
   const userId = getAuthedUserId(req);

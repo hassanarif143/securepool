@@ -22,6 +22,7 @@ import { RewardsSummaryCard } from "@/components/rewards/RewardsSummaryCard";
 import { LiveWinnerTicker } from "@/components/winners/LiveWinnerTicker";
 import { useGameAvailability } from "@/lib/game-availability";
 import { premiumPanel, premiumPanelHead } from "@/lib/premium-panel";
+import { SPTLiveFeed } from "@/components/spt/SPTLiveFeed";
 
 function greeting() {
   const h = new Date().getHours();
@@ -111,6 +112,16 @@ export default function DashboardPage() {
   const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
   const { loading: gamesLoading, miniGamesEnabled, anyGameEnabled } = useGameAvailability(!!user);
+  const [spt, setSpt] = useState<{
+    spt_balance: number;
+    spt_level: string;
+    login_streak_count: number;
+    progress_percent: number;
+    next_level_at: number | null;
+    next_tier: string | null;
+  } | null>(null);
+  const [dailyClaimed, setDailyClaimed] = useState<boolean | null>(null);
+  const [missingOut, setMissingOut] = useState<{ days: number; missed: number } | null>(null);
   const [myEntries, setMyEntries] = useState<any[]>([]);
   const [myEntriesError, setMyEntriesError] = useState(false);
   const [comeback, setComeback] = useState<ActiveCouponJson | null>(null);
@@ -119,6 +130,76 @@ export default function DashboardPage() {
   const { data: transactions } = useGetUserTransactions(user?.id ?? 0, {
     query: { enabled: !!user?.id, queryKey: getGetUserTransactionsQueryKey(user?.id ?? 0) },
   });
+
+  const loadSpt = useCallback(async () => {
+    try {
+      const r = await fetch(apiUrl("/api/spt/balance"), { credentials: "include" });
+      if (!r.ok) return;
+      const j = (await r.json()) as any;
+      setSpt({
+        spt_balance: Number(j.spt_balance ?? 0),
+        spt_level: String(j.spt_level ?? "Bronze"),
+        login_streak_count: Number(j.login_streak_count ?? 0),
+        progress_percent: Number(j.progress_percent ?? 0),
+        next_level_at: j.next_level_at != null ? Number(j.next_level_at) : null,
+        next_tier: j.next_tier != null ? String(j.next_tier) : null,
+      });
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    void loadSpt();
+    const t = setInterval(loadSpt, 30_000);
+    return () => clearInterval(t);
+  }, [user, loadSpt]);
+
+  useEffect(() => {
+    if (!user) return;
+    // Infer "missing out" using last earn transaction time.
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(apiUrl("/api/spt/history?limit=1&page=1"), { credentials: "include" });
+        if (!r.ok) return;
+        const j = (await r.json()) as { items?: Array<{ created_at: string; type: string; amount: number }> };
+        const last = j.items?.[0]?.created_at;
+        if (!last || cancelled) return;
+        const diffMs = Date.now() - new Date(last).getTime();
+        const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+        if (days >= 2) {
+          // rough "missed" estimate for the widget; keeps the psychology without lying about exact numbers
+          const missed = Math.min(400, days * 50);
+          setMissingOut({ days, missed });
+        } else {
+          setMissingOut(null);
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const streak = spt?.login_streak_count ?? 0;
+  const todaySpt = streak >= 6 ? 20 : streak >= 3 ? 15 : 10;
+  const tomorrowSpt = streak >= 6 ? 200 : streak >= 3 ? 20 : 15;
+
+  async function claimDailyBonus() {
+    try {
+      const r = await fetch(apiUrl("/api/spt/daily-login"), { method: "POST", credentials: "include" });
+      if (!r.ok) return;
+      const j = (await r.json()) as any;
+      setDailyClaimed(Boolean(j.already_claimed));
+      await loadSpt();
+    } catch {
+      /* ignore */
+    }
+  }
 
   useEffect(() => {
     if (!isLoading && !user) navigate("/login");
@@ -298,6 +379,108 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ── SPT FOMO widgets ── */}
+      <div className="grid gap-3 lg:grid-cols-3">
+        {/* Daily streak — urgent */}
+        <div className="lg:col-span-2 rounded-2xl border border-[#FFD166]/25 bg-[linear-gradient(135deg,rgba(255,209,102,0.10),rgba(255,159,67,0.08))] p-4 sm:p-5 shadow-[0_0_0_0_rgba(255,209,102,0)] animate-[sp-glow-pulse_2s_ease-in-out_infinite]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-11 w-11 rounded-xl bg-[#FFD166]/15 border border-[#FFD166]/25 flex items-center justify-center text-2xl shrink-0">
+                🔥
+              </div>
+              <div className="min-w-0">
+                <p className="font-sp-display font-extrabold text-[15px] text-[#FFD166] truncate">
+                  {Math.max(1, streak)} din ka streak!
+                </p>
+                <p className="text-[12px] text-[#8899BB] mt-0.5">
+                  Aaj claim karo —{" "}
+                  <span className="text-[#FFD166] font-semibold">+{todaySpt} SPT</span> milega
+                  {streak === 6 ? " 🎯 Kal 200 SPT bonus!" : ""}
+                </p>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              onClick={() => void claimDailyBonus()}
+              className="shrink-0 rounded-full px-4 py-2 font-sp-display font-extrabold text-[13px] text-[#060B18] border-0"
+              style={{ background: "linear-gradient(135deg, #FFD166, #FF9F43)" }}
+            >
+              Claim +{todaySpt} SPT
+            </Button>
+          </div>
+          {dailyClaimed ? (
+            <p className="mt-3 text-[12px] text-[#8899BB] opacity-80">
+              ✅ Aaj ka bonus claim ho gaya • Kal +{tomorrowSpt} SPT milega
+            </p>
+          ) : null}
+        </div>
+
+        {/* SPT value + progress */}
+        <div className="rounded-2xl border border-[#1E2D4A] bg-[#0D1526] p-4 sm:p-5">
+          <div className="flex items-center justify-between">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#8899BB]">Meri SPT value</p>
+            <Link href="/spt" className="text-[12px] font-semibold text-[#FFD166] no-underline hover:underline">
+              Details →
+            </Link>
+          </div>
+
+          <div className="mt-2 flex items-baseline gap-2">
+            <p className="font-sp-display text-[28px] font-extrabold text-[#FFD166] tabular-nums">
+              {Number(spt?.spt_balance ?? 0).toLocaleString()}
+            </p>
+            <p className="text-sm text-[#445577]">SPT</p>
+          </div>
+          <p className="text-[13px] text-[#8899BB] mt-1">
+            ≈{" "}
+            <span className="text-emerald-400 font-semibold">
+              {(Number(spt?.spt_balance ?? 0) * 0.01).toFixed(2)} USDT
+            </span>{" "}
+            current value
+          </p>
+
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-[11px] text-[#445577] mb-1.5">
+              <span>{String(spt?.spt_level ?? "Bronze")}</span>
+              <span>
+                {spt?.next_tier ? `${spt.next_tier} ke liye ${(spt.next_level_at ?? 0).toLocaleString()} SPT aur` : "Max tier"}
+              </span>
+            </div>
+            <div className="h-1 rounded-full bg-[#1E2D4A] overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${Math.max(0, Math.min(100, Number(spt?.progress_percent ?? 0)))}%`,
+                  background: "linear-gradient(90deg, #FFD166, #FF9F43)",
+                  transition: "width 900ms ease-out",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Missing out alert */}
+      {missingOut ? (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/[0.05] px-4 py-3 flex items-start gap-3">
+          <span className="text-xl" aria-hidden>
+            ⚠️
+          </span>
+          <div className="min-w-0">
+            <p className="text-[14px] font-semibold text-red-200">
+              {missingOut.days} din mein approx. {missingOut.missed} SPT miss ho gaye!
+            </p>
+            <p className="text-[12px] text-[#8899BB] mt-0.5">Daily bonus claim nahi hua • Kal ka streak mat torna</p>
+            <Link href="/pools" className="inline-block mt-2 text-[12px] font-semibold text-[#FFD166] no-underline hover:underline">
+              Abhi earn karo →
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Social proof: live SPT ticker */}
+      <SPTLiveFeed />
 
       <div className="rounded-2xl border border-[rgba(0,229,204,0.12)] bg-[rgba(0,229,204,0.04)] p-4 shadow-inner ring-1 ring-white/[0.04] sm:p-5">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#00E5CC]/90">Wallet Snapshot</p>
