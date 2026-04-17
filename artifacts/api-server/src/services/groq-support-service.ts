@@ -49,7 +49,10 @@ export type UserSupportContext = {
 
 function getClient(): Groq | null {
   const key = process.env.GROQ_API_KEY?.trim();
-  if (!key) return null;
+  if (!key) {
+    logger.warn("[groq-support] GROQ_API_KEY missing");
+    return null;
+  }
   return new Groq({ apiKey: key });
 }
 
@@ -105,7 +108,9 @@ Distinct pools joined (tickets): ${userContext.total_pools}`,
       tokensUsed: completion.usage?.total_tokens ?? 0,
     };
   } catch (err) {
-    logger.error({ err }, "[groq-support] completion failed");
+    const status =
+      typeof err === "object" && err !== null && "status" in err ? (err as { status?: unknown }).status : undefined;
+    logger.error({ err, status }, "[groq-support] completion failed");
     return {
       response:
         "Maafi chahta hoon, abhi technical issue aa rahi hai. Thodi der mein dobara try karein ya admin se contact karein.",

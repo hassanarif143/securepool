@@ -15,6 +15,37 @@ const chatLimiter = rateLimit({
   keyGenerator: (req) => String(getAuthedUserId(req) || req.ip || "anon"),
 });
 
+/**
+ * GET /support/test-groq
+ * Admin-only health check for Groq connectivity.
+ * Returns clear errors for missing key / bad key / upstream failures.
+ */
+router.get("/test-groq", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const { getAIResponse } = await import("../services/groq-support-service");
+    const r = await getAIResponse(
+      "Say exactly: Groq is working!",
+      [],
+      {
+        username: "test",
+        usdt_balance: "0",
+        spt_balance: 0,
+        spt_level: "Bronze",
+        created_at: "",
+        total_pools: 0,
+      },
+    );
+    res.json({ ok: true, response: r.response, escalated: r.shouldEscalate, tokensUsed: r.tokensUsed });
+  } catch (err) {
+    logger.error({ err }, "[support] test-groq failed");
+    res.status(500).json({
+      ok: false,
+      error: err instanceof Error ? err.message : "Unknown error",
+      hint: "Check GROQ_API_KEY on Railway and outbound HTTPS access.",
+    });
+  }
+});
+
 /** POST /support/chat */
 router.post("/chat", requireAuth, chatLimiter, async (req, res) => {
   const userId = getAuthedUserId(req);

@@ -5,11 +5,27 @@ import { apiUrl } from "@/lib/api-base";
 import { cn } from "@/lib/utils";
 
 const QUICK_REPLIES = [
-  "Pool kaise join karein?",
-  "Deposit/Withdrawal help",
-  "SPT token kya hai?",
-  "Kuch aur problem hai",
-];
+  { icon: "🎰", text: "Pool join karna hai" },
+  { icon: "💰", text: "Deposit help chahiye" },
+  { icon: "💸", text: "Withdrawal stuck hai" },
+  { icon: "🪙", text: "SPT ke baare mein batao" },
+] as const;
+
+function AIAvatar() {
+  return (
+    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-teal-600 text-[13px] font-extrabold text-[#060B18] border-2 border-cyan-400/30 shrink-0">
+      SP
+    </div>
+  );
+}
+
+function formatTime(d: Date) {
+  try {
+    return d.toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
 
 type ChatMsg = {
   id?: number;
@@ -35,7 +51,7 @@ export function SupportChatBubble() {
       setMessages([
         {
           type: "ai",
-          text: "Assalamualaikum! 👋 Main SecurePool ka AI assistant hoon. Aapki kaise madad kar sakta hoon?",
+          text: "Salam! 👋 Main SecurePool Support hoon. Aapki kya problem hai? Niche se choose karein ya seedha likhein.",
           time: new Date(),
         },
       ]);
@@ -137,10 +153,10 @@ export function SupportChatBubble() {
     return (
       <Link
         href="/login"
-        className="fixed z-[90] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-teal-600 text-xl shadow-lg shadow-cyan-500/30 md:bottom-6 md:right-6 bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4"
+        className="fixed z-[90] flex h-[52px] w-[52px] items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-teal-600 text-[13px] font-extrabold text-[#060B18] border-2 border-cyan-400/30 shadow-lg shadow-cyan-500/25 md:bottom-6 md:right-6 bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4"
         aria-label="Login for support chat"
       >
-        💬
+        SP
       </Link>
     );
   }
@@ -150,25 +166,27 @@ export function SupportChatBubble() {
       {isOpen && (
         <div
           className={cn(
-            "fixed z-[95] flex h-[min(520px,70vh)] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0A0E1A] shadow-2xl",
+            "fixed z-[95] flex h-[540px] w-[360px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-[#1E2D4A] bg-[#0D1526] shadow-2xl",
             "bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 md:bottom-24 md:right-6",
+            "max-[480px]:bottom-0 max-[480px]:right-0 max-[480px]:left-0 max-[480px]:w-screen max-[480px]:h-[85vh] max-[480px]:rounded-t-2xl max-[480px]:rounded-b-none",
           )}
         >
-          <div className="flex items-center justify-between border-b border-white/10 bg-[#0f1628] px-4 py-3">
+          <div className="flex items-center justify-between border-b border-[#1E2D4A] bg-[#060B18] px-4 py-3">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-teal-600 text-lg">
-                🤖
-              </div>
+              <AIAvatar />
               <div>
-                <p className="text-sm font-semibold text-white">SecurePool Support</p>
-                <p className={cn("text-[11px]", escalated ? "text-amber-300" : "text-cyan-300")}>
-                  {escalated ? "⏳ Escalated — team reply" : "● AI assistant"}
+                <p className="text-[15px] font-semibold text-white">SecurePool Support</p>
+                <p className={cn("text-[12px]", escalated ? "text-amber-400" : "text-emerald-400")}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className={cn("h-1.5 w-1.5 rounded-full", escalated ? "bg-amber-400" : "bg-emerald-400")} aria-hidden />
+                    {escalated ? "Admin se connect ho raha hai" : "AI Assistant • Usually instant"}
+                  </span>
                 </p>
               </div>
             </div>
             <button
               type="button"
-              className="text-2xl leading-none text-muted-foreground hover:text-foreground"
+              className="h-8 w-8 rounded-lg border border-[#1E2D4A] bg-white/5 text-lg leading-none text-[#8899BB] hover:bg-white/10 hover:text-white"
               onClick={() => setIsOpen(false)}
               aria-label="Close chat"
             >
@@ -176,78 +194,110 @@ export function SupportChatBubble() {
             </button>
           </div>
 
-          <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
+          <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-4">
             {messages.map((msg, i) => (
               <div key={i}>
                 {msg.type === "system" ? (
-                  <div className="rounded-lg bg-white/5 px-3 py-2 text-center text-xs text-amber-200">{msg.text}</div>
+                  <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-center text-xs text-amber-300">
+                    🎫 {msg.text}
+                  </div>
                 ) : (
                   <div className={cn("flex", msg.type === "user" ? "justify-end" : "justify-start")}>
-                    <div
-                      className={cn(
-                        "max-w-[85%] rounded-2xl px-3.5 py-2 text-[13px] leading-relaxed",
-                        msg.type === "user"
-                          ? "rounded-br-sm bg-cyan-500 text-[#06080f]"
-                          : msg.type === "admin"
-                            ? "rounded-bl-sm border border-emerald-500/30 bg-emerald-950/40 text-white"
-                            : "rounded-bl-sm bg-white/10 text-white",
-                      )}
-                    >
-                      {msg.type === "admin" && (
-                        <p className="mb-1 text-[10px] font-semibold uppercase text-cyan-300">Support team</p>
-                      )}
-                      {msg.text}
+                    {msg.type !== "user" ? <AIAvatar /> : null}
+                    <div className={cn("max-w-[85%]", msg.type !== "user" && "ml-2")}>
+                      <div
+                        className={cn(
+                          "rounded-2xl px-3.5 py-2 text-[14px] leading-relaxed border",
+                          msg.type === "user"
+                            ? "rounded-tr-sm border-transparent bg-gradient-to-br from-teal-600 to-sky-700 text-[#F0F4FF]"
+                            : msg.type === "admin"
+                              ? "rounded-tl-sm border-emerald-500/25 bg-emerald-950/30 text-white"
+                              : "rounded-tl-sm border-[#1E2D4A] bg-[#121D35] text-[#E2E8F0]",
+                        )}
+                      >
+                        {msg.type === "admin" && (
+                          <p className="mb-1 text-[10px] font-semibold uppercase text-cyan-300">Support team</p>
+                        )}
+                        {msg.text}
+                      </div>
+                      <div
+                        className={cn(
+                          "mt-1 text-[11px] text-[#445577]",
+                          msg.type === "user" ? "text-right pr-1" : "pl-1",
+                        )}
+                      >
+                        {formatTime(msg.time)}
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
             ))}
 
-            {showQuickReplies && messages.length === 1 && (
-              <div className="flex flex-wrap gap-1.5">
+            {showQuickReplies && !loading && (
+              <div className="mt-1 flex flex-col gap-1.5">
+                <p className="text-[11px] text-[#445577] pl-10">Ya yeh choose karein:</p>
                 {QUICK_REPLIES.map((qr) => (
                   <button
-                    key={qr}
+                    key={qr.text}
                     type="button"
-                    onClick={() => void sendMessage(qr)}
-                    className="rounded-full border border-cyan-500/30 px-3 py-1.5 text-[11px] text-cyan-300 hover:bg-cyan-500/10"
+                    onClick={() => void sendMessage(qr.text)}
+                    className="ml-10 flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-2 text-left text-[13px] text-[#A0C4D8] hover:bg-cyan-400/[0.12] hover:text-[#E2E8F0] hover:border-cyan-400/40 transition-colors"
                   >
-                    {qr}
+                    <span className="text-base" aria-hidden>
+                      {qr.icon}
+                    </span>
+                    <span>{qr.text}</span>
                   </button>
                 ))}
               </div>
             )}
 
             {loading && (
-              <div className="flex w-fit gap-1 rounded-2xl rounded-bl-sm bg-white/10 px-3 py-2">
-                {[0, 1, 2].map((j) => (
-                  <span
-                    key={j}
-                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-cyan-400"
-                    style={{ animationDelay: `${j * 0.15}s` }}
-                  />
-                ))}
+              <div className="flex items-end gap-2">
+                <AIAvatar />
+                <div className="flex w-fit gap-1 rounded-2xl rounded-tl-sm border border-[#1E2D4A] bg-[#121D35] px-3 py-2">
+                  {[0, 1, 2].map((j) => (
+                    <span
+                      key={j}
+                      className="h-1.5 w-1.5 rounded-full bg-cyan-400/80 animate-[typingDot_1.2s_ease-in-out_infinite]"
+                      style={{ animationDelay: `${j * 0.2}s` }}
+                    />
+                  ))}
+                </div>
               </div>
             )}
             <div ref={bottomRef} />
           </div>
 
-          <div className="flex gap-2 border-t border-white/10 p-3">
+          <div className="flex gap-2 border-t border-[#1E2D4A] bg-[#060B18] p-3">
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && void sendMessage()}
-              placeholder="Message likhein..."
-              className="min-w-0 flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+              placeholder="Apni problem likhein..."
+              className="min-w-0 flex-1 rounded-xl border border-[#1E2D4A] bg-[#0D1526] px-4 py-2 text-sm text-white placeholder:text-[#445577] focus:outline-none focus:ring-1 focus:ring-cyan-400/40"
             />
             <button
               type="button"
               disabled={loading || !input.trim()}
               onClick={() => void sendMessage()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cyan-500 text-[#06080f] disabled:opacity-40"
+              className={cn(
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#06080f] transition-colors",
+                input.trim() && !loading ? "bg-gradient-to-br from-cyan-400 to-teal-600" : "bg-[#1E2D4A] text-[#445577]",
+              )}
               aria-label="Send"
             >
-              →
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                <path
+                  d="M22 2L15 22L11 13L2 9L22 2Z"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </button>
           </div>
         </div>
@@ -257,12 +307,19 @@ export function SupportChatBubble() {
         type="button"
         onClick={() => setIsOpen((v) => !v)}
         className={cn(
-          "fixed z-[90] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-teal-600 text-2xl shadow-lg shadow-cyan-500/30",
+          "fixed z-[90] flex h-[52px] w-[52px] items-center justify-center rounded-full border-2 border-cyan-400/30 shadow-lg shadow-cyan-500/25 transition-colors",
+          isOpen ? "bg-[#1E2D4A] text-[#8899BB]" : "bg-gradient-to-br from-cyan-400 to-teal-600 text-[#060B18]",
           "bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 md:bottom-6 md:right-6",
         )}
         aria-label={isOpen ? "Close support" : "Open support chat"}
       >
-        {isOpen ? "×" : "💬"}
+        {isOpen ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+          </svg>
+        ) : (
+          <span className="text-[13px] font-extrabold">SP</span>
+        )}
         {unread > 0 && !isOpen && (
           <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
             {unread > 9 ? "9+" : unread}

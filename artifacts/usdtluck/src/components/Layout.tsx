@@ -9,8 +9,7 @@ import { LiveJoinNotification } from "@/components/LiveJoinNotification";
 import { SharePromptGate } from "@/components/share/SharePromptGate";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import { SiteFooter } from "@/components/SiteFooter";
-import { SPTNavPill } from "@/components/spt/SPTNavPill";
-import { SPTCoin } from "@/components/spt/SPTCoin";
+import { SPTLevelBadge } from "@/components/spt/SPTLevelBadge";
 import { SupportChatBubble } from "@/components/support/SupportChatBubble";
 import { cn } from "@/lib/utils";
 
@@ -317,6 +316,53 @@ function NotificationBell() {
 }
 
 /* ─────────────────────────────────────────────
+   Compact SPT pill (no bulky badge)
+───────────────────────────────────────────── */
+function SptMiniPill() {
+  const [data, setData] = useState<{ spt_balance: number; spt_level: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const r = await fetch(apiUrl("/api/spt/balance"), { credentials: "include" });
+        if (!r.ok) return;
+        const j = (await r.json()) as { spt_balance?: number; spt_level?: string };
+        if (cancelled) return;
+        setData({
+          spt_balance: Number(j.spt_balance ?? 0),
+          spt_level: String(j.spt_level ?? "Bronze"),
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+    void load();
+    const t = setInterval(load, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, []);
+
+  return (
+    <Link
+      href="/spt"
+      className="hidden sm:inline-flex items-center gap-2 rounded-full border border-[#FFD166]/20 bg-[#FFD166]/[0.08] px-3 py-1.5 hover:bg-[#FFD166]/[0.12] transition-colors"
+      aria-label={data ? `SPT balance ${data.spt_balance.toLocaleString()} (${data.spt_level}). Open SPT.` : "Open SPT"}
+      title="Open SPT"
+    >
+      <span className="text-sm" aria-hidden>
+        🪙
+      </span>
+      <span className="text-[13px] font-extrabold tabular-nums text-[#FFD166]">
+        {data ? data.spt_balance.toLocaleString() : "…"}
+      </span>
+    </Link>
+  );
+}
+
+/* ─────────────────────────────────────────────
    Wallet quick-action dropdown
 ───────────────────────────────────────────── */
 function WalletDropdown({
@@ -433,6 +479,7 @@ function WalletDropdown({
 function UserMenu({ user, logout }: { user: any; logout: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const [spt, setSpt] = useState<{ spt_level: string } | null>(null);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -442,24 +489,40 @@ function UserMenu({ user, logout }: { user: any; logout: () => void }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const r = await fetch(apiUrl("/api/spt/balance"), { credentials: "include" });
+        if (!r.ok) return;
+        const j = (await r.json()) as { spt_level?: string };
+        if (cancelled) return;
+        setSpt({ spt_level: String(j.spt_level ?? "Bronze") });
+      } catch {
+        /* ignore */
+      }
+    }
+    void load();
+    const t = setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, []);
+
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex items-center gap-2 rounded-xl px-2 py-1.5 transition-all focus:outline-none hover:bg-white/5 border",
+          "flex items-center gap-2 rounded-full p-1 transition-all focus:outline-none hover:bg-white/5 border",
           open ? "border-primary/30" : "border-transparent"
         )}
       >
-        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-primary/15 border border-primary/30 text-primary">
+        <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-extrabold bg-gradient-to-br from-cyan-400 to-teal-600 text-[#060B18] border border-cyan-400/30">
           {user.name.charAt(0).toUpperCase()}
         </div>
-        <span className="hidden lg:block text-sm font-medium max-w-[90px] truncate">{user.name.split(" ")[0]}</span>
-        <svg className={`w-3 h-3 text-muted-foreground transition-transform hidden lg:block ${open ? "rotate-180" : ""}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
       </button>
 
       {open && (
@@ -467,11 +530,14 @@ function UserMenu({ user, logout }: { user: any; logout: () => void }) {
           {/* User info header */}
           <div className="px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 bg-primary/15 border border-primary/30 text-primary">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-extrabold shrink-0 bg-gradient-to-br from-cyan-400 to-teal-600 text-[#060B18] border border-cyan-400/30">
                 {user.name.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
                 <p className="font-semibold text-sm truncate">{user.name}</p>
+                <div className="mt-1.5">
+                  <SPTLevelBadge level={String(spt?.spt_level ?? "Bronze")} />
+                </div>
               </div>
             </div>
           </div>
@@ -640,13 +706,7 @@ function MobileMenu({
                   : "text-muted-foreground hover:text-foreground hover:bg-white/5"
               }`}
             >
-              {isSpt ? (
-                <span className="w-5 flex justify-center shrink-0">
-                  <SPTCoin size="sm" />
-                </span>
-              ) : (
-                <span className="text-base w-5 text-center">{(link as { icon: string }).icon}</span>
-              )}
+              <span className="text-base w-5 text-center">{isSpt ? "🪙" : (link as { icon: string }).icon}</span>
               {link.label}
               {active && (
                 <span className={`ml-auto w-1.5 h-1.5 shrink-0 rounded-full ${isSpt ? "bg-[#FFD166]" : "bg-primary"}`} />
@@ -769,26 +829,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <Link key={link.href} href={link.href} aria-current={active ? "page" : undefined}>
                       <span
                         className={cn(
-                          "relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer whitespace-nowrap",
-                          isSpt
-                            ? active
-                              ? "text-[#FFD166] bg-[#FFD166]/12 border border-[#FFD166]/25"
-                              : "text-[#FFD166]/85 hover:text-[#FFD166] hover:bg-[#FFD166]/[0.08] border border-transparent"
-                            : active
-                              ? "text-primary bg-primary/10 border border-primary/20"
-                              : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]",
+                          "relative px-1 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap select-none",
+                          isSpt ? "text-[#FFD166]/90 hover:text-[#FFE599]" : "text-muted-foreground hover:text-foreground",
+                          active ? (isSpt ? "text-[#FFE599]" : "text-foreground") : null,
                         )}
                       >
-                        {link.kind === "spt" ? (
-                          <SPTCoin size="sm" className="shrink-0" />
-                        ) : (
-                          <span>{link.icon}</span>
-                        )}
                         <span>{link.label}</span>
                         {active && (
                           <span
                             className={cn(
-                              "absolute bottom-0 left-1/2 -translate-x-1/2 w-3/5 h-0.5 rounded-full opacity-80",
+                              "absolute -bottom-0.5 left-0 right-0 h-0.5 rounded opacity-90",
                               isSpt ? "bg-[#FFD166]" : "bg-primary",
                             )}
                           />
@@ -806,31 +856,29 @@ export function Layout({ children }: { children: React.ReactNode }) {
             )}
 
             {/* ── Right side ── */}
-            <div className="flex items-center gap-2 ml-auto shrink-0">
+            <div className="flex items-center gap-3 ml-auto shrink-0">
               {!isLoading && user && (
                 <>
                   {/* Notification bell */}
                   <NotificationBell />
 
-                  <SPTNavPill />
-
-                  {/* Wallet balance */}
-                  <WalletDropdown
-                    withdrawableBalance={user.withdrawableBalance}
-                    bonusBalance={user.bonusBalance}
-                    isLoading={isLoading}
-                  />
+                  {/* USDT balance — clean pill */}
                   <Link
-                    href="/wallet?tab=deposit"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-primary/35 text-primary font-bold text-base leading-none transition-colors hover:bg-primary/10"
-                    aria-label="Deposit"
-                    title="Deposit"
+                    href="/wallet"
+                    className="hidden sm:inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 hover:bg-emerald-500/15 transition-colors"
+                    aria-label="Wallet balance"
+                    title="Open wallet"
                   >
-                    +
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.45)]" aria-hidden />
+                    <UsdtAmount
+                      amount={Number(user.withdrawableBalance ?? 0) + Number(user.bonusBalance ?? 0)}
+                      amountClassName="text-sm font-extrabold tabular-nums text-emerald-400"
+                      currencyClassName="text-[11px] font-semibold text-emerald-300/80"
+                    />
                   </Link>
 
-                  {/* Divider */}
-                  <div className="hidden md:block w-px h-5 bg-border opacity-60" />
+                  {/* SPT balance — separate small pill */}
+                  <SptMiniPill />
 
                   {/* User menu */}
                   <div className="hidden md:block">
@@ -903,7 +951,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {user && (
         <nav
-          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/96 backdrop-blur-md flex justify-between items-stretch min-h-[4.25rem] py-1 px-1 safe-area-pb touch-manipulation shadow-[0_-8px_32px_rgba(0,0,0,0.35)]"
+          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-[#1E2D4A] bg-[#0D1526] flex justify-between items-stretch h-[60px] px-1 safe-area-pb touch-manipulation shadow-[0_-8px_32px_rgba(0,0,0,0.35)]"
           aria-label="Main"
         >
           {mobileBottomItems.map((item) => {
@@ -921,23 +969,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
               >
                 <span
                   className={cn(
-                    "flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[10px] font-semibold tracking-tight transition-colors duration-200 active:scale-[0.98] touch-manipulation",
+                    "flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-2 text-[10px] font-medium tracking-tight transition-colors duration-150 active:scale-[0.98] touch-manipulation opacity-95",
                     goldTab && active
-                      ? "text-[#FFD166] bg-[#FFD166]/12"
+                      ? "text-[#FFD166]"
                       : active
-                        ? "text-primary bg-primary/12"
-                        : "text-muted-foreground hover:text-foreground/90",
+                        ? "text-primary"
+                        : "text-[#445577]",
                   )}
                 >
-                  {item.mode === "spt" ? (
-                    <span className="leading-none flex items-center justify-center scale-90" aria-hidden>
-                      <SPTCoin size="sm" />
-                    </span>
-                  ) : (
-                    <span className="text-lg leading-none" aria-hidden>
-                      {item.icon}
-                    </span>
-                  )}
+                  <span className="text-xl leading-none" aria-hidden>
+                    {item.mode === "spt" ? "🪙" : item.icon}
+                  </span>
                   <span className="leading-tight text-center truncate w-full">{item.label}</span>
                 </span>
               </Link>
