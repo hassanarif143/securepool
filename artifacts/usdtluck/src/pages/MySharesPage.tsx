@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import html2canvas from "html2canvas";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiUrl, readApiErrorMessage } from "@/lib/api-base";
 import { useToast } from "@/hooks/use-toast";
-import { ShareCardVisual, buildShareMessage, type ShareCardRecord } from "@/components/share/ShareCardVisual";
+import { ShareCardVisual, type ShareCardRecord } from "@/components/share/ShareCardVisual";
+import { ShareCardSharePanel } from "@/components/share/ShareCardSharePanel";
 import { referralInviteUrl } from "@/lib/share-links";
+import { downloadPNG } from "@/lib/share-service";
+import type { ShareImageFormat } from "@/lib/share-service";
+
+const BG = "#0a1628";
 
 async function trackShareApi(cardId: number, platform: string) {
   await fetch(apiUrl(`/api/share-cards/${cardId}/track-share`), {
@@ -28,9 +27,10 @@ export default function MySharesPage() {
   const [stats, setStats] = useState<{ totalShares: number; byPlatform: Record<string, number> } | null>(null);
   const [active, setActive] = useState<ShareCardRecord | null>(null);
   const [exportCard, setExportCard] = useState<ShareCardRecord | null>(null);
+  const [exportFormat, setExportFormat] = useState<ShareImageFormat>("card");
   const [storyCard, setStoryCard] = useState<ShareCardRecord | null>(null);
+
   const exportRef = useRef<HTMLDivElement>(null);
-  const storyRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,17 +70,9 @@ export default function MySharesPage() {
     const run = async () => {
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       const wrap = exportRef.current;
-      if (!wrap?.firstElementChild) return;
+      if (!wrap) return;
       try {
-        const canvas = await html2canvas(wrap.firstElementChild as HTMLElement, {
-          backgroundColor: "#0a1628",
-          scale: 2,
-          useCORS: true,
-        });
-        const a = document.createElement("a");
-        a.download = `securepool-card-${exportCard.id}.png`;
-        a.href = canvas.toDataURL("image/png");
-        a.click();
+        await downloadPNG(wrap, `securepool-card-${exportCard.id}.png`, exportFormat);
         void trackShareApi(exportCard.id, "download");
         toast({ title: "Downloaded" });
       } catch {
@@ -90,26 +82,16 @@ export default function MySharesPage() {
       }
     };
     void run();
-  }, [exportCard, toast]);
+  }, [exportCard, exportFormat, toast]);
 
   useEffect(() => {
     if (!storyCard) return;
     const run = async () => {
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-      const wrap = storyRef.current;
+      const wrap = exportRef.current;
       if (!wrap) return;
       try {
-        const canvas = await html2canvas(wrap, {
-          width: 1080,
-          height: 1920,
-          scale: 1,
-          backgroundColor: "#070d18",
-          useCORS: true,
-        });
-        const a = document.createElement("a");
-        a.download = `securepool-story-${storyCard.id}.png`;
-        a.href = canvas.toDataURL("image/png");
-        a.click();
+        await downloadPNG(wrap, `securepool-story-${storyCard.id}.png`, "story");
         void trackShareApi(storyCard.id, "instagram_story");
         toast({ title: "Story image (1080×1920) saved" });
       } catch {
@@ -121,72 +103,28 @@ export default function MySharesPage() {
     void run();
   }, [storyCard, toast]);
 
-  function downloadPng(card: ShareCardRecord) {
-    setExportCard(card);
-  }
-
-  function downloadStory(card: ShareCardRecord) {
-    setStoryCard(card);
-  }
-
-  function openWhatsApp(card: ShareCardRecord) {
-    const url = inviteFor(card);
-    const text = buildShareMessage(card, url);
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
-    void trackShareApi(card.id, "whatsapp");
-  }
-
-  function openTwitter(card: ShareCardRecord) {
-    const url = inviteFor(card);
-    const text = buildShareMessage(card, url);
-    window.open(
-      `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
-      "_blank",
-    );
-    void trackShareApi(card.id, "twitter");
-  }
-
-  async function copyLink(card: ShareCardRecord) {
-    const url = inviteFor(card);
-    try {
-      await navigator.clipboard.writeText(url);
-      void trackShareApi(card.id, "copy_link");
-      toast({ title: "Link copied" });
-    } catch {
-      toast({ variant: "destructive", title: "Copy failed" });
-    }
-  }
+  const offscreenExport = exportCard ?? storyCard;
 
   return (
     <div className="wrap space-y-6">
-      <div className="fixed -left-[10000px] top-0 opacity-0 pointer-events-none" aria-hidden>
-        <div ref={exportRef}>
-          {exportCard ? <ShareCardVisual card={exportCard} inviteUrl={inviteFor(exportCard)} /> : null}
+      <div className="fixed -left-[12000px] top-0 opacity-0 pointer-events-none" aria-hidden>
+        <div
+          ref={exportRef}
+          style={{
+            padding: 24,
+            background: BG,
+            display: "inline-block",
+            borderRadius: 12,
+          }}
+        >
+          {offscreenExport ? <ShareCardVisual card={offscreenExport} inviteUrl={inviteFor(offscreenExport)} /> : null}
         </div>
-        {storyCard ? (
-          <div
-            ref={storyRef}
-            style={{
-              width: 1080,
-              height: 1920,
-              background: "linear-gradient(180deg,#050810 0%,#0c1829 45%,#050810 100%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              overflow: "hidden",
-            }}
-          >
-            <div style={{ transform: "scale(1.72)", transformOrigin: "center center" }}>
-              <ShareCardVisual card={storyCard} inviteUrl={inviteFor(storyCard)} />
-            </div>
-          </div>
-        ) : null}
       </div>
 
       <div>
         <h1 className="text-2xl font-bold">📤 My shared moments</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Download branded cards or share to WhatsApp / X. Your referral link is on every card.
+          Share a real card image to WhatsApp, Status, Facebook, and more — or save a high-quality PNG.
         </p>
       </div>
 
@@ -232,10 +170,22 @@ export default function MySharesPage() {
                 <Button size="sm" variant="default" onClick={() => setActive(card)}>
                   Open &amp; share
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => downloadPng(card)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setExportFormat("card");
+                    setExportCard(card);
+                  }}
+                >
                   PNG
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => downloadStory(card)} title="1080×1920 for Instagram Stories">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setStoryCard(card)}
+                  title="1080×1920 for Instagram Stories"
+                >
                   Story
                 </Button>
               </div>
@@ -245,32 +195,11 @@ export default function MySharesPage() {
       )}
 
       <Dialog open={active != null} onOpenChange={(o) => !o && setActive(null)}>
-        <DialogContent className="max-w-[420px] max-h-[90vh] overflow-y-auto border-emerald-500/20">
+        <DialogContent className="max-w-[440px] max-h-[92vh] overflow-y-auto border-emerald-500/20">
           <DialogHeader>
             <DialogTitle>Share</DialogTitle>
           </DialogHeader>
-          {active ? (
-            <div className="space-y-3 flex flex-col items-center">
-              <ShareCardVisual card={active} inviteUrl={inviteFor(active)} />
-              <div className="flex flex-wrap gap-2 justify-center w-full">
-                <Button type="button" size="sm" onClick={() => openWhatsApp(active)}>
-                  WhatsApp
-                </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => openTwitter(active)}>
-                  X
-                </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => void copyLink(active)}>
-                  Copy link
-                </Button>
-                <Button type="button" size="sm" variant="secondary" onClick={() => downloadPng(active)}>
-                  Download PNG
-                </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => downloadStory(active)}>
-                  Story 1080×1920
-                </Button>
-              </div>
-            </div>
-          ) : null}
+          {active ? <ShareCardSharePanel card={active} /> : null}
         </DialogContent>
       </Dialog>
     </div>

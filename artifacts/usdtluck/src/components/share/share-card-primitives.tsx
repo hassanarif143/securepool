@@ -50,6 +50,7 @@ export function Particles({ color = SHARE_BRAND_GREEN, count = 22, seed = 1 }: {
       {particles.map((p) => (
         <div
           key={p.id}
+          data-particle="true"
           style={{
             position: "absolute",
             left: p.left,

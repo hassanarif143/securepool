@@ -11,8 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ShareCardVisual, type ShareCardRecord } from "@/components/share/ShareCardVisual";
-import { referralInviteUrl } from "@/lib/share-links";
+import type { ShareCardRecord } from "@/components/share/ShareCardVisual";
+import { ShareCardSharePanel } from "@/components/share/ShareCardSharePanel";
 
 const LS_DISMISSED = "securepool_share_prompt_dismissed_ids";
 const LS_NEVER_GENERIC = "securepool_share_prompt_never_generic";
@@ -146,8 +146,6 @@ export function SharePromptGate() {
     };
   }, [user, pickCard]);
 
-  const inviteUrl = card ? referralInviteUrl(card.referralCode ?? "invite", { shareCardId: card.id }) : "";
-
   function handleLater() {
     if (card) saveDismissedId(card.id);
     setOpen(false);
@@ -167,17 +165,17 @@ export function SharePromptGate() {
         <DialogHeader>
           <DialogTitle>Share your moment</DialogTitle>
           <DialogDescription>
-            Branded card with your referral link — post to WhatsApp or download from My Shares.
+            Send the real card image to WhatsApp, Status, Facebook, and more — same tools as My Shares.
           </DialogDescription>
         </DialogHeader>
         {card ? (
-          <div className="flex flex-col items-center gap-3 py-1">
-            <ShareCardVisual card={card} inviteUrl={inviteUrl} />
+          <div className="flex flex-col gap-4 py-1">
+            <ShareCardSharePanel card={card} />
             <div className="flex flex-wrap gap-2 justify-center w-full">
-              <Button asChild size="sm">
-                <Link href="/my-shares">Open My Shares</Link>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/my-shares">Open My Shares library</Link>
               </Button>
-              <Button type="button" size="sm" variant="outline" onClick={handleLater}>
+              <Button type="button" size="sm" variant="ghost" onClick={handleLater}>
                 Not now
               </Button>
             </div>

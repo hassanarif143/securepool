@@ -51,6 +51,32 @@ const TIER: Record<string, { color: string; icon: string }> = {
   diamond: { color: "#b9f2ff", icon: "💎" },
 };
 
+/** Display order (low → high). Fixes bad data where previous/new were swapped. */
+const TIER_RANK = ["Rookie", "Bronze", "Silver", "Gold", "Platinum", "Diamond"];
+
+function tierRank(label: unknown): number {
+  const k = String(label ?? "").trim().toLowerCase();
+  const i = TIER_RANK.findIndex((t) => t.toLowerCase() === k);
+  return i >= 0 ? i : -1;
+}
+
+function normalizeTierTransition(fromRaw: unknown, toRaw: unknown) {
+  const a = String(fromRaw ?? "Bronze").trim();
+  const b = String(toRaw ?? "Silver").trim();
+  const ia = tierRank(a);
+  const ib = tierRank(b);
+  if (ia < 0 || ib < 0) {
+    return { fromLabel: a, toLabel: b, showArrow: a.toLowerCase() !== b.toLowerCase() };
+  }
+  if (ia === ib) {
+    return { fromLabel: a, toLabel: b, showArrow: false };
+  }
+  if (ia < ib) {
+    return { fromLabel: a, toLabel: b, showArrow: true };
+  }
+  return { fromLabel: b, toLabel: a, showArrow: true };
+}
+
 function tierMeta(label: unknown) {
   const k = String(label ?? "bronze").toLowerCase();
   return TIER[k] ?? { color: "#cd7f32", icon: "🥉" };
@@ -129,6 +155,8 @@ function BodyPoolWin({ d, inviteUrl, playerId, seed }: { d: Record<string, unkno
           {pos.emoji}
         </div>
         <div
+          data-gradient-text="true"
+          data-fallback-color="#ffd700"
           style={{
             fontSize: 52,
             fontWeight: 900,
@@ -486,8 +514,9 @@ function BodyWithdrawal({ d, inviteUrl, playerId, seed }: { d: Record<string, un
 /** Level up — Template 5 */
 function BodyLevelUp({ d, inviteUrl, playerId, seed }: { d: Record<string, unknown>; inviteUrl: string; playerId: string; seed: number }) {
   const username = String(d.username ?? "Player");
-  const fromLevel = String(d.previous_level ?? "Bronze");
-  const toLevel = String(d.new_level ?? "Silver");
+  const norm = normalizeTierTransition(d.previous_level, d.new_level);
+  const fromLevel = norm.fromLabel;
+  const toLevel = norm.toLabel;
   const from = tierMeta(fromLevel);
   const to = tierMeta(toLevel);
   const date = String(d.date ?? "");
@@ -537,26 +566,43 @@ function BodyLevelUp({ d, inviteUrl, playerId, seed }: { d: Record<string, unkno
           {to.icon}
         </div>
         <div style={{ color: "#ffffff", fontSize: 26, fontWeight: 700, marginTop: 20, letterSpacing: 0.5 }}>{username}</div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            marginTop: 16,
-            padding: "9px 22px",
-            borderRadius: 30,
-            background: "rgba(17,29,51,0.9)",
-            border: `1px solid ${to.color}18`,
-          }}
-        >
-          <span style={{ color: from.color, fontSize: 14, fontWeight: 600 }}>
-            {from.icon} {fromLevel}
-          </span>
-          <span style={{ color: to.color, fontSize: 20, fontWeight: 300 }}>→</span>
-          <span style={{ color: to.color, fontSize: 14, fontWeight: 700, textShadow: `0 0 12px ${to.color}66` }}>
-            {to.icon} {toLevel}
-          </span>
-        </div>
+        {norm.showArrow ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginTop: 16,
+              padding: "9px 22px",
+              borderRadius: 30,
+              background: "rgba(17,29,51,0.9)",
+              border: `1px solid ${to.color}18`,
+            }}
+          >
+            <span style={{ color: from.color, fontSize: 14, fontWeight: 600 }}>
+              {from.icon} {fromLevel}
+            </span>
+            <span style={{ color: to.color, fontSize: 20, fontWeight: 300 }}>→</span>
+            <span style={{ color: to.color, fontSize: 14, fontWeight: 700, textShadow: `0 0 12px ${to.color}66` }}>
+              {to.icon} {toLevel}
+            </span>
+          </div>
+        ) : (
+          <div
+            style={{
+              marginTop: 16,
+              padding: "10px 22px",
+              borderRadius: 30,
+              background: "rgba(17,29,51,0.9)",
+              border: `1px solid ${to.color}18`,
+              color: to.color,
+              fontSize: 15,
+              fontWeight: 700,
+            }}
+          >
+            Reached {to.icon} {toLevel}
+          </div>
+        )}
         <div style={{ color: "#8899aa", fontSize: 12, marginTop: 16, textAlign: "center" }}>Climbing the ranks on SecurePool! 🚀</div>
       </div>
       <ReferralCTA refLink={inviteUrl} themeColor={to.color} />
