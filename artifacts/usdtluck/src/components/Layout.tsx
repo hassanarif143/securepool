@@ -922,7 +922,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <header
         className="backdrop-blur-[20px] supports-[backdrop-filter]:backdrop-blur-[20px]"
         style={{
-          borderBottom: "1px solid var(--border)",
+          borderBottom: "1px solid var(--sp-border)",
           background: "rgba(7, 15, 30, 0.95)",
         }}
       >
@@ -958,7 +958,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         textDecoration: "none",
                         fontSize: "13.5px",
                         fontWeight: active ? "600" : "500",
-                        fontFamily: '"DM Sans", sans-serif',
+                        fontFamily: "var(--app-font-sans)",
                         color: active ? (gold ? "var(--gold)" : "var(--text-1)") : "var(--text-2)",
                         background: active ? "var(--bg-3)" : "transparent",
                         position: "relative",
@@ -989,7 +989,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                             right: "8px",
                             height: "2px",
                             borderRadius: "2px",
-                            background: "var(--accent)",
+                            background: "var(--sp-accent)",
                           }}
                         />
                       )}

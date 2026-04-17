@@ -808,7 +808,7 @@
   background: rgba(12, 17, 30, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 16px;
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
@@ -958,7 +958,7 @@
   }
 
   body {
-    font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--app-font-sans);
     background: #070f1e;
     color: #e8eff8;
     line-height: 1.6;
@@ -973,10 +973,10 @@
   --bg-2: #0c1628;
   --bg-3: #111e35;
 
-  /* ONE accent color */
-  --accent: #00c2e0;
-  --accent-soft: rgba(0, 194, 224, 0.08);
-  --accent-border: rgba(0, 194, 224, 0.2);
+  /* Premium accent (match SPT/Games vibe) */
+  --sp-accent: #00e5cc;
+  --sp-accent-soft: rgba(0, 229, 204, 0.08);
+  --sp-accent-border: rgba(0, 229, 204, 0.18);
 
   /* Supporting colors */
   --gold: #f5c842;
@@ -992,9 +992,9 @@
   --text-2: #7a8fa6;
   --text-3: #374151;
 
-  /* Border */
-  --border: rgba(255, 255, 255, 0.07);
-  --border-bright: rgba(255, 255, 255, 0.12);
+  /* Borders (do NOT override shadcn/tailwind HSL tokens like --border) */
+  --sp-border: rgba(255, 255, 255, 0.045);
+  --sp-border-strong: rgba(255, 255, 255, 0.075);
 
   /* Radius */
   --r-sm: 8px;
@@ -1008,9 +1008,9 @@
   --bg-elevated: var(--bg-3);
   --bg-hover: rgba(17, 30, 53, 0.9);
 
-  --cyan: var(--accent);
-  --cyan-dim: var(--accent-soft);
-  --border-soft: rgba(255, 255, 255, 0.07);
+  --cyan: var(--sp-accent);
+  --cyan-dim: var(--sp-accent-soft);
+  --border-soft: var(--sp-border);
   --text-primary: var(--text-1);
   --text-secondary: var(--text-2);
   --text-muted: #7a8fa6;
@@ -1018,7 +1018,7 @@
   --shadow-sm: 0 6px 24px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 10px 40px rgba(0, 0, 0, 0.45);
   --shadow-lg: 0 18px 64px rgba(0, 0, 0, 0.55);
-  --shadow-cyan: 0 10px 40px rgba(0, 194, 224, 0.18);
+  --shadow-cyan: 0 10px 40px rgba(0, 229, 204, 0.18);
   --shadow-gold: 0 10px 40px rgba(245, 200, 66, 0.18);
 }
 

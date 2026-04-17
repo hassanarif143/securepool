@@ -73,20 +73,21 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
       <div
         style={{
           background: "var(--bg-2)",
-          border: `1px solid ${spotsLeft <= 5 ? "rgba(239,68,68,0.2)" : "var(--border)"}`,
+          border: `1px solid ${spotsLeft <= 5 ? "rgba(255,71,87,0.18)" : "var(--sp-border)"}`,
           borderRadius: "var(--r-lg)",
           padding: 20,
           display: "flex",
           flexDirection: "column",
           gap: 14,
+          boxShadow: "0 12px 40px rgba(0,0,0,0.22)",
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
           <div style={{ minWidth: 0 }}>
             <div
               style={{
-                fontFamily: '"Syne", sans-serif',
-                fontWeight: 700,
+                fontFamily: 'var(--font-sp-display)',
+                fontWeight: 800,
                 fontSize: 16,
                 color: "var(--text-1)",
                 marginBottom: 3,
@@ -102,9 +103,9 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
               style={{
                 background: "var(--red-soft)",
                 color: "var(--red)",
-                border: "1px solid rgba(239,68,68,0.2)",
+                border: "1px solid rgba(255,71,87,0.18)",
                 borderRadius: 99,
-                padding: "2px 10px",
+                padding: "3px 12px",
                 fontSize: 11,
                 fontWeight: 800,
                 whiteSpace: "nowrap",
@@ -128,14 +129,14 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
                 style={{
                   flex: 1,
                   background: "var(--bg-3)",
-                  border: "1px solid var(--border)",
+                  border: "1px solid var(--sp-border)",
                   borderRadius: 10,
                   padding: "10px 8px",
                   textAlign: "center",
                 }}
               >
                 <div style={{ fontSize: 16, marginBottom: 4 }}>{p.rank}</div>
-                <div style={{ fontFamily: '"Syne", sans-serif', fontWeight: 700, fontSize: 14, color: p.color }}>
+                <div style={{ fontFamily: 'var(--font-sp-display)', fontWeight: 800, fontSize: 14, color: p.color }}>
                   {roundPrizeUsdt(p.amount)} USDT
                 </div>
               </div>
@@ -155,7 +156,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
                 width: `${Math.round((sold / Math.max(1, maxSeats)) * 100)}%`,
                 height: "100%",
                 borderRadius: 99,
-                background: spotsLeft <= 5 ? "var(--red)" : "var(--accent)",
+                background: spotsLeft <= 5 ? "var(--red)" : "var(--sp-accent)",
               }}
             />
           </div>
@@ -168,12 +169,12 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
             style={{
               padding: "9px 20px",
               borderRadius: 9,
-              background: "var(--accent)",
-              color: "#070F1E",
+              background: "var(--sp-accent)",
+              color: "#061018",
               fontSize: 13,
               fontWeight: 800,
               textDecoration: "none",
-              fontFamily: '"Syne", sans-serif',
+              fontFamily: 'var(--font-sp-display)',
             }}
           >
             Join Pool →
