@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
+/* Fonts are loaded via index.html (preconnect + stylesheet) */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -89,6 +90,42 @@
 }
 
 :root {
+  /* Premium fintech palette tokens (used by custom inline-styled components) */
+  --bg-base: #060b18;
+  --bg-surface: #0d1526;
+  --bg-elevated: #121d35;
+  --bg-hover: #1a2640;
+
+  --cyan: #00d4ff;
+  --cyan-dim: rgba(0, 212, 255, 0.08);
+  --cyan-glow: rgba(0, 212, 255, 0.25);
+  --teal: #00b4a0;
+  --gold: #ffd166;
+  --gold-dim: rgba(255, 209, 102, 0.08);
+  --gold-glow: rgba(255, 209, 102, 0.2);
+
+  --text-primary: #f0f4ff;
+  --text-secondary: #8899bb;
+  --text-muted: #445577;
+  --text-faint: #2a3a55;
+
+  --border-soft: #1e2d4a;
+  --border-bright: #2a3f66;
+  --border-gold: rgba(255, 209, 102, 0.2);
+  --border-cyan: rgba(0, 212, 255, 0.2);
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+  --r-full: 9999px;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
+  --shadow-cyan: 0 4px 20px rgba(0, 212, 255, 0.2);
+  --shadow-gold: 0 4px 20px rgba(255, 209, 102, 0.2);
+
   --background: 0 0% 98%;
   --foreground: 222 47% 11%;
   --border: 214 32% 91%;
@@ -224,6 +261,7 @@
     @apply border-border;
   }
   html {
+    color-scheme: dark;
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
@@ -237,6 +275,7 @@
     @apply bg-background text-foreground font-sans antialiased text-[15px] sm:text-base leading-relaxed;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
   ::selection {
     background: hsl(142 71% 45% / 0.28);
@@ -247,6 +286,13 @@
 @layer utilities {
   .font-display {
     font-family: var(--app-font-display), var(--app-font-sans), system-ui, sans-serif;
+  }
+  /* Match master prompt naming for convenience */
+  .font-body {
+    font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  }
+  .font-syne {
+    font-family: "Syne", ui-sans-serif, system-ui, sans-serif;
   }
   /** Standard page shell — use on route roots for consistent rhythm */
   .ds-page {
