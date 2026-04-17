@@ -66,14 +66,6 @@ export default function PoolsPage() {
   return (
     <div className="sp-ambient-bg relative min-h-screen w-full">
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:px-6 sm:py-10">
-        <div style={{ marginBottom: 4 }}>
-          <h1 style={{ fontFamily: '"Syne", sans-serif', fontWeight: 800, fontSize: 22, color: "var(--text-1)" }}>
-            Join a Pool, Win USDT
-          </h1>
-          <p style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4 }}>
-            Buy a ticket → pool fills up → winners get paid.
-          </p>
-        </div>
       {bannerOpen && (
         <div
           className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/50 to-slate-900/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3"

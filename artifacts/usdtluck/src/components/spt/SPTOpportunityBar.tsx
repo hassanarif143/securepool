@@ -15,11 +15,11 @@ function routeKey(pathname: string): keyof typeof PAGE_MESSAGES | null {
 }
 
 const PAGE_MESSAGES = {
-  "/pools": { icon: "🎰", msg: "Join any pool and earn ", action: "/pools" },
-  "/games": { icon: "🎮", msg: "Play any game and earn ", action: "/games" },
-  "/": { icon: "📅", msg: "Don't miss today's daily login bonus — ", action: "/dashboard" },
-  "/wallet": { icon: "💰", msg: "Make your first deposit and earn ", action: "/wallet?tab=deposit" },
-  "/profile": { icon: "👥", msg: "Refer a friend and earn ", action: "/referral" },
+  "/pools": { icon: "🎰", msg: "Koi bhi pool join karo aur ", action: "/pools" },
+  "/games": { icon: "🎮", msg: "Har game khelo aur ", action: "/games" },
+  "/": { icon: "📅", msg: "Aaj ka daily login bonus miss mat karo — ", action: "/dashboard" },
+  "/wallet": { icon: "💰", msg: "Pehli baar deposit karo — ", action: "/wallet?tab=deposit" },
+  "/profile": { icon: "👥", msg: "Dost ko refer karo — ", action: "/referral" },
 } as const satisfies Record<string, Opportunity>;
 
 const AMOUNTS = {
@@ -147,7 +147,7 @@ export function SPTOpportunityBar({
               e.currentTarget.style.background = "transparent";
             }}
           >
-            Earn Now
+            Earn now
             <svg
               width="10"
               height="10"

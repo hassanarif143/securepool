@@ -334,10 +334,10 @@ export default function WinnersPage() {
             <span className="text-[34px] leading-none" aria-hidden>🏆</span>
           </div>
           <h1 className="text-[28px] font-extrabold leading-[1.15] tracking-tight sm:text-[40px] sp-hero-title">
-            Recent Winners
+            Winners Hall of Fame
           </h1>
           <p className="mt-2 text-[14px] leading-relaxed text-[#9e9e9e]">
-            Recent results and payouts.
+            Real USDT rewards — verified, transparent, paid instantly to wallets
           </p>
 
           <div className="mt-5 grid grid-cols-3 gap-3">

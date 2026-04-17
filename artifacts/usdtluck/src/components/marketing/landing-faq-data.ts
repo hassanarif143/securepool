@@ -2,23 +2,23 @@ import { formatPkrApprox } from "@/lib/landing-pkr";
 
 export const LANDING_FAQ_ITEMS: { q: string; a: string }[] = [
   {
-    q: "Is this a scam?",
-    a: "You can verify each draw result. Every payout has public proof — you can check it on a blockchain explorer. Start with a small pool and see for yourself.",
+    q: "Kya yeh scam hai? (Is this a scam?)",
+    a: "Har draw ka result verify kar sakte ho. Har payout ka public proof hota hai — aap khud payment explorer pe check kar sakte ho. Pehle chhote pool se try karo aur khud dekho.",
   },
   {
-    q: "When do I get paid?",
-    a: "After you win, USDT usually arrives within 2–4 hours to your saved wallet address. You’ll get a transfer link you can verify.",
+    q: "Mera paisa kab milega? (When do I get paid?)",
+    a: "Win ke baad usually 2–4 ghante mein USDT aapke saved wallet address par aa jata hai. Har transfer ka link mil jata hai jo aap verify kar sakte ho.",
   },
   {
-    q: "I’m new to crypto — can I still join?",
-    a: "Yes. We provide a step-by-step guide for buying USDT (JazzCash/EasyPaisa) with screenshots. Create your account, then follow the deposit guide.",
+    q: "Mujhe crypto nahi aata — kya main join kar sakta hun?",
+    a: "Bilkul! Humne step-by-step guide diya hai — JazzCash ya EasyPaisa se USDT kaise lein, screenshots ke saath. Pehle account banao, phir deposit guide follow karo.",
   },
   {
-    q: "What is my winning chance?",
-    a: "Winning chance depends on the pool — Starter ~25%, Small ~20%, Large ~30% (approx). The exact chance is shown on each pool card.",
+    q: "Winning chance kitna hai?",
+    a: "Har pool ka chance different hota hai — Starter ~25%, Small ~20%, Large ~30% (approx). Exact pool card pe chance likha hota hai.",
   },
   {
-    q: "What is the minimum amount?",
-    a: `You can start from $3 USDT (${formatPkrApprox(3)}). Try a Starter pool first, then explore more options.`,
+    q: "Minimum kitna lagana padta hai?",
+    a: `Sirf $3 USDT (${formatPkrApprox(3)}) se start kar sakte ho. Pehle Starter pool try karo, phir confidence ke saath aur options dekho.`,
   },
 ];

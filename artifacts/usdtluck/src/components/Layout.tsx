@@ -890,8 +890,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
       { href: "/dashboard", label: "Home", icon: "🏠" },
       ...(!arcadeInBar ? [MORE_GAMES] : []),
       { href: "/my-tickets", label: "My Tickets", icon: "🎟️" },
+      { href: "/rewards", label: "Rewards", icon: "🎁" },
       { href: "/referral", label: "Referral", icon: "🔗" },
       { href: "/my-shares", label: "My Shares", icon: "📤" },
+      { href: "/staking", label: "Staking", icon: "🔒" },
+      { href: "/p2p", label: "P2P Trading", icon: "💱" },
+      { href: "/how-it-works", label: "How It Works", icon: "📘" },
       { href: "/provably-fair", label: "Provably Fair", icon: "🧪" },
       { href: "/reviews", label: "Reviews", icon: "💬" },
       ...(user.isAdmin
@@ -919,13 +923,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <div className="sticky top-0 z-50">
-      <header
-        className="backdrop-blur-[20px] supports-[backdrop-filter]:backdrop-blur-[20px]"
-        style={{
-          borderBottom: "1px solid var(--sp-border)",
-          background: "rgba(7, 15, 30, 0.95)",
-        }}
-      >
+      <header className="border-b border-white/[0.06] bg-[rgba(9,14,26,0.96)] backdrop-blur-[24px] supports-[backdrop-filter]:bg-[rgba(9,14,26,0.92)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-[60px] gap-2 sm:gap-3">
 
@@ -958,22 +956,28 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         textDecoration: "none",
                         fontSize: "13.5px",
                         fontWeight: active ? "600" : "500",
-                        fontFamily: "var(--app-font-sans)",
-                        color: active ? (gold ? "var(--gold)" : "var(--text-1)") : "var(--text-2)",
-                        background: active ? "var(--bg-3)" : "transparent",
+                        fontFamily: '"DM Sans", sans-serif',
+                        color: active ? (gold ? "#FFD166" : "#E2E8F0") : gold ? "#8B6914" : "#556688",
+                        background: active
+                          ? gold
+                            ? "rgba(255,209,102,0.07)"
+                            : "rgba(0,212,255,0.06)"
+                          : "transparent",
                         position: "relative",
                         transition: "all 0.15s ease",
                         whiteSpace: "nowrap",
                       }}
                       onMouseEnter={(e) => {
                         if (!active) {
-                          e.currentTarget.style.color = "var(--text-1)";
-                          e.currentTarget.style.background = "var(--bg-3)";
+                          e.currentTarget.style.color = gold ? "#FFD166" : "#B0C4D8";
+                          e.currentTarget.style.background = gold
+                            ? "rgba(255,209,102,0.05)"
+                            : "rgba(255,255,255,0.04)";
                         }
                       }}
                       onMouseLeave={(e) => {
                         if (!active) {
-                          e.currentTarget.style.color = "var(--text-2)";
+                          e.currentTarget.style.color = gold ? "#8B6914" : "#556688";
                           e.currentTarget.style.background = "transparent";
                         }
                       }}
@@ -989,7 +993,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                             right: "8px",
                             height: "2px",
                             borderRadius: "2px",
-                            background: "var(--sp-accent)",
+                            background: gold
+                              ? "linear-gradient(90deg, #FFD166, #FF9F43)"
+                              : "linear-gradient(90deg, #00D4FF, #00B4A0)",
                           }}
                         />
                       )}

@@ -179,7 +179,7 @@ router.post("/chat", requireAuth, chatLimiter, async (req, res) => {
     logger.error({ err }, "[support] chat failed");
     res.json({
       ai_response:
-        "Sorry — something went wrong. Please try again in a moment, or message support. Kuch aur help chahiye?",
+        "Maafi chahta hoon, abhi technical issue aa rahi hai. Thodi der mein dobara try karein ya admin se contact karein.",
       escalated: false,
       error: true,
     });

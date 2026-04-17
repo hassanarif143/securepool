@@ -400,7 +400,7 @@ export default function WalletPage() {
       {/* Balance hero — primary trust anchor */}
       <div className={`${premiumPanel} overflow-hidden`}>
         <div className={cn(premiumPanelHead, "items-center")}>
-          <p className="font-sp-display text-[11px] font-semibold uppercase tracking-widest text-[#00E5CC]/85">Your Wallet</p>
+          <p className="font-sp-display text-[11px] font-semibold uppercase tracking-widest text-[#00E5CC]/85">Wallet</p>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/[0.08] px-2.5 py-1 text-[10px] font-medium text-emerald-300/95">
             <Shield className="h-3 w-3" aria-hidden />
             Reviewed deposits
@@ -529,7 +529,7 @@ export default function WalletPage() {
             <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/15 px-4 py-3">
               <p className="text-sm font-semibold text-foreground">Add money to your wallet</p>
               <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                Follow each step: send USDT, upload a screenshot, then wait for verification.
+                Har step ek-ek kar ke — USDT bhejna, screenshot, aur verification. Roman Urdu + English dono.
               </p>
             </div>
 
@@ -538,14 +538,14 @@ export default function WalletPage() {
               <p className="text-[13px] text-[#8899BB] mb-2">🎁 Deposit Bonus</p>
               {firstDepositClaimed ? (
                 <>
-                  <p className="text-[14px] font-semibold text-emerald-300">✅ First deposit bonus claimed</p>
-                  <p className="text-[12px] text-[#8899BB] mt-1">+500 SPT has been added to your account.</p>
+                  <p className="text-[14px] font-semibold text-emerald-300">✅ First deposit bonus claim ho gaya</p>
+                  <p className="text-[12px] text-[#8899BB] mt-1">+500 SPT aapke account mein add ho chuka hai.</p>
                 </>
               ) : (
                 <>
                   <p className="font-sp-display font-extrabold text-[22px] text-[#FFD166]">+500 SPT</p>
                   <p className="text-[12px] text-[#8899BB] mt-1">
-                    Earned on your first deposit — worth about <span className="text-emerald-300 font-semibold">5 USDT</span>
+                    Pehli deposit pe milega — ≈ <span className="text-emerald-300 font-semibold">5 USDT</span> value bilkul free
                   </p>
                 </>
               )}
@@ -554,7 +554,7 @@ export default function WalletPage() {
               <div className="flex items-start gap-3 p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/8">
                 <span className="text-yellow-400 shrink-0 mt-0.5">⚠</span>
                 <p className="text-sm text-yellow-300">
-                  Add your USDT wallet address (TRON) in your Profile before you deposit or withdraw.
+                  Pehle Profile mein apna USDT wallet address (TRON) add karein — payout ke liye zaroori hai.
                   <Link href="/profile" className="font-semibold underline ml-1">
                     Profile
                   </Link>

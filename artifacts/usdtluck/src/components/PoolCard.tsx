@@ -68,122 +68,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
   const explainer = `${maxSeats} people join → pool fills → ${wc} winner${wc === 1 ? "" : "s"} picked automatically`;
 
   return (
-    <>
-      {/* Nuclear reset card */}
-      <div
-        style={{
-          background: "var(--bg-2)",
-          border: `1px solid ${spotsLeft <= 5 ? "rgba(255,71,87,0.18)" : "var(--sp-border)"}`,
-          borderRadius: "var(--r-lg)",
-          padding: 20,
-          display: "flex",
-          flexDirection: "column",
-          gap: 14,
-          boxShadow: "0 12px 40px rgba(0,0,0,0.22)",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                fontFamily: 'var(--font-sp-display)',
-                fontWeight: 800,
-                fontSize: 16,
-                color: "var(--text-1)",
-                marginBottom: 3,
-              }}
-              className="truncate"
-            >
-              {headline}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-2)" }}>{roundPrizeUsdt(pool.entryFee)} USDT per ticket</div>
-          </div>
-          {spotsLeft <= 5 && status === "open" ? (
-            <span
-              style={{
-                background: "var(--red-soft)",
-                color: "var(--red)",
-                border: "1px solid rgba(255,71,87,0.18)",
-                borderRadius: 99,
-                padding: "3px 12px",
-                fontSize: 11,
-                fontWeight: 800,
-                whiteSpace: "nowrap",
-              }}
-            >
-              Almost Full
-            </span>
-          ) : null}
-        </div>
-
-        <div style={{ display: "flex", gap: 8 }}>
-          {[
-            { rank: "🥇", amount: pool.prizeFirst, color: "var(--gold)" },
-            { rank: "🥈", amount: pool.prizeSecond, color: "var(--text-1)" },
-            { rank: "🥉", amount: pool.prizeThird, color: "#F59E0B" },
-          ]
-            .slice(0, wc)
-            .map((p, i) => (
-              <div
-                key={i}
-                style={{
-                  flex: 1,
-                  background: "var(--bg-3)",
-                  border: "1px solid var(--sp-border)",
-                  borderRadius: 10,
-                  padding: "10px 8px",
-                  textAlign: "center",
-                }}
-              >
-                <div style={{ fontSize: 16, marginBottom: 4 }}>{p.rank}</div>
-                <div style={{ fontFamily: 'var(--font-sp-display)', fontWeight: 800, fontSize: 14, color: p.color }}>
-                  {roundPrizeUsdt(p.amount)} USDT
-                </div>
-              </div>
-            ))}
-        </div>
-
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
-            <span style={{ color: "var(--text-2)" }}>
-              {sold} of {maxSeats} joined
-            </span>
-            <span style={{ color: spotsLeft <= 5 ? "var(--red)" : "var(--text-3)" }}>{spotsLeft} spots left</span>
-          </div>
-          <div style={{ height: 4, background: "var(--bg-1)", borderRadius: 99, overflow: "hidden" }}>
-            <div
-              style={{
-                width: `${Math.round((sold / Math.max(1, maxSeats)) * 100)}%`,
-                height: "100%",
-                borderRadius: 99,
-                background: spotsLeft <= 5 ? "var(--red)" : "var(--sp-accent)",
-              }}
-            />
-          </div>
-        </div>
-
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 11, color: "var(--gold)" }}>🪙 +10 SPT on join</span>
-          <Link
-            href={`/pools/${pool.id}`}
-            style={{
-              padding: "9px 20px",
-              borderRadius: 9,
-              background: "var(--sp-accent)",
-              color: "#061018",
-              fontSize: 13,
-              fontWeight: 800,
-              textDecoration: "none",
-              fontFamily: 'var(--font-sp-display)',
-            }}
-          >
-            Join Pool →
-          </Link>
-        </div>
-      </div>
-
-      {false && (
-        <div
+    <div
       className={`w-full min-w-0 rounded-2xl overflow-hidden border transition-all duration-300 hover:-translate-y-0.5 hover:shadow-2xl group ${
         fillingFast ? "ring-1 ring-amber-500/40 shadow-amber-900/20" : ""
       } ${isFilledWait ? "shadow-emerald-500/10 ring-1 ring-emerald-500/25" : ""}`}
@@ -327,7 +212,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
                 🪙
               </span>
               <span className="text-[12px] text-slate-300">
-                Join to earn{" "}
+                Join karo aur kamao{" "}
                 <span className="text-[#FFD166] font-semibold">+10 SPT</span>
               </span>
             </div>
@@ -372,8 +257,6 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
         }
       `}</style>
     </div>
-      )}
-    </>
   );
 }
 
@@ -631,7 +514,7 @@ function PoolCardActions({
             <Link href={`/pools/${poolId}`}>{userJoined ? "🎟️ Buy more tickets" : "🎟️ Buy ticket"}</Link>
           </Button>
           <p className="mt-1.5 text-center text-[11px] text-[#FFD166]/90 font-semibold">
-            🪙 Earn +10 SPT when you join
+            🪙 +10 SPT bonus milega join karne pe
           </p>
         </div>
         <Button

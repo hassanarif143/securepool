@@ -271,12 +271,12 @@ router.get("/recent-activity", async (_req, res) => {
   function fmtReason(r: string | null) {
     const x = String(r ?? "");
     const m: Record<string, string> = {
-      pool_join: "by joining a pool",
-      pool_win: "by winning a pool",
-      daily_login: "from daily login",
-      referral_success: "from referral",
-      game_played: "by playing a game",
-      first_deposit: "from first deposit",
+      pool_join: "pool join karke",
+      pool_win: "pool jeet ke",
+      daily_login: "daily login se",
+      referral_success: "referral se",
+      game_played: "game khel ke",
+      first_deposit: "first deposit pe",
     };
     return m[x] ?? x.replace(/_/g, " ");
   }
@@ -285,11 +285,11 @@ router.get("/recent-activity", async (_req, res) => {
     if (!d) return "";
     const diff = Date.now() - new Date(d).getTime();
     const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins} min ago`;
+    if (mins < 1) return "abhi abhi";
+    if (mins < 60) return `${mins} min pehle`;
     const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs} hours ago`;
-    return `${Math.floor(hrs / 24)} days ago`;
+    if (hrs < 24) return `${hrs} ghante pehle`;
+    return `${Math.floor(hrs / 24)} din pehle`;
   }
 
   res.json(

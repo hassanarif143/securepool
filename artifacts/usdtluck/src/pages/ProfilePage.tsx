@@ -655,7 +655,7 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-lg mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">Account Settings</h1>
+      <h1 className="text-2xl font-bold">Profile</h1>
 
       <Card>
         <CardHeader>

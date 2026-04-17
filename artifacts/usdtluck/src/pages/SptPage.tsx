@@ -205,7 +205,7 @@ export default function SptPage() {
         <div className="relative flex flex-col items-center text-center">
           <SPTCoin size="xl" animate className="drop-shadow-[0_12px_40px_rgba(255,184,0,0.35)]" />
           <h1 className="mt-6 font-sp-display text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Your SPT Token
+            SecurePool Token
           </h1>
           <p className="mt-1 font-sp-display text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-[#FFD166] via-amber-300 to-[#FFB800] bg-clip-text text-transparent">
             SPT
@@ -351,7 +351,7 @@ export default function SptPage() {
 
         <TabsContent value="earn" className="mt-6 space-y-4">
           <p className="text-sm text-muted-foreground">
-            <span className="text-foreground font-medium">Earn free SPT</span> — see the USDT value of each action below.
+            <span className="text-foreground font-medium">Earn free SPT</span> — har action ka USDT equivalent neeche hai.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <EarnCard
@@ -359,19 +359,19 @@ export default function SptPage() {
               title="Pool join"
               spt={10}
               usdt={0.1}
-              desc="Earned per successful ticket."
+              desc="Har successful ticket purchase pe."
               action={
                 <Button asChild className="w-full mt-3 bg-cyan-600 hover:bg-cyan-500">
-                  <Link href="/pools">Join a Pool →</Link>
+                  <Link href="/pools">Join pool →</Link>
                 </Button>
               }
             />
             <EarnCard
               icon="🏆"
-              title="Win a pool"
+              title="Pool jeeto"
               spt={150}
               usdt={1.5}
-              desc="Earned when winners are announced."
+              desc="Winner announce hone par (non-bot)."
               action={
                 <Button asChild className="w-full mt-3" variant="secondary">
                   <Link href="/pools">View pools →</Link>
@@ -384,7 +384,7 @@ export default function SptPage() {
               spt={5}
               usdt={0.05}
               extra={`Day 7 bonus up to 200 SPT · Your streak: ${bal?.login_streak_count ?? 0} days 🔥`}
-              desc="Claim daily — if you miss a day, the streak resets."
+              desc="Roz claim karo — streak break ho to reset."
               action={
                 <Button className="w-full mt-3" onClick={() => void claimDaily()} disabled={claiming}>
                   {claiming ? "…" : "Claim today’s SPT →"}
@@ -396,7 +396,7 @@ export default function SptPage() {
               title="Referral"
               spt={75}
               usdt={0.75}
-              desc="Earned when your friend buys their first ticket."
+              desc="Jab friend pehli ticket khareede."
               action={
                 <Button asChild className="w-full mt-3" variant="outline">
                   <Link href="/referral">Referral link →</Link>
@@ -408,7 +408,7 @@ export default function SptPage() {
               title="Games"
               spt={10}
               usdt={0.1}
-              desc="Earned per game played."
+              desc="Har arcade play."
               action={
                 <Button asChild className="w-full mt-3">
                   <Link href="/games">Play games →</Link>
@@ -420,7 +420,7 @@ export default function SptPage() {
               title="First deposit"
               spt={500}
               usdt={5}
-              desc="Earned when your first deposit is approved."
+              desc="Jab admin pehli deposit approve kare."
               done={hasFirstDepositEarn}
               action={
                 <Button asChild className="w-full mt-3" variant="ghost" size="sm">

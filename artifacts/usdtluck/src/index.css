@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
-/* Fonts are loaded via index.html (preconnect + stylesheet) */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -90,42 +89,6 @@
 }
 
 :root {
-  /* Premium fintech palette tokens (used by custom inline-styled components) */
-  --bg-base: #060b18;
-  --bg-surface: #0d1526;
-  --bg-elevated: #121d35;
-  --bg-hover: #1a2640;
-
-  --cyan: #00d4ff;
-  --cyan-dim: rgba(0, 212, 255, 0.08);
-  --cyan-glow: rgba(0, 212, 255, 0.25);
-  --teal: #00b4a0;
-  --gold: #ffd166;
-  --gold-dim: rgba(255, 209, 102, 0.08);
-  --gold-glow: rgba(255, 209, 102, 0.2);
-
-  --text-primary: #f0f4ff;
-  --text-secondary: #8899bb;
-  --text-muted: #445577;
-  --text-faint: #2a3a55;
-
-  --border-soft: #1e2d4a;
-  --border-bright: #2a3f66;
-  --border-gold: rgba(255, 209, 102, 0.2);
-  --border-cyan: rgba(0, 212, 255, 0.2);
-
-  --r-sm: 8px;
-  --r-md: 12px;
-  --r-lg: 16px;
-  --r-xl: 20px;
-  --r-full: 9999px;
-
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
-  --shadow-cyan: 0 4px 20px rgba(0, 212, 255, 0.2);
-  --shadow-gold: 0 4px 20px rgba(255, 209, 102, 0.2);
-
   --background: 0 0% 98%;
   --foreground: 222 47% 11%;
   --border: 214 32% 91%;
@@ -261,7 +224,6 @@
     @apply border-border;
   }
   html {
-    color-scheme: dark;
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
@@ -275,7 +237,6 @@
     @apply bg-background text-foreground font-sans antialiased text-[15px] sm:text-base leading-relaxed;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
   }
   ::selection {
     background: hsl(142 71% 45% / 0.28);
@@ -286,13 +247,6 @@
 @layer utilities {
   .font-display {
     font-family: var(--app-font-display), var(--app-font-sans), system-ui, sans-serif;
-  }
-  /* Match master prompt naming for convenience */
-  .font-body {
-    font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  }
-  .font-syne {
-    font-family: "Syne", ui-sans-serif, system-ui, sans-serif;
   }
   /** Standard page shell — use on route roots for consistent rhythm */
   .ds-page {
@@ -808,7 +762,7 @@
   background: rgba(12, 17, 30, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 16px;
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
@@ -936,157 +890,5 @@
 @media (prefers-reduced-motion: reduce) {
   .spt-coin-float {
     animation: none;
-  }
-}
-
-/* ─────────────────────────────────────────────
-   SecurePool "Nuclear Reset" theme layer
-   - Keep Tailwind imports above intact
-   - Override tokens late to avoid breaking shadcn/tw theme wiring
-───────────────────────────────────────────── */
-@layer base {
-  *,
-  *::before,
-  *::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
-
-  html {
-    color-scheme: dark;
-  }
-
-  body {
-    font-family: var(--app-font-sans);
-    background: #070f1e;
-    color: #e8eff8;
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-  }
-}
-
-:root,
-.dark {
-  /* ONE background system */
-  --bg-1: #070f1e;
-  --bg-2: #0c1628;
-  --bg-3: #111e35;
-
-  /* Premium accent (match SPT/Games vibe) */
-  --sp-accent: #00e5cc;
-  --sp-accent-soft: rgba(0, 229, 204, 0.08);
-  --sp-accent-border: rgba(0, 229, 204, 0.18);
-
-  /* Supporting colors */
-  --gold: #f5c842;
-  --gold-soft: rgba(245, 200, 66, 0.08);
-  --gold-border: rgba(245, 200, 66, 0.2);
-  --green: #22c55e;
-  --green-soft: rgba(34, 197, 94, 0.08);
-  --red: #ef4444;
-  --red-soft: rgba(239, 68, 68, 0.08);
-
-  /* Text (3 levels) */
-  --text-1: #e8eff8;
-  --text-2: #7a8fa6;
-  --text-3: #374151;
-
-  /* Borders (do NOT override shadcn/tailwind HSL tokens like --border) */
-  --sp-border: rgba(255, 255, 255, 0.045);
-  --sp-border-strong: rgba(255, 255, 255, 0.075);
-
-  /* Radius */
-  --r-sm: 8px;
-  --r-md: 12px;
-  --r-lg: 16px;
-  --r-xl: 20px;
-
-  /* Back-compat: existing premium tokens used across components */
-  --bg-base: var(--bg-1);
-  --bg-surface: var(--bg-2);
-  --bg-elevated: var(--bg-3);
-  --bg-hover: rgba(17, 30, 53, 0.9);
-
-  --cyan: var(--sp-accent);
-  --cyan-dim: var(--sp-accent-soft);
-  --border-soft: var(--sp-border);
-  --text-primary: var(--text-1);
-  --text-secondary: var(--text-2);
-  --text-muted: #7a8fa6;
-  --text-faint: #374151;
-  --shadow-sm: 0 6px 24px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 10px 40px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 18px 64px rgba(0, 0, 0, 0.55);
-  --shadow-cyan: 0 10px 40px rgba(0, 229, 204, 0.18);
-  --shadow-gold: 0 10px 40px rgba(245, 200, 66, 0.18);
-}
-
-@keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@keyframes shimmer {
-  from {
-    background-position: -200% center;
-  }
-  to {
-    background-position: 200% center;
-  }
-}
-@keyframes pulse-dot {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.4;
-    transform: scale(1.6);
-  }
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@keyframes glow-gold {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(245, 200, 66, 0);
-  }
-  50% {
-    box-shadow: 0 0 0 8px rgba(245, 200, 66, 0.06);
-  }
-}
-
-.fade-up {
-  animation: fadeUp 0.4s ease both;
-}
-
-.skeleton {
-  background: linear-gradient(90deg, var(--bg-2) 25%, var(--bg-3) 50%, var(--bg-2) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: var(--r-md);
-}
-
-@media (max-width: 768px) {
-  body {
-    padding-bottom: 68px;
-  }
-  .desktop-only {
-    display: none !important;
-  }
-}
-@media (min-width: 769px) {
-  .mobile-only {
-    display: none !important;
   }
 }

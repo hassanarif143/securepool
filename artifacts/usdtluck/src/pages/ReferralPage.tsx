@@ -110,12 +110,12 @@ export default function ReferralPage() {
         <p className="text-xs uppercase tracking-[0.18em] text-[#8899BB]">Referral rewards</p>
         <h1 className="font-sp-display text-3xl font-extrabold mt-2 text-[#FFD166]">+75 SPT Each</h1>
         <p className="text-sm text-[#8899BB] mt-3 leading-relaxed">
-          Refer a friend — <span className="text-[#F0F4FF] font-semibold">you both earn!</span>
+          Dost ko refer karo — <span className="text-[#F0F4FF] font-semibold">dono ko milega!</span>
           <br />
-          You: <span className="text-[#FFD166] font-semibold">+75 SPT</span> • Friend:{" "}
-          <span className="text-[#FFD166] font-semibold">+75 SPT</span> on first deposit
+          Tum: <span className="text-[#FFD166] font-semibold">+75 SPT</span> • Dost:{" "}
+          <span className="text-[#FFD166] font-semibold">+75 SPT</span> first deposit pe
           <br />
-          <span className="text-emerald-400 text-[13px] font-semibold">≈ 0.75 USDT each — free</span>
+          <span className="text-emerald-400 text-[13px] font-semibold">≈ 0.75 USDT each — bilkul free</span>
         </p>
       </div>
 
