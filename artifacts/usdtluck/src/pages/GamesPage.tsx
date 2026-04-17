@@ -161,9 +161,9 @@ export default function GamesPage() {
                 <div className="flex-[0.7] rounded-full bg-[rgba(255,215,0,0.55)]" />
               </div>
               <p className="text-xs text-sp-text-dim">
-                <span className="text-[#FF4757]/90">65% Win 1.5×</span>
+                <span className="text-[var(--green)]/90">65% Win 1.5×</span>
                 {" · "}
-                <span className="text-[var(--green)]/90">28% Try again</span>
+                <span className="text-[#FF4757]/90">28% Try again</span>
                 {" · "}
                 <span className="text-[#FFD700]/90">7% Win 3×</span>
               </p>
