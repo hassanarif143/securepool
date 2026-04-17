@@ -46,7 +46,7 @@ const ArcadeGamePlay = lazy(() =>
 );
 
 function PageFallback() {
-  return <PageLoading />;
+  return null;
 }
 
 class LazyRouteBoundary extends Component<{ children: React.ReactNode }, { err: unknown }> {
@@ -101,7 +101,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
     }
   }, [user, isLoading, navigate, location]);
 
-  if (isLoading) return <PageLoading />;
+  if (isLoading) return null;
   if (!user) return null;
   return <>{children}</>;
 }
@@ -149,7 +149,7 @@ function P2PAdminOnly() {
     if (!user.isAdmin) navigate("/dashboard", { replace: true });
   }, [user, isLoading, navigate]);
 
-  if (isLoading) return <PageLoading />;
+  if (isLoading) return null;
   if (!user) return null;
   if (!user.isAdmin) return null;
   return <P2PTradingPage />;
@@ -223,7 +223,7 @@ function Router() {
   return (
     <Layout>
       <PersistAndRestoreRoute />
-      <RouteChangeLoader />
+      {/* Page loader disabled for now */}
       <InstallPrompt />
       <Switch>
         <Route path="/" component={LandingPage} />
