@@ -401,7 +401,7 @@ export default function PoolDetailPage() {
         enqueue({
           kind: "win",
           title: "🎉 Congratulations!",
-          message: `You won ${d.prize} USDT!`,
+          message: `You won ${d.prize} USDT! 🪙 +150 SPT bonus added.`,
           amount: d.prize,
           place,
           poolId: id,

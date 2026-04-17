@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { apiUrl } from "@/lib/api-base";
 import { premiumPanel } from "@/lib/premium-panel";
 import { ProgressiveList } from "@/components/ProgressiveList";
+import { SPTLiveTicker } from "@/components/spt/SPTLiveTicker";
 
 const BANNER_KEY = "securepool_pools_onboarding_dismissed";
 
@@ -95,6 +96,8 @@ export default function PoolsPage() {
         <p className="max-w-2xl text-base leading-relaxed text-sp-text-dim">
           Buy a ticket → Pool fills → Winners picked automatically → Winnings to your wallet
         </p>
+
+        <SPTLiveTicker />
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 max-w-4xl">
           <QuickStat icon="🔥" label="Active pools" value={String(openPools.length)} accent="border-emerald-500/30 text-emerald-200" />

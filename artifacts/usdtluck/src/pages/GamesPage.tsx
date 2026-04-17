@@ -12,6 +12,7 @@ import { readArcadeStreakDays } from "@/hooks/useGamesArcadeAccess";
 import { GameCard } from "@/components/game/GameCard";
 import { SoundToggle } from "@/components/ui/SoundToggle";
 import { useSound } from "@/hooks/useSound";
+import { SPTLiveTicker } from "@/components/spt/SPTLiveTicker";
 
 export default function GamesPage() {
   const { user } = useAuth();
@@ -110,6 +111,7 @@ export default function GamesPage() {
               </Button>
             </div>
           </div>
+          <SPTLiveTicker />
         </header>
 
         {stateLoading ? (

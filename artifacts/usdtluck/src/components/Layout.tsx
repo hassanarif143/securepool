@@ -11,6 +11,7 @@ import { UsdtAmount } from "@/components/UsdtAmount";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SPTLevelBadge } from "@/components/spt/SPTLevelBadge";
 import { SPTOpportunityBar } from "@/components/spt/SPTOpportunityBar";
+import { LevelUpModal } from "@/components/spt/LevelUpModal";
 import { SupportChatBubble } from "@/components/support/SupportChatBubble";
 import { cn } from "@/lib/utils";
 
@@ -755,9 +756,43 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, isLoading } = useAuth();
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [levelUp, setLevelUp] = useState<string | null>(null);
   const { loading: gamesLoading, miniGamesEnabled } = useGameAvailability(!!user);
   /* Close mobile menu on navigation */
   useEffect(() => { setMobileOpen(false); }, [location]);
+
+  // Level-up celebration (FOMO milestone): detect SPT level changes.
+  useEffect(() => {
+    if (!user) return;
+    const uid = user.id;
+    let cancelled = false;
+    async function poll() {
+      try {
+        const r = await fetch(apiUrl("/api/spt/balance"), { credentials: "include" });
+        if (!r.ok) return;
+        const j = (await r.json()) as { spt_level?: string };
+        const next = String(j.spt_level ?? "Bronze");
+        const key = `sp_spt_last_level:${uid}`;
+        const prev = typeof window !== "undefined" ? localStorage.getItem(key) : null;
+        if (!prev) {
+          localStorage.setItem(key, next);
+          return;
+        }
+        if (prev !== next && !cancelled) {
+          localStorage.setItem(key, next);
+          setLevelUp(next);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    void poll();
+    const t = setInterval(poll, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [user]);
 
   /** Single source of truth: arcade in primary bar ⇔ Games in bottom middle slot; else Wallet + Games in More. */
   const arcadeInBar = !gamesLoading && miniGamesEnabled;
@@ -991,6 +1026,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       )}
 
       <SupportChatBubble />
+      {levelUp ? <LevelUpModal newLevel={levelUp} onClose={() => setLevelUp(null)} /> : null}
 
       <SiteFooter extraMobileBottomSpace={!!user} />
     </div>
