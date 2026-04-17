@@ -57,7 +57,7 @@ export async function calculateDailyStakingEarningsV2(now = new Date()): Promise
           userId: fresh.userId,
           type: "earning",
           amount: daily.toFixed(2),
-          description: `Daily earning @ ${apy.toFixed(2)}% APY`,
+          description: `Daily reward +${daily.toFixed(2)} USDT`,
           createdAt: cur,
         } as any);
         cur = new Date(cur.getTime() + 24 * 60 * 60 * 1000);

@@ -1,5 +1,5 @@
 import { db, stakingPlansTable, userStakesTable, stakingTransactionsTable, usersTable, transactionsTable } from "@workspace/db";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { mirrorAvailableFromUser } from "./user-wallet-service";
 import { getStakingSafetyConfig } from "./staking-safety";
 
@@ -11,6 +11,9 @@ function toNum(v: unknown): number {
 }
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+function round4(n: number): number {
+  return Math.round(n * 10000) / 10000;
 }
 
 export async function listVisiblePlans() {
@@ -40,6 +43,8 @@ export async function listVisiblePlans() {
     isActive: p.isActive,
     isVisible: p.isVisible,
     displayOrder: p.displayOrder ?? 0,
+    /** USDT earned per 1 USDT locked per day (internal model uses annual rate ÷ 365). */
+    dailyRewardPerUsdt: round4((toNum(p.currentApy) / 100) / 365),
   }));
 }
 
@@ -132,7 +137,7 @@ export async function createStakeV2(args: { userId: number; planId: number; amou
       userId: args.userId,
       type: "stake_lock",
       amount: (-amt).toFixed(2),
-      description: `Stake locked — ${plan.name} (${lockDays}d) @ ${lockedApy.toFixed(2)}% APY`,
+      description: `USDT locked — ${plan.name} (${lockDays} days)`,
     });
 
     if (!isBot) {
@@ -170,23 +175,86 @@ export async function listMyStakesV2(userId: number) {
     .where(and(eq(userStakesTable.userId, userId), eq(userStakesTable.status, "active"), sql`${userStakesTable.endsAt} <= now()`));
 
   const rows = await db
-    .select()
+    .select({
+      s: userStakesTable,
+      planName: stakingPlansTable.name,
+      planSlug: stakingPlansTable.slug,
+      planLockDays: stakingPlansTable.lockDays,
+    })
     .from(userStakesTable)
+    .leftJoin(stakingPlansTable, eq(userStakesTable.planId, stakingPlansTable.id))
     .where(eq(userStakesTable.userId, userId))
     .orderBy(desc(userStakesTable.createdAt));
-  return rows.map((s) => ({
-    id: s.id,
-    planId: s.planId,
-    stakedAmount: toNum(s.stakedAmount),
-    lockedApy: toNum(s.lockedApy),
-    earnedAmount: toNum(s.earnedAmount),
-    startedAt: s.startedAt?.toISOString?.() ?? String(s.startedAt),
-    endsAt: s.endsAt?.toISOString?.() ?? String(s.endsAt),
-    status: s.status as string,
-    claimedAt: s.claimedAt?.toISOString?.() ?? null,
-    claimedAmount: s.claimedAmount == null ? null : toNum(s.claimedAmount),
-    isBotStake: Boolean(s.isBotStake),
-  }));
+
+  const stakeIds = rows.map((r) => r.s.id);
+  const countMap = new Map<number, number>();
+  const recentMap = new Map<number, Array<{ amount: number; creditedAt: string }>>();
+
+  if (stakeIds.length > 0) {
+    const countRows = await db
+      .select({
+        stakeId: stakingTransactionsTable.stakeId,
+        c: sql<number>`count(*)::int`,
+      })
+      .from(stakingTransactionsTable)
+      .where(
+        and(
+          eq(stakingTransactionsTable.userId, userId),
+          eq(stakingTransactionsTable.type, "earning"),
+          inArray(stakingTransactionsTable.stakeId, stakeIds),
+        ),
+      )
+      .groupBy(stakingTransactionsTable.stakeId);
+    for (const cr of countRows) countMap.set(cr.stakeId, Number(cr.c) || 0);
+
+    const recentRows = await db
+      .select()
+      .from(stakingTransactionsTable)
+      .where(
+        and(
+          eq(stakingTransactionsTable.userId, userId),
+          eq(stakingTransactionsTable.type, "earning"),
+          inArray(stakingTransactionsTable.stakeId, stakeIds),
+        ),
+      )
+      .orderBy(desc(stakingTransactionsTable.createdAt))
+      .limit(400);
+
+    for (const txr of recentRows) {
+      const cur = recentMap.get(txr.stakeId) ?? [];
+      if (cur.length >= 3) continue;
+      cur.push({ amount: toNum(txr.amount), creditedAt: txr.createdAt.toISOString() });
+      recentMap.set(txr.stakeId, cur);
+    }
+  }
+
+  return rows.map(({ s, planName, planSlug, planLockDays }) => {
+    const dailyReward = round4((toNum(s.stakedAmount) * (toNum(s.lockedApy) / 100)) / 365);
+    const lockDays = planLockDays ?? 0;
+    const daysPaid = countMap.get(s.id) ?? 0;
+    const totalDays = Math.max(1, lockDays);
+    const progressPct = Math.max(0, Math.min(100, (daysPaid / totalDays) * 100));
+    return {
+      id: s.id,
+      planId: s.planId,
+      planName: planName ?? "Plan",
+      planSlug: planSlug ?? "",
+      lockDays,
+      stakedAmount: toNum(s.stakedAmount),
+      lockedApy: toNum(s.lockedApy),
+      dailyRewardUsdt: dailyReward,
+      earnedAmount: toNum(s.earnedAmount),
+      rewardDaysPaid: daysPaid,
+      progressPct,
+      recentRewards: recentMap.get(s.id) ?? [],
+      startedAt: s.startedAt?.toISOString?.() ?? String(s.startedAt),
+      endsAt: s.endsAt?.toISOString?.() ?? String(s.endsAt),
+      status: s.status as string,
+      claimedAt: s.claimedAt?.toISOString?.() ?? null,
+      claimedAmount: s.claimedAmount == null ? null : toNum(s.claimedAmount),
+      isBotStake: Boolean(s.isBotStake),
+    };
+  });
 }
 
 export async function claimStakeV2(args: { userId: number; stakeId: number }) {
@@ -406,13 +474,9 @@ export async function earlyExitStakeV2(args: { userId: number; stakeId: number }
 
     const principal = round2(toNum(stake.stakedAmount));
     const earned = round2(toNum(stake.earnedAmount));
-
-    // Keep it simple for users: you can unstake anytime, but earnings may be reduced.
-    const penaltyPctRaw = toNum((stake as any).earlyExitPenaltyPercent);
-    const penaltyPct = Number.isFinite(penaltyPctRaw) && penaltyPctRaw >= 0 ? Math.min(90, penaltyPctRaw) : 50;
-    const penalty = round2((earned * penaltyPct) / 100);
-    const paidEarnings = round2(Math.max(0, earned - penalty));
-    const totalPaid = round2(principal + paidEarnings);
+    /** Early unlock: return locked USDT only; rewards still on the stake are forfeited. */
+    const totalPaid = principal;
+    const forfeitedRewards = earned;
 
     if (safety.withdrawThrottleSec > 0) {
       const since = new Date(Date.now() - safety.withdrawThrottleSec * 1000);
@@ -470,7 +534,8 @@ export async function earlyExitStakeV2(args: { userId: number; stakeId: number }
       .set({
         status: "early_exit",
         earlyExitAt: now as any,
-        earlyExitPenaltyPercent: penaltyPct.toFixed(2) as any,
+        earlyExitPenaltyPercent: earned > 0 ? ("100.00" as any) : null,
+        earnedAmount: "0.00",
         claimedAt: now,
         claimedAmount: totalPaid.toFixed(2),
         updatedAt: now,
@@ -482,7 +547,10 @@ export async function earlyExitStakeV2(args: { userId: number; stakeId: number }
       userId: args.userId,
       type: "early_exit",
       amount: totalPaid.toFixed(2),
-      description: `Unstaked early — principal ${principal.toFixed(2)} + earnings ${paidEarnings.toFixed(2)} (penalty ${penalty.toFixed(2)}) USDT`,
+      description:
+        forfeitedRewards > 0
+          ? `Early unlock — ${principal.toFixed(2)} USDT returned; ${forfeitedRewards.toFixed(2)} USDT rewards forfeited`
+          : `Early unlock — ${principal.toFixed(2)} USDT returned`,
     });
 
     const [plan] = await tx.select().from(stakingPlansTable).where(eq(stakingPlansTable.id, stake.planId)).limit(1);
@@ -502,11 +570,104 @@ export async function earlyExitStakeV2(args: { userId: number; stakeId: number }
       txType: "stake_release",
       amount: totalPaid.toFixed(2),
       status: "completed",
-      note: `Unstaked early — stake #${stake.id}`,
+      note: `Early unlock — stake #${stake.id}`,
     });
 
     await mirrorAvailableFromUser(tx, args.userId);
-    return { ok: true as const, totalPaid, principal, earned, penaltyPct, penalty, paidEarnings };
+    return {
+      ok: true as const,
+      totalPaid,
+      principal,
+      forfeitedRewards,
+      /** Kept for older clients; always 0 under Lock & Earn rules. */
+      paidEarnings: 0,
+    };
   });
+}
+
+export async function getStakingSummaryV2(userId: number) {
+  const now = new Date();
+  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+
+  const activeRows = await db
+    .select({ stakedAmount: userStakesTable.stakedAmount })
+    .from(userStakesTable)
+    .where(and(eq(userStakesTable.userId, userId), eq(userStakesTable.status, "active")));
+
+  const totalLocked = round2(activeRows.reduce((s, r) => s + toNum(r.stakedAmount), 0));
+
+  const totalEarnedRow = await db.execute(sql`
+    select coalesce(sum(amount::numeric), 0)::text as t
+    from staking_transactions
+    where user_id = ${userId} and type = 'earning'
+  `);
+  const todayRow = await db.execute(sql`
+    select coalesce(sum(amount::numeric), 0)::text as t
+    from staking_transactions
+    where user_id = ${userId} and type = 'earning'
+      and created_at >= ${dayStart}
+  `);
+  const monthRow = await db.execute(sql`
+    select coalesce(sum(amount::numeric), 0)::text as t
+    from staking_transactions
+    where user_id = ${userId} and type = 'earning'
+      and created_at >= ${monthStart}
+  `);
+
+  return {
+    totalEarnedLifetime: toNum((totalEarnedRow.rows as Array<{ t: string }>)[0]?.t),
+    todayEarned: toNum((todayRow.rows as Array<{ t: string }>)[0]?.t),
+    thisMonthEarned: toNum((monthRow.rows as Array<{ t: string }>)[0]?.t),
+    totalLocked,
+    activeCount: activeRows.length,
+  };
+}
+
+export async function listStakingRewardHistoryV2(args: {
+  userId: number;
+  limit: number;
+  offset: number;
+  stakeId?: number;
+}) {
+  const conditions = [
+    eq(stakingTransactionsTable.userId, args.userId),
+    eq(stakingTransactionsTable.type, "earning"),
+  ];
+  if (args.stakeId != null && Number.isFinite(args.stakeId)) {
+    conditions.push(eq(stakingTransactionsTable.stakeId, args.stakeId));
+  }
+
+  const rows = await db
+    .select({
+      id: stakingTransactionsTable.id,
+      stakeId: stakingTransactionsTable.stakeId,
+      amount: stakingTransactionsTable.amount,
+      createdAt: stakingTransactionsTable.createdAt,
+    })
+    .from(stakingTransactionsTable)
+    .where(and(...conditions))
+    .orderBy(desc(stakingTransactionsTable.createdAt))
+    .limit(args.limit)
+    .offset(args.offset);
+
+  const stakeIds = [...new Set(rows.map((r) => r.stakeId))];
+  const planNameByStake = new Map<number, string>();
+  if (stakeIds.length > 0) {
+    const joined = await db
+      .select({ sid: userStakesTable.id, pname: stakingPlansTable.name })
+      .from(userStakesTable)
+      .innerJoin(stakingPlansTable, eq(userStakesTable.planId, stakingPlansTable.id))
+      .where(inArray(userStakesTable.id, stakeIds));
+    for (const j of joined) planNameByStake.set(j.sid, j.pname);
+  }
+
+  return rows.map((r) => ({
+    id: r.id,
+    stakeId: r.stakeId,
+    amount: toNum(r.amount),
+    creditedAt: r.createdAt.toISOString(),
+    planName: planNameByStake.get(r.stakeId) ?? "Plan",
+  }));
 }
 

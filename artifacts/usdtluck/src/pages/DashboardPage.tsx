@@ -17,7 +17,7 @@ import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Inbox } from "lucide-react";
 import { poolWinnerCount } from "@/lib/pool-winners";
-import { BalanceCard } from "@/components/dashboard/BalanceCard";
+import { LockEarnWidget } from "@/components/dashboard/LockEarnWidget";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import { RewardsSummaryCard } from "@/components/rewards/RewardsSummaryCard";
 import { LiveWinnerTicker } from "@/components/winners/LiveWinnerTicker";
@@ -400,6 +400,8 @@ export default function DashboardPage() {
 
       {/* Social proof: live SPT ticker */}
       <SPTLiveFeed />
+
+      <LockEarnWidget />
 
       {/* Active Pools (max 3) */}
       <div className={`${premiumPanel} overflow-hidden`}>

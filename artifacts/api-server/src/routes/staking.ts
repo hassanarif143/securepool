@@ -6,7 +6,16 @@ import { getAuthedUserId } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
 import { mirrorAvailableFromUser, recordStakeLockDebit, recordStakeReturnCredit } from "../services/user-wallet-service";
 import { appendDepositFromTicketPurchase, appendWithdrawalForPayout } from "../services/admin-wallet-service";
-import { createStakeV2, listMyStakesV2, listVisiblePlans, claimStakeV2, withdrawEarningsV2, earlyExitStakeV2 } from "../services/staking-v2-service";
+import {
+  createStakeV2,
+  listMyStakesV2,
+  listVisiblePlans,
+  claimStakeV2,
+  withdrawEarningsV2,
+  earlyExitStakeV2,
+  getStakingSummaryV2,
+  listStakingRewardHistoryV2,
+} from "../services/staking-v2-service";
 import { getRecentSimEvents, getSimTodayFinance } from "../services/staking-sim-service";
 
 const router = Router();
@@ -174,6 +183,36 @@ router.get("/my-stakes", async (req, res) => {
   return;
 });
 
+router.get("/summary", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  if (!(await assertEmailVerified(res, userId))) return;
+  res.json(await getStakingSummaryV2(userId));
+});
+
+router.get("/rewards/history", async (req, res) => {
+  const userId = getAuthedUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  if (!(await assertEmailVerified(res, userId))) return;
+  const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 10)));
+  const offset = Math.max(0, Number(req.query.offset ?? 0));
+  const stakeIdRaw = req.query.stakeId;
+  const stakeId =
+    stakeIdRaw === undefined || stakeIdRaw === "" ? undefined : Number(stakeIdRaw);
+  if (stakeId != null && !Number.isFinite(stakeId)) {
+    res.status(400).json({ error: "Invalid stakeId" });
+    return;
+  }
+  const rows = await listStakingRewardHistoryV2({ userId, limit, offset, stakeId });
+  res.json({ rows, limit, offset });
+});
+
 router.post("/create", async (req, res) => {
   const userId = getAuthedUserId(req);
   if (!userId) {
@@ -296,6 +335,11 @@ router.post("/:stakeId/unstake", async (req, res) => {
   const stakeId = Number(req.params.stakeId);
   if (!Number.isFinite(stakeId) || stakeId <= 0) {
     res.status(400).json({ error: "Invalid stake id" });
+    return;
+  }
+  const confirmParsed = z.object({ confirm: z.literal(true) }).safeParse(req.body ?? {});
+  if (!confirmParsed.success) {
+    res.status(400).json({ error: "Confirmation required", hint: 'Send JSON body: { "confirm": true }' });
     return;
   }
   try {
