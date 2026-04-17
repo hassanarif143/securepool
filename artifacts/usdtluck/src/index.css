@@ -892,3 +892,22 @@
     animation: none;
   }
 }
+
+/* Pools page grid */
+.pool-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1024px) {
+  .pool-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .pool-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

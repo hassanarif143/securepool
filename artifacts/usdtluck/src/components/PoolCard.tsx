@@ -21,12 +21,14 @@ export function PoolCard({ pool }: PoolCardProps) {
   const { headline } = sanitizePoolTitle(pool.title);
   const poolName = headline || `${roundPrizeUsdt(pool.entryFee)} USDT Pool`;
   const isOpen = !full && (status === "open" || status === "upcoming" || status === "");
+  const statusLabel = full ? "Full" : hot ? "Filling Fast" : isOpen ? "Open" : "Closed";
+  const statusIsDanger = full || hot;
 
   return (
     <div
       style={{
         background: "#0C1628",
-        border: `1px solid ${hot ? "rgba(239,68,68,0.3)" : "rgba(255,255,255,0.07)"}`,
+        border: `1px solid ${statusIsDanger ? "rgba(239,68,68,0.25)" : "rgba(255,255,255,0.07)"}`,
         borderRadius: 16,
         padding: 20,
         display: "flex",
@@ -35,11 +37,11 @@ export function PoolCard({ pool }: PoolCardProps) {
         transition: "border-color 0.15s, transform 0.15s",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)";
+        e.currentTarget.style.borderColor = statusIsDanger ? "rgba(239,68,68,0.4)" : "rgba(0,194,224,0.2)";
         e.currentTarget.style.transform = "translateY(-2px)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = hot ? "rgba(239,68,68,0.3)" : "rgba(255,255,255,0.07)";
+        e.currentTarget.style.borderColor = statusIsDanger ? "rgba(239,68,68,0.25)" : "rgba(255,255,255,0.07)";
         e.currentTarget.style.transform = "translateY(0)";
       }}
     >
@@ -51,17 +53,24 @@ export function PoolCard({ pool }: PoolCardProps) {
             display: "flex",
             alignItems: "center",
             gap: 5,
-            background: full ? "rgba(239,68,68,0.1)" : "rgba(34,197,94,0.1)",
-            border: `1px solid ${full ? "rgba(239,68,68,0.2)" : "rgba(34,197,94,0.2)"}`,
+            background: statusIsDanger ? "rgba(239,68,68,0.1)" : "rgba(0,194,224,0.08)",
+            border: `1px solid ${statusIsDanger ? "rgba(239,68,68,0.25)" : "rgba(0,194,224,0.2)"}`,
             borderRadius: 99,
             padding: "3px 10px",
             fontSize: 11,
             fontWeight: 700,
-            color: full ? "#EF4444" : "#22C55E",
+            color: statusIsDanger ? "#EF4444" : "#00C2E0",
           }}
         >
-          <span style={{ width: 5, height: 5, borderRadius: "50%", background: full ? "#EF4444" : "#22C55E" }} />
-          {full ? "Full" : isOpen ? "Open" : "Closed"}
+          <span
+            style={{
+              width: 5,
+              height: 5,
+              borderRadius: "50%",
+              background: statusIsDanger ? "#EF4444" : "#00C2E0",
+            }}
+          />
+          {statusLabel}
         </span>
       </div>
 

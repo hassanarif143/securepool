@@ -15,7 +15,7 @@ type PublicStats = {
 
 export default function PoolsPage() {
   const { data: pools, isLoading, isError, refetch } = useListPools();
-  const [filter, setFilter] = useState<"All" | "Active" | "Filling Fast" | "Completed">("All");
+  const [filter, setFilter] = useState<"active" | "all" | "hot" | "done">("active");
 
   const { data: stats } = useQuery({
     queryKey: ["pools-public-stats"],
@@ -32,77 +32,145 @@ export default function PoolsPage() {
   const completed = pools?.filter((p) => poolStatus(p) === "completed" || poolStatus(p) === "closed") ?? [];
 
   const poolsToShow: Pool[] =
-    filter === "Active"
-      ? openPools
-      : filter === "Filling Fast"
-        ? fillingFast
-        : filter === "Completed"
-          ? completed
-          : pools ?? [];
+    filter === "active" ? openPools : filter === "hot" ? fillingFast : filter === "done" ? completed : pools ?? [];
+
+  const activePoolsCount = openPools.length;
+  const totalPaidOut = stats ? Math.round(stats.totalPaidOutUsdt).toLocaleString() : "—";
+  const drawsToday = stats ? String(stats.drawsToday) : "—";
+  const FILTERS = [
+    { key: "active", label: "Active" },
+    { key: "all", label: "All" },
+    { key: "hot", label: "⚡ Filling Fast" },
+    { key: "done", label: "Completed" },
+  ] as const;
 
   return (
     <>
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "28px 16px 20px" }}>
-        <h1 style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: 28, color: "#E8EFF8", marginBottom: 6 }}>
-          Prize Pools
-        </h1>
-        <p style={{ fontSize: 14, color: "#7A8FA6", marginBottom: 20 }}>
-          Buy a ticket. Pool fills. 3 winners get paid instantly.
-        </p>
+      <div
+        style={{
+          maxWidth: 1200,
+          margin: "0 auto",
+          padding: "32px 24px",
+        }}
+      >
+        {/* Page Header */}
+        <div style={{ marginBottom: 32 }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "2px",
+              textTransform: "uppercase",
+              color: "#00C2E0",
+              marginBottom: 8,
+              fontFamily: "DM Sans, sans-serif",
+            }}
+          >
+            Prize Pools
+          </div>
 
-        <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
-          {[
-            { label: "Active Pools", value: openPools.length },
-            { label: "Total Paid Out", value: stats ? `${Math.round(stats.totalPaidOutUsdt).toLocaleString()} USDT` : "—" },
-            { label: "Draws Today", value: stats ? stats.drawsToday : "—" },
-          ].map((s, i) => (
-            <div
-              key={i}
+          <h1
+            style={{
+              fontFamily: "Syne, sans-serif",
+              fontWeight: 800,
+              fontSize: 36,
+              color: "#E8EFF8",
+              letterSpacing: -1,
+              marginBottom: 10,
+              lineHeight: 1.1,
+            }}
+          >
+            Join a Pool,{" "}
+            <span
               style={{
-                background: "#0C1628",
-                border: "1px solid rgba(255,255,255,0.07)",
-                borderRadius: 10,
-                padding: "10px 16px",
-                flex: 1,
-                minWidth: 140,
+                background: "linear-gradient(135deg, #00C2E0, #00E5B0)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
               }}
             >
-              <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, fontSize: 18, color: "#E8EFF8" }}>
-                {String(s.value)}
+              Win USDT
+            </span>
+          </h1>
+
+          <p style={{ fontSize: 15, color: "#7A8FA6", marginBottom: 28 }}>
+            Buy a ticket. Pool fills. 3 winners get paid instantly.
+          </p>
+
+          {/* Stats row */}
+          <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
+            {[
+              { value: activePoolsCount, label: "Active Pools", color: "#00C2E0" },
+              { value: `${totalPaidOut} USDT`, label: "Total Paid Out", color: "#22C55E" },
+              { value: drawsToday, label: "Draws Today", color: "#F5C842" },
+            ].map((s, i) => (
+              <div
+                key={i}
+                style={{
+                  background: "#0C1628",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  borderRadius: 12,
+                  padding: "12px 20px",
+                  minWidth: 140,
+                  flex: 1,
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: "Syne, sans-serif",
+                    fontWeight: 800,
+                    fontSize: 22,
+                    color: s.color,
+                    marginBottom: 4,
+                  }}
+                >
+                  {String(s.value)}
+                </div>
+                <div style={{ fontSize: 12, color: "#7A8FA6", fontWeight: 500 }}>{s.label}</div>
               </div>
-              <div style={{ fontSize: 11, color: "#4A5F7A", marginTop: 2 }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
-          {(["All", "Active", "Filling Fast", "Completed"] as const).map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFilter(f)}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 99,
-                border: "1px solid",
-                borderColor: filter === f ? "rgba(0,194,224,0.4)" : "rgba(255,255,255,0.07)",
-                background: filter === f ? "rgba(0,194,224,0.08)" : "transparent",
-                color: filter === f ? "#00C2E0" : "#7A8FA6",
-                fontSize: 13,
-                fontWeight: filter === f ? 600 : 400,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                transition: "all 0.15s",
-              }}
-            >
-              {f}
-            </button>
-          ))}
+          {/* Filter tabs */}
+          <div
+            style={{
+              display: "flex",
+              gap: 6,
+              overflowX: "auto",
+              paddingBottom: 4,
+              scrollbarWidth: "none",
+            }}
+          >
+            {[
+              ...FILTERS,
+            ].map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setFilter(f.key)}
+                style={{
+                  padding: "7px 16px",
+                  borderRadius: 99,
+                  border: "1px solid",
+                  borderColor: filter === f.key ? "rgba(0,194,224,0.4)" : "rgba(255,255,255,0.07)",
+                  background: filter === f.key ? "rgba(0,194,224,0.08)" : "transparent",
+                  color: filter === f.key ? "#00C2E0" : "#7A8FA6",
+                  fontSize: 13,
+                  fontWeight: filter === f.key ? 600 : 400,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  transition: "all 0.15s",
+                  fontFamily: "DM Sans, sans-serif",
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {isError ? (
-        <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 16px" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
           <div
             style={{
               background: "rgba(239,68,68,0.08)",
@@ -127,13 +195,11 @@ export default function PoolsPage() {
       {isLoading ? (
         <div
           style={{
-            maxWidth: 720,
+            maxWidth: 1200,
             margin: "0 auto",
-            padding: "0 16px",
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-            gap: 12,
+            padding: "0 24px 32px",
           }}
+          className="pool-grid"
         >
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <Skeleton key={i} className="h-80 rounded-2xl bg-slate-800/80" />
@@ -142,13 +208,11 @@ export default function PoolsPage() {
       ) : (
         <div
           style={{
-            maxWidth: 720,
+            maxWidth: 1200,
             margin: "0 auto",
-            padding: "0 16px 28px",
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-            gap: 12,
+            padding: "0 24px 36px",
           }}
+          className="pool-grid"
         >
           {poolsToShow.length === 0 ? (
             <p style={{ gridColumn: "1 / -1", padding: "28px 0", textAlign: "center", color: "#7A8FA6" }}>
