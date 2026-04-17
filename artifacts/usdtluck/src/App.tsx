@@ -139,6 +139,22 @@ function RequireGuest({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function P2PAdminOnly() {
+  const { user, isLoading } = useAuth();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user) return;
+    if (!user.isAdmin) navigate("/dashboard", { replace: true });
+  }, [user, isLoading, navigate]);
+
+  if (isLoading) return <PageLoading />;
+  if (!user) return null;
+  if (!user.isAdmin) return null;
+  return <P2PTradingPage />;
+}
+
 function PersistAndRestoreRoute() {
   const { isLoading } = useAuth();
   const [location, navigate] = useLocation();
@@ -304,7 +320,7 @@ function Router() {
         </Route>
         <Route path="/p2p">
           <RequireAuth>
-            <P2PTradingPage />
+            <P2PAdminOnly />
           </RequireAuth>
         </Route>
         <Route path="/games/spin-wheel">

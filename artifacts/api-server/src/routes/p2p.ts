@@ -6,7 +6,7 @@ import { z } from "zod";
 import { strictFinancialLimiter } from "../middleware/security-rate-limit";
 import { idempotencyGuard } from "../middleware/idempotency";
 import { getSecurityConfig } from "../lib/security";
-import { getAuthedUserId, requireAuth, type AuthedRequest } from "../middleware/auth";
+import { getAuthedUserId, requireAdmin, requireAuth, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
 import { getUploadsDir } from "../paths";
 import {
@@ -29,6 +29,8 @@ import {
 
 const router: IRouter = Router();
 router.use((req, res, next) => requireAuth(req as AuthedRequest, res, next));
+// Temporarily disable P2P for normal users (admin only).
+router.use((req, res, next) => void requireAdmin(req as AuthedRequest, res, next));
 router.use(async (_req, res, next) => {
   try {
     await assertP2pEnabled();

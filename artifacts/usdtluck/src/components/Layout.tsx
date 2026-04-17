@@ -894,7 +894,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       { href: "/referral", label: "Referral", icon: "🔗" },
       { href: "/my-shares", label: "My Shares", icon: "📤" },
       { href: "/staking", label: "Staking", icon: "🔒" },
-      { href: "/p2p", label: "P2P Trading", icon: "💱" },
+      ...(user.isAdmin ? [{ href: "/p2p", label: "P2P Trading", icon: "💱" }] : []),
       { href: "/how-it-works", label: "How It Works", icon: "📘" },
       { href: "/provably-fair", label: "Provably Fair", icon: "🧪" },
       { href: "/reviews", label: "Reviews", icon: "💬" },
