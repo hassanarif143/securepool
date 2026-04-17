@@ -11,6 +11,7 @@ import { UsdtAmount } from "@/components/UsdtAmount";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SPTNavPill } from "@/components/spt/SPTNavPill";
 import { SPTCoin } from "@/components/spt/SPTCoin";
+import { SupportChatBubble } from "@/components/support/SupportChatBubble";
 import { cn } from "@/lib/utils";
 
 type NavPrimary =
@@ -45,6 +46,7 @@ function playNotifSound() {
    Notification Bell
 ───────────────────────────────────────────── */
 function NotificationBell() {
+  const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [notifs, setNotifs] = useState<any[]>([]);
@@ -119,6 +121,15 @@ function NotificationBell() {
         setUnread((u) => Math.max(0, u - 1));
       })
       .catch(() => {});
+  }
+
+  function openNotification(n: any) {
+    markOneRead(n.id);
+    const u = n.action_url as string | undefined;
+    if (typeof u === "string" && u.startsWith("/")) {
+      navigate(u);
+      setOpen(false);
+    }
   }
 
   const typeIcon: Record<string, string> = {
@@ -214,7 +225,7 @@ function NotificationBell() {
                   <button
                     key={n.id}
                     type="button"
-                    onClick={() => markOneRead(n.id)}
+                    onClick={() => openNotification(n)}
                     className={cn(
                       "w-full text-left flex items-start gap-3 px-4 py-3 border-b border-border transition-colors hover:bg-white/[0.02]",
                       !n.read && "bg-primary/[0.04]",
@@ -273,7 +284,7 @@ function NotificationBell() {
                 <button
                   key={n.id}
                   type="button"
-                  onClick={() => markOneRead(n.id)}
+                  onClick={() => openNotification(n)}
                   className={cn(
                     "w-full text-left flex items-start gap-3 px-4 py-3 border-b border-border transition-colors hover:bg-white/[0.02]",
                     !n.read && "bg-primary/[0.04]"
@@ -714,7 +725,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
       { href: "/how-it-works", label: "How It Works", icon: "📘" },
       { href: "/provably-fair", label: "Provably Fair", icon: "🧪" },
       { href: "/reviews", label: "Reviews", icon: "💬" },
-      ...(user.isAdmin ? [{ href: "/admin", label: "Admin", icon: "⚙️" }] : []),
+      ...(user.isAdmin
+        ? [
+            { href: "/admin", label: "Admin", icon: "⚙️" },
+            { href: "/admin/support", label: "Support inbox", icon: "🤖" },
+          ]
+        : []),
     ];
   }, [user, arcadeInBar]);
 
@@ -929,6 +945,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
       )}
+
+      <SupportChatBubble />
 
       <SiteFooter extraMobileBottomSpace={!!user} />
     </div>

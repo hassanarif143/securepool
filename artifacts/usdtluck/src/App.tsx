@@ -24,6 +24,7 @@ import WinnersPage from "@/pages/WinnersPage";
 import ProfilePage from "@/pages/ProfilePage";
 import VerifyEmailPage from "@/pages/VerifyEmailPage";
 import AdminPage from "@/pages/AdminPage";
+import AdminSupportPage from "@/pages/AdminSupportPage";
 import ReviewsPage from "@/pages/ReviewsPage";
 import HowItWorksPage from "@/pages/HowItWorksPage";
 import ProvablyFairPage from "@/pages/ProvablyFairPage";
@@ -269,6 +270,11 @@ function Router() {
         <Route path="/admin">
           <RequireAuth>
             <AdminPage />
+          </RequireAuth>
+        </Route>
+        <Route path="/admin/support">
+          <RequireAuth>
+            <AdminSupportPage />
           </RequireAuth>
         </Route>
         <Route path="/reviews">

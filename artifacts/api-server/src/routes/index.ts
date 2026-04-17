@@ -17,6 +17,7 @@ import p2pRouter from "./p2p";
 import gamesRouter from "./games";
 import shareCardsRouter from "./share-cards";
 import sptRouter from "./spt";
+import supportRouter from "./support";
 
 const router: IRouter = Router();
 
@@ -39,5 +40,6 @@ router.use("/p2p", p2pRouter);
 router.use("/games", gamesRouter);
 router.use("/share-cards", shareCardsRouter);
 router.use("/spt", sptRouter);
+router.use("/support", supportRouter);
 
 export default router;

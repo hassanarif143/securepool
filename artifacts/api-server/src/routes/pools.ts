@@ -2372,7 +2372,14 @@ async function runAutoFillStaggeredNotifications(
       const msg = isThisWinner
         ? `🏆 Congratulations! You won ${w.prize} USDT in ${poolTitle}!`
         : `Pool ${poolTitle} results: ${resultsLine}`;
-      void notifyUser(p.userId, title, msg, isThisWinner ? "YOU_WON" : "POOL_RESULTS", poolId);
+      void notifyUser(
+        p.userId,
+        title,
+        msg,
+        isThisWinner ? "YOU_WON" : "POOL_RESULTS",
+        poolId,
+        isThisWinner ? "/wallet" : null,
+      );
     }
   }
 }

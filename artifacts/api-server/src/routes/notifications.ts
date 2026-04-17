@@ -10,7 +10,7 @@ router.get("/", async (req, res) => {
   if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const { rows } = await pool.query(
-    `SELECT id, type, title, message, read, created_at, pool_id
+    `SELECT id, type, title, message, read, created_at, pool_id, action_url
      FROM notifications
      WHERE user_id = $1
      ORDER BY created_at DESC

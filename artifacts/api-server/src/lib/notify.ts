@@ -8,17 +8,18 @@ export async function notifyUser(
   message: string,
   type: string = "info",
   poolId?: number | null,
+  actionUrl?: string | null,
 ): Promise<void> {
   try {
     if (poolId != null && Number.isFinite(poolId)) {
       await pool.query(
-        `INSERT INTO notifications (user_id, title, message, type, pool_id) VALUES ($1, $2, $3, $4, $5)`,
-        [userId, title, message, type, poolId],
+        `INSERT INTO notifications (user_id, title, message, type, pool_id, action_url) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [userId, title, message, type, poolId, actionUrl ?? null],
       );
     } else {
       await pool.query(
-        `INSERT INTO notifications (user_id, title, message, type) VALUES ($1, $2, $3, $4)`,
-        [userId, title, message, type],
+        `INSERT INTO notifications (user_id, title, message, type, action_url) VALUES ($1, $2, $3, $4, $5)`,
+        [userId, title, message, type, actionUrl ?? null],
       );
     }
   } catch (err) {
