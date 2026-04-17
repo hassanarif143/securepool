@@ -5,10 +5,10 @@ import { apiUrl } from "@/lib/api-base";
 import { cn } from "@/lib/utils";
 
 const QUICK_REPLIES = [
-  { icon: "🎰", text: "Pool join karna hai" },
-  { icon: "💰", text: "Deposit help chahiye" },
-  { icon: "💸", text: "Withdrawal stuck hai" },
-  { icon: "🪙", text: "SPT ke baare mein batao" },
+  { icon: "🎰", text: "How do I join a pool?" },
+  { icon: "💰", text: "Help with deposit" },
+  { icon: "💸", text: "Withdrawal not received" },
+  { icon: "🪙", text: "What is SPT token?" },
 ] as const;
 
 function AIAvatar() {
@@ -51,7 +51,7 @@ export function SupportChatBubble() {
       setMessages([
         {
           type: "ai",
-          text: "Salam! 👋 Main SecurePool Support hoon. Aapki kya problem hai? Niche se choose karein ya seedha likhein.",
+          text: "Hi! 👋 Welcome to SecurePool Support. I can help you with pools, deposits, withdrawals, SPT tokens, and more. Kya help chahiye?",
           time: new Date(),
         },
       ]);
@@ -138,7 +138,7 @@ export function SupportChatBubble() {
           ...prev,
           {
             type: "ai",
-            text: "Maafi chahta hoon, abhi technical issue aa rahi hai. Thodi der mein dobara try karein.",
+              text: "Sorry — something went wrong. Please try again in a moment. Kuch aur help chahiye?",
             time: new Date(),
           },
         ]);
@@ -179,7 +179,7 @@ export function SupportChatBubble() {
                 <p className={cn("text-[12px]", escalated ? "text-amber-400" : "text-emerald-400")}>
                   <span className="inline-flex items-center gap-1.5">
                     <span className={cn("h-1.5 w-1.5 rounded-full", escalated ? "bg-amber-400" : "bg-emerald-400")} aria-hidden />
-                    {escalated ? "Admin se connect ho raha hai" : "AI Assistant • Usually instant"}
+                    {escalated ? "Connecting you to an admin" : "AI Assistant • Usually instant"}
                   </span>
                 </p>
               </div>
@@ -236,7 +236,7 @@ export function SupportChatBubble() {
 
             {showQuickReplies && !loading && (
               <div className="mt-1 flex flex-col gap-1.5">
-                <p className="text-[11px] text-[#445577] pl-10">Ya yeh choose karein:</p>
+                <p className="text-[11px] text-[#445577] pl-10">Or pick one:</p>
                 {QUICK_REPLIES.map((qr) => (
                   <button
                     key={qr.text}

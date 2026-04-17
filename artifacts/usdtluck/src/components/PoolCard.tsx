@@ -212,7 +212,7 @@ export function PoolCard({ pool, userJoined }: PoolCardProps) {
                 🪙
               </span>
               <span className="text-[12px] text-slate-300">
-                Join karo aur kamao{" "}
+                Join to earn{" "}
                 <span className="text-[#FFD166] font-semibold">+10 SPT</span>
               </span>
             </div>

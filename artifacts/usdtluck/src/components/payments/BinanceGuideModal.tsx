@@ -41,7 +41,7 @@ export function BinanceGuideModal({ open, onOpenChange }: { open: boolean; onOpe
         <DialogHeader>
           <DialogTitle>How to send USDT from Binance</DialogTitle>
           <DialogDescription className="text-left">
-            Roman Urdu + English — har step follow karein. Screenshots Binance app mein thora vary ho sakte hain.
+            Follow each step. Screenshots may look slightly different in your Binance app.
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[60vh] pr-3">

@@ -11,14 +11,14 @@ export function TxIdHelpModal({ open, onOpenChange }: { open: boolean; onOpenCha
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm border-emerald-500/20">
         <DialogHeader>
-          <DialogTitle>TxID kya hai?</DialogTitle>
+          <DialogTitle>What is a TxID?</DialogTitle>
           <DialogDescription className="text-left space-y-2">
             <span className="block text-foreground/90">
-              Transaction ID (TxID / TxHash) blockchain par aapki transfer ki unique ID hai. Binance withdrawal history
-              mein completed transfer par tap karein — wahan long alphanumeric string milti hai.
+              Transaction ID (TxID / TxHash) is the unique ID of your transfer on the blockchain. In Binance withdrawal
+              history, open the completed transfer — you’ll see a long alphanumeric string.
             </span>
             <span className="block text-xs">
-              Optional field hai, lekin TxID dene se admin aapki payment tez verify kar sakta hai.
+              This field is optional, but sharing the TxID helps us verify your deposit faster.
             </span>
           </DialogDescription>
         </DialogHeader>

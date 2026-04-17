@@ -379,12 +379,12 @@ export default function DashboardPage() {
               </div>
               <div className="min-w-0">
                 <p className="font-sp-display font-extrabold text-[15px] text-[#FFD166] truncate">
-                  {Math.max(1, streak)} din ka streak!
+                  {Math.max(1, streak)} day streak!
                 </p>
                 <p className="text-[12px] text-[#8899BB] mt-0.5">
-                  Aaj claim karo —{" "}
-                  <span className="text-[#FFD166] font-semibold">+{todaySpt} SPT</span> milega
-                  {streak === 6 ? " 🎯 Kal 200 SPT bonus!" : ""}
+                  Claim today —{" "}
+                  <span className="text-[#FFD166] font-semibold">+{todaySpt} SPT</span>
+                  {streak === 6 ? " 🎯 Tomorrow: +200 SPT bonus!" : ""}
                 </p>
               </div>
             </div>
@@ -400,7 +400,7 @@ export default function DashboardPage() {
           </div>
           {dailyClaimed ? (
             <p className="mt-3 text-[12px] text-[#8899BB] opacity-80">
-              ✅ Aaj ka bonus claim ho gaya • Kal +{tomorrowSpt} SPT milega
+              ✅ Today’s bonus claimed • Tomorrow: +{tomorrowSpt} SPT
             </p>
           ) : null}
         </div>
@@ -408,7 +408,7 @@ export default function DashboardPage() {
         {/* SPT value + progress */}
         <div className="rounded-2xl border border-[#1E2D4A] bg-[#0D1526] p-4 sm:p-5">
           <div className="flex items-center justify-between">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#8899BB]">Meri SPT value</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#8899BB]">My SPT value</p>
             <Link href="/spt" className="text-[12px] font-semibold text-[#FFD166] no-underline hover:underline">
               Details →
             </Link>
@@ -432,7 +432,9 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between text-[11px] text-[#445577] mb-1.5">
               <span>{String(spt?.spt_level ?? "Bronze")}</span>
               <span>
-                {spt?.next_tier ? `${spt.next_tier} ke liye ${(spt.next_level_at ?? 0).toLocaleString()} SPT aur` : "Max tier"}
+                {spt?.next_tier
+                  ? `${(spt.next_level_at ?? 0).toLocaleString()} more SPT to reach ${spt.next_tier}`
+                  : "Max tier"}
               </span>
             </div>
             <div className="h-1 rounded-full bg-[#1E2D4A] overflow-hidden">
@@ -457,11 +459,11 @@ export default function DashboardPage() {
           </span>
           <div className="min-w-0">
             <p className="text-[14px] font-semibold text-red-200">
-              {missingOut.days} din mein approx. {missingOut.missed} SPT miss ho gaye!
+              You may have missed about {missingOut.missed} SPT in the last {missingOut.days} days.
             </p>
-            <p className="text-[12px] text-[#8899BB] mt-0.5">Daily bonus claim nahi hua • Kal ka streak mat torna</p>
+            <p className="text-[12px] text-[#8899BB] mt-0.5">You haven’t claimed your daily bonus • Don’t break your streak</p>
             <Link href="/pools" className="inline-block mt-2 text-[12px] font-semibold text-[#FFD166] no-underline hover:underline">
-              Abhi earn karo →
+              Earn Now →
             </Link>
           </div>
         </div>
