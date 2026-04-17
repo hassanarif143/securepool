@@ -77,6 +77,14 @@ export default function GamesPage() {
 
   return (
     <div className="sp-ambient-bg relative min-h-[75vh] w-full max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      <div style={{ marginBottom: 14 }}>
+        <h1 style={{ fontFamily: '"Syne", sans-serif', fontWeight: 800, fontSize: 22, color: "var(--text-1)" }}>
+          Play &amp; Earn
+        </h1>
+        <p style={{ fontSize: 13, color: "var(--text-2)", marginTop: 4 }}>
+          Play games and earn rewards.
+        </p>
+      </div>
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="sp-games-hero-gradient absolute -left-24 -top-24 h-72 w-72 rounded-full blur-3xl" />
         <div className="sp-games-hero-gradient absolute -bottom-28 -right-28 h-96 w-96 rounded-full blur-3xl [animation-delay:-6s]" />

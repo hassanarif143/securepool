@@ -261,7 +261,282 @@ export default function DashboardPage() {
   const lockedEstimated = Math.max(0, Number(user.walletBalance ?? 0) - Number(user.withdrawableBalance ?? 0) - rewardsUsdt);
 
   return (
-    <div className="sp-ambient-bg relative min-h-[50vh] w-full">
+    <>
+      <main style={{ maxWidth: 680, margin: "0 auto", padding: "24px 16px" }}>
+        {/* 1) Greeting + Balance */}
+        <section style={{ marginBottom: 24 }}>
+          <p style={{ fontSize: 13, color: "var(--text-2)", marginBottom: 4 }}>
+            {greeting()}, {firstName} 👋
+          </p>
+          <div
+            style={{
+              fontFamily: '"Syne", sans-serif',
+              fontWeight: 800,
+              fontSize: 42,
+              color: "var(--text-1)",
+              letterSpacing: -1,
+              lineHeight: 1,
+              marginBottom: 4,
+            }}
+          >
+            {Number(user.walletBalance ?? 0).toFixed(2)}
+            <span style={{ fontSize: 18, color: "var(--text-2)", fontWeight: 500, marginLeft: 8 }}>USDT</span>
+          </div>
+          <p style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 16 }}>
+            ≈ PKR {Math.round(Number(user.walletBalance ?? 0) * 279).toLocaleString()}
+          </p>
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Link
+              href="/pools"
+              style={{
+                padding: "9px 18px",
+                borderRadius: 10,
+                fontSize: 14,
+                fontWeight: 700,
+                textDecoration: "none",
+                background: "var(--accent)",
+                color: "#070F1E",
+                fontFamily: '"Syne", sans-serif',
+              }}
+            >
+              Join a Pool
+            </Link>
+            <Link
+              href="/wallet?tab=deposit"
+              style={{
+                padding: "9px 18px",
+                borderRadius: 10,
+                fontSize: 14,
+                fontWeight: 600,
+                textDecoration: "none",
+                background: "var(--green-soft)",
+                border: "1px solid rgba(34,197,94,0.2)",
+                color: "var(--green)",
+              }}
+            >
+              + Deposit
+            </Link>
+            <Link
+              href="/wallet?tab=withdraw"
+              style={{
+                padding: "9px 18px",
+                borderRadius: 10,
+                fontSize: 14,
+                fontWeight: 600,
+                textDecoration: "none",
+                background: "var(--bg-3)",
+                color: "var(--text-2)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              Withdraw
+            </Link>
+          </div>
+
+          {!user.cryptoAddress ? (
+            <div
+              style={{
+                marginTop: 14,
+                background: "rgba(245, 200, 66, 0.08)",
+                border: "1px solid rgba(245, 200, 66, 0.2)",
+                borderRadius: "var(--r-lg)",
+                padding: "12px 14px",
+                color: "var(--text-2)",
+                fontSize: 13,
+              }}
+            >
+              Add your USDT wallet address in{" "}
+              <Link href="/profile" style={{ color: "var(--accent)", fontWeight: 700, textDecoration: "none" }}>
+                Profile
+              </Link>{" "}
+              to deposit or withdraw.
+            </div>
+          ) : null}
+        </section>
+
+        {/* 2) Quick Stats */}
+        <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+          <Link href="/spt" style={{ textDecoration: "none" }}>
+            <div style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: 16 }}>
+              <div style={{ fontSize: 11, color: "var(--text-2)", marginBottom: 6, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                SPT Balance
+              </div>
+              <div style={{ fontFamily: '"Syne", sans-serif', fontWeight: 800, fontSize: 22, color: "var(--gold)", marginBottom: 4 }}>
+                {Number(spt?.spt_balance ?? 0).toLocaleString()} SPT
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-3)" }}>
+                ≈ {(Number(spt?.spt_balance ?? 0) * 0.01).toFixed(2)} USDT • {String(spt?.spt_level ?? "Bronze")}
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/spt" style={{ textDecoration: "none" }}>
+            <div style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: 16 }}>
+              <div style={{ fontSize: 11, color: "var(--text-2)", marginBottom: 6, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Login Streak
+              </div>
+              <div style={{ fontFamily: '"Syne", sans-serif', fontWeight: 800, fontSize: 22, color: "#FF9F43", marginBottom: 4 }}>
+                {streak} days
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-3)" }}>{dailyClaimed ? "Claimed today ✓" : "Claim your bonus"}</div>
+            </div>
+          </Link>
+        </section>
+
+        {/* 3) Daily Claim */}
+        {!dailyClaimed ? (
+          <section
+            style={{
+              background: "var(--gold-soft)",
+              border: "1px solid var(--gold-border)",
+              borderRadius: "var(--r-lg)",
+              padding: "14px 18px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              marginBottom: 20,
+              animation: "glow-gold 3s ease-in-out infinite",
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <div style={{ fontFamily: '"Syne", sans-serif', fontWeight: 700, fontSize: 14, color: "var(--gold)", marginBottom: 3 }}>
+                Daily Bonus Available
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-2)" }}>
+                {streak} day streak — claim +{todaySpt} SPT
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void claimDailyBonus()}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 99,
+                background: "var(--gold)",
+                color: "#070F1E",
+                fontFamily: '"Syne", sans-serif',
+                fontWeight: 700,
+                fontSize: 13,
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              Claim Now
+            </button>
+          </section>
+        ) : null}
+
+        {/* 4) Active Pools */}
+        <section style={{ marginBottom: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "1px" }}>
+              Active Pools
+            </span>
+            <Link href="/pools" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", fontWeight: 700 }}>
+              See all →
+            </Link>
+          </div>
+
+          {poolsLoading ? (
+            <div className="skeleton" style={{ height: 120, borderRadius: "var(--r-lg)" }} />
+          ) : poolsError ? (
+            <div style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: "16px 18px", color: "var(--text-2)" }}>
+              Something went wrong loading pools.{" "}
+              <button type="button" onClick={() => void refetchPools()} style={{ color: "var(--accent)", fontWeight: 700, background: "transparent", border: "none", cursor: "pointer" }}>
+                Try again
+              </button>
+            </div>
+          ) : activePools.length === 0 ? (
+            <div style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: "32px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>🎰</div>
+              <div style={{ fontSize: 14, color: "var(--text-2)" }}>No active pools right now</div>
+              <Link href="/pools" style={{ fontSize: 13, color: "var(--accent)", textDecoration: "none", marginTop: 8, display: "block", fontWeight: 700 }}>
+                Check pools →
+              </Link>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {activePools.slice(0, 3).map((p) => {
+                const sold = Number(p.participantCount ?? 0);
+                const total = Number(p.maxUsers ?? 28);
+                const left = Math.max(0, total - sold);
+                const hot = left <= 5;
+                const pct = Math.round((sold / Math.max(1, total)) * 100);
+                const entryFee = Number(p.entryFee ?? 10);
+                return (
+                  <div key={p.id} style={{ background: "var(--bg-2)", border: `1px solid ${hot ? "rgba(239,68,68,0.2)" : "var(--border)"}`, borderRadius: "var(--r-lg)", padding: 18 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 14 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontFamily: '"Syne", sans-serif', fontWeight: 700, fontSize: 15, color: "var(--text-1)", marginBottom: 3 }} className="truncate">
+                          {String(p.title ?? `Pool #${p.id}`)}
+                        </div>
+                        <div style={{ fontSize: 12, color: "var(--text-2)" }}>Entry: {Number.isFinite(entryFee) ? entryFee : 10} USDT</div>
+                      </div>
+                      {hot ? (
+                        <span style={{ background: "var(--red-soft)", color: "var(--red)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 99, padding: "2px 10px", fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" }}>
+                          Almost Full
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
+                        <span style={{ color: "var(--text-2)" }}>
+                          {sold} of {total} joined
+                        </span>
+                        <span style={{ color: hot ? "var(--red)" : "var(--text-3)" }}>{left} spots left</span>
+                      </div>
+                      <div style={{ height: 4, background: "var(--bg-3)", borderRadius: 99, overflow: "hidden" }}>
+                        <div style={{ width: `${pct}%`, height: "100%", borderRadius: 99, background: hot ? "var(--red)" : "var(--accent)" }} />
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 11, color: "var(--gold)" }}>🪙 +10 SPT for joining</span>
+                      <Link
+                        href={`/pools/${p.id}`}
+                        style={{
+                          padding: "8px 16px",
+                          borderRadius: 8,
+                          background: "var(--accent)",
+                          color: "#070F1E",
+                          fontSize: 13,
+                          fontWeight: 700,
+                          textDecoration: "none",
+                          fontFamily: '"Syne", sans-serif',
+                        }}
+                      >
+                        Join →
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* 5) Recent Winners */}
+        <section>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", textTransform: "uppercase", letterSpacing: "1px" }}>
+              Recent Winners
+            </span>
+            <Link href="/winners" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", fontWeight: 700 }}>
+              See all →
+            </Link>
+          </div>
+          <div style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: "var(--r-lg)", padding: 16, color: "var(--text-2)" }}>
+            View recent results on the Winners page.
+          </div>
+        </section>
+      </main>
+
+      {false && (
+        <div className="sp-ambient-bg relative min-h-[50vh] w-full">
       <div className="mx-auto max-w-6xl space-y-8 px-4 pb-12 sm:space-y-10 sm:px-6">
       {poolsError && (
         <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -288,7 +563,7 @@ export default function DashboardPage() {
           </Button>
         </div>
       )}
-      {!user.cryptoAddress && (
+      {!user!.cryptoAddress && (
         <div className="rounded-2xl border border-amber-500/35 bg-amber-500/[0.08] px-4 py-4 sm:px-5">
           <p className="text-sm font-semibold text-amber-200">Action required: Add your wallet address</p>
           <p className="mt-1 text-xs text-amber-100/90 leading-relaxed">
@@ -433,7 +708,7 @@ export default function DashboardPage() {
               <span>{String(spt?.spt_level ?? "Bronze")}</span>
               <span>
                 {spt?.next_tier
-                  ? `${(spt.next_level_at ?? 0).toLocaleString()} more SPT to reach ${spt.next_tier}`
+                  ? `${(spt?.next_level_at ?? 0).toLocaleString()} more SPT to reach ${spt?.next_tier ?? ""}`
                   : "Max tier"}
               </span>
             </div>
@@ -459,7 +734,7 @@ export default function DashboardPage() {
           </span>
           <div className="min-w-0">
             <p className="text-[14px] font-semibold text-red-200">
-              You may have missed about {missingOut.missed} SPT in the last {missingOut.days} days.
+              You may have missed about {missingOut?.missed ?? 0} SPT in the last {missingOut?.days ?? 0} days.
             </p>
             <p className="text-[12px] text-[#8899BB] mt-0.5">You haven’t claimed your daily bonus • Don’t break your streak</p>
             <Link href="/pools" className="inline-block mt-2 text-[12px] font-semibold text-[#FFD166] no-underline hover:underline">
@@ -469,43 +744,22 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      {/* Social proof: live SPT ticker */}
-      <SPTLiveFeed />
+      {/* Social proof: recent winners live on /winners */}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <BalanceCard
-          kind="withdrawable"
-          amountUsdt={Number(user.withdrawableBalance ?? 0)}
-          subtitle="Available for withdrawal requests"
-          ctaLabel="Withdraw"
-          onCtaClick={() => navigate("/wallet?tab=withdraw")}
-        />
-        <BalanceCard
-          kind="nonWithdrawable"
-          amountUsdt={Number((user.rewardPoints ?? 0) as number) / 300}
-          subtitle="Rewards wallet used inside platform"
-          ctaLabel="View rewards"
-          onCtaClick={() => navigate("/rewards")}
-        />
-      </div>
-      <RewardsSummaryCard
-        nonWithdrawableUsdt={Number((user.rewardPoints ?? 0) as number) / 300}
-        tier={user.tier ?? "bronze"}
-        poolJoinCount={user.poolJoinCount ?? 0}
-      />
+      {/* (Nuclear reset) Removed duplicate balance and rewards blocks */}
 
       {/* Time-sensitive & lightweight alerts first (not a wall of cards) */}
       <div className="space-y-3">
-        {comeback?.hasCoupon && <ComebackBanner coupon={comeback} />}
+        {comeback?.hasCoupon && comeback ? <ComebackBanner coupon={comeback as ActiveCouponJson} /> : null}
       </div>
       {/* (Removed: Live winner ticker + pool watcher per redesign) */}
       {/* (Removed: Arcade section per redesign — Games lives on /games) */}
 
-      {(user.poolJoinCount ?? 0) > 0 && (user.totalWins ?? 0) === 0 && (
+      {(user!.poolJoinCount ?? 0) > 0 && (user!.totalWins ?? 0) === 0 && (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3.5 text-sm text-muted-foreground leading-relaxed">
           You haven&apos;t won a top prize yet — draws are random. You&apos;ve joined{" "}
-          <span className="text-foreground font-semibold">{user.poolJoinCount}</span> pool
-          {user.poolJoinCount === 1 ? "" : "s"}. Keep playing for a chance to win.
+          <span className="text-foreground font-semibold">{user!.poolJoinCount}</span> pool
+          {user!.poolJoinCount === 1 ? "" : "s"}. Keep playing for a chance to win.
         </div>
       )}
 
@@ -532,7 +786,7 @@ export default function DashboardPage() {
                 <p className="text-xs text-muted-foreground mt-1">
                   Available in-app balance for pool entries and wallet actions.
                 </p>
-                {user.walletBalance <= 0 && (
+                {user!.walletBalance <= 0 && (
                   <div className="mt-4 rounded-xl border border-amber-500/35 bg-amber-500/[0.08] px-4 py-3 text-sm text-amber-100/95 leading-relaxed max-w-xl shadow-inner">
                     <p className="font-medium text-amber-200/95 mb-1 flex items-center gap-2">
                       <span>⚡</span>
@@ -735,157 +989,12 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className={`lg:col-span-2 ${premiumPanel} overflow-hidden flex flex-col min-h-[280px]`}>
-          <div className={premiumPanelHead}>
-            <h2 className="font-sp-display text-sm sm:text-base font-semibold">Wallet activity</h2>
-            <Link href="/wallet" className="text-xs font-medium text-primary hover:underline">
-              Full history
-            </Link>
-          </div>
-          <p className="text-xs text-muted-foreground px-4 py-2.5 border-b border-[hsl(217,28%,14%)] sm:px-5 flex gap-5">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm bg-emerald-500" /> In
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-sm bg-red-400" /> Out
-            </span>
-          </p>
-
-          {recentTxs.length === 0 ? (
-            <div className="m-3 flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border/80 bg-muted/5 px-4 py-10 text-center">
-              <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl border border-border/60 text-muted-foreground">
-                <Inbox className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-              </span>
-              <p className="text-sm font-medium">No transactions yet</p>
-              <p className="mt-1 max-w-xs text-xs text-muted-foreground">Deposit or join a pool to see activity here.</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-[hsl(217,28%,13%)] flex-1">
-              {recentTxs.map((tx) => {
-                const meta = rowTxMetaForDashboard(tx);
-                const showStatus = tx.txType === "deposit" || tx.txType === "withdraw";
-                return (
-                  <div key={tx.id} className="flex items-stretch transition-colors hover:bg-white/[0.02]">
-                    <div className="w-1 shrink-0" style={{ background: meta.isCredit ? "#10b981" : "#f87171" }} />
-                    <div className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 sm:px-4">
-                      <span className="w-7 shrink-0 text-center text-sm opacity-80">{meta.icon}</span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <p className="text-xs font-medium">{meta.label}</p>
-                          {showStatus ? <TransactionStatusBadge status={tx.status} compact /> : null}
-                        </div>
-                        <p className="text-[10px] text-muted-foreground">{timeAgo(tx.createdAt)}</p>
-                      </div>
-                      <UsdtAmount
-                        amount={Number(tx.amount)}
-                        prefix={meta.sign}
-                        amountClassName="shrink-0 text-xs font-semibold tabular-nums"
-                        currencyClassName="text-[10px] text-[#64748b]"
-                        className="items-end"
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 border-t border-[hsl(217,28%,16%)] mt-auto text-xs">
-            <Link href="/winners" className="px-3 py-3 hover:bg-white/[0.03] transition">
-              <p className="font-medium">Past winners</p>
-              <p className="text-[10px] text-muted-foreground">Recent results</p>
-            </Link>
-          </div>
-        </div>
+        {/* (Nuclear reset) Removed wallet activity section */}
       </div>
 
-      {activeJoined.length > 0 && (
-        <div id="active-entries" className={`${premiumPanel} overflow-hidden`}>
-          <div className={premiumPanelHead}>
-            <div className="flex items-center gap-2">
-              <h2 className="font-sp-display text-sm sm:text-base font-semibold">Your active entries</h2>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/12 text-emerald-400 border border-emerald-500/20">
-                {activeJoined.length}
-              </span>
-            </div>
-            <Link href="/pools" className="text-xs font-medium text-primary hover:underline">
-              More pools
-            </Link>
-          </div>
-
-          <div className="divide-y divide-[hsl(217,28%,14%)]">
-            {activeJoined.map((entry) => {
-              const msLeft = entry.endTime ? new Date(entry.endTime).getTime() - Date.now() : 0;
-              const hoursLeft = Math.max(0, Math.floor(msLeft / 3_600_000));
-              const isOpen = entry.status === "open";
-
-              return (
-                <Link key={entry.id} href={`/pools/${entry.id}`}>
-                  <div className="flex items-stretch hover:bg-white/[0.02] cursor-pointer group">
-                    <div className="w-1 shrink-0" style={{ background: isOpen ? "#10b981" : "#475569" }} />
-                    <div className="flex items-center gap-3 flex-1 min-w-0 px-4 py-3 sm:px-5">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold group-hover:text-primary transition-colors truncate">{entry.title}</p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          <span className={isOpen ? "text-emerald-400" : ""}>{isOpen ? "Waiting for draw" : "Completed"}</span>
-                          {" · "}
-                          {entry.participantCount} players
-                          {isOpen && hoursLeft > 0 && ` · ${hoursLeft}h left`}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <UsdtAmount amount={entry.prizeFirst} amountClassName="text-xs font-semibold tabular-nums text-emerald-400" currencyClassName="text-[10px] text-[#64748b]" className="items-end" />
-                        <p className="text-[10px] text-muted-foreground">top prize</p>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* (Removed: What to do next / P2P / Activity feed block per redesign) */}
-
-      <div className={`${premiumPanel} overflow-hidden`}>
-        <div className={premiumPanelHead}>
-          <h2 className="font-sp-display text-sm sm:text-base font-semibold">How it works</h2>
-        </div>
-        <div className="grid divide-y divide-white/[0.08] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-          {[
-            {
-              title: "1. Add balance",
-              desc: "Deposit USDT (admin verifies). Your balance is used to join pools.",
-              icon: "💰",
-            },
-            {
-              title: "2. Join a pool",
-              desc: "Pay the entry fee. When the pool closes or fills, a fair draw picks winners.",
-              icon: "🎱",
-            },
-            {
-              title: "3. Get paid",
-              desc: "Prizes go to your in-app wallet. Withdraw to your TRC20 address when ready.",
-              icon: "✓",
-            },
-          ].map((s) => (
-            <div key={s.title} className="p-5 sm:p-6 first:pt-5 hover:bg-white/[0.02] transition-colors sm:first:pt-6">
-              <span className="text-lg" aria-hidden>
-                {s.icon}
-              </span>
-              <p className="font-sp-display font-semibold text-sm mb-1.5 mt-2">{s.title}</p>
-              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
-            </div>
-          ))}
-        </div>
-        <div className="px-4 pb-4 sm:px-5">
-          <p className="rounded-lg border border-white/[0.08] bg-[rgba(6,8,15,0.6)] px-3 py-2.5 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Cancelled pools:</span> entry fees are refunded to your wallet. Everything is listed in your transaction history.
-          </p>
-        </div>
-      </div>
       </div>
     </div>
+      )}
+    </>
   );
 }

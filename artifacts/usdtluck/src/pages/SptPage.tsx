@@ -205,7 +205,7 @@ export default function SptPage() {
         <div className="relative flex flex-col items-center text-center">
           <SPTCoin size="xl" animate className="drop-shadow-[0_12px_40px_rgba(255,184,0,0.35)]" />
           <h1 className="mt-6 font-sp-display text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            SecurePool Token
+            Your SPT Token
           </h1>
           <p className="mt-1 font-sp-display text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-[#FFD166] via-amber-300 to-[#FFB800] bg-clip-text text-transparent">
             SPT

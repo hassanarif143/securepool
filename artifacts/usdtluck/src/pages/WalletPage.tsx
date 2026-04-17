@@ -400,7 +400,7 @@ export default function WalletPage() {
       {/* Balance hero — primary trust anchor */}
       <div className={`${premiumPanel} overflow-hidden`}>
         <div className={cn(premiumPanelHead, "items-center")}>
-          <p className="font-sp-display text-[11px] font-semibold uppercase tracking-widest text-[#00E5CC]/85">Wallet</p>
+          <p className="font-sp-display text-[11px] font-semibold uppercase tracking-widest text-[#00E5CC]/85">Your Wallet</p>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/[0.08] px-2.5 py-1 text-[10px] font-medium text-emerald-300/95">
             <Shield className="h-3 w-3" aria-hidden />
             Reviewed deposits
