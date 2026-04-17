@@ -14,6 +14,7 @@ import { SPTOpportunityBar } from "@/components/spt/SPTOpportunityBar";
 import { LevelUpModal } from "@/components/spt/LevelUpModal";
 import { SupportChatBubble } from "@/components/support/SupportChatBubble";
 import { cn } from "@/lib/utils";
+import { Coins, Gamepad2, Trophy, Waves } from "lucide-react";
 
 type NavPrimary =
   | { href: string; label: string; kind: "emoji"; icon: string }
@@ -350,16 +351,92 @@ function SptMiniPill() {
   return (
     <Link
       href="/spt"
-      className="hidden sm:inline-flex items-center gap-2 rounded-full border border-[#FFD166]/20 bg-[#FFD166]/[0.08] px-3 py-1.5 hover:bg-[#FFD166]/[0.12] transition-colors"
-      aria-label={data ? `SPT balance ${data.spt_balance.toLocaleString()} (${data.spt_level}). Open SPT.` : "Open SPT"}
-      title="Open SPT"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        padding: "5px 10px 5px 6px",
+        background: "rgba(255, 209, 102, 0.07)",
+        border: "1px solid rgba(255, 209, 102, 0.22)",
+        borderRadius: "999px",
+        textDecoration: "none",
+        transition: "all 0.18s ease",
+        cursor: "pointer",
+        flexShrink: 0,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "rgba(255,209,102,0.14)";
+        e.currentTarget.style.borderColor = "rgba(255,209,102,0.4)";
+        e.currentTarget.style.transform = "translateY(-1px)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "rgba(255,209,102,0.07)";
+        e.currentTarget.style.borderColor = "rgba(255,209,102,0.22)";
+        e.currentTarget.style.transform = "translateY(0)";
+      }}
+      aria-label={
+        data ? `SPT balance ${data.spt_balance.toLocaleString()} (${data.spt_level}). Open SPT.` : "Open SPT"
+      }
     >
-      <span className="text-sm" aria-hidden>
-        🪙
-      </span>
-      <span className="text-[13px] font-extrabold tabular-nums text-[#FFD166]">
-        {data ? data.spt_balance.toLocaleString() : "…"}
-      </span>
+      <svg width="20" height="20" viewBox="0 0 40 40" fill="none" style={{ flexShrink: 0 }}>
+        <circle cx="20" cy="20" r="19" fill="url(#cg1)" stroke="#B8860B" strokeWidth="0.8" />
+        <circle cx="20" cy="20" r="15" fill="url(#cg2)" />
+        <text
+          x="20"
+          y="25"
+          textAnchor="middle"
+          fontFamily="Arial Black, sans-serif"
+          fontWeight="900"
+          fontSize="12"
+          fill="#7A4500"
+        >
+          SP
+        </text>
+        <ellipse
+          cx="13"
+          cy="13"
+          rx="5"
+          ry="3"
+          fill="white"
+          fillOpacity="0.25"
+          transform="rotate(-35 13 13)"
+        />
+        <defs>
+          <linearGradient id="cg1" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#FFE566" />
+            <stop offset="100%" stopColor="#B8860B" />
+          </linearGradient>
+          <linearGradient id="cg2" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#FFF3A0" />
+            <stop offset="100%" stopColor="#FFB800" />
+          </linearGradient>
+        </defs>
+      </svg>
+
+      <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
+        <span
+          style={{
+            fontFamily: '"Syne", sans-serif',
+            fontWeight: "700",
+            fontSize: "13px",
+            color: "#FFD166",
+            letterSpacing: "-0.2px",
+          }}
+        >
+          {(data?.spt_balance ?? 0).toLocaleString()} SPT
+        </span>
+        <span
+          style={{
+            fontSize: "9px",
+            color: "rgba(255,209,102,0.5)",
+            fontWeight: "500",
+            letterSpacing: "0.3px",
+            textTransform: "uppercase",
+          }}
+        >
+          {data?.spt_level ?? "Bronze"}
+        </span>
+      </div>
     </Link>
   );
 }
@@ -846,9 +923,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <div className="sticky top-0 z-50">
-      <header className="border-b border-border bg-background/92 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
+      <header className="border-b border-white/[0.06] bg-[rgba(9,14,26,0.96)] backdrop-blur-[24px] supports-[backdrop-filter]:bg-[rgba(9,14,26,0.92)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center min-h-[3.25rem] py-2.5 gap-2 sm:gap-3">
+          <div className="flex items-center h-[60px] gap-2 sm:gap-3">
 
             {/* ── Logo ── */}
             <Link href={user ? "/dashboard" : "/"} className="shrink-0 mr-2">
@@ -857,29 +934,71 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
             {/* ── Desktop primary nav ── */}
             {user && (
-              <nav className="hidden md:flex items-center gap-0.5 flex-1" aria-label="Primary">
-                {primaryLinks.map((link) => {
-                  const active = location.startsWith(link.href);
-                  const isSpt = link.kind === "spt";
+              <nav className="hidden md:flex items-center gap-1 flex-1" aria-label="Primary">
+                {[
+                  { href: "/pools", label: "Pools", Icon: Waves, gold: false },
+                  { href: "/games", label: "Games", Icon: Gamepad2, gold: false },
+                  { href: "/spt", label: "SPT", Icon: Coins, gold: true },
+                  { href: "/winners", label: "Winners", Icon: Trophy, gold: false },
+                ].map(({ href, label, Icon, gold }) => {
+                  const active = location === href || location.startsWith(href + "/");
                   return (
-                    <Link key={link.href} href={link.href} aria-current={active ? "page" : undefined}>
-                      <span
-                        className={cn(
-                          "relative px-1 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap select-none",
-                          isSpt ? "text-[#FFD166]/90 hover:text-[#FFE599]" : "text-muted-foreground hover:text-foreground",
-                          active ? (isSpt ? "text-[#FFE599]" : "text-foreground") : null,
-                        )}
-                      >
-                        <span>{link.label}</span>
-                        {active && (
-                          <span
-                            className={cn(
-                              "absolute -bottom-0.5 left-0 right-0 h-0.5 rounded opacity-90",
-                              isSpt ? "bg-[#FFD166]" : "bg-primary",
-                            )}
-                          />
-                        )}
-                      </span>
+                    <Link
+                      key={href}
+                      href={href}
+                      aria-current={active ? "page" : undefined}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        padding: "6px 11px",
+                        borderRadius: "8px",
+                        textDecoration: "none",
+                        fontSize: "13.5px",
+                        fontWeight: active ? "600" : "500",
+                        fontFamily: '"DM Sans", sans-serif',
+                        color: active ? (gold ? "#FFD166" : "#E2E8F0") : gold ? "#8B6914" : "#556688",
+                        background: active
+                          ? gold
+                            ? "rgba(255,209,102,0.07)"
+                            : "rgba(0,212,255,0.06)"
+                          : "transparent",
+                        position: "relative",
+                        transition: "all 0.15s ease",
+                        whiteSpace: "nowrap",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!active) {
+                          e.currentTarget.style.color = gold ? "#FFD166" : "#B0C4D8";
+                          e.currentTarget.style.background = gold
+                            ? "rgba(255,209,102,0.05)"
+                            : "rgba(255,255,255,0.04)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!active) {
+                          e.currentTarget.style.color = gold ? "#8B6914" : "#556688";
+                          e.currentTarget.style.background = "transparent";
+                        }
+                      }}
+                    >
+                      <Icon size={14} strokeWidth={active ? 2.3 : 1.8} style={{ flexShrink: 0 }} />
+                      {label}
+                      {active && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            bottom: "-9px",
+                            left: "8px",
+                            right: "8px",
+                            height: "2px",
+                            borderRadius: "2px",
+                            background: gold
+                              ? "linear-gradient(90deg, #FFD166, #FF9F43)"
+                              : "linear-gradient(90deg, #00D4FF, #00B4A0)",
+                          }}
+                        />
+                      )}
                     </Link>
                   );
                 })}
@@ -898,19 +1017,93 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   {/* Notification bell */}
                   <NotificationBell />
 
-                  {/* USDT balance — clean pill */}
+                  {/* USDT Balance Pill — premium */}
                   <Link
                     href="/wallet"
-                    className="hidden sm:inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 hover:bg-emerald-500/15 transition-colors"
-                    aria-label="Wallet balance"
-                    title="Open wallet"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "7px",
+                      padding: "5px 10px 5px 8px",
+                      background: "rgba(16, 185, 129, 0.07)",
+                      border: "1px solid rgba(16, 185, 129, 0.2)",
+                      borderRadius: "999px",
+                      textDecoration: "none",
+                      transition: "all 0.18s ease",
+                      flexShrink: 0,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "rgba(16,185,129,0.13)";
+                      e.currentTarget.style.transform = "translateY(-1px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "rgba(16,185,129,0.07)";
+                      e.currentTarget.style.transform = "translateY(0)";
+                    }}
                   >
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.45)]" aria-hidden />
-                    <UsdtAmount
-                      amount={Number(user.withdrawableBalance ?? 0) + Number(user.bonusBalance ?? 0)}
-                      amountClassName="text-sm font-extrabold tabular-nums text-emerald-400"
-                      currencyClassName="text-[11px] font-semibold text-emerald-300/80"
-                    />
+                    <div style={{ position: "relative", width: "7px", height: "7px", flexShrink: 0 }}>
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          borderRadius: "50%",
+                          background: "#10B981",
+                          animation: "pingDot 2s ease-in-out infinite",
+                        }}
+                      />
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: "1.5px",
+                          borderRadius: "50%",
+                          background: "#10B981",
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
+                      <span
+                        style={{
+                          fontFamily: '"Syne", sans-serif',
+                          fontWeight: "700",
+                          fontSize: "13px",
+                          color: "#10B981",
+                          letterSpacing: "-0.2px",
+                        }}
+                      >
+                        {Number(Number(user.withdrawableBalance ?? 0) + Number(user.bonusBalance ?? 0)).toFixed(2)} USDT
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "9px",
+                          color: "rgba(16,185,129,0.5)",
+                          letterSpacing: "0.2px",
+                        }}
+                      >
+                        ≈{" "}
+                        {Math.round((Number(user.withdrawableBalance ?? 0) + Number(user.bonusBalance ?? 0)) * 279).toLocaleString()}{" "}
+                        PKR
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        width: "17px",
+                        height: "17px",
+                        borderRadius: "50%",
+                        background: "rgba(16,185,129,0.15)",
+                        border: "1px solid rgba(16,185,129,0.3)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                      aria-hidden
+                    >
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="3" strokeLinecap="round">
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                    </div>
                   </Link>
 
                   {/* SPT balance — separate small pill */}

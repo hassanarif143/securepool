@@ -85,40 +85,113 @@ export function SPTOpportunityBar({
   }
 
   return (
-    <div className="w-full border-b border-[#FFD166]/15 bg-[linear-gradient(90deg,rgba(255,209,102,0.08),rgba(255,209,102,0.03))]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-9 flex items-center justify-between gap-3">
-        <div className="min-w-0 flex items-center gap-2 text-[13px]">
-          <span className="shrink-0" aria-hidden>
-            {opp.icon}
-          </span>
-          <span className="truncate text-[#8899BB]">
-            {opp.msg}
-            <span className="text-[#FFD166] font-semibold">{amount}</span> — abhi!
-          </span>
-        </div>
+    <div
+      style={{
+        width: "100%",
+        height: "34px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 20px",
+        background: "linear-gradient(90deg, rgba(255,209,102,0.06) 0%, transparent 60%)",
+        borderBottom: "1px solid rgba(255,209,102,0.1)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div
+          style={{
+            width: "5px",
+            height: "5px",
+            borderRadius: "50%",
+            background: "#FFD166",
+            boxShadow: "0 0 6px #FFD166",
+            animation: "softPulse 2s ease-in-out infinite",
+            flexShrink: 0,
+          }}
+          aria-hidden
+        />
+        <span
+          style={{
+            fontSize: "12.5px",
+            fontFamily: '"DM Sans", sans-serif',
+            color: "#667799",
+          }}
+        >
+          {opp.icon} {opp.msg}
+          <strong style={{ color: "#FFD166", fontWeight: "700" }}>{amount}</strong>
+        </span>
+      </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          {opp.action ? (
-            <Link
-              href={opp.action}
-              className={cn(
-                "text-[#FFD166] text-[12px] font-semibold no-underline px-2.5 py-1 rounded-full",
-                "border border-[#FFD166]/30 hover:bg-[#FFD166]/10 transition-colors",
-              )}
-            >
-              Earn now →
-            </Link>
-          ) : null}
-          <button
-            type="button"
-            onClick={dismissFor24h}
-            className="h-7 w-7 rounded-full border border-white/10 bg-white/5 text-[#8899BB] hover:text-white hover:bg-white/10 transition-colors"
-            aria-label="Dismiss SPT opportunity"
-            title="Hide for 24 hours"
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        {opp.action ? (
+          <Link
+            href={opp.action}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              fontSize: "11.5px",
+              fontWeight: "600",
+              color: "#FFD166",
+              textDecoration: "none",
+              padding: "3px 10px",
+              border: "1px solid rgba(255,209,102,0.25)",
+              borderRadius: "99px",
+              transition: "all 0.15s",
+              fontFamily: '"DM Sans", sans-serif',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(255,209,102,0.1)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
           >
-            ×
-          </button>
-        </div>
+            Earn now
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#FFD166"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            >
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </Link>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={dismissFor24h}
+          style={{
+            width: "20px",
+            height: "20px",
+            borderRadius: "50%",
+            background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            color: "#445577",
+            fontSize: "12px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            lineHeight: 1,
+            padding: 0,
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = "#8899BB";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = "#445577";
+          }}
+          aria-label="Dismiss SPT opportunity"
+          title="Hide for 24 hours"
+        >
+          ×
+        </button>
       </div>
     </div>
   );
