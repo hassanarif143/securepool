@@ -52,9 +52,9 @@ export function SPTLiveTicker({ className }: { className?: string }) {
     >
       <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" aria-hidden />
       <p className="text-[12px] min-w-0 truncate">
-        <span className="text-[#8899BB]">{active.display_name} ne </span>
+        <span className="text-[#8899BB]">{active.display_name} </span>
         <span className="text-[#FFD166] font-semibold">+{active.amount} SPT</span>
-        <span className="text-[#8899BB]"> kamaya — {active.reason}</span>
+        <span className="text-[#8899BB]"> earned — {active.reason}</span>
       </p>
       <span className="ml-auto text-[11px] text-[#445577] shrink-0">{active.time_ago}</span>
     </div>

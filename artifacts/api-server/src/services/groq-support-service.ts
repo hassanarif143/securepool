@@ -42,11 +42,15 @@ Levels:
 Risk Wheel, Lucky Numbers, Hi-Lo, Treasure Hunt, Mega Draw (availability may vary). Game play awards SPT.
 
 === RESPONSE RULES ===
-1. Reply in the same language the user uses (Urdu, Roman Urdu, English).
-2. Warm + concise (2–4 sentences).
-3. Use user context to personalize.
-4. End with: “Kuch aur help chahiye?”
-5. If you cannot solve it, add exactly [ESCALATE] at the end.
+1. ALWAYS reply in a mix of easy English and Roman Urdu (bilingual).
+   - Use English for technical terms (USDT, TRC20, SPT, pool, wallet).
+   - Use Roman Urdu for conversational parts (friendly tone).
+   - Example: "Pool join karna easy hai! Just go to Pools page and click Join."
+2. Keep it SHORT — max 3 sentences.
+3. Be warm and friendly like a helpful friend.
+4. Always end with: "Kuch aur help chahiye?"
+5. Use simple words — no complex English, no complex Urdu.
+6. If you cannot solve it → add exactly [ESCALATE] at the very end.
 
 ESCALATE WHEN:
 - Deposit pending too long (2+ hours)
@@ -80,56 +84,83 @@ function getClient(): Groq | null {
 
 function getRuleBasedAnswer(message: string, userContext: UserSupportContext): string {
   const msg = message.toLowerCase().trim();
-  const name = userContext?.username ? `${userContext.username}, ` : "";
+  const name = userContext?.username ? `${userContext.username},` : "";
 
   const includesAny = (xs: string[]) => xs.some((x) => msg.includes(x));
 
-  // Pool join
-  if (msg.includes("pool") && includesAny(["join", "kaise", "how", "enter", "ticket", "buy"])) {
-    return `${name}Pool join karna easy hai: Pools page pe jao, koi open pool select karo aur “Buy ticket / Join” dabao. 10 USDT (ya jo entry fee show ho) wallet se deduct hogi aur ticket assign ho jayega. Kuch aur help chahiye?`;
+  // Pool
+  if (msg.includes("pool") && (msg.includes("join") || msg.includes("kaise") || msg.includes("how"))) {
+    return `${name} Pool join karna easy hai! Go to Pools page, select any pool, and click "Join". USDT will be deducted from your wallet automatically. Kuch aur help chahiye?`;
   }
-  // Draw / results
   if (msg.includes("pool") && includesAny(["draw", "result", "winner", "kab", "when"])) {
-    return `${name}Draw tab hota hai jab pool fill ho jata hai. Winners fair draw se select hote hain aur results + notifications app mein show hoti hain. Kuch aur help chahiye?`;
+    return `${name} Draw tab hota hai jab pool ke sab tickets sell ho jaate hain. It's completely random and fair. Prize details pool page pe show hoti hain. Kuch aur help chahiye?`;
   }
-  // Deposit how
-  if (includesAny(["deposit", "recharge", "add usdt", "paisa", "fund"])) {
-    return `${name}Deposit ke liye Wallet → Deposit tab open karo, TRC20 address copy karo aur Binance/wallet se TRC20 USDT send karo. Minimum usually 10 USDT hota hai; confirmations ke baad update hota hai. Kuch aur help chahiye?`;
+  if (msg.includes("pool") && includesAny(["prize", "jeeta", "won", "credit"])) {
+    return `${name} Congratulations if you won! Prize is added to your wallet instantly after the draw. Wallet balance check kar lo. Kuch aur help chahiye?`;
   }
-  // Deposit stuck
-  if (msg.includes("deposit") && includesAny(["pending", "stuck", "nahi", "not", "late", "delay"])) {
-    return `${name}Agar deposit 2+ hours se pending hai to transaction hash share kar dein — main admin ko escalate kar deta hoon taake manually check ho jaye. [ESCALATE]`;
+
+  // Deposit
+  if (includesAny(["deposit", "recharge", "add usdt"]) || (msg.includes("add") && msg.includes("usdt"))) {
+    return `${name} To deposit: Go to Wallet → Deposit → copy your TRC20 address → send USDT from Binance or any wallet. Minimum 10 USDT. Balance update hone mein 5-15 minutes lagte hain. Kuch aur help chahiye?`;
   }
-  // Withdrawal how
-  if (includesAny(["withdraw", "withdrawal", "nikal", "transfer", "cashout"])) {
-    return `${name}Withdrawal ke liye Wallet → Withdraw mein TRC20 address aur amount enter karke submit karo. Minimum usually 10 USDT hota hai aur fee app mein shown hoti hai; processing up to 24h. Kuch aur help chahiye?`;
+  if ((msg.includes("deposit") || msg.includes("balance")) && includesAny(["nahi", "pending", "not", "stuck"])) {
+    return `${name} Don't worry! Normally 5-15 minutes lagte hain. Agar 1 hour se zyada ho gaya toh transaction hash share karo — main admin ko check karne ko bolunga. Kuch aur help chahiye? [ESCALATE]`;
   }
-  // Withdrawal stuck
-  if (includesAny(["withdraw", "withdrawal"]) && includesAny(["pending", "stuck", "delay", "late", "nahi", "not"])) {
-    return `${name}Agar withdrawal 24+ hours se pending hai to ye manual check wala case hai — main admin ko abhi escalate karta hoon. [ESCALATE]`;
+
+  // Withdrawal
+  if (includesAny(["withdraw", "withdrawal", "nikal", "transfer out"])) {
+    return `${name} To withdraw: Go to Wallet → Withdraw → enter your TRC20 USDT address → enter amount → Submit. Minimum 10 USDT, fee app mein show hoti hai. Processing 1-24 hours mein hoti hai. Kuch aur help chahiye?`;
   }
-  // SPT info
+  if (includesAny(["withdraw", "withdrawal"]) && includesAny(["pending", "nahi", "stuck", "not received"])) {
+    return `${name} Withdrawal usually 1-24 hours mein process hoti hai. Agar 24 hours se zyada ho gaye hain — that's unusual. Main admin ko abhi escalate karta hoon. Kuch aur help chahiye? [ESCALATE]`;
+  }
+
+  // SPT
   if (includesAny(["spt", "token", "reward", "points"])) {
-    return `${name}SPT (SecurePool Token) aapka rewards token hai. Pool join pe +10 SPT, win pe +150 SPT, daily login pe streak ke hisaab se SPT milta hai — details SPT page par mil jayengi. Kuch aur help chahiye?`;
+    return `${name} SPT (SecurePool Token) is our reward token! Current rate: 1 SPT = 0.01 USDT. Pool join karo +10 SPT, win karo +150 SPT, daily login pe SPT milta hai. SPT page pe full details mil jayengi. Kuch aur help chahiye?`;
   }
-  // Spend SPT
-  if (msg.includes("spt") && includesAny(["use", "spend", "redeem", "discount"])) {
-    return `${name}SPT use/spend karne ke liye SPT page par jao — wahan discounts/perks aur spend options show honge. Kuch aur help chahiye?`;
+  if (msg.includes("spt") && includesAny(["use", "spend", "redeem"])) {
+    return `${name} To use SPT: Go to SPT page → Spend tab. Wahan discounts/perks show hotay hain. Kuch aur help chahiye?`;
   }
-  // Account access / password
-  if (includesAny(["password", "forgot", "reset", "bhool", "login problem", "cant login", "can't login"])) {
-    return `${name}Login issue ke liye pehle password reset try karein. Agar phir bhi access nahi mil raha to account/security issue ho sakta hai — main admin ko escalate karta hoon. [ESCALATE]`;
+  if (includesAny(["level", "bronze", "silver", "gold", "diamond"])) {
+    return `${name} SPT Levels: Bronze, Silver, Gold, Diamond. Higher level = more perks. Full ranges SPT page pe show hotay hain. Kuch aur help chahiye?`;
   }
+
+  // Games
+  if (includesAny(["game", "spin", "wheel", "card"])) {
+    return `${name} We have Risk Wheel, Lucky Numbers, Hi-Lo Cards, Treasure Hunt and Mega Draw! Har game pe SPT milta hai plus USDT prizes. Games page pe ja ke play karo. Kuch aur help chahiye?`;
+  }
+
+  // Password / Login
+  if (includesAny(["password", "forgot", "reset", "bhool"])) {
+    return `${name} To reset your password: Go to Login → click "Forgot Password" → enter your email → check inbox for reset link. Agar email access nahi hai toh batao. Kuch aur help chahiye?`;
+  }
+  if (msg.includes("login") && includesAny(["cant", "nahi", "problem", "issue"])) {
+    return `${name} Login problem? Pehle password reset try karo. Agar phir bhi nahi ho raha — main admin se help dilata hoon. Kuch aur help chahiye? [ESCALATE]`;
+  }
+
   // Referral
-  if (includesAny(["refer", "referral", "invite", "dost", "friend"])) {
-    return `${name}Referral ke liye Referral page open karein — wahan aapka link/code milega. Successful referral pe SPT rewards milte hain (details app mein shown). Kuch aur help chahiye?`;
+  if (includesAny(["refer", "invite", "friend", "referral"])) {
+    return `${name} Go to Profile → Referrals to get your unique link. Jab koi tumhare link se join kare — referral reward SPT milta hai. Kuch aur help chahiye?`;
   }
-  // Trust / scam
-  if (includesAny(["safe", "trust", "legit", "scam", "fake", "real"])) {
-    return `${name}SecurePool provably fair mechanics use karta hai aur transactions blockchain (TronScan) par verify ho sakti hain. Aap chahen to specific pool/tx ka detail share karein main guide kar deta hoon. Kuch aur help chahiye?`;
+
+  // Trust / Safety
+  if (includesAny(["safe", "trust", "legit", "real", "scam"])) {
+    return `${name} SecurePool fair hai and you can verify transactions on TronScan. Agar aap chaho toh apna pool id ya tx hash share karo — main guide kar deta hoon. Kuch aur help chahiye?`;
   }
-  // Default
-  return `${name}Samajh gaya. Aap apna issue thoda detail se batayein (deposit/withdrawal/pool/game)? Agar manual check ki zaroorat hui to main admin ko escalate kar dunga. Kuch aur help chahiye?`;
+
+  // Greeting
+  if (includesAny(["hi", "hello", "salam", "hey"]) || msg.length < 5) {
+    return `${name} Hi! Welcome to SecurePool Support 👋 I'm here to help with pools, deposits, withdrawals, SPT — anything! Kya help chahiye?`;
+  }
+
+  // How it works
+  if (includesAny(["how", "kaise kaam", "explain", "samjhao"])) {
+    return `${name} SecurePool mein people pool mein join karte hain (USDT ticket). When pool fills, draw hota hai — 3 winners get prizes. Plus SPT rewards on actions. Kuch aur help chahiye?`;
+  }
+
+  // Default escalate
+  return `${name} Got it! Ye matter thoda specific hai — main admin se check karwa deta hoon. Kuch aur help chahiye? [ESCALATE]`;
 }
 
 export async function getAIResponse(
@@ -179,7 +210,9 @@ Distinct pools joined (tickets): ${userContext.total_pools}`,
     const shouldEscalate = aiText.includes("[ESCALATE]");
     const cleanResponse = aiText.replace(/\[ESCALATE\]/g, "").trim();
     return {
-      response: cleanResponse || "Main madad ke liye yahan hoon — thoda detail se likhein?",
+      response:
+        cleanResponse ||
+        "I’m here to help! Aap thora detail share kar do (deposit/withdraw/pool/SPT) so I can guide you. Kuch aur help chahiye?",
       shouldEscalate,
       tokensUsed: completion.usage?.total_tokens ?? 0,
     };

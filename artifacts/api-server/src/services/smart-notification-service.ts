@@ -54,8 +54,8 @@ export async function sendWinnerSmartNotification(
   await sendSmartNotification(
     userId,
     "pool_win",
-    `${rankEmoji} Mubarak! Aap jeete!`,
-    `${poolTitle} mein aapko ${ord} prize mila! ${prizeAmount} USDT wallet mein reflect hona chahiye (per draw settlement).`,
+    `${rankEmoji} Congratulations! You won!`,
+    `${poolTitle}: you won the ${ord} prize. ${prizeAmount} USDT should reflect in your wallet after settlement.`,
     "/wallet",
   );
 }

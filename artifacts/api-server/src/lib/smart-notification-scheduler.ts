@@ -74,8 +74,8 @@ async function runInactiveUsersJob(): Promise<void> {
     await sendSmartNotification(
       u.id,
       "inactive_3days",
-      "👋 Hum aapko yaad kar rahe hain!",
-      `${u.name}, aapke wallet mein balance available hai (${bal}). Aaj pool join karo — aur ${u.spt} SPT bhi use kar sakte ho!`,
+      "👋 We miss you!",
+      `${u.name}, you have balance available in your wallet (${bal}). Join a pool today — and you can also use ${u.spt} SPT.`,
       "/pools",
     );
     await logNotificationSent(u.id, dedupe);
@@ -114,8 +114,8 @@ async function runAlmostFullPoolsJob(): Promise<void> {
       await sendSmartNotification(
         u.id,
         "pool_almost_full",
-        `🔥 Sirf ${slotsLeft} slot${slotsLeft === 1 ? "" : "s"} bacha!`,
-        `${p.title} almost full — abhi join karo.`,
+        `🔥 Only ${slotsLeft} slot${slotsLeft === 1 ? "" : "s"} left!`,
+        `${p.title} is almost full — join before it fills up.`,
         `/pools/${p.id}`,
       );
       await logNotificationSent(u.id, dedupe);
@@ -145,10 +145,10 @@ async function runStreakReminderJob(): Promise<void> {
     await sendSmartNotification(
       u.id,
       "streak_reminder",
-      isDay7 ? "🔥 Kal ka din special hai!" : `🔥 ${u.spt_streak_count} din ka streak mat todna!`,
+      isDay7 ? "🔥 Tomorrow is your bonus day!" : `🔥 Don’t break your ${u.spt_streak_count}-day streak!`,
       isDay7
-        ? "Kal login karo aur streak bonus claim karo — mat bhoolna."
-        : `Aaj login / daily claim karo aur +${sptToday} SPT jaisa bonus dekho (app rules ke mutabiq).`,
+        ? "Login tomorrow and claim your streak bonus."
+        : `Login today and claim your daily bonus (+${sptToday} SPT, based on your streak).`,
       "/dashboard",
     );
     await logNotificationSent(u.id, dedupe);
@@ -178,8 +178,8 @@ async function runLevelEncouragementJob(): Promise<void> {
       await sendSmartNotification(
         u.id,
         "level_encouragement",
-        `⭐ ${tier.next} level ke qareeb ho!`,
-        `Sirf ~${needed} lifetime SPT aur — pools join karo ya games khelo.`,
+        `⭐ You are close to ${tier.next}!`,
+        `Only ~${needed} more lifetime SPT needed — join pools or play games to earn more.`,
         "/spt",
       );
       await logNotificationSent(u.id, dedupe);

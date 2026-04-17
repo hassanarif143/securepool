@@ -74,8 +74,8 @@ export function LevelUpModal({
         </p>
         <p className="mt-3 text-[14px] text-[#8899BB] leading-relaxed">
           {newLevel === "Diamond"
-            ? "💎 Mubarak! Diamond unlocked — ab SPT earn aur tez karo."
-            : `Mubarak! Tum ${newLevel} level pe aa gaye. Aur earn karo!`}
+            ? "💎 Congrats! Diamond unlocked — earn SPT faster with more perks."
+            : `Congrats! You reached ${newLevel}. Keep earning!`}
         </p>
         <button
           type="button"
@@ -83,7 +83,7 @@ export function LevelUpModal({
           className="mt-6 inline-flex items-center justify-center rounded-full px-6 py-3 text-[14px] font-extrabold text-[#060B18]"
           style={{ background: "linear-gradient(135deg, #FFD166, #FF9F43)" }}
         >
-          Thanks! Earning jaari rakho →
+          Thanks! Keep earning →
         </button>
       </div>
     </div>

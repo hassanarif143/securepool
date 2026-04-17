@@ -262,7 +262,7 @@ export function DepositWizard({
   if (!hasCryptoAddress) {
     return (
       <div className="rounded-xl border border-yellow-500/35 bg-yellow-500/10 p-4 text-sm text-yellow-200">
-        Pehle Profile mein apna TRON (USDT) wallet address add karein — phir deposit wizard open hoga.
+        First, add your TRON (USDT) wallet address in Profile — then you can start a deposit.
         <Button asChild className="mt-3 w-full min-h-12" variant="secondary">
           <Link href="/profile">Open Profile</Link>
         </Button>
@@ -327,9 +327,9 @@ export function DepositWizard({
             ))}
           </div>
           <p className="text-xs text-muted-foreground">
-            USDT abhi nahi hai?{" "}
+            Don&apos;t have USDT yet?{" "}
             <Link href="/how-to-buy-usdt" className="text-emerald-400 font-semibold underline underline-offset-2">
-              Yahan dekhein: USDT kaise khareedein (Pakistan)
+              See how to buy USDT (Pakistan)
             </Link>
           </p>
           <Button type="button" className="w-full min-h-[52px] font-semibold" onClick={() => setStep(2)}>
@@ -345,7 +345,7 @@ export function DepositWizard({
             <ChevronLeft className="h-4 w-4" /> Back
           </Button>
           <div>
-            <Label className="text-xs font-semibold uppercase text-muted-foreground">Kitna USDT bhejna hai?</Label>
+            <Label className="text-xs font-semibold uppercase text-muted-foreground">How much USDT will you send?</Label>
             <Input
               type="number"
               min={1}
@@ -355,7 +355,9 @@ export function DepositWizard({
               placeholder="e.g. 10"
               className="mt-1.5 font-semibold tabular-nums min-h-12"
             />
-            <p className="text-[10px] text-muted-foreground mt-1">Minimum usually 1 USDT — bilkul wahi amount bhejein jo yahan likhein.</p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Minimum is usually 1 USDT — send the exact same amount you enter here.
+            </p>
           </div>
 
           {validAmt ? (
@@ -384,15 +386,15 @@ export function DepositWizard({
               </div>
 
               <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs space-y-2">
-                <p className="font-bold text-amber-200">⚠️ IMPORTANT — pehle parh lein</p>
+                <p className="font-bold text-amber-200">⚠️ IMPORTANT — please read</p>
                 <ul className="space-y-1.5 text-amber-100/90 leading-relaxed">
                   <li>
-                    ✅ Network: <strong>TRON (USDT)</strong> — Binance mein withdrawal par TRON network select karein.
+                    ✅ Network: <strong>TRON (TRC20)</strong> — select TRON when withdrawing from Binance.
                   </li>
                   <li>
-                    ✅ Amount: bilkul <strong>{amtNum.toFixed(2)} USDT</strong> — na zyada, na kam.
+                    ✅ Amount: exactly <strong>{amtNum.toFixed(2)} USDT</strong> — not less, not more.
                   </li>
-                  <li>❌ Galat network = paisa recover nahi hota. Yahan hamesha TRON (USDT) use karein.</li>
+                  <li>❌ Wrong network can cause permanent loss. Always use TRON (TRC20) for USDT here.</li>
                 </ul>
               </div>
 
@@ -405,7 +407,7 @@ export function DepositWizard({
               </p>
             </>
           ) : (
-            <p className="text-xs text-muted-foreground text-center">Upar valid amount daalein — phir QR aur address dikhega.</p>
+            <p className="text-xs text-muted-foreground text-center">Enter a valid amount above to see the QR and address.</p>
           )}
 
           <div className="flex gap-2">
@@ -427,7 +429,7 @@ export function DepositWizard({
           </Button>
           <h3 className="text-lg font-semibold">Upload payment proof</h3>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Binance / wallet ki <strong>completed</strong> screen ka screenshot — jisme amount, address, aur status dikhe.
+            Upload a screenshot of the <strong>completed</strong> screen showing amount, address, and status.
           </p>
 
           <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 p-3">
@@ -471,7 +473,7 @@ export function DepositWizard({
             <Label className="text-xs">TxID (optional — tez verification)</Label>
             <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Paste transaction hash / TxID" className="font-mono text-xs min-h-11" />
             <button type="button" className="text-[10px] text-emerald-400 underline" onClick={() => setTxHelpOpen(true)}>
-              TxID kahan milta hai?
+              Where do I find TxID?
             </button>
           </div>
 
@@ -492,7 +494,7 @@ export function DepositWizard({
           <div className="text-4xl">⏳</div>
           <h3 className="text-lg font-semibold">Verification in progress</h3>
           <p className="text-xs text-muted-foreground leading-relaxed px-2">
-            Aapka payment dekh rahe hain. Usually <strong>15–30 minutes</strong> lagte hain — kabhi kabhi zyada.
+            We&apos;re reviewing your payment. Usually it takes <strong>15–30 minutes</strong>, sometimes longer.
           </p>
           <div className="rounded-xl border border-border/80 bg-muted/20 p-4 text-left text-xs space-y-2">
             <p className="font-semibold text-foreground">Payment summary</p>
@@ -505,12 +507,12 @@ export function DepositWizard({
             <p>Status: {pollStatus === "pending" ? "🟡 Under review" : pollStatus ?? "…"}</p>
           </div>
           <ul className="text-left text-xs space-y-2 max-w-sm mx-auto text-muted-foreground">
-            <li>✅ USDT bhej diya</li>
-            <li>✅ Screenshot submit ho gaya</li>
-            <li>🔄 Admin verify kar raha hai…</li>
-            <li>⬜ Wallet mein balance add</li>
+            <li>✅ USDT sent</li>
+            <li>✅ Screenshot submitted</li>
+            <li>🔄 Admin review in progress…</li>
+            <li>⬜ Balance will be added to wallet</li>
           </ul>
-          <p className="text-[11px] text-muted-foreground">Page band kar sakte hain — hum notify kar den ge.</p>
+          <p className="text-[11px] text-muted-foreground">You can close this page — we will notify you.</p>
           <a href={SUPPORT_WHATSAPP_HREF} target="_blank" rel="noopener noreferrer" className="inline-flex rounded-xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-3 text-xs text-emerald-200 w-full max-w-sm mx-auto justify-center">
             💬 WhatsApp support
           </a>
@@ -525,7 +527,7 @@ export function DepositWizard({
         <div className="space-y-4 text-center py-2">
           <div className="text-4xl">🎉</div>
           <h3 className="text-lg font-semibold text-emerald-300">Payment confirmed!</h3>
-          <p className="text-xs text-muted-foreground">Balance update ho chuka hai — ab pools join kar sakte hain.</p>
+          <p className="text-xs text-muted-foreground">Your balance has been updated — you can now join pools.</p>
           <div className="flex flex-wrap gap-2 justify-center">
             <Button asChild className="min-h-12">
               <Link href="/pools">View pools</Link>

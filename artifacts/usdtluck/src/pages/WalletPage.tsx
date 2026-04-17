@@ -529,7 +529,7 @@ export default function WalletPage() {
             <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/15 px-4 py-3">
               <p className="text-sm font-semibold text-foreground">Add money to your wallet</p>
               <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                Har step ek-ek kar ke — USDT bhejna, screenshot, aur verification. Roman Urdu + English dono.
+                Follow the steps below: send USDT, upload a screenshot, then wait for verification.
               </p>
             </div>
 
@@ -538,14 +538,14 @@ export default function WalletPage() {
               <p className="text-[13px] text-[#8899BB] mb-2">🎁 Deposit Bonus</p>
               {firstDepositClaimed ? (
                 <>
-                  <p className="text-[14px] font-semibold text-emerald-300">✅ First deposit bonus claim ho gaya</p>
-                  <p className="text-[12px] text-[#8899BB] mt-1">+500 SPT aapke account mein add ho chuka hai.</p>
+                  <p className="text-[14px] font-semibold text-emerald-300">✅ First deposit bonus already claimed</p>
+                  <p className="text-[12px] text-[#8899BB] mt-1">+500 SPT has been added to your account.</p>
                 </>
               ) : (
                 <>
                   <p className="font-sp-display font-extrabold text-[22px] text-[#FFD166]">+500 SPT</p>
                   <p className="text-[12px] text-[#8899BB] mt-1">
-                    Pehli deposit pe milega — ≈ <span className="text-emerald-300 font-semibold">5 USDT</span> value bilkul free
+                    Earned on your first deposit — ≈ <span className="text-emerald-300 font-semibold">5 USDT</span> value for free
                   </p>
                 </>
               )}
@@ -554,7 +554,7 @@ export default function WalletPage() {
               <div className="flex items-start gap-3 p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/8">
                 <span className="text-yellow-400 shrink-0 mt-0.5">⚠</span>
                 <p className="text-sm text-yellow-300">
-                  Pehle Profile mein apna USDT wallet address (TRON) add karein — payout ke liye zaroori hai.
+                  First, add your USDT wallet address (TRON) in Profile — it is required for payouts.
                   <Link href="/profile" className="font-semibold underline ml-1">
                     Profile
                   </Link>
