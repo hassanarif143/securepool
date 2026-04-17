@@ -23,10 +23,8 @@ export default function HowItWorksPage() {
   }, []);
 
   return (
-    <div
-      className="landing-root -mx-4 min-w-0 rounded-xl px-4 pb-8 text-[#f0f0f0] sm:-mx-6 sm:px-6 sm:pb-12 lg:-mx-8 lg:px-8"
-      style={{ backgroundColor: BRAND_BG }}
-    >
+    <div style={{ backgroundColor: BRAND_BG }}>
+      <div className="wrap landing-root min-w-0 text-[#f0f0f0]">
       <section className="relative overflow-hidden pb-12 pt-2 sm:pb-16 sm:pt-4">
         <div
           className="pointer-events-none absolute left-1/2 top-20 h-[380px] w-[380px] -translate-x-1/2 rounded-full opacity-[0.06]"
@@ -98,6 +96,7 @@ export default function HowItWorksPage() {
         </div>
       </MarketingMotionSection>
 
+      </div>
     </div>
   );
 }

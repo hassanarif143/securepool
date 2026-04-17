@@ -654,7 +654,7 @@ export default function ProfilePage() {
   const cooldownActive = Boolean(walletInfo?.cooldownUntil && cooldown);
 
   return (
-    <div className="max-w-lg mx-auto space-y-6">
+    <div className="wrap-sm space-y-6">
       <h1 className="text-2xl font-bold">Profile</h1>
 
       <Card>

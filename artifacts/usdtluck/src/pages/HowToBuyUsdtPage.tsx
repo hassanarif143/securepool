@@ -6,7 +6,7 @@ const PKR = 278;
 
 export default function HowToBuyUsdtPage() {
   return (
-    <div className="max-w-lg mx-auto px-4 py-10 space-y-8">
+    <div className="wrap-sm space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">How to buy USDT in Pakistan</h1>
         <p className="text-sm text-muted-foreground mt-1">Step-by-step guide</p>

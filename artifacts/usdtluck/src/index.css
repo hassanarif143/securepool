@@ -5,54 +5,56 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
+  /* Platform tokens (hex) — single source of truth */
+  --color-background: var(--bg-1);
+  --color-foreground: var(--t1);
+  --color-border: var(--b);
+  --color-input: var(--bg-3);
+  --color-ring: var(--primary);
 
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-card-border: hsl(var(--card-border));
+  --color-card: var(--bg-2);
+  --color-card-foreground: var(--t1);
+  --color-card-border: var(--b);
 
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-popover-border: hsl(var(--popover-border));
+  --color-popover: var(--bg-2);
+  --color-popover-foreground: var(--t1);
+  --color-popover-border: var(--b);
 
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-primary-border: hsl(var(--primary-border));
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-dark);
+  --color-primary-border: var(--primary-border);
+  --color-primary-hover: var(--primary);
 
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-  --color-secondary-border: hsl(var(--secondary-border));
+  --color-secondary: var(--bg-3);
+  --color-secondary-foreground: var(--t1);
+  --color-secondary-border: var(--b2);
 
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-muted-border: hsl(var(--muted-border));
+  --color-muted: var(--bg-3);
+  --color-muted-foreground: var(--t2);
+  --color-muted-border: var(--b);
 
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-accent-border: hsl(var(--accent-border));
+  --color-accent: var(--primary-soft);
+  --color-accent-foreground: var(--t1);
+  --color-accent-border: var(--primary-border);
 
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-destructive-border: hsl(var(--destructive-border));
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--t1);
+  --color-destructive-border: var(--danger);
 
-  --color-chart-1: hsl(var(--chart-1));
-  --color-chart-2: hsl(var(--chart-2));
-  --color-chart-3: hsl(var(--chart-3));
-  --color-chart-4: hsl(var(--chart-4));
-  --color-chart-5: hsl(var(--chart-5));
+  /* Charts reuse platform palette */
+  --color-chart-1: var(--primary);
+  --color-chart-2: var(--money);
+  --color-chart-3: var(--gold);
+  --color-chart-4: var(--t2);
+  --color-chart-5: var(--danger);
 
-  /* Semantic status (single source of truth — use bg-success, text-warning, etc.) */
-  --color-success: hsl(var(--success));
-  --color-success-foreground: hsl(var(--success-foreground));
-  --color-warning: hsl(var(--warning));
-  --color-warning-foreground: hsl(var(--warning-foreground));
-  --color-completed: hsl(var(--completed));
-  --color-completed-foreground: hsl(var(--completed-foreground));
-  --color-primary-hover: hsl(var(--primary-hover));
+  /* Semantic status */
+  --color-success: var(--money);
+  --color-success-foreground: var(--t1);
+  --color-warning: var(--gold);
+  --color-warning-foreground: var(--primary-dark);
+  --color-completed: var(--money);
+  --color-completed-foreground: var(--t1);
 
   --font-sans: var(--app-font-sans);
   --font-serif: var(--app-font-serif);
@@ -63,20 +65,20 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* SecurePool Arcade — premium games UI */
-  --color-sp-deep: #06080f;
-  --color-sp-card: rgba(12, 17, 30, 0.85);
-  --color-sp-cyan: #00e5cc;
-  --color-sp-cyan-dim: rgba(0, 229, 204, 0.15);
-  --color-sp-cyan-glow: rgba(0, 229, 204, 0.4);
-  --color-sp-gold: #ffd700;
-  --color-sp-gold-dim: rgba(255, 215, 0, 0.15);
-  --color-sp-red: #ff4757;
-  --color-sp-red-dim: rgba(255, 71, 87, 0.12);
-  --color-sp-purple: #8b5cf6;
-  --color-sp-text: #e8ecf4;
-  --color-sp-text-dim: #6b7a99;
-  --color-sp-border: rgba(255, 255, 255, 0.06);
+  /* SecurePool Arcade — map to platform palette */
+  --color-sp-deep: var(--bg-1);
+  --color-sp-card: color-mix(in srgb, var(--bg-2) 85%, transparent);
+  --color-sp-cyan: var(--primary);
+  --color-sp-cyan-dim: var(--primary-soft);
+  --color-sp-cyan-glow: var(--primary-border);
+  --color-sp-gold: var(--gold);
+  --color-sp-gold-dim: var(--gold-soft);
+  --color-sp-red: var(--danger);
+  --color-sp-red-dim: var(--danger-soft);
+  --color-sp-purple: var(--primary);
+  --color-sp-text: var(--t1);
+  --color-sp-text-dim: var(--t2);
+  --color-sp-border: var(--b);
 
   --font-sp-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
   --font-sp-mono: "JetBrains Mono", ui-monospace, monospace;
@@ -89,65 +91,45 @@
 }
 
 :root {
-  --background: 0 0% 98%;
-  --foreground: 222 47% 11%;
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 142 71% 40%;
+  /* Backgrounds — 3 levels only */
+  --bg-1: #070f1e; /* page */
+  --bg-2: #0c1628; /* cards */
+  --bg-3: #111e35; /* inputs, inner cards */
+
+  /* PRIMARY = green-teal (platform theme) */
+  --primary: #00c2a8;
+  --primary-soft: rgba(0, 194, 168, 0.08);
+  --primary-border: rgba(0, 194, 168, 0.2);
+  --primary-dark: #070f1e; /* text on primary */
+
+  /* SPT = gold only */
+  --gold: #f5c842;
+  --gold-soft: rgba(245, 200, 66, 0.08);
+  --gold-border: rgba(245, 200, 66, 0.2);
+
+  /* Money/success = light green */
+  --money: #22c55e;
+  --money-soft: rgba(34, 197, 94, 0.08);
+  --money-border: rgba(34, 197, 94, 0.15);
+
+  /* Danger = red only */
+  --danger: #ef4444;
+  --danger-soft: rgba(239, 68, 68, 0.08);
+
+  /* Text */
+  --t1: #e8eff8;
+  --t2: #7a8fa6;
+  --t3: #3a4f66;
+
+  /* Borders */
+  --b: rgba(255, 255, 255, 0.07);
+  --b2: rgba(255, 255, 255, 0.12);
+
+  /* Radius */
+  --r: 12px;
+  --r-lg: 16px;
+
   --radius: 1rem;
-
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --card-border: 214 32% 91%;
-
-  --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-  --popover-border: 214 32% 91%;
-
-  --primary: 142 71% 38%;
-  --primary-foreground: 0 0% 100%;
-  --primary-border: 142 65% 32%;
-  --primary-hover: 142 72% 44%;
-
-  --success: 160 84% 36%;
-  --success-foreground: 0 0% 100%;
-  --warning: 38 92% 45%;
-  --warning-foreground: 26 90% 12%;
-  --completed: 142 55% 42%;
-  --completed-foreground: 0 0% 100%;
-
-  --secondary: 222 47% 11%;
-  --secondary-foreground: 0 0% 100%;
-  --secondary-border: 222 47% 11%;
-
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 18% 42%;
-  --muted-border: 214 32% 91%;
-
-  --accent: 210 40% 96%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --accent-border: 214 32% 91%;
-
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 210 40% 98%;
-  --destructive-border: 0 84% 60%;
-
-  --chart-1: 142 71% 40%;
-  --chart-2: 152 60% 38%;
-  --chart-3: 214 32% 91%;
-  --chart-4: 162 55% 40%;
-  --chart-5: 215.4 16.3% 46.9%;
-
-  --sidebar-primary: 222 47% 11%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-primary-border: 222 47% 11%;
-  --sidebar-accent: 210 40% 96%;
-  --sidebar-accent-foreground: 222.2 47.4% 11.2%;
-  --sidebar-accent-border: 214 32% 91%;
-  --sidebar-ring: 142 71% 40%;
-  --sidebar: 0 0% 100%;
-  --sidebar-foreground: 222 47% 11%;
-  --sidebar-border: 214 32% 91%;
 
   --app-font-sans: "Inter", system-ui, sans-serif;
   --app-font-display: "Outfit", "Plus Jakarta Sans", var(--app-font-sans);
@@ -156,66 +138,7 @@
 }
 
 .dark {
-  /* Tokens: bg #0a0f1a · surface #111827 · border #1f2937 · primary emerald · hover lighter green */
-  --background: 223 44% 7%;
-  --foreground: 0 0% 100%;
-  --border: 217 19% 17%;
-  --input: 217 33% 14%;
-  --ring: 142 71% 45%;
-  --radius: 1rem;
-
-  --card: 217 33% 11%;
-  --card-foreground: 0 0% 100%;
-  --card-border: 217 19% 17%;
-
-  --popover: 217 33% 11%;
-  --popover-foreground: 0 0% 100%;
-  --popover-border: 217 19% 17%;
-
-  --primary: 142 71% 45%;
-  --primary-foreground: 0 0% 100%;
-  --primary-border: 142 65% 38%;
-  --primary-hover: 142 72% 52%;
-
-  --secondary: 217 19% 17%;
-  --secondary-foreground: 210 40% 96%;
-  --secondary-border: 217 19% 22%;
-
-  --muted: 217 33% 9%;
-  --muted-foreground: 218 11% 65%;
-  --muted-border: 217 19% 17%;
-
-  --accent: 217 33% 14%;
-  --accent-foreground: 0 0% 100%;
-  --accent-border: 217 19% 20%;
-
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
-  --destructive-border: 0 72% 50%;
-
-  --success: 160 84% 39%;
-  --success-foreground: 0 0% 100%;
-  --warning: 38 92% 50%;
-  --warning-foreground: 26 90% 10%;
-  --completed: 142 58% 52%;
-  --completed-foreground: 0 0% 100%;
-
-  --chart-1: 142 71% 45%;
-  --chart-2: 152 58% 42%;
-  --chart-3: 38 92% 50%;
-  --chart-4: 162 52% 44%;
-  --chart-5: 220 9% 46%;
-
-  --sidebar-primary: 142 71% 45%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-primary-border: 142 65% 38%;
-  --sidebar-accent: 217 33% 14%;
-  --sidebar-accent-foreground: 0 0% 100%;
-  --sidebar-accent-border: 217 19% 20%;
-  --sidebar-ring: 142 71% 45%;
-  --sidebar: 220 44% 8%;
-  --sidebar-foreground: 0 0% 100%;
-  --sidebar-border: 217 19% 17%;
+  /* App runs in dark theme — keep same palette */
 }
 
 
@@ -239,12 +162,32 @@
     -webkit-font-smoothing: antialiased;
   }
   ::selection {
-    background: hsl(142 71% 45% / 0.28);
+    background: color-mix(in srgb, var(--primary) 28%, transparent);
     color: inherit;
   }
 }
 
 @layer utilities {
+  /* ─── Layout ─── */
+  .wrap {
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 36px 24px;
+  }
+  .wrap-sm {
+    width: 100%;
+    max-width: 620px;
+    margin: 0 auto;
+    padding: 36px 24px;
+  }
+  @media (max-width: 768px) {
+    .wrap,
+    .wrap-sm {
+      padding: 20px 16px;
+    }
+  }
+
   .font-display {
     font-family: var(--app-font-display), var(--app-font-sans), system-ui, sans-serif;
   }

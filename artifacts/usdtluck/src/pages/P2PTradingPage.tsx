@@ -425,7 +425,7 @@ export default function P2PTradingPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="wrap space-y-6">
       <div className="space-y-3">
         <h1 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight">P2P Trading</h1>
         <Card className="border-primary/20">

@@ -105,7 +105,7 @@ export default function AdminSupportPage() {
   if (!user?.isAdmin) return null;
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="wrap space-y-6">
       <div>
         <h1 className="font-sp-display text-2xl font-bold">Support inbox</h1>
         <p className="text-sm text-muted-foreground">AI + admin replies (Groq)</p>

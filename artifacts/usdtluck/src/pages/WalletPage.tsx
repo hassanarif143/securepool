@@ -386,8 +386,8 @@ export default function WalletPage() {
   const receiveAfterFee = Math.max(0, withdrawAmt - 1);
 
   return (
-    <div className="sp-ambient-bg relative min-h-[50vh] w-full">
-      <div className="mx-auto max-w-2xl space-y-4 px-4 pb-10 sm:px-6 md:pb-12">
+    <div className="wrap-sm sp-ambient-bg relative min-h-[50vh] w-full">
+      <div className="space-y-4" style={{ paddingTop: 0, paddingBottom: 12 }}>
       {txsError && (
         <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <p className="text-sm text-destructive-foreground">Something went wrong loading transactions. Try again.</p>
@@ -961,7 +961,7 @@ export default function WalletPage() {
           </p>
         </div>
       </div>
-      </div>
+    </div>
     </div>
   );
 }

@@ -80,7 +80,7 @@ export default function ReferralPage() {
 
   if (loading && !data) {
     return (
-      <div className="max-w-4xl mx-auto space-y-4">
+      <div className="wrap-sm space-y-4">
         <Skeleton className="h-28 w-full rounded-2xl" />
         <Skeleton className="h-64 w-full rounded-xl" />
         <Skeleton className="h-48 w-full rounded-xl" />
@@ -90,7 +90,7 @@ export default function ReferralPage() {
 
   if (loadError && !data) {
     return (
-      <div className="max-w-md mx-auto rounded-2xl border border-destructive/40 bg-destructive/10 px-6 py-8 text-center space-y-4">
+      <div className="wrap-sm rounded-2xl border border-destructive/40 bg-destructive/10 px-6 py-8 text-center space-y-4">
         <p className="text-sm text-destructive-foreground">{loadError}</p>
         <Button type="button" className="min-h-12 w-full" onClick={() => void load()}>
           Try again
@@ -102,7 +102,7 @@ export default function ReferralPage() {
   if (!data) return null;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4">
+    <div className="wrap-sm space-y-4">
       <div className="rounded-2xl border border-[#FFD166]/20 bg-gradient-to-br from-[#0D1526] to-[#121D35] p-6 sm:p-8 text-center">
         <div className="text-4xl mb-3" aria-hidden>
           👥

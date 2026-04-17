@@ -346,7 +346,7 @@ export default function ReviewsPage() {
   const totalWinners = winnerReviews.length;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
+    <div className="wrap-sm space-y-8">
 
       {/* ── Hero ── */}
       <div className="relative overflow-visible pt-2">

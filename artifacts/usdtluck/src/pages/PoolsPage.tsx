@@ -46,13 +46,7 @@ export default function PoolsPage() {
 
   return (
     <>
-      <div
-        style={{
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding: "32px 24px",
-        }}
-      >
+      <div className="wrap">
         {/* Page Header */}
         <div style={{ marginBottom: 32 }}>
           <div
@@ -170,7 +164,7 @@ export default function PoolsPage() {
       </div>
 
       {isError ? (
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
+        <div className="wrap" style={{ paddingTop: 0 }}>
           <div
             style={{
               background: "rgba(239,68,68,0.08)",
@@ -194,12 +188,8 @@ export default function PoolsPage() {
 
       {isLoading ? (
         <div
-          style={{
-            maxWidth: 1200,
-            margin: "0 auto",
-            padding: "0 24px 32px",
-          }}
-          className="pool-grid"
+          className="wrap pool-grid"
+          style={{ paddingTop: 0, paddingBottom: 32 }}
         >
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <Skeleton key={i} className="h-80 rounded-2xl bg-slate-800/80" />
@@ -207,12 +197,8 @@ export default function PoolsPage() {
         </div>
       ) : (
         <div
-          style={{
-            maxWidth: 1200,
-            margin: "0 auto",
-            padding: "0 24px 36px",
-          }}
-          className="pool-grid"
+          className="wrap pool-grid"
+          style={{ paddingTop: 0, paddingBottom: 36 }}
         >
           {poolsToShow.length === 0 ? (
             <p style={{ gridColumn: "1 / -1", padding: "28px 0", textAlign: "center", color: "#7A8FA6" }}>

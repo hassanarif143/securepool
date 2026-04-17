@@ -321,7 +321,7 @@ export default function WinnersPage() {
   );
 
   return (
-    <div className="max-w-3xl mx-auto space-y-10">
+    <div className="wrap space-y-10">
 
       {/* ── Hero header ── */}
       <div ref={heroInView.ref} className="relative overflow-hidden rounded-3xl border border-white/[0.08]">

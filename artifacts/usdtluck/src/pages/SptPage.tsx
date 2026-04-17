@@ -188,7 +188,7 @@ export default function SptPage() {
   const rest = lb.slice(3);
 
   return (
-    <div className="min-h-screen pb-8">
+    <div className="wrap">
       <SPTOnboardingGuide
         done={Boolean(bal?.spt_onboarding_done)}
         onCompleted={() => setBalance((b) => (b ? { ...b, spt_onboarding_done: true } : b))}

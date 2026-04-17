@@ -76,7 +76,7 @@ export default function GamesPage() {
   const wins = useMemo(() => recent?.wins ?? [], [recent?.wins]);
 
   return (
-    <div className="sp-ambient-bg relative min-h-[75vh] w-full max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <div className="wrap sp-ambient-bg relative min-h-[75vh] w-full">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="sp-games-hero-gradient absolute -left-24 -top-24 h-72 w-72 rounded-full blur-3xl" />
         <div className="sp-games-hero-gradient absolute -bottom-28 -right-28 h-96 w-96 rounded-full blur-3xl [animation-delay:-6s]" />

@@ -88,7 +88,7 @@ export default function ProvablyFairPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-10 pb-16">
+    <div className="wrap space-y-10">
       <section className="text-center space-y-3 pt-2">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary/90">Provably Fair</p>
         <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight">Public draw verification</h1>

@@ -158,7 +158,7 @@ export default function MySharesPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+    <div className="wrap space-y-6">
       <div className="fixed -left-[10000px] top-0 opacity-0 pointer-events-none" aria-hidden>
         <div ref={exportRef}>
           {exportCard ? <ShareCardVisual card={exportCard} inviteUrl={inviteFor(exportCard)} /> : null}
