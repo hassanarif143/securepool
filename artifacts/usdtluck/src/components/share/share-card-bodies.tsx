@@ -693,11 +693,21 @@ function BodyStreak({
     <>
       <Particles color={c} count={26} seed={seed} />
       <Particles color="#fbbf24" count={12} seed={seed + 1} />
-      <div style={{ height: 5, background: `linear-gradient(90deg, transparent, ${c}, #fbbf24, transparent)`, position: "relative", zIndex: 1 }} />
+      <div
+        style={{
+          height: 6,
+          marginTop: 2,
+          background: `linear-gradient(90deg, transparent, ${c}, #fbbf24, transparent)`,
+          position: "relative",
+          zIndex: 1,
+        }}
+      />
       <CardHeader label={label} labelIcon="🔥" themeColor={c} date={date} />
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "28px 24px 24px", position: "relative", zIndex: 1 }}>
         <div style={{ fontSize: 56 }}>🔥</div>
         <div
+          data-gradient-text="true"
+          data-fallback-color="#f97316"
           style={{
             fontSize: 42,
             fontWeight: 900,

@@ -152,12 +152,13 @@ export function CardHeader({
         display: "flex",
         justifyContent: "space-between",
         alignItems: "flex-start",
-        padding: "18px 24px 0",
+        gap: 12,
+        padding: "22px 26px 4px",
         position: "relative",
         zIndex: 1,
       }}
     >
-      <div>
+      <div style={{ minWidth: 0, flex: 1 }}>
         <div
           style={{
             color: themeColor,
@@ -175,10 +176,14 @@ export function CardHeader({
       <div
         style={{
           color: brandColor,
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: 800,
-          letterSpacing: 1.5,
+          letterSpacing: 1.2,
           fontFamily: "system-ui, sans-serif",
+          lineHeight: 1.2,
+          textAlign: "right",
+          flexShrink: 0,
+          paddingTop: 1,
         }}
       >
         SECUREPOOL

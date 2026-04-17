@@ -208,18 +208,22 @@ export function ShareCardSharePanel({ card }: { card: ShareCardRecord }) {
   }
 
   return (
-    <div className="space-y-4 flex flex-col items-stretch">
-      <div
-        ref={captureRef}
-        style={{
-          padding: 24,
-          background: BG,
-          display: "inline-block",
-          borderRadius: 12,
-          alignSelf: "center",
-        }}
-      >
-        <ShareCardVisual card={card} inviteUrl={inviteUrl} />
+    <div className="space-y-4 flex flex-col items-stretch w-full min-w-0">
+      <div className="w-full flex justify-center overflow-x-auto overflow-y-visible py-0.5 [-webkit-overflow-scrolling:touch]">
+        <div className="origin-top max-sm:scale-[0.87] sm:scale-100">
+          <div
+            ref={captureRef}
+            style={{
+              padding: 20,
+              background: BG,
+              display: "inline-block",
+              borderRadius: 12,
+              alignSelf: "center",
+            }}
+          >
+            <ShareCardVisual card={card} inviteUrl={inviteUrl} />
+          </div>
+        </div>
       </div>
 
       <div>
@@ -262,7 +266,7 @@ export function ShareCardSharePanel({ card }: { card: ShareCardRecord }) {
 
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Share to</p>
-        <div className="flex flex-wrap gap-2 justify-center">
+        <div className="flex flex-nowrap sm:flex-wrap gap-2 justify-start sm:justify-center overflow-x-auto pb-1 -mx-0.5 px-0.5 min-w-0 [-webkit-overflow-scrolling:touch]">
           {SHARE_BUTTONS.map((def) => (
             <SharePlatformButton
               key={def.id}

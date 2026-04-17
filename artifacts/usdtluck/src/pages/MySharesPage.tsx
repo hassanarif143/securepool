@@ -195,7 +195,7 @@ export default function MySharesPage() {
       )}
 
       <Dialog open={active != null} onOpenChange={(o) => !o && setActive(null)}>
-        <DialogContent className="max-w-[440px] max-h-[92vh] overflow-y-auto border-emerald-500/20">
+        <DialogContent className="max-h-[92vh] w-[calc(100vw-1.25rem)] max-w-[min(440px,calc(100vw-1.25rem))] overflow-y-auto overflow-x-hidden border-emerald-500/20 p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Share</DialogTitle>
           </DialogHeader>

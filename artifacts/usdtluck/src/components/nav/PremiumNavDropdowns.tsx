@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
 import { apiUrl } from "@/lib/api-base";
 import { cn } from "@/lib/utils";
@@ -66,6 +67,7 @@ export function PremiumProfileDropdown({ user, logout }: ProfileMenuProps) {
   const [location] = useLocation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const mobileSheetRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [spt, setSpt] = useState<{
     spt_balance: number;
@@ -83,7 +85,9 @@ export function PremiumProfileDropdown({ user, logout }: ProfileMenuProps) {
 
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || mobileSheetRef.current?.contains(t)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -255,23 +259,33 @@ export function PremiumProfileDropdown({ user, logout }: ProfileMenuProps) {
         </div>
       </button>
 
-      {open && isMobile ? (
-        <>
-          <button type="button" className="fixed inset-0 z-[59] bg-black/50" aria-label="Close menu" onClick={() => setOpen(false)} />
-          <div
-            className="fixed left-0 right-0 bottom-0 z-[60] rounded-t-2xl border-t max-h-[85vh] overflow-y-auto safe-area-pb"
-            style={{
-              ...panelStyle,
-              width: "100%",
-              maxWidth: "100%",
-              borderRadius: "16px 16px 0 0",
-              animation: "nav-sheet-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both",
-            }}
-          >
-            {dropdownInner}
-          </div>
-        </>
-      ) : open ? (
+      {open && isMobile && typeof document !== "undefined"
+        ? createPortal(
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-[100] bg-black/50"
+                aria-label="Close menu"
+                onClick={() => setOpen(false)}
+              />
+              <div
+                ref={mobileSheetRef}
+                className="fixed left-0 right-0 bottom-0 z-[101] rounded-t-2xl border-t border-white/10 max-h-[85vh] overflow-y-auto safe-area-pb shadow-[0_-12px_48px_rgba(0,0,0,0.55)]"
+                style={{
+                  ...panelStyle,
+                  width: "100%",
+                  maxWidth: "100%",
+                  borderRadius: "16px 16px 0 0",
+                  animation: "nav-sheet-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both",
+                }}
+              >
+                {dropdownInner}
+              </div>
+            </>,
+            document.body,
+          )
+        : null}
+      {open && !isMobile ? (
         <div className="absolute right-0 top-[calc(100%+8px)] z-[60]" style={panelStyle}>
           {dropdownInner}
         </div>
@@ -352,6 +366,7 @@ export type MoreNavGroup = { items: MoreNavItem[] };
 export function PremiumMoreMenu({ groups, location }: { groups: MoreNavGroup[]; location: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const mobileSheetRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
   const [isMobile, setIsMobile] = useState(false);
   const [ticketCount, setTicketCount] = useState<number | null>(null);
@@ -370,7 +385,9 @@ export function PremiumMoreMenu({ groups, location }: { groups: MoreNavGroup[]; 
 
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || mobileSheetRef.current?.contains(t)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -509,23 +526,33 @@ export function PremiumMoreMenu({ groups, location }: { groups: MoreNavGroup[]; 
         </svg>
       </button>
 
-      {open && isMobile ? (
-        <>
-          <button type="button" className="fixed inset-0 z-[59] bg-black/50" aria-label="Close menu" onClick={() => setOpen(false)} />
-          <div
-            id={menuId}
-            className="fixed left-0 right-0 bottom-0 z-[60] max-h-[min(70vh,520px)] overflow-y-auto rounded-t-2xl border-t safe-area-pb"
-            style={{
-              ...panelBase,
-              width: "100%",
-              borderRadius: "16px 16px 0 0",
-              animation: "nav-sheet-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both",
-            }}
-          >
-            {menuBody}
-          </div>
-        </>
-      ) : open ? (
+      {open && isMobile && typeof document !== "undefined"
+        ? createPortal(
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-[100] bg-black/50"
+                aria-label="Close menu"
+                onClick={() => setOpen(false)}
+              />
+              <div
+                ref={mobileSheetRef}
+                id={menuId}
+                className="fixed left-0 right-0 bottom-0 z-[101] max-h-[min(70vh,520px)] overflow-y-auto rounded-t-2xl border-t border-white/10 safe-area-pb shadow-[0_-12px_48px_rgba(0,0,0,0.55)]"
+                style={{
+                  ...panelBase,
+                  width: "100%",
+                  borderRadius: "16px 16px 0 0",
+                  animation: "nav-sheet-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both",
+                }}
+              >
+                {menuBody}
+              </div>
+            </>,
+            document.body,
+          )
+        : null}
+      {open && !isMobile ? (
         <div id={menuId} className="absolute left-0 top-[calc(100%+8px)] z-[60]" style={panelBase}>
           {menuBody}
         </div>
