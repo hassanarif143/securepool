@@ -9,7 +9,6 @@ import {
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ActivityFeed } from "@/components/ActivityFeed";
-import { LivePoolWatcher } from "@/components/LivePoolWatcher";
 import { ComebackBanner, type ActiveCouponJson } from "@/components/ComebackOffer";
 import { TransactionStatusBadge } from "@/components/TransactionStatusBadge";
 import { getCsrfToken, setCsrfToken } from "@/lib/csrf";
@@ -19,7 +18,6 @@ import { poolWinnerCount } from "@/lib/pool-winners";
 import { BalanceCard } from "@/components/dashboard/BalanceCard";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import { RewardsSummaryCard } from "@/components/rewards/RewardsSummaryCard";
-import { LiveWinnerTicker } from "@/components/winners/LiveWinnerTicker";
 import { useGameAvailability } from "@/lib/game-availability";
 import { premiumPanel, premiumPanelHead } from "@/lib/premium-panel";
 import { SPTLiveFeed } from "@/components/spt/SPTLiveFeed";
@@ -320,16 +318,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-      {user.riskLevel && user.riskLevel !== "low" && !user.isAdmin ? (
-        <div className="rounded-2xl border border-red-500/35 bg-red-500/[0.08] px-4 py-4 sm:px-5">
-          <p className="text-sm font-semibold text-red-200">Suspicious activity detected</p>
-          <p className="mt-1 text-xs text-red-100/90 leading-relaxed">
-            Your account risk level is <span className="font-semibold uppercase">{user.riskLevel}</span>. Some actions may be limited for security.
-            Review your recent activity and contact support if this looks incorrect.
-          </p>
-        </div>
-      ) : null}
-
       {/* Page intro */}
       <div className="relative overflow-hidden rounded-2xl border border-[rgba(0,229,204,0.14)] bg-gradient-to-br from-[rgba(0,229,204,0.07)] via-[rgba(8,11,20,0.92)] to-[rgba(6,8,15,0.98)] px-5 py-5 shadow-[0_16px_48px_rgba(0,0,0,0.28)] ring-1 ring-white/[0.06] sm:px-6 sm:py-6">
         <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-[#00E5CC]/35 to-transparent" aria-hidden />
@@ -482,28 +470,6 @@ export default function DashboardPage() {
       {/* Social proof: live SPT ticker */}
       <SPTLiveFeed />
 
-      <div className="rounded-2xl border border-[rgba(0,229,204,0.12)] bg-[rgba(0,229,204,0.04)] p-4 shadow-inner ring-1 ring-white/[0.04] sm:p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#00E5CC]/90">Wallet Snapshot</p>
-        <p className="text-xs text-muted-foreground mt-1">Simple balance view for non-technical users.</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3">
-            <p className="text-[11px] text-emerald-300">Withdrawable</p>
-            <UsdtAmount amount={Number(user.withdrawableBalance ?? 0)} amountClassName="text-xl font-semibold tabular-nums text-emerald-200" />
-            <p className="text-[11px] text-emerald-100/80 mt-1">Can be withdrawn anytime</p>
-          </div>
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3">
-            <p className="text-[11px] text-emerald-300">Rewards Balance</p>
-            <UsdtAmount amount={rewardsUsdt} amountClassName="text-xl font-semibold tabular-nums text-emerald-200" />
-            <p className="text-[11px] text-emerald-100/80 mt-1">Used for in-platform rewards</p>
-          </div>
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.08] p-3">
-            <p className="text-[11px] text-amber-300">Locked / In-use</p>
-            <UsdtAmount amount={lockedEstimated} amountClassName="text-xl font-semibold tabular-nums text-amber-200" />
-            <p className="text-[11px] text-amber-100/80 mt-1">Staking, open rounds, or temporary holds</p>
-          </div>
-        </div>
-      </div>
-
       <div className="grid gap-3 sm:grid-cols-2">
         <BalanceCard
           kind="withdrawable"
@@ -530,47 +496,8 @@ export default function DashboardPage() {
       <div className="space-y-3">
         {comeback?.hasCoupon && <ComebackBanner coupon={comeback} />}
       </div>
-      <LiveWinnerTicker />
-      <LivePoolWatcher />
-      {!gamesLoading && anyGameEnabled && (
-        <div className={`${premiumPanel} p-4 sm:p-5 space-y-4`}>
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#00E5CC]/90">Arcade</p>
-              <h2 className="font-sp-display text-lg font-bold tracking-tight text-sp-text sm:text-xl">Play and win</h2>
-              <p className="mt-1 text-xs text-muted-foreground">Full-screen games with the same provably fair engine as the hub.</p>
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-1">
-            {miniGamesEnabled && (
-              <Link
-                href="/games"
-                className="group relative block overflow-hidden rounded-xl border border-[rgba(0,229,204,0.18)] bg-gradient-to-br from-[rgba(0,229,204,0.1)] to-[rgba(139,92,246,0.05)] p-4 transition-all hover:border-[rgba(0,229,204,0.35)] hover:shadow-[0_12px_40px_rgba(0,229,204,0.12)]"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[rgba(0,229,204,0.15)] ring-1 ring-[rgba(0,229,204,0.28)]">
-                      <span className="text-xl" aria-hidden>
-                        🎮
-                      </span>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-sp-display text-base font-bold text-foreground">SecurePool Arcade</p>
-                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                        Spin wheel, mystery boxes & scratch cards — tap to open the arcade.
-                      </p>
-                    </div>
-                  </div>
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-[#00E5CC] px-3 py-1.5 text-xs font-bold text-[#06080F] transition group-hover:brightness-110">
-                    Open
-                    <ArrowRight className="h-3.5 w-3.5 opacity-90" aria-hidden />
-                  </span>
-                </div>
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
+      {/* (Removed: Live winner ticker + pool watcher per redesign) */}
+      {/* (Removed: Arcade section per redesign — Games lives on /games) */}
 
       {(user.poolJoinCount ?? 0) > 0 && (user.totalWins ?? 0) === 0 && (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3.5 text-sm text-muted-foreground leading-relaxed">
@@ -917,44 +844,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Secondary: community — below the fold */}
-      <div className={`${premiumPanel} p-4 sm:p-5 space-y-4`}>
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90 mb-1">Quick actions</p>
-            <h2 className="font-sp-display text-lg sm:text-xl font-bold tracking-tight">What to do next</h2>
-            <p className="text-xs text-muted-foreground mt-1">Simple shortcuts to continue from your current progress.</p>
-          </div>
-          <Link href="/winners" className="text-xs font-medium text-primary hover:underline whitespace-nowrap">
-            View winners
-          </Link>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Link href="/pools" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
-            <p className="text-sm font-semibold">Join a live pool</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {activePools.length} open pool{activePools.length === 1 ? "" : "s"} available right now.
-            </p>
-          </Link>
-          <Link href="/rewards" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
-            <p className="text-sm font-semibold">Track rewards progress</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {Math.max(0, 5 - (user.poolJoinCount ?? 0))} joins left for your next milestone reward.
-            </p>
-          </Link>
-          <Link href="/wallet" className="rounded-xl border border-border/70 bg-muted/20 p-3 hover:bg-white/[0.03] transition-colors">
-            <p className="text-sm font-semibold">Manage wallet</p>
-            <p className="text-xs text-muted-foreground mt-1">Withdrawable: <UsdtAmount amount={user.withdrawableBalance ?? 0} amountClassName="text-xs text-muted-foreground" currencyClassName="text-[10px] text-[#64748b]" />.</p>
-          </Link>
-          <Link href="/p2p" className="rounded-xl border border-primary/25 bg-primary/[0.06] p-3 hover:bg-primary/[0.1] transition-colors">
-            <p className="text-sm font-semibold">P2P trading</p>
-            <p className="text-xs text-muted-foreground mt-1">Buy/sell USDT demo — escrow flow in your browser.</p>
-          </Link>
-        </div>
-
-        <ActivityFeed limit={12} />
-      </div>
+      {/* (Removed: What to do next / P2P / Activity feed block per redesign) */}
 
       <div className={`${premiumPanel} overflow-hidden`}>
         <div className={premiumPanelHead}>
