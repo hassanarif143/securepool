@@ -254,52 +254,46 @@ router.post("/staking/waitlist", (req, res, next) => requireAuth(req as AuthedRe
 /** GET /spt/recent-activity — recent earn rows, anonymized (auth optional) */
 router.get("/recent-activity", async (_req, res) => {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const rows = await db
-    .select({
-      amount: sptTransactionsTable.amount,
-      reason: sptTransactionsTable.reason,
-      created_at: sptTransactionsTable.createdAt,
-      display_name: usersTable.name,
-      user_id: usersTable.id,
-    })
-    .from(sptTransactionsTable)
-    .innerJoin(usersTable, eq(sptTransactionsTable.userId, usersTable.id))
-    .where(and(eq(sptTransactionsTable.type, "earn"), gte(sptTransactionsTable.createdAt, since)))
-    .orderBy(desc(sptTransactionsTable.createdAt))
-    .limit(20);
-
-  function fmtReason(r: string | null) {
-    const x = String(r ?? "");
-    const m: Record<string, string> = {
-      pool_join: "pool join karke",
-      pool_win: "pool jeet ke",
-      daily_login: "daily login se",
-      referral_success: "referral se",
-      game_played: "game khel ke",
-      first_deposit: "first deposit pe",
-    };
-    return m[x] ?? x.replace(/_/g, " ");
-  }
-
-  function timeAgo(d: Date | null) {
-    if (!d) return "";
-    const diff = Date.now() - new Date(d).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "abhi abhi";
-    if (mins < 60) return `${mins} min pehle`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs} ghante pehle`;
-    return `${Math.floor(hrs / 24)} din pehle`;
-  }
+  const out = await pool.query<{
+    user_id: number;
+    amount: number;
+    reason: string;
+    created_at: string;
+    display_name: string;
+    time_ago: string;
+  }>(
+    `SELECT DISTINCT ON (u.id, t.reason)
+      u.id AS user_id,
+      t.amount,
+      t.reason,
+      t.created_at,
+      u.name AS display_name,
+      CASE
+        WHEN t.created_at > NOW() - INTERVAL '1 hour'
+          THEN EXTRACT(MINUTE FROM NOW() - t.created_at)::int || ' min ago'
+        WHEN t.created_at > NOW() - INTERVAL '24 hours'
+          THEN EXTRACT(HOUR FROM NOW() - t.created_at)::int || ' hours ago'
+        ELSE 'Today'
+      END AS time_ago
+    FROM spt_transactions t
+    JOIN users u ON t.user_id = u.id
+    WHERE t.type = 'earn'
+      AND t.created_at > $1::timestamptz
+      AND COALESCE(u.is_admin, false) = false
+      AND LOWER(COALESCE(u.name, '')) <> 'admin'
+    ORDER BY u.id, t.reason, t.created_at DESC
+    LIMIT 12`,
+    [since],
+  );
 
   res.json(
-    rows.map((r) => ({
+    out.rows.map((r) => ({
       amount: r.amount ?? 0,
-      reason: fmtReason(r.reason),
+      reason: String(r.reason ?? ""),
       created_at: r.created_at,
-      display_name: `${maskSptLeaderboardName(r.display_name ?? "User")}`,
+      display_name: maskSptLeaderboardName(r.display_name ?? "User"),
       user_id: r.user_id,
-      time_ago: timeAgo(r.created_at),
+      time_ago: r.time_ago ?? "",
     })),
   );
 });

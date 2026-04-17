@@ -121,6 +121,7 @@ export default function DashboardPage() {
     next_tier: string | null;
   } | null>(null);
   const [dailyClaimed, setDailyClaimed] = useState<boolean | null>(null);
+  const [claimingDaily, setClaimingDaily] = useState(false);
   const [missingOut, setMissingOut] = useState<{ days: number; missed: number } | null>(null);
   const [myEntries, setMyEntries] = useState<any[]>([]);
   const [myEntriesError, setMyEntriesError] = useState(false);
@@ -190,14 +191,19 @@ export default function DashboardPage() {
   const tomorrowSpt = streak >= 6 ? 200 : streak >= 3 ? 20 : 15;
 
   async function claimDailyBonus() {
+    if (claimingDaily) return;
+    setClaimingDaily(true);
     try {
       const r = await fetch(apiUrl("/api/spt/daily-login"), { method: "POST", credentials: "include" });
       if (!r.ok) return;
-      const j = (await r.json()) as any;
-      setDailyClaimed(Boolean(j.already_claimed));
+      await r.json().catch(() => ({}));
+      // If the request succeeded, consider today's bonus claimed.
+      setDailyClaimed(true);
       await loadSpt();
     } catch {
       /* ignore */
+    } finally {
+      setClaimingDaily(false);
     }
   }
 
@@ -380,86 +386,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── SPT FOMO widgets ── */}
-      <div className="grid gap-3 lg:grid-cols-3">
-        {/* Daily streak — urgent */}
-        <div className="lg:col-span-2 rounded-2xl border border-[#FFD166]/25 bg-[linear-gradient(135deg,rgba(255,209,102,0.10),rgba(255,159,67,0.08))] p-4 sm:p-5 shadow-[0_0_0_0_rgba(255,209,102,0)] animate-[sp-glow-pulse_2s_ease-in-out_infinite]">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="h-11 w-11 rounded-xl bg-[#FFD166]/15 border border-[#FFD166]/25 flex items-center justify-center text-2xl shrink-0">
-                🔥
-              </div>
-              <div className="min-w-0">
-                <p className="font-sp-display font-extrabold text-[15px] text-[#FFD166] truncate">
-                  {Math.max(1, streak)} din ka streak!
-                </p>
-                <p className="text-[12px] text-[#8899BB] mt-0.5">
-                  Aaj claim karo —{" "}
-                  <span className="text-[#FFD166] font-semibold">+{todaySpt} SPT</span> milega
-                  {streak === 6 ? " 🎯 Kal 200 SPT bonus!" : ""}
-                </p>
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              onClick={() => void claimDailyBonus()}
-              className="shrink-0 rounded-full px-4 py-2 font-sp-display font-extrabold text-[13px] text-[#060B18] border-0"
-              style={{ background: "linear-gradient(135deg, #FFD166, #FF9F43)" }}
-            >
-              Claim +{todaySpt} SPT
-            </Button>
-          </div>
-          {dailyClaimed ? (
-            <p className="mt-3 text-[12px] text-[#8899BB] opacity-80">
-              ✅ Aaj ka bonus claim ho gaya • Kal +{tomorrowSpt} SPT milega
-            </p>
-          ) : null}
-        </div>
-
-        {/* SPT value + progress */}
-        <div className="rounded-2xl border border-[#1E2D4A] bg-[#0D1526] p-4 sm:p-5">
-          <div className="flex items-center justify-between">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#8899BB]">Meri SPT value</p>
-            <Link href="/spt" className="text-[12px] font-semibold text-[#FFD166] no-underline hover:underline">
-              Details →
-            </Link>
-          </div>
-
-          <div className="mt-2 flex items-baseline gap-2">
-            <p className="font-sp-display text-[28px] font-extrabold text-[#FFD166] tabular-nums">
-              {Number(spt?.spt_balance ?? 0).toLocaleString()}
-            </p>
-            <p className="text-sm text-[#445577]">SPT</p>
-          </div>
-          <p className="text-[13px] text-[#8899BB] mt-1">
-            ≈{" "}
-            <span className="text-emerald-400 font-semibold">
-              {(Number(spt?.spt_balance ?? 0) * 0.01).toFixed(2)} USDT
-            </span>{" "}
-            current value
-          </p>
-
-          <div className="mt-4">
-            <div className="flex items-center justify-between text-[11px] text-[#445577] mb-1.5">
-              <span>{String(spt?.spt_level ?? "Bronze")}</span>
-              <span>
-                {spt?.next_tier ? `${spt.next_tier} ke liye ${(spt.next_level_at ?? 0).toLocaleString()} SPT aur` : "Max tier"}
-              </span>
-            </div>
-            <div className="h-1 rounded-full bg-[#1E2D4A] overflow-hidden">
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: `${Math.max(0, Math.min(100, Number(spt?.progress_percent ?? 0)))}%`,
-                  background: "linear-gradient(90deg, #FFD166, #FF9F43)",
-                  transition: "width 900ms ease-out",
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Streak + SPT — compact single row */}
+      <CompactStreakSptRow
+        loginStreak={Math.max(0, streak)}
+        dailyClaimed={dailyClaimed === true}
+        claiming={claimingDaily}
+        sptBalance={Number(spt?.spt_balance ?? 0)}
+        sptLevel={String(spt?.spt_level ?? "Bronze")}
+        claimDaily={() => void claimDailyBonus()}
+      />
 
       {/* Missing out alert */}
       {missingOut ? (
@@ -468,12 +403,10 @@ export default function DashboardPage() {
             ⚠️
           </span>
           <div className="min-w-0">
-            <p className="text-[14px] font-semibold text-red-200">
-              {missingOut.days} din mein approx. {missingOut.missed} SPT miss ho gaye!
-            </p>
-            <p className="text-[12px] text-[#8899BB] mt-0.5">Daily bonus claim nahi hua • Kal ka streak mat torna</p>
+            <p className="text-[14px] font-semibold text-red-200">{missingOut.days} days inactive — you may have missed rewards.</p>
+            <p className="text-[12px] text-[#8899BB] mt-0.5">Claim your daily bonus to keep your streak going.</p>
             <Link href="/pools" className="inline-block mt-2 text-[12px] font-semibold text-[#FFD166] no-underline hover:underline">
-              Abhi earn karo →
+              Earn now →
             </Link>
           </div>
         </div>
@@ -995,5 +928,140 @@ export default function DashboardPage() {
       </div>
       </div>
     </div>
+  );
+}
+
+function CompactStreakSptRow({
+  loginStreak,
+  dailyClaimed,
+  claiming,
+  sptBalance,
+  sptLevel,
+  claimDaily,
+}: {
+  loginStreak: number;
+  dailyClaimed: boolean;
+  claiming: boolean;
+  sptBalance: number;
+  sptLevel: string;
+  claimDaily: () => void;
+}) {
+  const bonusAvailable = Math.min(200, Math.max(5, loginStreak * 5));
+
+  return (
+    <>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 10,
+          marginBottom: 16,
+        }}
+      >
+        {/* Streak */}
+        <div
+          style={{
+            background: "#0C1628",
+            border: `1px solid ${dailyClaimed ? "rgba(255,255,255,0.07)" : "rgba(245,200,66,0.2)"}`,
+            borderRadius: 12,
+            padding: "14px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            animation: dailyClaimed ? "none" : "glow-gold 3s ease-in-out infinite",
+          }}
+        >
+          <span style={{ fontSize: 24, flexShrink: 0 }}>{dailyClaimed ? "✅" : "🔥"}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontFamily: "Syne, sans-serif",
+                fontWeight: 700,
+                fontSize: 14,
+                color: dailyClaimed ? "#22C55E" : "#F5C842",
+                marginBottom: 2,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {Math.max(0, loginStreak)} Day Streak
+            </div>
+            <div style={{ fontSize: 11, color: "#7A8FA6" }}>
+              {dailyClaimed ? "Claimed today" : `+${bonusAvailable} SPT available`}
+            </div>
+          </div>
+          {!dailyClaimed && (
+            <button
+              onClick={claimDaily}
+              disabled={claiming}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 99,
+                background: "#F5C842",
+                border: "none",
+                color: "#070F1E",
+                fontFamily: "Syne, sans-serif",
+                fontWeight: 700,
+                fontSize: 12,
+                cursor: claiming ? "not-allowed" : "pointer",
+                flexShrink: 0,
+                opacity: claiming ? 0.7 : 1,
+              }}
+            >
+              Claim
+            </button>
+          )}
+        </div>
+
+        {/* SPT Value */}
+        <Link
+          href="/spt"
+          style={{
+            background: "#0C1628",
+            border: "1px solid rgba(245,200,66,0.15)",
+            borderRadius: 12,
+            padding: "14px 16px",
+            textDecoration: "none",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            transition: "border-color 0.15s",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(245,200,66,0.3)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(245,200,66,0.15)";
+          }}
+        >
+          <span style={{ fontSize: 22, flexShrink: 0 }}>🪙</span>
+          <div>
+            <div
+              style={{
+                fontFamily: "Syne, sans-serif",
+                fontWeight: 800,
+                fontSize: 18,
+                color: "#F5C842",
+                lineHeight: 1,
+                marginBottom: 3,
+              }}
+            >
+              {Number(sptBalance ?? 0).toLocaleString()} SPT
+            </div>
+            <div style={{ fontSize: 11, color: "#7A8FA6" }}>
+              ≈ {(Number(sptBalance ?? 0) * 0.01).toFixed(2)} USDT • {sptLevel}
+            </div>
+          </div>
+        </Link>
+      </div>
+
+      <style>{`
+        @keyframes glow-gold {
+          0%, 100% { box-shadow: 0 0 0 rgba(245,200,66,0); }
+          50% { box-shadow: 0 0 0 3px rgba(245,200,66,0.10); }
+        }
+      `}</style>
+    </>
   );
 }
