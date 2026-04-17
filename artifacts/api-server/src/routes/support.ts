@@ -46,6 +46,20 @@ router.get("/test-groq", requireAuth, requireAdmin, async (_req, res) => {
   }
 });
 
+/** GET /support/test — shows current support AI mode */
+router.get("/test", async (_req, res) => {
+  const key = process.env.GROQ_API_KEY?.trim() ?? "";
+  const configured = key.startsWith("gsk_");
+  res.json({
+    status: "Support system online",
+    groq_configured: configured,
+    ai_mode: configured ? "Groq AI (llama-3.1-8b-instant)" : "Rule-based fallback",
+    message: configured
+      ? "Full AI responses enabled"
+      : "Groq key missing — rule-based fallback will answer everything (set GROQ_API_KEY to enable Groq).",
+  });
+});
+
 /** POST /support/chat */
 router.post("/chat", requireAuth, chatLimiter, async (req, res) => {
   const userId = getAuthedUserId(req);
