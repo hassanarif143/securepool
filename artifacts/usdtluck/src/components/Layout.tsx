@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useId } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,11 @@ import { LiveJoinNotification } from "@/components/LiveJoinNotification";
 import { SharePromptGate } from "@/components/share/SharePromptGate";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import { SiteFooter } from "@/components/SiteFooter";
-import { SPTLevelBadge } from "@/components/spt/SPTLevelBadge";
+import {
+  PremiumMoreMenu,
+  PremiumProfileDropdown,
+  type MoreNavGroup,
+} from "@/components/nav/PremiumNavDropdowns";
 import { SPTOpportunityBar } from "@/components/spt/SPTOpportunityBar";
 import { LevelUpModal } from "@/components/spt/LevelUpModal";
 import { SupportChatBubble } from "@/components/support/SupportChatBubble";
@@ -553,179 +557,6 @@ function WalletDropdown({
 }
 
 /* ─────────────────────────────────────────────
-   User avatar dropdown (Profile + Logout)
-───────────────────────────────────────────── */
-function UserMenu({ user, logout }: { user: any; logout: () => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const [spt, setSpt] = useState<{ spt_level: string } | null>(null);
-
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const r = await fetch(apiUrl("/api/spt/balance"), { credentials: "include" });
-        if (!r.ok) return;
-        const j = (await r.json()) as { spt_level?: string };
-        if (cancelled) return;
-        setSpt({ spt_level: String(j.spt_level ?? "Bronze") });
-      } catch {
-        /* ignore */
-      }
-    }
-    void load();
-    const t = setInterval(load, 60_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, []);
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          "flex items-center gap-2 rounded-full p-1 transition-all focus:outline-none hover:bg-white/5 border",
-          open ? "border-primary/30" : "border-transparent"
-        )}
-      >
-        <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-extrabold bg-[var(--green)] text-[var(--green-text)] border border-[var(--green-border)]">
-          {user.name.charAt(0).toUpperCase()}
-        </div>
-      </button>
-
-      {open && (
-        <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden z-50">
-          {/* User info header */}
-          <div className="px-4 py-3 border-b border-border">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-extrabold shrink-0 bg-[var(--green)] text-[var(--green-text)] border border-[var(--green-border)]">
-                {user.name.charAt(0).toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="font-semibold text-sm truncate">{user.name}</p>
-                <div className="mt-1.5">
-                  <SPTLevelBadge level={String(spt?.spt_level ?? "Bronze")} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-2 space-y-0.5">
-            <Link
-              href="/profile"
-              onClick={() => setOpen(false)}
-              className="flex w-full items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground"
-            >
-              <span className="w-5 text-center">👤</span> Profile & Settings
-            </Link>
-            <Link
-              href="/wallet"
-              onClick={() => setOpen(false)}
-              className="flex w-full items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground"
-            >
-              <span className="w-5 text-center">💼</span> My Wallet
-            </Link>
-          </div>
-
-          <div className="p-2 border-t border-border">
-            <button
-              type="button"
-              onClick={() => {
-                logout();
-                setOpen(false);
-              }}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors text-red-400 hover:bg-red-500/10"
-            >
-              <span className="w-5 text-center">🚪</span> Sign Out
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   "More" overflow dropdown for secondary links
-───────────────────────────────────────────── */
-function MoreMenu({ links, location }: { links: { href: string; label: string; icon: string }[]; location: string }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const moreMenuId = useId();
-
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const anyActive = links.some((l) => location.startsWith(l.href));
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-haspopup="true"
-        aria-controls={moreMenuId}
-        className={cn(
-          "relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
-          anyActive ? "text-primary bg-primary/10 border border-primary/20" : "text-muted-foreground hover:text-foreground"
-        )}
-      >
-        <span>More</span>
-        <svg className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-
-      {open && (
-        <div
-          id={moreMenuId}
-          className="absolute left-0 mt-2 w-48 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden z-50"
-        >
-          <div className="p-2 space-y-0.5">
-            {links.map((link) => {
-              const active = location.startsWith(link.href);
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  aria-current={active ? "page" : undefined}
-                  onClick={() => setOpen(false)}
-                  className={`flex w-full items-center gap-3 px-3 py-2 rounded-xl text-left text-sm transition-colors ${
-                    active ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                  }`}
-                >
-                  <span className="w-5 text-center">{link.icon}</span>
-                  <span className="font-medium">{link.label}</span>
-                  {active && <span className="ml-auto w-1.5 h-1.5 shrink-0 rounded-full bg-primary" />}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────
    Mobile full-screen slide menu
 ───────────────────────────────────────────── */
 function MobileMenu({
@@ -884,28 +715,45 @@ export function Layout({ children }: { children: React.ReactNode }) {
     ];
   }, [user, arcadeInBar]);
 
-  const secondaryLinks = useMemo(() => {
+  const moreNavGroups = useMemo((): MoreNavGroup[] => {
     if (!user) return [];
-    return [
+    const core = [
       { href: "/dashboard", label: "Home", icon: "🏠" },
-      ...(!arcadeInBar ? [MORE_GAMES] : []),
+      ...(!arcadeInBar ? [{ href: "/games" as const, label: "Games", icon: "🎮" }] : []),
       { href: "/my-tickets", label: "My Tickets", icon: "🎟️" },
-      { href: "/rewards", label: "Rewards", icon: "🎁" },
+      {
+        href: "/rewards",
+        label: "Rewards",
+        icon: "🎁",
+        badge: { text: "NEW", color: "gold" as const },
+      },
       { href: "/referral", label: "Referral", icon: "🔗" },
-      { href: "/my-shares", label: "My Shares", icon: "📤" },
+      { href: "/my-shares", label: "My Shares", icon: "🎴" },
+    ];
+    const earn = [
       { href: "/staking", label: "Staking", icon: "🔒" },
       ...(user.isAdmin ? [{ href: "/p2p", label: "P2P Trading", icon: "💱" }] : []),
-      { href: "/how-it-works", label: "How It Works", icon: "📘" },
-      { href: "/provably-fair", label: "Provably Fair", icon: "🧪" },
-      { href: "/reviews", label: "Reviews", icon: "💬" },
-      ...(user.isAdmin
-        ? [
-            { href: "/admin", label: "Admin", icon: "⚙️" },
-            { href: "/admin/support", label: "Support inbox", icon: "🤖" },
-          ]
-        : []),
     ];
+    const info = [
+      { href: "/how-it-works", label: "How It Works", icon: "📖" },
+      { href: "/provably-fair", label: "Provably Fair", icon: "✅" },
+      { href: "/reviews", label: "Reviews", icon: "💬" },
+    ];
+    const admin: MoreNavGroup["items"] = user.isAdmin
+      ? [
+          { href: "/admin", label: "Admin", icon: "⚙️" },
+          { href: "/admin/support", label: "Support Inbox", icon: "🤖" },
+        ]
+      : [];
+    const groups: MoreNavGroup[] = [{ items: core }, { items: earn }, { items: info }];
+    if (admin.length) groups.push({ items: admin });
+    return groups;
   }, [user, arcadeInBar]);
+
+  const secondaryLinksFlat = useMemo(
+    () => moreNavGroups.flatMap((g) => g.items.map((i) => ({ href: i.href, label: i.label, icon: i.icon }))),
+    [moreNavGroups],
+  );
 
   const mobileBottomItems = useMemo<MobileBottomItem[]>(
     () => [
@@ -1004,9 +852,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 })}
 
                 {/* Secondary links in "More" dropdown */}
-                {secondaryLinks.length > 0 && (
-                  <MoreMenu links={secondaryLinks} location={location} />
-                )}
+                {moreNavGroups.length > 0 && <PremiumMoreMenu groups={moreNavGroups} location={location} />}
               </nav>
             )}
 
@@ -1110,9 +956,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <SptMiniPill />
 
                   {/* User menu */}
-                  <div className="hidden md:block">
-                    <UserMenu user={user} logout={logout} />
-                  </div>
+                  <PremiumProfileDropdown user={user} logout={logout} />
 
                   {/* Hamburger — mobile only */}
                   <button
@@ -1158,7 +1002,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {mobileOpen && user && (
           <MobileMenu
             primaryLinks={primaryLinks}
-            secondaryLinks={secondaryLinks}
+            secondaryLinks={secondaryLinksFlat}
             location={location}
             user={user}
             logout={logout}
