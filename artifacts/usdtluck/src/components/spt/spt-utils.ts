@@ -25,7 +25,7 @@ export const levelPillClass: Record<string, string> = {
   Gold:
     "bg-[#FFD166]/[0.13] text-[#FFD166] border border-[#FFD166]/40",
   Diamond:
-    "bg-[#00D4FF]/[0.15] text-cyan-300 border border-cyan-400/50",
+    "bg-[var(--green)]/[0.15] text-[var(--green)] border border-[var(--green-border)]",
 };
 
 export function holderLabel(level: string): string {

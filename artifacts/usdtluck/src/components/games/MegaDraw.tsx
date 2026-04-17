@@ -92,7 +92,7 @@ export default function MegaDraw({ balance, onBalanceUpdate }: MegaDrawProps) {
           <button
             type="button"
             onClick={viewCurrentRound}
-            className="mt-3 text-xs font-semibold text-[#00E5CC] underline-offset-2 hover:underline"
+            className="mt-3 text-xs font-semibold text-[var(--green)] underline-offset-2 hover:underline"
           >
             View this round&apos;s results
           </button>

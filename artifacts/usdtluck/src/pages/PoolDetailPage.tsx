@@ -133,7 +133,7 @@ function JoinCelebrationModal({
         particleCount: 40,
         spread: 70,
         origin: { y: 0.5, x: count % 2 === 0 ? 0.25 : 0.75 },
-        colors: ["#22c55e", "#16a34a", "#4ade80", "#86efac", "#34d399", "#10b981"],
+        colors: ["#00c2a8", "#00a896", "#22c55e", "#86efac", "#34d399"],
         scalar: 0.9,
       });
       if (count >= 6) clearInterval(interval);
@@ -148,7 +148,7 @@ function JoinCelebrationModal({
       <div
         className="relative bg-card border border-primary/40 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl"
         onClick={(e) => e.stopPropagation()}
-        style={{ boxShadow: "0 0 60px rgba(34,197,94,0.2), 0 25px 50px rgba(0,0,0,0.4)" }}
+        style={{ boxShadow: "0 0 60px rgba(0,194,168,0.18), 0 25px 50px rgba(0,0,0,0.4)" }}
       >
         <div className="text-6xl mb-3">🎟️</div>
         <h2 className="text-2xl font-bold mb-1">You&apos;re in</h2>

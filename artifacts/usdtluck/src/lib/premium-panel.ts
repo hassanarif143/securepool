@@ -1,6 +1,6 @@
 /**
  * Dashboard + Wallet panel chrome — aligned with SecurePool Arcade (games hub):
- * glass depth, subtle ring, cyan-ready borders.
+ * glass depth, subtle ring, green-ready borders.
  */
 export const premiumPanel =
   "rounded-2xl border border-white/[0.07] bg-[rgba(10,14,24,0.72)] shadow-[0_16px_48px_rgba(0,0,0,0.32)] backdrop-blur-md ring-1 ring-white/[0.05]";

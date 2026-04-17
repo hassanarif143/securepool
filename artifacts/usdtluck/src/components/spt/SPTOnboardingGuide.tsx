@@ -73,7 +73,7 @@ export function SPTOnboardingGuide({ done, onCompleted }: { done: boolean; onCom
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-md border-cyan-500/30 bg-[#0A0E1A]">
+      <DialogContent className="max-w-md border-[var(--green-border)] bg-[#0A0E1A]">
         <DialogHeader>
           <DialogTitle>{s.title}</DialogTitle>
         </DialogHeader>
@@ -93,7 +93,12 @@ export function SPTOnboardingGuide({ done, onCompleted }: { done: boolean; onCom
                 Next
               </Button>
             ) : (
-              <Button type="button" size="sm" className="bg-cyan-600 hover:bg-cyan-500" onClick={() => void finish()}>
+              <Button
+                type="button"
+                size="sm"
+                className="bg-[var(--green)] text-[var(--green-text)] hover:bg-[var(--green-hover)]"
+                onClick={() => void finish()}
+              >
                 Start earning
               </Button>
             )}

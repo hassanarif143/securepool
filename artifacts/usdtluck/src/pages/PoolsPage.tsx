@@ -55,7 +55,7 @@ export default function PoolsPage() {
               fontWeight: 600,
               letterSpacing: "2px",
               textTransform: "uppercase",
-              color: "#00C2E0",
+              color: "var(--green)",
               marginBottom: 8,
               fontFamily: "DM Sans, sans-serif",
             }}
@@ -77,9 +77,7 @@ export default function PoolsPage() {
             Join a Pool,{" "}
             <span
               style={{
-                background: "linear-gradient(135deg, #00C2E0, #00E5B0)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
+                color: "var(--green)",
               }}
             >
               Win USDT
@@ -93,7 +91,7 @@ export default function PoolsPage() {
           {/* Stats row */}
           <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
             {[
-              { value: activePoolsCount, label: "Active Pools", color: "#00C2E0" },
+              { value: activePoolsCount, label: "Active Pools", color: "var(--green)" },
               { value: `${totalPaidOut} USDT`, label: "Total Paid Out", color: "#22C55E" },
               { value: drawsToday, label: "Draws Today", color: "#F5C842" },
             ].map((s, i) => (
@@ -145,9 +143,9 @@ export default function PoolsPage() {
                   padding: "7px 16px",
                   borderRadius: 99,
                   border: "1px solid",
-                  borderColor: filter === f.key ? "rgba(0,194,224,0.4)" : "rgba(255,255,255,0.07)",
-                  background: filter === f.key ? "rgba(0,194,224,0.08)" : "transparent",
-                  color: filter === f.key ? "#00C2E0" : "#7A8FA6",
+                  borderColor: filter === f.key ? "var(--green-border)" : "rgba(255,255,255,0.07)",
+                  background: filter === f.key ? "var(--green-soft)" : "transparent",
+                  color: filter === f.key ? "var(--green)" : "#7A8FA6",
                   fontSize: 13,
                   fontWeight: filter === f.key ? 600 : 400,
                   cursor: "pointer",

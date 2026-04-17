@@ -15,14 +15,14 @@ export type GameCardProps = {
 
 const ACCENT = {
   cyan: {
-    border: "hover:border-[#00E5CC]/30",
-    glow: "from-[#00E5CC]/18 to-[#00B89C]/6",
-    iconBg: "from-[#00E5CC]/28 to-[#00B89C]/8",
+    border: "hover:border-[var(--green-border)]",
+    glow: "from-[rgba(0,194,168,0.18)] to-[rgba(0,168,150,0.06)]",
+    iconBg: "from-[rgba(0,194,168,0.28)] to-[rgba(0,168,150,0.08)]",
   },
   violet: {
-    border: "hover:border-[#8B5CF6]/30",
-    glow: "from-[#8B5CF6]/18 to-[#5B21B6]/6",
-    iconBg: "from-[#8B5CF6]/28 to-[#5B21B6]/8",
+    border: "hover:border-[rgba(34,197,94,0.35)]",
+    glow: "from-[rgba(34,197,94,0.16)] to-[rgba(34,197,94,0.05)]",
+    iconBg: "from-[rgba(34,197,94,0.22)] to-[rgba(34,197,94,0.08)]",
   },
   gold: {
     border: "hover:border-[#FFD700]/30",
@@ -63,7 +63,7 @@ export function GameCard({ href, title, tagline, stats, accent = "cyan", icon, l
               <div className="text-2xl">{icon}</div>
             </div>
             {liveLabel ? (
-              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300/90">
+              <span className="rounded-full bg-[var(--green-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--green)]/90">
                 {liveLabel}
               </span>
             ) : null}

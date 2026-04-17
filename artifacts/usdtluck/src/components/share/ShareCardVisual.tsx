@@ -13,7 +13,7 @@ const BG = "#0a0f1a";
 const ACCENTS: Record<string, { bar: string; glow: string }> = {
   pool_win: { bar: "linear-gradient(90deg,#f59e0b,#fbbf24)", glow: "rgba(245,158,11,0.15)" },
   referral_earned: { bar: "linear-gradient(90deg,#15803d,#22c55e)", glow: "rgba(34,197,94,0.15)" },
-  withdrawal_success: { bar: "linear-gradient(90deg,#10b981,#34d399)", glow: "rgba(16,185,129,0.15)" },
+  withdrawal_success: { bar: "linear-gradient(90deg,#00c2a8,#00a896)", glow: "rgba(0,194,168,0.15)" },
   achievement_unlocked: { bar: "linear-gradient(90deg,#ec4899,#f59e0b)", glow: "rgba(236,72,153,0.12)" },
   level_up: { bar: "linear-gradient(90deg,#22c55e,#15803d)", glow: "rgba(34,197,94,0.12)" },
   login_streak: { bar: "linear-gradient(90deg,#ef4444,#fbbf24)", glow: "rgba(239,68,68,0.12)" },

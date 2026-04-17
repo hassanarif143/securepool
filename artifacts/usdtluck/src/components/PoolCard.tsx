@@ -37,7 +37,7 @@ export function PoolCard({ pool }: PoolCardProps) {
         transition: "border-color 0.15s, transform 0.15s",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = statusIsDanger ? "rgba(239,68,68,0.4)" : "rgba(0,194,224,0.2)";
+        e.currentTarget.style.borderColor = statusIsDanger ? "rgba(239,68,68,0.4)" : "var(--green-border)";
         e.currentTarget.style.transform = "translateY(-2px)";
       }}
       onMouseLeave={(e) => {
@@ -53,13 +53,13 @@ export function PoolCard({ pool }: PoolCardProps) {
             display: "flex",
             alignItems: "center",
             gap: 5,
-            background: statusIsDanger ? "rgba(239,68,68,0.1)" : "rgba(0,194,224,0.08)",
-            border: `1px solid ${statusIsDanger ? "rgba(239,68,68,0.25)" : "rgba(0,194,224,0.2)"}`,
+            background: statusIsDanger ? "rgba(239,68,68,0.1)" : "var(--green-soft)",
+            border: `1px solid ${statusIsDanger ? "rgba(239,68,68,0.25)" : "var(--green-border)"}`,
             borderRadius: 99,
             padding: "3px 10px",
             fontSize: 11,
             fontWeight: 700,
-            color: statusIsDanger ? "#EF4444" : "#00C2E0",
+            color: statusIsDanger ? "#EF4444" : "var(--green)",
           }}
         >
           <span
@@ -67,7 +67,7 @@ export function PoolCard({ pool }: PoolCardProps) {
               width: 5,
               height: 5,
               borderRadius: "50%",
-              background: statusIsDanger ? "#EF4444" : "#00C2E0",
+              background: statusIsDanger ? "#EF4444" : "var(--green)",
             }}
           />
           {statusLabel}
@@ -138,7 +138,7 @@ export function PoolCard({ pool }: PoolCardProps) {
               width: `${pct}%`,
               height: "100%",
               borderRadius: 99,
-              background: hot || full ? "#EF4444" : "#00C2E0",
+              background: hot || full ? "#EF4444" : "var(--green)",
               transition: "width 0.8s ease",
             }}
           />
@@ -161,7 +161,7 @@ export function PoolCard({ pool }: PoolCardProps) {
             flex: 1,
             padding: "11px 0",
             borderRadius: 10,
-            background: full ? "#1A2640" : "#00C2E0",
+            background: full ? "#1A2640" : "var(--green)",
             color: full ? "#4A5F7A" : "#070F1E",
             fontFamily: "Syne, sans-serif",
             fontWeight: 700,

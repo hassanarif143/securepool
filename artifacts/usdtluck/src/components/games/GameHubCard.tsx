@@ -4,14 +4,14 @@ import { cn } from "@/lib/utils";
 
 const ACCENT = {
   cyan: {
-    glow: "bg-[#00E5CC]/25",
-    cta: "bg-gradient-to-r from-[rgba(0,229,204,0.18)] to-[rgba(0,229,204,0.06)] text-[#00E5CC] ring-[rgba(0,229,204,0.3)]",
-    ring: "hover:shadow-[0_0_0_1px_rgba(0,229,204,0.12)]",
+    glow: "bg-[rgba(0,194,168,0.25)]",
+    cta: "bg-gradient-to-r from-[rgba(0,194,168,0.18)] to-[rgba(0,194,168,0.06)] text-[var(--green)] ring-[var(--green-border)]",
+    ring: "hover:shadow-[0_0_0_1px_rgba(0,194,168,0.12)]",
   },
   violet: {
-    glow: "bg-[#8B5CF6]/25",
-    cta: "bg-gradient-to-r from-[rgba(139,92,246,0.2)] to-[rgba(139,92,246,0.06)] text-[#C4B5FD] ring-[rgba(139,92,246,0.35)]",
-    ring: "hover:shadow-[0_0_0_1px_rgba(139,92,246,0.15)]",
+    glow: "bg-[rgba(34,197,94,0.2)]",
+    cta: "bg-gradient-to-r from-[rgba(34,197,94,0.18)] to-[rgba(34,197,94,0.06)] text-[var(--money)] ring-[rgba(34,197,94,0.35)]",
+    ring: "hover:shadow-[0_0_0_1px_rgba(34,197,94,0.15)]",
   },
   gold: {
     glow: "bg-[#FFD700]/20",
@@ -42,7 +42,7 @@ export function GameHubCard({ href, accent, badge, icon, iconClass, title, descr
       className={cn(
         "group relative block overflow-hidden rounded-2xl border border-white/[0.07] bg-[rgba(10,14,24,0.75)] p-5 shadow-[0_16px_48px_rgba(0,0,0,0.38)] backdrop-blur-sm transition-all duration-300",
         "hover:-translate-y-1 hover:border-white/[0.11] hover:shadow-[0_28px_64px_rgba(0,0,0,0.5)]",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5CC]/35",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--green-border)]",
         a.ring,
       )}
     >

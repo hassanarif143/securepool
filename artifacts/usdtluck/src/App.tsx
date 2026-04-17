@@ -67,7 +67,7 @@ class LazyRouteBoundary extends Component<{ children: React.ReactNode }, { err: 
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="mt-2 inline-flex h-11 items-center justify-center rounded-2xl bg-gradient-to-r from-[#00E5CC] to-[#00B89C] px-6 font-sp-display text-sm font-extrabold text-[#06080F]"
+              className="mt-2 inline-flex h-11 items-center justify-center rounded-2xl bg-gradient-to-r from-[var(--green)] to-[var(--green-hover)] px-6 font-sp-display text-sm font-extrabold text-[var(--green-text)]"
             >
               Reload
             </button>
@@ -197,21 +197,21 @@ function RouteChangeLoader() {
   return (
     <div className="fixed inset-x-0 top-0 z-[60] pointer-events-none">
       {/* Glow wash */}
-      <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-cyan-500/10 via-cyan-500/5 to-transparent" />
+      <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[rgba(0,194,168,0.10)] via-[rgba(0,194,168,0.05)] to-transparent" />
 
       {/* Progress bar */}
       <div className="relative h-[3px] w-full bg-white/5">
         <div
-          className="h-full w-[68%] bg-gradient-to-r from-cyan-400 via-[#00E5CC] to-emerald-400 shadow-[0_0_18px_rgba(34,211,238,0.35)] animate-pulse"
+          className="h-full w-[68%] bg-[var(--green)] shadow-[0_0_18px_rgba(0,194,168,0.35)] animate-pulse"
           style={{ filter: "saturate(1.2)" }}
         />
-        <div className="absolute -bottom-2 left-0 right-0 h-6 blur-xl bg-cyan-400/15" />
+        <div className="absolute -bottom-2 left-0 right-0 h-6 blur-xl bg-[rgba(0,194,168,0.15)]" />
       </div>
 
       {/* Tiny indicator (optional, subtle) */}
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="mt-2 inline-flex items-center gap-2 text-[11px] font-semibold text-cyan-200/80">
-          <Spinner className="size-3.5 text-cyan-200/80" />
+        <div className="mt-2 inline-flex items-center gap-2 text-[11px] font-semibold text-[var(--green)]/80">
+          <Spinner className="size-3.5 text-[var(--green)]/80" />
           Loading
         </div>
       </div>

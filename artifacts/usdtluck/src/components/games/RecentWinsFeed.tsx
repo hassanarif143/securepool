@@ -24,20 +24,20 @@ function initials(label: string): string {
 function avatarStyle(seed: string): string {
   const h = seed.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
   const palettes = [
-    "from-[#00B4D8] to-[#0077B6]",
-    "from-[#9D4EDD] to-[#5A189A]",
-    "from-[#06D6A0] to-[#118AB2]",
+    "from-[#00C2A8] to-[#00A896]",
+    "from-[#22C55E] to-[#15803D]",
+    "from-[#34D399] to-[#059669]",
     "from-[#FF9E00] to-[#FF5400]",
     "from-[#E63946] to-[#9D0208]",
-    "from-[#4361EE] to-[#3A0CA3]",
+    "from-[#F59E0B] to-[#B45309]",
   ];
   return palettes[h % palettes.length]!;
 }
 
 function GameIcon({ type }: { type: string }) {
   const cls = "h-3.5 w-3.5 shrink-0";
-  if (type === "spin_wheel") return <Sparkles className={cls} style={{ color: "#00E5CC" }} aria-hidden />;
-  if (type === "mystery_box") return <Package className={cls} style={{ color: "#A78BFA" }} aria-hidden />;
+  if (type === "spin_wheel") return <Sparkles className={cls} style={{ color: "#00C2A8" }} aria-hidden />;
+  if (type === "mystery_box") return <Package className={cls} style={{ color: "#22C55E" }} aria-hidden />;
   if (type === "scratch_card") return <Ticket className={cls} style={{ color: "#FFD700" }} aria-hidden />;
   return <Sparkles className={cls} style={{ color: "#94a3b8" }} aria-hidden />;
 }
@@ -47,18 +47,18 @@ export function RecentWinsFeed({ wins }: { wins: WinRow[] }) {
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[rgba(8,11,20,0.65)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl sm:p-5">
-      <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-[#00E5CC]/[0.06] blur-3xl" />
+      <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-[rgba(0,194,168,0.06)] blur-3xl" />
       <div className="relative mb-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[rgba(0,229,204,0.1)] ring-1 ring-[rgba(0,229,204,0.2)]">
-            <Activity className="h-4 w-4 text-[#00E5CC]" aria-hidden />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--green-soft)] ring-1 ring-[var(--green-border)]">
+            <Activity className="h-4 w-4 text-[var(--green)]" aria-hidden />
           </div>
           <div>
             <h2 className="font-sp-display text-base font-bold tracking-tight text-sp-text">Recent wins</h2>
             <p className="text-[11px] text-sp-text-dim">Live activity · updates every few seconds</p>
           </div>
         </div>
-        <span className="hidden rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300/90 sm:inline">
+        <span className="hidden rounded-full bg-[var(--green-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--green)]/90 sm:inline">
           Live
         </span>
       </div>
@@ -95,7 +95,7 @@ export function RecentWinsFeed({ wins }: { wins: WinRow[] }) {
                 <p
                   className={cn(
                     "font-sp-mono text-sm font-bold tabular-nums",
-                    big ? "text-[#FFD700]" : "text-[#00E5CC]",
+                    big ? "text-[#FFD700]" : "text-[var(--money)]",
                   )}
                 >
                   +{w.payout.toFixed(2)}

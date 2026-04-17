@@ -118,7 +118,7 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
           emoji: "✨",
           text: "Nice Win!",
           amount: `+${pr.winAmount.toFixed(2)} USDT`,
-          amountClass: "text-[#00E5CC] drop-shadow-[0_0_15px_rgba(0,229,204,0.3)]",
+          amountClass: "text-[var(--money)] drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]",
           nearMiss: nm,
         });
       } else {
@@ -167,7 +167,7 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
               emoji: "✨",
               text: "Nice Win!",
               amount: `+${pr.winAmount.toFixed(2)} USDT`,
-              amountClass: "text-[#00E5CC] drop-shadow-[0_0_15px_rgba(0,229,204,0.3)]",
+              amountClass: "text-[var(--money)] drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]",
               nearMiss: nm,
             });
           } else {
@@ -366,7 +366,7 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
           emoji: "✨",
           text: "Nice Win!",
           amount: `+${pr.winAmount.toFixed(2)} USDT`,
-          amountClass: "text-[#00E5CC] drop-shadow-[0_0_15px_rgba(0,229,204,0.3)]",
+          amountClass: "text-[var(--money)] drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]",
           nearMiss: nm,
         });
       } else {
@@ -414,7 +414,7 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
             style={{ width: 0, height: 0, transform: flap ? "translateY(1px) rotate(2deg)" : "none", transition: "transform 90ms ease-out" }}
           >
             <div
-              className="border-l-[10px] border-r-[10px] border-t-[18px] border-l-transparent border-r-transparent border-t-[#00E5CC] drop-shadow-[0_2px_6px_rgba(0,229,204,0.4)]"
+              className="border-l-[10px] border-r-[10px] border-t-[18px] border-l-transparent border-r-transparent border-t-[var(--green)] drop-shadow-[0_2px_6px_rgba(0,194,168,0.4)]"
               style={{ width: 0, height: 0 }}
             />
           </div>
@@ -465,7 +465,7 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
             type="button"
             onClick={() => void handlePlay()}
             disabled={busy || balance < currentBet}
-            className="absolute left-1/2 top-1/2 z-20 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-[#00E5CC] to-[#00B89C] font-sp-display text-[11px] font-extrabold uppercase tracking-wide text-[#06080F] shadow-[0_4px_20px_rgba(0,229,204,0.4)] transition-all duration-200 hover:scale-105 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
+            className="absolute left-1/2 top-1/2 z-20 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-[var(--green)] to-[var(--green-hover)] font-sp-display text-[11px] font-extrabold uppercase tracking-wide text-[var(--green-text)] shadow-[0_4px_20px_rgba(0,194,168,0.4)] transition-all duration-200 hover:scale-105 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
           >
             PLAY
           </button>
@@ -493,7 +493,7 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
               disabled={busy}
               className={`rounded-[10px] px-5 py-2.5 font-sp-mono text-sm font-semibold transition-all duration-200 ${
                 currentBet === bet
-                  ? "border border-[#00E5CC] bg-[rgba(0,229,204,0.15)] text-[#00E5CC] shadow-[0_0_12px_rgba(0,229,204,0.15)]"
+                  ? "border border-[var(--green)] bg-[var(--green-soft)] text-[var(--green)] shadow-[0_0_12px_rgba(0,194,168,0.15)]"
                   : "border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.04)] text-sp-text hover:border-[rgba(0,229,204,0.3)]"
               }`}
             >
@@ -514,7 +514,7 @@ export default function SpinWheel({ balance, allowedBets, onBalanceUpdate, onPla
           <button
             type="button"
             onClick={() => setResult(null)}
-            className="mt-2 rounded-[10px] bg-[#00E5CC] px-8 py-3 font-sp-display text-sm font-bold text-[#06080F] transition-transform hover:scale-[1.03]"
+            className="mt-2 rounded-[10px] bg-[var(--green)] px-8 py-3 font-sp-display text-sm font-bold text-[var(--green-text)] transition-transform hover:scale-[1.03] hover:bg-[var(--green-hover)]"
           >
             Play Again
           </button>

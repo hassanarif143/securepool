@@ -220,11 +220,11 @@ export default function TreasureHunt({ balance, allowedBets, onBalanceUpdate, on
 
   const cards = useMemo(() => {
     const themed: Record<number, { icon: string; accent: string }> = {
-      0: { icon: "💎", accent: "from-cyan-500/30 to-cyan-400/5" },
+      0: { icon: "💎", accent: "from-[rgba(0,194,168,0.35)] to-[rgba(0,194,168,0.06)]" },
       1: { icon: "❤️", accent: "from-rose-500/25 to-rose-400/5" },
-      2: { icon: "💚", accent: "from-emerald-500/25 to-emerald-400/5" },
+      2: { icon: "💚", accent: "from-[rgba(34,197,94,0.28)] to-[rgba(34,197,94,0.06)]" },
       3: { icon: "⭐", accent: "from-amber-400/25 to-amber-300/5" },
-      4: { icon: "🔮", accent: "from-violet-500/25 to-violet-400/5" },
+      4: { icon: "🔮", accent: "from-[rgba(0,194,168,0.22)] to-[rgba(0,168,150,0.06)]" },
     };
     return themed;
   }, []);
@@ -243,7 +243,9 @@ export default function TreasureHunt({ balance, allowedBets, onBalanceUpdate, on
                 type="button"
                 onClick={() => setCurrentBet(bet)}
                 className={`rounded-[10px] px-4 py-2 font-sp-mono text-sm font-semibold ${
-                  currentBet === bet ? "border border-[#00E5CC] bg-[rgba(0,229,204,0.15)] text-[#00E5CC]" : "border border-white/10 bg-white/5"
+                  currentBet === bet
+                    ? "border border-[var(--green)] bg-[var(--green-soft)] text-[var(--green)]"
+                    : "border border-white/10 bg-white/5"
                 }`}
               >
                 {bet} USDT
@@ -254,7 +256,7 @@ export default function TreasureHunt({ balance, allowedBets, onBalanceUpdate, on
             type="button"
             disabled={busy || balance < currentBet}
             onClick={() => void start()}
-            className="rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-10 py-3 font-sp-display font-bold text-white shadow-lg disabled:opacity-50"
+            className="rounded-2xl bg-[var(--green)] px-10 py-3 font-sp-display font-bold text-[var(--green-text)] shadow-lg hover:bg-[var(--green-hover)] disabled:opacity-50"
           >
             START
           </button>
@@ -264,17 +266,17 @@ export default function TreasureHunt({ balance, allowedBets, onBalanceUpdate, on
       {phase === "playing" && gameId != null ? (
         <>
           <div className="mb-2 font-sp-mono text-sm text-sp-text">
-            Multiplier: <span className="text-[#00E5CC]">{acc.toFixed(2)}×</span> · Potential:{" "}
+            Multiplier: <span className="text-[var(--green)]">{acc.toFixed(2)}×</span> · Potential:{" "}
             <span className="text-[#FFD700]">{potential.toFixed(2)} USDT</span>
           </div>
           {msg ? <p className="mb-2 text-center text-xs text-amber-200/90">{msg}</p> : null}
           <div className="relative mb-6 w-full max-w-sm">
-            <div className="pointer-events-none absolute -inset-6 rounded-3xl bg-gradient-to-b from-violet-500/10 via-transparent to-cyan-500/5 blur-2xl" />
+            <div className="pointer-events-none absolute -inset-6 rounded-3xl bg-gradient-to-b from-[rgba(0,194,168,0.12)] via-transparent to-[rgba(0,194,168,0.04)] blur-2xl" />
             <motion.div layout className="relative grid grid-cols-3 gap-3">
               {order.map((boxIndex) => {
                 const b = boxes[boxIndex];
                 const isRevealed = b?.state === "revealed";
-                const themed = cards[boxIndex] ?? { icon: "💎", accent: "from-violet-500/25 to-violet-400/5" };
+                const themed = cards[boxIndex] ?? { icon: "💎", accent: "from-[rgba(0,194,168,0.22)] to-[rgba(0,194,168,0.06)]" };
                 const t = tilt[boxIndex] ?? { rx: 0, ry: 0 };
                 const disabled = busy || isRevealed;
                 const isActivePick = activePickRef.current === boxIndex && busy;
@@ -300,7 +302,7 @@ export default function TreasureHunt({ balance, allowedBets, onBalanceUpdate, on
                     className={cn(
                       "relative h-24 rounded-2xl border border-white/10 bg-[rgba(10,14,24,0.65)] p-0 text-left shadow-[0_12px_44px_rgba(0,0,0,0.42)]",
                       "backdrop-blur-xl transition-colors",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00E5CC]/35",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--green-border)]",
                       !disabled && "hover:border-white/20",
                       disabled && "opacity-55",
                     )}
@@ -348,7 +350,7 @@ export default function TreasureHunt({ balance, allowedBets, onBalanceUpdate, on
                         animate={{ rotateY: isRevealed ? 0 : -180 }}
                         transition={{ duration: 0.55, ease: "easeInOut" }}
                       >
-                        <span className={cn("font-sp-mono text-lg font-extrabold", b?.isBomb ? "text-red-300" : "text-emerald-200")}>
+                        <span className={cn("font-sp-mono text-lg font-extrabold", b?.isBomb ? "text-red-300" : "text-[var(--money)]")}>
                           {b?.isBomb ? "💣" : b?.label}
                         </span>
                         <span className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-white/60">
@@ -384,7 +386,7 @@ export default function TreasureHunt({ balance, allowedBets, onBalanceUpdate, on
           <button
             type="button"
             onClick={playAgain}
-            className="rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-8 py-2.5 font-sp-display font-bold text-white"
+            className="rounded-xl bg-[var(--green)] px-8 py-2.5 font-sp-display font-bold text-[var(--green-text)] hover:bg-[var(--green-hover)]"
           >
             Play again
           </button>

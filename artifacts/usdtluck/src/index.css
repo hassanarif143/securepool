@@ -91,30 +91,40 @@
 }
 
 :root {
+  /* ── SecurePool Green Theme (single primary) ── */
+  --green: #00c2a8;
+  --green-hover: #00a896;
+  --green-soft: rgba(0, 194, 168, 0.08);
+  --green-border: rgba(0, 194, 168, 0.2);
+  --green-text: #070f1e;
+
+  --gold: #f5c842;
+  --gold-soft: rgba(245, 200, 66, 0.08);
+  --gold-border: rgba(245, 200, 66, 0.2);
+
+  --red: #ef4444;
+  --red-soft: rgba(239, 68, 68, 0.08);
+
+  --money: #22c55e;
+
   /* Backgrounds — 3 levels only */
   --bg-1: #070f1e; /* page */
   --bg-2: #0c1628; /* cards */
   --bg-3: #111e35; /* inputs, inner cards */
 
-  /* PRIMARY = green-teal (platform theme) */
-  --primary: #00c2a8;
-  --primary-soft: rgba(0, 194, 168, 0.08);
-  --primary-border: rgba(0, 194, 168, 0.2);
-  --primary-dark: #070f1e; /* text on primary */
+  /* PRIMARY = green */
+  --primary: var(--green);
+  --primary-soft: var(--green-soft);
+  --primary-border: var(--green-border);
+  --primary-dark: var(--green-text); /* text on primary */
 
-  /* SPT = gold only */
-  --gold: #f5c842;
-  --gold-soft: rgba(245, 200, 66, 0.08);
-  --gold-border: rgba(245, 200, 66, 0.2);
-
-  /* Money/success = light green */
-  --money: #22c55e;
+  /* Money/success = lighter green */
   --money-soft: rgba(34, 197, 94, 0.08);
   --money-border: rgba(34, 197, 94, 0.15);
 
   /* Danger = red only */
-  --danger: #ef4444;
-  --danger-soft: rgba(239, 68, 68, 0.08);
+  --danger: var(--red);
+  --danger-soft: var(--red-soft);
 
   /* Text */
   --t1: #e8eff8;

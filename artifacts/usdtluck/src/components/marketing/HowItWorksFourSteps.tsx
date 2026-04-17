@@ -8,8 +8,8 @@ const STEPS = [
     title: "Buy a ticket",
     body: "Pick a pool that fits your budget — from $3 to $50. Pay with USDT.",
     hint: "You can use Binance, Trust Wallet, or any USDT wallet.",
-    bar: "#22c55e",
-    circle: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+    bar: "#00c2a8",
+    circle: "bg-[var(--green-soft)] text-[var(--green)] border-[var(--green-border)]",
   },
   {
     n: "02",
@@ -26,8 +26,8 @@ const STEPS = [
     title: "Winners picked",
     body: "Three winners selected using a fair, verifiable process. No one can change the outcome in advance.",
     hint: "Draw details are public — you can verify them later.",
-    bar: "#15803d",
-    circle: "bg-emerald-500/20 text-emerald-200 border-emerald-500/35",
+    bar: "#00a896",
+    circle: "bg-[var(--green-soft)] text-[var(--green)] border-[var(--green-border)]",
   },
   {
     n: "04",
@@ -35,8 +35,8 @@ const STEPS = [
     title: "Get paid fast",
     body: "Winnings go to your USDT wallet within a few hours. You get a link to verify each payout.",
     hint: "You can view proof for each payout.",
-    bar: "#10b981",
-    circle: "bg-emerald-500/20 text-emerald-200 border-emerald-500/35",
+    bar: "#00c2a8",
+    circle: "bg-[var(--green-soft)] text-[var(--green)] border-[var(--green-border)]",
   },
 ] as const;
 
@@ -47,7 +47,7 @@ export function HowItWorksFourSteps({
 }) {
   return (
     <div className="mx-auto max-w-[900px]">
-      <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400">Simple Process</p>
+      <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--green)]">Simple Process</p>
       <h2 className="landing-display mt-2 text-center text-2xl font-bold text-[#f0f0f0] sm:text-[28px]">How It Works</h2>
       <p className="mx-auto mt-2 max-w-lg text-center text-sm text-[#94a3b8]">4 simple steps — no crypto knowledge needed</p>
 
@@ -89,14 +89,14 @@ export function HowItWorksFourSteps({
 
       {showFirstTimerBox ? (
         <div
-          className="mx-auto mt-10 max-w-xl rounded-2xl border border-emerald-500/25 px-4 py-4 sm:px-5"
-          style={{ backgroundColor: "rgba(34,197,94,0.06)" }}
+          className="mx-auto mt-10 max-w-xl rounded-2xl border border-[var(--green-border)] px-4 py-4 sm:px-5"
+          style={{ backgroundColor: "rgba(0,194,168,0.06)" }}
         >
-          <p className="text-sm font-semibold text-emerald-200">🆕 First time? Start with the $3 Starter Pool</p>
+          <p className="text-sm font-semibold text-[var(--green)]">🆕 First time? Start with the $3 Starter Pool</p>
           <p className="mt-1 text-sm text-[#94a3b8]">— low risk, ~25% win chance (typical).</p>
           <p className="mt-3 text-sm text-[#94a3b8]">
             Don&apos;t have USDT?{" "}
-            <Link href="/how-to-buy-usdt" className="font-semibold text-emerald-400 underline underline-offset-2">
+            <Link href="/how-to-buy-usdt" className="font-semibold text-[var(--green)] underline underline-offset-2">
               See how to buy with JazzCash →
             </Link>
           </p>

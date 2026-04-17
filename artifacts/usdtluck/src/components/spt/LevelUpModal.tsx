@@ -13,7 +13,7 @@ const levelColors: Record<string, string> = {
   Bronze: "#F59E0B",
   Silver: "#CBD5E1",
   Gold: "#FFD166",
-  Diamond: "#00D4FF",
+  Diamond: "var(--green)",
 };
 
 export function LevelUpModal({
@@ -45,7 +45,7 @@ export function LevelUpModal({
       particleCount: 160,
       spread: 75,
       origin: { y: 0.4 },
-      colors: ["#FFD166", "#00D4FF", "#10B981", "#FF9F43"],
+      colors: ["#FFD166", "#00C2A8", "#22C55E"],
     });
     shoot({
       particleCount: 90,
@@ -53,7 +53,7 @@ export function LevelUpModal({
       spread: 50,
       startVelocity: 30,
       origin: { y: 0.25, x: 0.5 },
-      colors: ["#FFD166", "#00D4FF"],
+      colors: ["#FFD166", "#00C2A8"],
     });
     return () => shoot.reset();
   }, []);

@@ -488,7 +488,7 @@ function WalletDropdown({
         <div className="flex items-center gap-1.5 text-xs leading-none">
           <span
             aria-hidden
-            className="inline-flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]"
+            className="inline-flex h-2 w-2 rounded-full bg-[var(--green)] shadow-[0_0_8px_rgba(0,194,168,0.7)]"
           />
           {isLoading ? (
             <span className="text-muted-foreground tabular-nums">…</span>
@@ -599,7 +599,7 @@ function UserMenu({ user, logout }: { user: any; logout: () => void }) {
           open ? "border-primary/30" : "border-transparent"
         )}
       >
-        <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-extrabold bg-gradient-to-br from-cyan-400 to-teal-600 text-[#060B18] border border-cyan-400/30">
+        <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-extrabold bg-[var(--green)] text-[var(--green-text)] border border-[var(--green-border)]">
           {user.name.charAt(0).toUpperCase()}
         </div>
       </button>
@@ -609,7 +609,7 @@ function UserMenu({ user, logout }: { user: any; logout: () => void }) {
           {/* User info header */}
           <div className="px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-extrabold shrink-0 bg-gradient-to-br from-cyan-400 to-teal-600 text-[#060B18] border border-cyan-400/30">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-extrabold shrink-0 bg-[var(--green)] text-[var(--green-text)] border border-[var(--green-border)]">
                 {user.name.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
@@ -961,7 +961,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         background: active
                           ? gold
                             ? "rgba(255,209,102,0.07)"
-                            : "rgba(0,212,255,0.06)"
+                            : "var(--green-soft)"
                           : "transparent",
                         position: "relative",
                         transition: "all 0.15s ease",
@@ -995,7 +995,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                             borderRadius: "2px",
                             background: gold
                               ? "linear-gradient(90deg, #FFD166, #FF9F43)"
-                              : "linear-gradient(90deg, #00D4FF, #00B4A0)",
+                              : "var(--green)",
                           }}
                         />
                       )}
@@ -1025,19 +1025,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       alignItems: "center",
                       gap: "7px",
                       padding: "5px 10px 5px 8px",
-                      background: "rgba(16, 185, 129, 0.07)",
-                      border: "1px solid rgba(16, 185, 129, 0.2)",
+                      background: "var(--green-soft)",
+                      border: "1px solid var(--green-border)",
                       borderRadius: "999px",
                       textDecoration: "none",
                       transition: "all 0.18s ease",
                       flexShrink: 0,
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "rgba(16,185,129,0.13)";
+                      e.currentTarget.style.background = "rgba(0,194,168,0.13)";
                       e.currentTarget.style.transform = "translateY(-1px)";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "rgba(16,185,129,0.07)";
+                      e.currentTarget.style.background = "var(--green-soft)";
                       e.currentTarget.style.transform = "translateY(0)";
                     }}
                   >
@@ -1047,7 +1047,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                           position: "absolute",
                           inset: 0,
                           borderRadius: "50%",
-                          background: "#10B981",
+                          background: "var(--green)",
                           animation: "pingDot 2s ease-in-out infinite",
                         }}
                       />
@@ -1056,7 +1056,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                           position: "absolute",
                           inset: "1.5px",
                           borderRadius: "50%",
-                          background: "#10B981",
+                          background: "var(--green)",
                         }}
                       />
                     </div>
@@ -1067,7 +1067,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                           fontFamily: '"Syne", sans-serif',
                           fontWeight: "700",
                           fontSize: "13px",
-                          color: "#10B981",
+                          color: "var(--money)",
                           letterSpacing: "-0.2px",
                         }}
                       >
@@ -1076,7 +1076,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       <span
                         style={{
                           fontSize: "9px",
-                          color: "rgba(16,185,129,0.5)",
+                          color: "rgba(0,194,168,0.55)",
                           letterSpacing: "0.2px",
                         }}
                       >
@@ -1091,8 +1091,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         width: "17px",
                         height: "17px",
                         borderRadius: "50%",
-                        background: "rgba(16,185,129,0.15)",
-                        border: "1px solid rgba(16,185,129,0.3)",
+                        background: "var(--green-soft)",
+                        border: "1px solid var(--green-border)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -1100,7 +1100,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       }}
                       aria-hidden
                     >
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="3" strokeLinecap="round">
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="3" strokeLinecap="round">
                         <path d="M12 5v14M5 12h14" />
                       </svg>
                     </div>

@@ -188,7 +188,7 @@ export default function LuckyNumbers({ balance, allowedBets, onBalanceUpdate, on
       <p className="mb-4 text-xs text-sp-text-dim">Premium ticket · pick 3 · reveal winning numbers</p>
 
       <div className="relative w-full max-w-md">
-        <div className="pointer-events-none absolute -inset-4 rounded-[28px] bg-gradient-to-r from-[#FFD700]/15 via-[#00E5CC]/10 to-[#8B5CF6]/15 blur-2xl" />
+        <div className="pointer-events-none absolute -inset-4 rounded-[28px] bg-gradient-to-r from-[#FFD700]/15 via-[rgba(0,194,168,0.1)] to-[rgba(34,197,94,0.12)] blur-2xl" />
 
         <div className="sp-ticket relative overflow-hidden rounded-[22px] border border-white/10 bg-[rgba(10,14,24,0.75)] p-5 shadow-[0_22px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl">
           <div className="pointer-events-none absolute inset-0 opacity-60" style={{ background: "radial-gradient(circle at 20% 10%, rgba(255,215,0,0.12), transparent 40%), radial-gradient(circle at 85% 35%, rgba(0,229,204,0.10), transparent 45%), radial-gradient(circle at 50% 95%, rgba(139,92,246,0.10), transparent 45%)" }} />
@@ -210,7 +210,13 @@ export default function LuckyNumbers({ balance, allowedBets, onBalanceUpdate, on
               <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-sp-text-dim">Your numbers</p>
               <div className="mt-2 flex gap-2">
                 {pickedSlots.map((v, i) => (
-                  <div key={i} className={cn("flex h-12 w-12 items-center justify-center rounded-2xl border text-lg font-extrabold", v != null ? "border-[#00E5CC]/50 bg-[#00E5CC]/10 text-[#99F6E4]" : "border-white/10 bg-white/[0.03] text-white/30")}>
+                  <div
+                    key={i}
+                    className={cn(
+                      "flex h-12 w-12 items-center justify-center rounded-2xl border text-lg font-extrabold",
+                      v != null ? "border-[var(--green-border)] bg-[var(--green-soft)] text-[var(--green)]" : "border-white/10 bg-white/[0.03] text-white/30",
+                    )}
+                  >
                     <span className="font-sp-mono">{v ?? "—"}</span>
                   </div>
                 ))}
@@ -259,8 +265,8 @@ export default function LuckyNumbers({ balance, allowedBets, onBalanceUpdate, on
                     className={cn(
                       "h-12 rounded-2xl border font-sp-mono text-lg font-extrabold transition",
                       on
-                        ? "border-[#00E5CC]/50 bg-[#00E5CC]/15 text-white shadow-[0_0_16px_rgba(0,229,204,0.22)]"
-                        : "border-white/10 bg-white/[0.03] text-sp-text hover:border-[#00E5CC]/30",
+                        ? "border-[var(--green-border)] bg-[var(--green-soft)] text-white shadow-[0_0_16px_rgba(0,194,168,0.22)]"
+                        : "border-white/10 bg-white/[0.03] text-sp-text hover:border-[var(--green-border)]",
                     )}
                   >
                     {n}
@@ -297,7 +303,7 @@ export default function LuckyNumbers({ balance, allowedBets, onBalanceUpdate, on
                   type="button"
                   disabled={picked.length !== 3 || busy || balance < currentBet}
                   onClick={() => void draw()}
-                  className="h-10 rounded-xl bg-gradient-to-r from-[#00E5CC] to-[#00B89C] px-5 font-sp-display text-sm font-extrabold text-[#06080F] disabled:opacity-40"
+                  className="h-10 rounded-xl bg-gradient-to-r from-[var(--green)] to-[var(--green-hover)] px-5 font-sp-display text-sm font-extrabold text-[var(--green-text)] disabled:opacity-40"
                 >
                   DRAW
                 </button>

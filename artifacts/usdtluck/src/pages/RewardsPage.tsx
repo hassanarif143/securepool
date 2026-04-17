@@ -38,7 +38,7 @@ export default function RewardsPage() {
     <div className="sp-ambient-bg relative min-h-[50vh] w-full">
       <div className="mx-auto max-w-4xl space-y-5 px-4 pb-10 sm:px-6 sm:pb-12">
         <div className={`${premiumPanel} p-5 sm:p-6`}>
-          <p className="font-sp-display text-[10px] font-semibold uppercase tracking-[0.22em] text-[#00E5CC]/90">Rewards center</p>
+          <p className="font-sp-display text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--green)]/90">Rewards center</p>
           <h1 className="mt-2 font-sp-display text-2xl font-bold tracking-tight text-sp-text sm:text-3xl">Your rewards and tier</h1>
           <p className="mt-2 text-sm leading-relaxed text-sp-text-dim">
             All rewards on this page are non-withdrawable. They stay in your in-app rewards balance.

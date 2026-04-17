@@ -72,15 +72,15 @@ const TX_META: Record<
   string,
   { icon: string; label: string; desc: string; color: string; sign: string; isCredit: boolean }
 > = {
-  deposit: { icon: "↑", label: "Deposit", desc: "Added to wallet", color: "#10b981", sign: "+", isCredit: true },
-  reward: { icon: "★", label: "Prize won", desc: "Pool reward", color: "#10b981", sign: "+", isCredit: true },
+  deposit: { icon: "↑", label: "Deposit", desc: "Added to wallet", color: "#00c2a8", sign: "+", isCredit: true },
+  reward: { icon: "★", label: "Prize won", desc: "Pool reward", color: "#00c2a8", sign: "+", isCredit: true },
   pool_refund: { icon: "↩", label: "Pool refund", desc: "Cancelled pool entry returned", color: "#34d399", sign: "+", isCredit: true },
-  promo_credit: { icon: "✦", label: "Credit", desc: "Balance credit", color: "#10b981", sign: "+", isCredit: true },
+  promo_credit: { icon: "✦", label: "Credit", desc: "Balance credit", color: "#00c2a8", sign: "+", isCredit: true },
   withdrawal: { icon: "↓", label: "Withdrawal", desc: "Sent to address", color: "#f87171", sign: "-", isCredit: false },
   pool_entry: { icon: "◉", label: "Pool entry", desc: "Joined a pool", color: "#f87171", sign: "-", isCredit: false },
-  referral_bonus: { icon: "⊕", label: "Referral", desc: "Friend joined", color: "#10b981", sign: "+", isCredit: true },
+  referral_bonus: { icon: "⊕", label: "Referral", desc: "Friend joined", color: "#00c2a8", sign: "+", isCredit: true },
   stake_lock: { icon: "🔒", label: "Stake lock", desc: "USDT locked for staking", color: "#fbbf24", sign: "-", isCredit: false },
-  stake_release: { icon: "🔓", label: "Stake return", desc: "Principal or stake payout", color: "#10b981", sign: "+", isCredit: true },
+  stake_release: { icon: "🔓", label: "Stake return", desc: "Principal or stake payout", color: "#00c2a8", sign: "+", isCredit: true },
 };
 function txMeta(type: string) {
   return (
@@ -348,13 +348,13 @@ export default function DashboardPage() {
       ) : null}
 
       {/* Page intro */}
-      <div className="relative overflow-hidden rounded-2xl border border-[rgba(0,229,204,0.14)] bg-gradient-to-br from-[rgba(0,229,204,0.07)] via-[rgba(8,11,20,0.92)] to-[rgba(6,8,15,0.98)] px-5 py-5 shadow-[0_16px_48px_rgba(0,0,0,0.28)] ring-1 ring-white/[0.06] sm:px-6 sm:py-6">
-        <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-[#00E5CC]/35 to-transparent" aria-hidden />
-        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#00E5CC]/[0.09] blur-3xl" aria-hidden />
+      <div className="relative overflow-hidden rounded-2xl border border-[var(--green-border)] bg-gradient-to-br from-[var(--green-soft)] via-[rgba(8,11,20,0.92)] to-[rgba(6,8,15,0.98)] px-5 py-5 shadow-[0_16px_48px_rgba(0,0,0,0.28)] ring-1 ring-white/[0.06] sm:px-6 sm:py-6">
+        <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--green)]/35 to-transparent" aria-hidden />
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[var(--green)]/[0.09] blur-3xl" aria-hidden />
         <div className="relative flex flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-1.5">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#00E5CC]/90">Dashboard</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--green)]/90">Dashboard</p>
               <h1 className="font-sp-display text-2xl font-bold tracking-tight text-sp-text sm:text-3xl">Dashboard</h1>
               <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
                 {greeting()}, {firstName}. Your balance, pools, and wallet activity in one place.

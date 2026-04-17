@@ -158,11 +158,11 @@ export default function AdminSupportPage() {
                   onClick={() => setSelectedId(t.id)}
                   className={cn(
                     "w-full rounded-xl border border-white/10 p-3 text-left text-sm transition-colors hover:bg-white/5",
-                    selectedId === t.id && "ring-1 ring-cyan-500/50 bg-white/5",
+                    selectedId === t.id && "ring-1 ring-[var(--green-border)] bg-white/5",
                   )}
                 >
                   <div className="flex justify-between gap-2">
-                    <span className="font-mono text-xs text-cyan-300">{t.ticket_number ?? `#${t.id}`}</span>
+                    <span className="font-mono text-xs text-[var(--green)]">{t.ticket_number ?? `#${t.id}`}</span>
                     <Badge variant="outline" className="text-[10px]">
                       {t.status}
                     </Badge>
@@ -204,9 +204,9 @@ export default function AdminSupportPage() {
                       className={cn(
                         "text-sm rounded-lg px-3 py-2",
                         m.sender_type === "user"
-                          ? "bg-cyan-500/15 ml-4"
+                          ? "bg-[var(--green-soft)] ml-4"
                           : m.sender_type === "admin"
-                            ? "bg-emerald-500/10 mr-4"
+                            ? "bg-white/5 mr-4"
                             : "bg-white/5",
                       )}
                     >

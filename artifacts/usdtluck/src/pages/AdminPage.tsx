@@ -126,7 +126,7 @@ export default function AdminPage() {
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Admin Panel</h1>
           {superAdmin ? (
-            <Badge className="bg-purple-500/15 text-purple-200 border-purple-500/35 text-[11px] font-semibold">
+            <Badge className="bg-[var(--green-soft)] text-[var(--green)] border-[var(--green-border)] text-[11px] font-semibold">
               ⭐ Super Admin
             </Badge>
           ) : null}
@@ -1949,7 +1949,7 @@ function FinanceTab() {
                     <div className="flex flex-col justify-end gap-1">
                       <span className="text-[10px] text-muted-foreground">Revenue</span>
                       <div
-                        className="rounded bg-cyan-500/80 min-h-[4px] w-full"
+                        className="rounded bg-[var(--green)]/80 min-h-[4px] w-full"
                         style={{ height: `${Math.max(8, (financeOverviewNum(d.totalRevenue) / maxBar) * 100)}%` }}
                       />
                       <span className="text-xs font-semibold">{financeOverviewNum(d.totalRevenue).toFixed(2)} USDT</span>

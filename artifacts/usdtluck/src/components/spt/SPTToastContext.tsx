@@ -37,13 +37,13 @@ export function SPTToastProvider({ children }: { children: ReactNode }) {
         {items.map((t) => (
           <div
             key={t.id}
-            className="pointer-events-auto rounded-xl border border-cyan-400/40 bg-[#0A0E1A]/95 px-4 py-3 shadow-[0_0_24px_rgba(0,212,255,0.2)] backdrop-blur-md animate-in slide-in-from-right-4 fade-in duration-300"
+            className="pointer-events-auto rounded-xl border border-[var(--gold-border)] bg-[#0A0E1A]/95 px-4 py-3 shadow-[0_0_24px_rgba(245,200,66,0.16)] backdrop-blur-md animate-in slide-in-from-right-4 fade-in duration-300"
           >
-            <p className="text-sm font-bold text-cyan-300">
+            <p className="text-sm font-bold text-[var(--gold)]">
               🪙 +{t.amount} SPT earned!
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">{t.reason}</p>
-            <p className="text-[11px] text-emerald-300/90 mt-1 tabular-nums">Balance: {t.balance.toLocaleString()} SPT</p>
+            <p className="text-[11px] text-[var(--gold)]/90 mt-1 tabular-nums">Balance: {t.balance.toLocaleString()} SPT</p>
           </div>
         ))}
       </div>

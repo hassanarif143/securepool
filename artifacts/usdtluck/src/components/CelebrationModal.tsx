@@ -39,14 +39,14 @@ export function CelebrationModal({ winners, poolTitle, onClose }: CelebrationMod
         angle: 60,
         spread: 70,
         origin: { x: 0, y: 0.6 },
-        colors: ["#10b981", "#34d399", "#fbbf24", "#f59e0b", "#60a5fa", "#a78bfa"],
+        colors: ["#00c2a8", "#22c55e", "#fbbf24", "#ef4444"],
       });
       confetti({
         particleCount: 6,
         angle: 120,
         spread: 70,
         origin: { x: 1, y: 0.6 },
-        colors: ["#10b981", "#34d399", "#fbbf24", "#f59e0b", "#60a5fa", "#a78bfa"],
+        colors: ["#00c2a8", "#22c55e", "#fbbf24", "#ef4444"],
       });
       if (Date.now() < end) requestAnimationFrame(frame);
     }
@@ -61,10 +61,13 @@ export function CelebrationModal({ winners, poolTitle, onClose }: CelebrationMod
       style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
     >
       <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-500">
-        <div className="bg-gradient-to-br from-emerald-600 to-green-800 p-6 text-white text-center">
+        <div
+          className="p-6 text-white text-center"
+          style={{ background: "linear-gradient(135deg, var(--green), var(--green-hover))" }}
+        >
           <p className="text-4xl mb-2">🎉</p>
           <h2 className="text-2xl font-bold tracking-tight">Winners Revealed!</h2>
-          <p className="text-emerald-100 text-sm mt-1 font-medium">{poolTitle}</p>
+          <p className="text-white/85 text-sm mt-1 font-medium">{poolTitle}</p>
         </div>
 
         <div className="p-6 space-y-3">

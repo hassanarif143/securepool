@@ -20,8 +20,8 @@ export type WinCeremonyProps = {
 
 function classify(type: WinCeremonyType) {
   if (type === "jackpot") return { title: "JACKPOT", accent: "#FFD700", overlay: "bg-black/70" };
-  if (type === "big-win") return { title: "BIG WIN!", accent: "#00E5CC", overlay: "bg-black/60" };
-  if (type === "small-win") return { title: "Nice win", accent: "#00E5CC", overlay: "bg-black/45" };
+  if (type === "big-win") return { title: "BIG WIN!", accent: "var(--green)", overlay: "bg-black/60" };
+  if (type === "small-win") return { title: "Nice win", accent: "var(--green)", overlay: "bg-black/45" };
   if (type === "near-miss") return { title: "So close", accent: "#F59E0B", overlay: "bg-black/45" };
   return { title: "Better luck next time", accent: "#FF4757", overlay: "bg-black/35" };
 }

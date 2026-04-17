@@ -62,7 +62,7 @@ export function GameLayout(props: GameLayoutProps) {
             <Link
               href={props.backHref ?? "/games"}
               onClick={() => play("tap")}
-              className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-sp-text-dim transition-colors hover:text-[#00E5CC]"
+              className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-sp-text-dim transition-colors hover:text-[var(--green)]"
             >
               <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
               Back to arcade
@@ -109,7 +109,7 @@ export function GameLayout(props: GameLayoutProps) {
                       "h-12 rounded-xl px-5 font-sp-mono text-sm font-semibold transition",
                       "min-w-[72px]",
                       active
-                        ? "bg-gradient-to-r from-[#00E5CC] to-[#00B89C] text-[#06080F] shadow-[0_0_16px_rgba(0,229,204,0.22)]"
+                        ? "bg-gradient-to-r from-[var(--green)] to-[var(--green-hover)] text-[var(--green-text)] shadow-[0_0_16px_rgba(0,194,168,0.22)]"
                         : "border border-white/10 bg-white/[0.03] text-sp-text hover:border-white/20",
                     )}
                   >
@@ -140,7 +140,7 @@ export function GameLayout(props: GameLayoutProps) {
                   h.kind === "big"
                     ? "bg-[#FFD700] shadow-[0_0_10px_rgba(255,215,0,0.35)]"
                     : h.kind === "win"
-                      ? "bg-emerald-400/90 shadow-[0_0_8px_rgba(16,185,129,0.25)]"
+                      ? "bg-[var(--green)]/90 shadow-[0_0_8px_rgba(0,194,168,0.25)]"
                       : "bg-red-400/80",
                 )}
               />
@@ -169,7 +169,7 @@ export function GameLayout(props: GameLayoutProps) {
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-sp-text-dim">Net</p>
-                  <p className={cn("mt-1 font-sp-mono text-base font-bold", props.session.net >= 0 ? "text-emerald-300" : "text-red-300")}>
+                  <p className={cn("mt-1 font-sp-mono text-base font-bold", props.session.net >= 0 ? "text-[var(--money)]" : "text-red-300")}>
                     {props.session.net >= 0 ? "+" : ""}
                     {props.session.net.toFixed(2)}
                   </p>

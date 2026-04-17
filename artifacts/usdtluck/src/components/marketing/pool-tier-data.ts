@@ -78,13 +78,13 @@ export const POOL_TIERS: PoolTierDef[] = [
     ],
     accent: "emerald",
     recommended: false,
-    topGradient: "linear-gradient(90deg, #10b981, #34d399, #0f766e)",
+    topGradient: "linear-gradient(90deg, #00c2a8, #00a896, #00c2a8)",
   },
 ];
 
 export const tierBtnBg: Record<PoolTierAccent, string> = {
-  cyan: "linear-gradient(135deg, #16a34a, #15803d)",
-  blue: "linear-gradient(135deg, #22c55e, #16a34a)",
+  cyan: "linear-gradient(135deg, #00c2a8, #00a896)",
+  blue: "linear-gradient(135deg, #00c2a8, #00a896)",
   amber: "linear-gradient(135deg, #f59e0b, #ea580c)",
-  emerald: "linear-gradient(135deg, #10b981, #0f766e)",
+  emerald: "linear-gradient(135deg, #00c2a8, #00a896)",
 };

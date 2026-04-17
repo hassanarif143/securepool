@@ -85,7 +85,7 @@ export default function GamesPage() {
         <header className="space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="font-sp-display text-xs font-semibold uppercase tracking-[0.28em] text-[#00E5CC]/90">Arcade</p>
+              <p className="font-sp-display text-xs font-semibold uppercase tracking-[0.28em] text-[var(--green)]/90">Arcade</p>
               <h1 className="font-sp-display mt-2 text-3xl font-extrabold tracking-tight text-sp-text sm:text-4xl">SecurePool Games</h1>
               <p className="mt-2 max-w-xl text-sm text-sp-text-dim">
                 Provably fair mini games — play from your withdrawable balance with clear odds.
@@ -149,21 +149,21 @@ export default function GamesPage() {
           </div>
         ) : (
           <>
-            <div className="relative overflow-hidden rounded-2xl border border-[rgba(0,229,204,0.12)] bg-gradient-to-br from-[rgba(0,229,204,0.07)] to-[rgba(139,92,246,0.05)] px-5 py-5 shadow-[0_12px_40px_rgba(0,0,0,0.25)]">
-              <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-[#00E5CC]/50 to-transparent" />
+            <div className="relative overflow-hidden rounded-2xl border border-[var(--green-border)] bg-gradient-to-br from-[var(--green-soft)] to-[rgba(34,197,94,0.05)] px-5 py-5 shadow-[0_12px_40px_rgba(0,0,0,0.25)]">
+              <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--green)]/50 to-transparent" />
               <div className="mb-2 flex flex-wrap items-center gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-[1.5px] text-[#00E5CC]">Fair play</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[1.5px] text-[var(--green)]">Fair play</span>
               </div>
               <p className="mb-3 text-base font-semibold text-sp-text">Real odds · Provably fair · Built for trust</p>
               <div className="mb-2 flex h-1.5 gap-0.5 overflow-hidden rounded-full">
-                <div className="flex-[6.5] rounded-full bg-[rgba(0,229,204,0.45)]" />
+                <div className="flex-[6.5] rounded-full bg-[rgba(0,194,168,0.45)]" />
                 <div className="flex-[2.8] rounded-full bg-[rgba(255,71,87,0.35)]" />
                 <div className="flex-[0.7] rounded-full bg-[rgba(255,215,0,0.55)]" />
               </div>
               <p className="text-xs text-sp-text-dim">
                 <span className="text-[#FF4757]/90">65% Try again</span>
                 {" · "}
-                <span className="text-[#00E5CC]/90">28% Win 1.5×</span>
+                <span className="text-[var(--green)]/90">28% Win 1.5×</span>
                 {" · "}
                 <span className="text-[#FFD700]/90">7% Win 3×</span>
               </p>

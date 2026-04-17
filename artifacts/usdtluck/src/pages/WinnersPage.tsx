@@ -630,7 +630,7 @@ export default function WinnersPage() {
           position: absolute;
           inset: 0;
           pointer-events: none;
-          background: radial-gradient(140px 80px at 50% 0%, rgba(0,212,255,0.12), transparent 60%);
+          background: radial-gradient(140px 80px at 50% 0%, rgba(0,194,168,0.12), transparent 60%);
           opacity: 0.9;
         }
         @media (hover: hover) and (pointer: fine) {
@@ -640,7 +640,7 @@ export default function WinnersPage() {
           }
         }
         .sp-stat-icon {
-          box-shadow: 0 0 22px rgba(0,212,255,0.08);
+          box-shadow: 0 0 22px rgba(0,194,168,0.08);
           transform: translateY(0);
           animation: sp-icon-pop 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
         }
@@ -670,9 +670,9 @@ export default function WinnersPage() {
           margin: 10px auto 14px;
           padding: 4px 14px;
           font-size: 12px;
-          color: #00D4FF;
-          background: rgba(0,229,255,0.08);
-          border: 1px solid rgba(0,229,255,0.22);
+          color: var(--green);
+          background: var(--green-soft);
+          border: 1px solid var(--green-border);
           border-radius: 20px;
           text-align: center;
           white-space: nowrap;
@@ -778,8 +778,8 @@ export default function WinnersPage() {
         .sp-summary-row:last-child { border-bottom: none; padding-bottom: 0; }
         .sp-summary-k { color: rgba(158,158,158,0.95); font-size: 12px; }
         .sp-summary-v { color: #ffffff; font-size: 13px; font-weight: 600; }
-        .sp-green { color: #00e676; }
-        .sp-cyan { color: #00D4FF; }
+        .sp-green { color: var(--green); }
+        .sp-cyan { color: var(--green); }
         .sp-verified {
           margin-top: 14px;
           display: flex;
@@ -788,7 +788,7 @@ export default function WinnersPage() {
           justify-content: center;
           font-size: 11px;
           font-weight: 500;
-          color: #00e676;
+          color: var(--green);
           opacity: 0;
           transform: translateY(16px);
           animation: sp-fade-up 0.5s ease forwards;

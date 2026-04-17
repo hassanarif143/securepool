@@ -199,7 +199,7 @@ export default function SptPage() {
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.07]"
           style={{
-            backgroundImage: `radial-gradient(circle at 20% 20%, #FFD166 0%, transparent 45%), radial-gradient(circle at 80% 60%, #00D4FF 0%, transparent 40%)`,
+            backgroundImage: `radial-gradient(circle at 20% 20%, #FFD166 0%, transparent 45%), radial-gradient(circle at 80% 60%, var(--green) 0%, transparent 40%)`,
           }}
         />
         <div className="relative flex flex-col items-center text-center">
@@ -230,13 +230,13 @@ export default function SptPage() {
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
               <p className="text-[10px] uppercase text-muted-foreground">Active earners</p>
-              <p className="font-sp-display text-lg font-bold text-cyan-300 tabular-nums">
+              <p className="font-sp-display text-lg font-bold text-[var(--green)] tabular-nums">
                 {(stats?.active_earners ?? 0).toLocaleString()} users
               </p>
             </div>
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-              <p className="text-[10px] uppercase text-emerald-300/90">Phase</p>
-              <p className="font-semibold text-emerald-200">Phase 1 · Live</p>
+            <div className="rounded-2xl border border-[var(--green-border)] bg-[var(--green-soft)] px-4 py-3">
+              <p className="text-[10px] uppercase text-[var(--green)]/90">Phase</p>
+              <p className="font-semibold text-[var(--green)]">Phase 1 · Live</p>
             </div>
           </div>
         </div>
@@ -258,10 +258,10 @@ export default function SptPage() {
                 </p>
               </CardContent>
             </Card>
-            <Card className="border-cyan-500/25 bg-[#0A0E1A]/80">
+            <Card className="border-[var(--green-border)] bg-[#0A0E1A]/80">
               <CardContent className="p-6">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">Current value (at platform rate)</p>
-                <p className="font-sp-display text-3xl font-bold text-cyan-300 tabular-nums mt-1">{usdtVal.toFixed(2)} USDT</p>
+                <p className="font-sp-display text-3xl font-bold text-[var(--money)] tabular-nums mt-1">{usdtVal.toFixed(2)} USDT</p>
                 <p className="text-sm text-muted-foreground mt-1">{formatPkrEq(bal.spt_balance)}</p>
               </CardContent>
             </Card>
@@ -291,7 +291,7 @@ export default function SptPage() {
             <Button asChild className="bg-gradient-to-r from-amber-600 to-[#FFD166] text-[#1a0f00] font-bold">
               <Link href="/pools">Earn more SPT</Link>
             </Button>
-            <Button asChild variant="outline" className="border-cyan-500/40 text-cyan-200">
+            <Button asChild variant="outline" className="border-[var(--green-border)] text-[var(--green)]">
               <Link href="/wallet">Wallet</Link>
             </Button>
           </div>
@@ -313,7 +313,7 @@ export default function SptPage() {
               key={p.phase}
               className={cn(
                 "border transition-transform hover:-translate-y-0.5",
-                p.live && "border-emerald-500/40 bg-emerald-950/20",
+                p.live && "border-[var(--green-border)] bg-[var(--green-soft)]",
                 p.highlight && "border-[#FFD166]/50 shadow-[0_0_24px_rgba(255,209,102,0.15)]",
                 !p.live && !p.highlight && "border-white/10 bg-white/[0.03] opacity-80",
               )}
@@ -322,7 +322,7 @@ export default function SptPage() {
                 <div className="flex justify-between items-center gap-2">
                   <span className="text-xs font-bold text-[#FFD166]">{p.phase}</span>
                   {p.live ? (
-                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">Live</span>
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--green-soft)] text-[var(--green)]">Live</span>
                   ) : (
                     <span className="text-[10px] text-muted-foreground">Soon</span>
                   )}
@@ -361,7 +361,7 @@ export default function SptPage() {
               usdt={0.1}
               desc="Earned per successful ticket purchase."
               action={
-                <Button asChild className="w-full mt-3 bg-cyan-600 hover:bg-cyan-500">
+                <Button asChild className="w-full mt-3 bg-[var(--green)] text-[var(--green-text)] hover:bg-[var(--green-hover)]">
                   <Link href="/pools">Join pools →</Link>
                 </Button>
               }
@@ -450,7 +450,7 @@ export default function SptPage() {
                       <span className="text-[#FFD166] font-bold text-sm whitespace-nowrap">{x.cost} SPT</span>
                     </div>
                     <p className="text-sm text-muted-foreground">{x.desc}</p>
-                    <p className="text-xs text-cyan-300/90">≈ {x.usdt} USDT value · Spend {x.cost} SPT</p>
+                    <p className="text-xs text-[var(--money)]/90">≈ {x.usdt} USDT value · Spend {x.cost} SPT</p>
                     {enough ? (
                       <Button className="w-full bg-gradient-to-r from-amber-600 to-[#FFD166] text-[#1a0f00] font-bold" onClick={() => void redeem(x.k)}>
                         Redeem →
@@ -499,11 +499,11 @@ export default function SptPage() {
                   key={h.id}
                   className={cn(
                     "flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-sm",
-                    h.amount > 0 ? "border-emerald-500/25 bg-emerald-500/5" : "border-rose-500/20 bg-rose-500/5",
+                    h.amount > 0 ? "border-[#FFD166]/30 bg-[#FFD166]/[0.06]" : "border-rose-500/20 bg-rose-500/5",
                   )}
                 >
                   <div>
-                    <span className={h.amount > 0 ? "text-emerald-300 font-semibold" : "text-rose-300 font-semibold"}>
+                    <span className={h.amount > 0 ? "text-[#FFD166] font-semibold" : "text-rose-300 font-semibold"}>
                       {h.amount > 0 ? "+" : ""}
                       {h.amount} SPT
                     </span>
@@ -568,9 +568,9 @@ export default function SptPage() {
                   </tr>
                 ))}
                 {meLb && (
-                  <tr className="bg-cyan-500/10 border-t border-cyan-500/30">
-                    <td className="p-2 font-semibold text-cyan-300">{meLb.rank}</td>
-                    <td className="p-2 font-semibold text-cyan-200">You ({user?.name?.split(" ")[0] ?? "You"})</td>
+                  <tr className="bg-[var(--green-soft)] border-t border-[var(--green-border)]">
+                    <td className="p-2 font-semibold text-[var(--green)]">{meLb.rank}</td>
+                    <td className="p-2 font-semibold text-[var(--green)]">You ({user?.name?.split(" ")[0] ?? "You"})</td>
                     <td className="p-2">{meLb.level}</td>
                     <td className="p-2 text-right tabular-nums">{meLb.lifetime_spt.toLocaleString()}</td>
                     <td className="p-2 text-right">≈{sptToUsdt(meLb.lifetime_spt).toFixed(2)}</td>

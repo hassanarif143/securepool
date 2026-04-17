@@ -137,7 +137,7 @@ export function PlatformStats() {
                 {card.icon}
               </div>
               <p className="text-[14px] text-muted-foreground">{card.label}</p>
-              <p className="mt-2 text-[30px] font-bold leading-none tabular-nums text-[#00D4FF] sm:text-[34px]">{card.value}</p>
+              <p className="mt-2 text-[30px] font-bold leading-none tabular-nums text-[var(--green)] sm:text-[34px]">{card.value}</p>
             </div>
           ))}
         </div>

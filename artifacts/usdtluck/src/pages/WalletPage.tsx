@@ -39,26 +39,26 @@ function timeAgo(dateStr: string) {
 }
 
 const TX_META: Record<string, { icon: string; label: string; sign: string; color: string; isCredit: boolean }> = {
-  deposit:          { icon: "↑", label: "Deposit",      sign: "+", color: "#10b981", isCredit: true  },
-  reward:           { icon: "★", label: "Prize Won",    sign: "+", color: "#10b981", isCredit: true  },
+  deposit:          { icon: "↑", label: "Deposit",      sign: "+", color: "#00c2a8", isCredit: true  },
+  reward:           { icon: "★", label: "Prize Won",    sign: "+", color: "#00c2a8", isCredit: true  },
   pool_refund:      { icon: "↩", label: "Pool refund",  sign: "+", color: "#34d399", isCredit: true  },
-  promo_credit:     { icon: "✦", label: "Credit",       sign: "+", color: "#10b981", isCredit: true  },
+  promo_credit:     { icon: "✦", label: "Credit",       sign: "+", color: "#00c2a8", isCredit: true  },
   withdrawal:       { icon: "↓", label: "Withdrawal",   sign: "-", color: "#f87171", isCredit: false },
   pool_entry:       { icon: "◉", label: "Ticket",       sign: "-", color: "#f87171", isCredit: false },
   stake_lock:       { icon: "🔒", label: "Stake lock",   sign: "-", color: "#fbbf24", isCredit: false },
-  stake_release:    { icon: "🔓", label: "Stake return", sign: "+", color: "#10b981", isCredit: true  },
-  referral_bonus:   { icon: "⊕", label: "Referral",     sign: "+", color: "#10b981", isCredit: true  },
+  stake_release:    { icon: "🔓", label: "Stake return", sign: "+", color: "#00c2a8", isCredit: true  },
+  referral_bonus:   { icon: "⊕", label: "Referral",     sign: "+", color: "#00c2a8", isCredit: true  },
   withdraw:         { icon: "↓", label: "Withdrawal",   sign: "-", color: "#f87171", isCredit: false },
   p2p_escrow_lock:  { icon: "🔒", label: "P2P Escrow Lock", sign: "-", color: "#f59e0b", isCredit: false },
-  p2p_trade_credit: { icon: "↗", label: "P2P Trade Credit", sign: "+", color: "#10b981", isCredit: true },
+  p2p_trade_credit: { icon: "↗", label: "P2P Trade Credit", sign: "+", color: "#00c2a8", isCredit: true },
   p2p_escrow_refund:{ icon: "↩", label: "P2P Escrow Refund", sign: "+", color: "#34d399", isCredit: true },
   cashout_bet_lock: { icon: "🎮", label: "Arena Bet Lock", sign: "-", color: "#f59e0b", isCredit: false },
-  cashout_payout_credit: { icon: "🚀", label: "Arena Cashout Win", sign: "+", color: "#10b981", isCredit: true },
+  cashout_payout_credit: { icon: "🚀", label: "Arena Cashout Win", sign: "+", color: "#00c2a8", isCredit: true },
   cashout_shield_refund: { icon: "🛡", label: "Arena Shield Refund", sign: "+", color: "#34d399", isCredit: true },
   scratch_bet_lock: { icon: "🎫", label: "Scratch Card Stake", sign: "-", color: "#f59e0b", isCredit: false },
-  scratch_payout_credit: { icon: "✨", label: "Scratch Card Win", sign: "+", color: "#10b981", isCredit: true },
+  scratch_payout_credit: { icon: "✨", label: "Scratch Card Win", sign: "+", color: "#00c2a8", isCredit: true },
   game_bet: { icon: "🎮", label: "Mini game stake", sign: "-", color: "#f59e0b", isCredit: false },
-  game_win: { icon: "🏆", label: "Mini game win", sign: "+", color: "#10b981", isCredit: true },
+  game_win: { icon: "🏆", label: "Mini game win", sign: "+", color: "#00c2a8", isCredit: true },
   game_loss: { icon: "🎲", label: "Mini game (no win)", sign: "", color: "#64748b", isCredit: false },
 };
 function txMeta(type: string) {
@@ -78,7 +78,7 @@ function rowTxMeta(tx: { txType: string; note?: string | null }) {
 
 function gameStepMeta(txType: string): { step: string; dot: string } {
   if (txType === "game_bet") return { step: "Stake (bet)", dot: "bg-amber-500" };
-  if (txType === "game_win") return { step: "Win (payout)", dot: "bg-emerald-500" };
+  if (txType === "game_win") return { step: "Win (payout)", dot: "bg-[var(--green)]" };
   return { step: "Settled (no win)", dot: "bg-slate-500" };
 }
 
@@ -400,8 +400,8 @@ export default function WalletPage() {
       {/* Balance hero — primary trust anchor */}
       <div className={`${premiumPanel} overflow-hidden`}>
         <div className={cn(premiumPanelHead, "items-center")}>
-          <p className="font-sp-display text-[11px] font-semibold uppercase tracking-widest text-[#00E5CC]/85">Wallet</p>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/[0.08] px-2.5 py-1 text-[10px] font-medium text-emerald-300/95">
+          <p className="font-sp-display text-[11px] font-semibold uppercase tracking-widest text-[var(--green)]/85">Wallet</p>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--green-border)] bg-[var(--green-soft)] px-2.5 py-1 text-[10px] font-medium text-[var(--green)]/95">
             <Shield className="h-3 w-3" aria-hidden />
             Reviewed deposits
           </span>
@@ -416,17 +416,17 @@ export default function WalletPage() {
             <p className="text-[11px] text-muted-foreground mt-1">Everything in your SecurePool wallet (withdrawable + ticket balance + locked).</p>
           </div>
 
-          <div className="rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-b from-emerald-500/[0.16] to-[hsl(222,28%,10%)] px-5 py-5 shadow-lg shadow-emerald-950/40">
+          <div className="rounded-2xl border-2 border-[var(--green-border)] bg-gradient-to-b from-[var(--green-soft)] to-[hsl(222,28%,10%)] px-5 py-5 shadow-lg shadow-black/30">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-200/90">Withdrawable balance</p>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Withdrawable balance</p>
                 <div className="mt-1 flex flex-wrap items-baseline gap-2">
                   <UsdtAmount
                     amount={withdrawableAnim}
-                    amountClassName="font-sp-mono text-4xl font-black tabular-nums tracking-tight text-emerald-300 sm:text-[2.85rem]"
+                    amountClassName="font-sp-mono text-4xl font-black tabular-nums tracking-tight text-[var(--money)] sm:text-[2.85rem]"
                   />
                 </div>
-                <p className="mt-2 text-xs text-emerald-100/75 leading-relaxed max-w-md">
+                <p className="mt-2 text-xs text-muted-foreground leading-relaxed max-w-md">
                   This is the only balance used for withdrawals. Keep this funded to cash out anytime.
                 </p>
               </div>
@@ -435,7 +435,7 @@ export default function WalletPage() {
                   Withdraw
                 </Button>
               ) : (
-                <Button className="min-h-12 shrink-0 font-semibold shadow-md shadow-emerald-500/25" asChild>
+                <Button className="min-h-12 shrink-0 font-semibold shadow-md shadow-primary/20" asChild>
                   <Link href="/wallet?tab=withdraw">Withdraw</Link>
                 </Button>
               )}
@@ -449,15 +449,15 @@ export default function WalletPage() {
           </div>
 
           <div className="grid gap-2 sm:grid-cols-3">
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.08] p-3">
-              <p className="text-[11px] text-emerald-300">Withdrawable</p>
-              <UsdtAmount amount={withdrawableAnim} amountClassName="text-sm font-semibold tabular-nums text-emerald-100" />
-              <p className="text-[10px] text-emerald-100/80 mt-1">Cash-out eligible</p>
+            <div className="rounded-lg border border-[var(--green-border)] bg-[var(--green-soft)] p-3">
+              <p className="text-[11px] text-[var(--green)]">Withdrawable</p>
+              <UsdtAmount amount={withdrawableAnim} amountClassName="text-sm font-semibold tabular-nums text-[var(--money)]" />
+              <p className="text-[10px] text-muted-foreground mt-1">Cash-out eligible</p>
             </div>
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.08] p-3">
-              <p className="text-[11px] text-emerald-300">Rewards</p>
-              <UsdtAmount amount={rewardsAnim} amountClassName="text-sm font-semibold tabular-nums text-emerald-100" />
-              <p className="text-[10px] text-emerald-100/80 mt-1">Used in platform features</p>
+            <div className="rounded-lg border border-[var(--green-border)] bg-[var(--green-soft)] p-3">
+              <p className="text-[11px] text-[var(--green)]">Rewards</p>
+              <UsdtAmount amount={rewardsAnim} amountClassName="text-sm font-semibold tabular-nums text-[var(--money)]" />
+              <p className="text-[10px] text-muted-foreground mt-1">Used in platform features</p>
             </div>
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.08] p-3">
               <p className="text-[11px] text-amber-300">Locked / In-use</p>
@@ -513,7 +513,7 @@ export default function WalletPage() {
               }}
               className={`flex-1 min-h-12 py-3 text-sm font-semibold transition-colors duration-200 ${
                 tab === t.id
-                  ? "text-foreground border-b-2 border-emerald-500"
+                  ? "text-foreground border-b-2 border-[var(--green)]"
                   : "text-muted-foreground hover:text-foreground"
               }`}
               style={{ marginBottom: tab === t.id ? -1 : 0 }}
@@ -526,7 +526,7 @@ export default function WalletPage() {
         {/* ── DEPOSIT TAB — guided wizard ── */}
         {tab === "deposit" && (
           <div className="p-5 space-y-5">
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/15 px-4 py-3">
+            <div className="rounded-xl border border-[var(--green-border)] bg-[var(--green-soft)] px-4 py-3">
               <p className="text-sm font-semibold text-foreground">Add money to your wallet</p>
               <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                 Follow the steps below: send USDT, upload a screenshot, then wait for verification.
@@ -534,18 +534,18 @@ export default function WalletPage() {
             </div>
 
             {/* SPT deposit bonus (FOMO) */}
-            <div className="rounded-xl border border-[#FFD166]/20 bg-[linear-gradient(135deg,rgba(255,209,102,0.08),rgba(16,185,129,0.06))] px-4 py-4">
+            <div className="rounded-xl border border-[#FFD166]/20 bg-[linear-gradient(135deg,rgba(255,209,102,0.08),rgba(0,194,168,0.06))] px-4 py-4">
               <p className="text-[13px] text-[#8899BB] mb-2">🎁 Deposit Bonus</p>
               {firstDepositClaimed ? (
                 <>
-                  <p className="text-[14px] font-semibold text-emerald-300">✅ First deposit bonus already claimed</p>
+                  <p className="text-[14px] font-semibold text-[var(--green)]">✅ First deposit bonus already claimed</p>
                   <p className="text-[12px] text-[#8899BB] mt-1">+500 SPT has been added to your account.</p>
                 </>
               ) : (
                 <>
                   <p className="font-sp-display font-extrabold text-[22px] text-[#FFD166]">+500 SPT</p>
                   <p className="text-[12px] text-[#8899BB] mt-1">
-                    Earned on your first deposit — ≈ <span className="text-emerald-300 font-semibold">5 USDT</span> value for free
+                    Earned on your first deposit — ≈ <span className="text-[var(--money)] font-semibold">5 USDT</span> value for free
                   </p>
                 </>
               )}
@@ -800,7 +800,7 @@ export default function WalletPage() {
                               prefix={tx.txType === "game_bet" ? "-" : tx.txType === "game_win" ? "+" : ""}
                               amountClassName={cn(
                                 "text-xs font-bold tabular-nums",
-                                tx.txType === "game_win" ? "text-emerald-300" : tx.txType === "game_bet" ? "text-amber-200" : "text-slate-400",
+                                tx.txType === "game_win" ? "text-[var(--money)]" : tx.txType === "game_bet" ? "text-amber-200" : "text-slate-400",
                               )}
                               currencyClassName="text-[10px] text-muted-foreground"
                             />
@@ -856,7 +856,7 @@ export default function WalletPage() {
             {/* Legend */}
             <div className="flex gap-4 px-5 py-2.5 border-b border-[hsl(217,28%,14%)] text-[10px] text-muted-foreground"
               style={{ background: "hsl(222,30%,10%)" }}>
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-emerald-500" /> Money In</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-[var(--green)]" /> Money In</span>
               <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-red-400" /> Money Out</span>
             </div>
 
@@ -902,7 +902,7 @@ export default function WalletPage() {
                       <div className="flex items-center gap-0 hover:bg-white/[0.01] transition-colors">
                         <div
                           className="w-1 self-stretch shrink-0"
-                          style={{ background: meta.isCredit ? "#10b981" : "#f87171", minHeight: 52 }}
+                          style={{ background: meta.isCredit ? "var(--green)" : "#f87171", minHeight: 52 }}
                         />
                         <div className="flex items-center gap-3 flex-1 px-4 py-3.5">
                           <div

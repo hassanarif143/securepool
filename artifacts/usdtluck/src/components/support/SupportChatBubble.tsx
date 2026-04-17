@@ -13,7 +13,7 @@ const QUICK_REPLIES = [
 
 function AIAvatar() {
   return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-teal-600 text-[13px] font-extrabold text-[#060B18] border-2 border-cyan-400/30 shrink-0">
+    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--green)] text-[13px] font-extrabold text-[var(--green-text)] border-2 border-[var(--green-border)] shrink-0">
       SP
     </div>
   );
@@ -153,7 +153,7 @@ export function SupportChatBubble() {
     return (
       <Link
         href="/login"
-        className="fixed z-[90] flex h-[52px] w-[52px] items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-teal-600 text-[13px] font-extrabold text-[#060B18] border-2 border-cyan-400/30 shadow-lg shadow-cyan-500/25 md:bottom-6 md:right-6 bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4"
+        className="fixed z-[90] flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[var(--green)] text-[13px] font-extrabold text-[var(--green-text)] border-2 border-[var(--green-border)] shadow-lg shadow-[rgba(0,194,168,0.25)] md:bottom-6 md:right-6 bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4"
         aria-label="Login for support chat"
       >
         SP
@@ -176,9 +176,9 @@ export function SupportChatBubble() {
               <AIAvatar />
               <div>
                 <p className="text-[15px] font-semibold text-white">SecurePool Support</p>
-                <p className={cn("text-[12px]", escalated ? "text-amber-400" : "text-emerald-400")}>
+                <p className={cn("text-[12px]", escalated ? "text-amber-400" : "text-[var(--green)]")}>
                   <span className="inline-flex items-center gap-1.5">
-                    <span className={cn("h-1.5 w-1.5 rounded-full", escalated ? "bg-amber-400" : "bg-emerald-400")} aria-hidden />
+                    <span className={cn("h-1.5 w-1.5 rounded-full", escalated ? "bg-amber-400" : "bg-[var(--green)]")} aria-hidden />
                     {escalated ? "Connecting you to an admin" : "AI Assistant • Usually instant"}
                   </span>
                 </p>
@@ -209,14 +209,14 @@ export function SupportChatBubble() {
                         className={cn(
                           "rounded-2xl px-3.5 py-2 text-[14px] leading-relaxed border",
                           msg.type === "user"
-                            ? "rounded-tr-sm border-transparent bg-gradient-to-br from-teal-600 to-sky-700 text-[#F0F4FF]"
+                            ? "rounded-tr-sm border-transparent bg-[var(--green)] text-[var(--green-text)]"
                             : msg.type === "admin"
-                              ? "rounded-tl-sm border-emerald-500/25 bg-emerald-950/30 text-white"
+                              ? "rounded-tl-sm border-[var(--green-border)] bg-[var(--green-soft)] text-white"
                               : "rounded-tl-sm border-[#1E2D4A] bg-[#121D35] text-[#E2E8F0]",
                         )}
                       >
                         {msg.type === "admin" && (
-                          <p className="mb-1 text-[10px] font-semibold uppercase text-cyan-300">Support team</p>
+                          <p className="mb-1 text-[10px] font-semibold uppercase text-[var(--green)]">Support team</p>
                         )}
                         {msg.text}
                       </div>
@@ -242,7 +242,7 @@ export function SupportChatBubble() {
                     key={qr.text}
                     type="button"
                     onClick={() => void sendMessage(qr.text)}
-                    className="ml-10 flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-2 text-left text-[13px] text-[#A0C4D8] hover:bg-cyan-400/[0.12] hover:text-[#E2E8F0] hover:border-cyan-400/40 transition-colors"
+                    className="ml-10 flex items-center gap-2 rounded-xl border border-[var(--green-border)] bg-[var(--green-soft)] px-3 py-2 text-left text-[13px] text-[#A0C4D8] hover:bg-[rgba(0,194,168,0.12)] hover:text-[#E2E8F0] transition-colors"
                   >
                     <span className="text-base" aria-hidden>
                       {qr.icon}
@@ -260,7 +260,7 @@ export function SupportChatBubble() {
                   {[0, 1, 2].map((j) => (
                     <span
                       key={j}
-                      className="h-1.5 w-1.5 rounded-full bg-cyan-400/80 animate-[typingDot_1.2s_ease-in-out_infinite]"
+                      className="h-1.5 w-1.5 rounded-full bg-[var(--green)]/80 animate-[typingDot_1.2s_ease-in-out_infinite]"
                       style={{ animationDelay: `${j * 0.2}s` }}
                     />
                   ))}
@@ -276,7 +276,7 @@ export function SupportChatBubble() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && void sendMessage()}
               placeholder="Type your message…"
-              className="min-w-0 flex-1 rounded-xl border border-[#1E2D4A] bg-[#0D1526] px-4 py-2 text-sm text-white placeholder:text-[#445577] focus:outline-none focus:ring-1 focus:ring-cyan-400/40"
+              className="min-w-0 flex-1 rounded-xl border border-[#1E2D4A] bg-[#0D1526] px-4 py-2 text-sm text-white placeholder:text-[#445577] focus:outline-none focus:ring-1 focus:ring-[var(--green-border)]"
             />
             <button
               type="button"
@@ -284,7 +284,7 @@ export function SupportChatBubble() {
               onClick={() => void sendMessage()}
               className={cn(
                 "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#06080f] transition-colors",
-                input.trim() && !loading ? "bg-gradient-to-br from-cyan-400 to-teal-600" : "bg-[#1E2D4A] text-[#445577]",
+                input.trim() && !loading ? "bg-[var(--green)] text-[var(--green-text)]" : "bg-[#1E2D4A] text-[#445577]",
               )}
               aria-label="Send"
             >
@@ -307,8 +307,8 @@ export function SupportChatBubble() {
         type="button"
         onClick={() => setIsOpen((v) => !v)}
         className={cn(
-          "fixed z-[90] flex h-[52px] w-[52px] items-center justify-center rounded-full border-2 border-cyan-400/30 shadow-lg shadow-cyan-500/25 transition-colors",
-          isOpen ? "bg-[#1E2D4A] text-[#8899BB]" : "bg-gradient-to-br from-cyan-400 to-teal-600 text-[#060B18]",
+          "fixed z-[90] flex h-[52px] w-[52px] items-center justify-center rounded-full border-2 border-[var(--green-border)] shadow-lg shadow-[rgba(0,194,168,0.25)] transition-colors",
+          isOpen ? "bg-[#1E2D4A] text-[#8899BB]" : "bg-[var(--green)] text-[var(--green-text)]",
           "bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 md:bottom-6 md:right-6",
         )}
         aria-label={isOpen ? "Close support" : "Open support chat"}

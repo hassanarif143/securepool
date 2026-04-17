@@ -19,7 +19,7 @@ export function GamePlayShell({ title, subtitle, balance, children, className }:
           <div className="min-w-0">
             <Link
               href="/games"
-              className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-sp-text-dim transition-colors hover:text-[#00E5CC]"
+              className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-sp-text-dim transition-colors hover:text-[var(--green)]"
             >
               <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
               Back to arcade

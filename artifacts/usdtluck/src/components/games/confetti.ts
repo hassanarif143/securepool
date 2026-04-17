@@ -5,8 +5,8 @@ export function fireConfetti(isBig: boolean) {
   document.body.appendChild(container);
 
   const colors = isBig
-    ? ["#FFD700", "#FFA500", "#FF6347", "#00E5CC", "#8B5CF6"]
-    : ["#00E5CC", "#00B89C", "#8B5CF6"];
+    ? ["#FFD700", "#FFA500", "#FF6347", "#00C2A8", "#22C55E"]
+    : ["#00C2A8", "#00A896", "#22C55E"];
   const count = isBig ? 60 : 30;
 
   for (let i = 0; i < count; i++) {

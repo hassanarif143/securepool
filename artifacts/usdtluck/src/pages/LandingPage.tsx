@@ -207,10 +207,10 @@ export default function LandingPage() {
           aria-hidden
         />
         <div className="relative mx-auto max-w-[900px] text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[var(--green-border)] bg-[var(--green-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--green)]">
             <span className="landing-live-dot relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+              <span className="absolute inline-flex h-full w-full rounded-full bg-[var(--green)] opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--green)]" />
             </span>
             Live — {activeCount} pool{activeCount === 1 ? "" : "s"} active now
           </div>
@@ -219,8 +219,7 @@ export default function LandingPage() {
             Win USDT
             <br />
             <span
-              className="bg-gradient-to-r from-[#4ade80] via-[#22c55e] to-[#15803d] bg-clip-text text-transparent"
-              style={{ WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
+              className="text-[var(--green)]"
             >
               Every Day
             </span>
@@ -236,9 +235,10 @@ export default function LandingPage() {
             <Button
               asChild
               size="lg"
-              className="landing-mono h-14 w-full max-w-sm rounded-[14px] bg-gradient-to-r from-emerald-500 to-green-600 px-10 text-base font-bold text-white shadow-lg hover:from-emerald-400 hover:to-green-500 sm:min-w-[280px] sm:w-auto"
+              className="landing-mono h-14 w-full max-w-sm rounded-[14px] px-10 text-base font-bold text-[var(--green-text)] shadow-lg sm:min-w-[280px] sm:w-auto"
               style={{
-                boxShadow: "0 4px 24px rgba(34,197,94,0.25)",
+                background: "var(--green)",
+                boxShadow: "0 4px 24px rgba(0,194,168,0.22)",
                 animation: "landing-cta-glow 3s ease-in-out infinite",
               }}
             >
@@ -260,7 +260,7 @@ export default function LandingPage() {
             ))}
           </div>
           <p className="mt-8">
-            <Link href="/how-it-works" className="text-sm font-semibold text-emerald-400/95 underline-offset-4 hover:underline">
+            <Link href="/how-it-works" className="text-sm font-semibold text-[var(--green)]/95 underline-offset-4 hover:underline">
               Full step-by-step guide →
             </Link>
           </p>
@@ -273,7 +273,7 @@ export default function LandingPage() {
 
       <MarketingMotionSection id="trust-proof" className="rounded-2xl py-16 sm:px-2" style={{ backgroundColor: SURFACE }}>
         <div ref={trustInView.ref} className="mx-auto max-w-[900px]">
-          <p className="landing-verified-label text-center text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400">
+          <p className="landing-verified-label text-center text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--green)]">
             Verified Results
           </p>
           <div ref={underlineInView.ref} className="relative">
@@ -296,10 +296,10 @@ export default function LandingPage() {
 
           <div className="mt-3 flex items-center justify-center gap-2 text-[13px] text-[#94a3b8]">
             <span className="relative flex h-2 w-2" aria-hidden>
-              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+              <span className="absolute inline-flex h-full w-full rounded-full bg-[var(--green)] opacity-60 animate-ping" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--green)]" />
             </span>
-            <span className="font-semibold text-emerald-300">LIVE</span> — {activeCount} open pool{activeCount === 1 ? "" : "s"} right now
+            <span className="font-semibold text-[var(--green)]">LIVE</span> — {activeCount} open pool{activeCount === 1 ? "" : "s"} right now
           </div>
 
           <div className="mt-8 overflow-hidden rounded-2xl border border-white/[0.08]" style={{ backgroundColor: SURFACE2 }}>
@@ -328,15 +328,15 @@ export default function LandingPage() {
                     <span aria-hidden>{w.place === 1 ? "🥇" : w.place === 2 ? "🥈" : "🥉"}</span>
                     <span className="font-medium text-[#e2e8f0]">{maskWinnerName(w.userName)}</span>
                     <span className="text-[#64748b]">won</span>
-                    <span className="landing-mono font-extrabold text-emerald-300 landing-amount-glow">
+                    <span className="landing-mono font-extrabold text-[var(--money)] landing-amount-glow">
                       ${Number(w.amount).toFixed(2)}
                     </span>
                     <span className="text-[#64748b]">on</span>
-                    <span className="text-[#00D4FF] font-semibold truncate max-w-[45vw] sm:max-w-none">
+                    <span className="text-[var(--green)] font-semibold truncate max-w-[45vw] sm:max-w-none">
                       {String(w.poolTitle ?? "SecurePool")}
                     </span>
                     <span className="text-xs text-[#64748b]">{timeAgoShort(w.awardedAt)}</span>
-                    <span className="ml-auto rounded-full bg-emerald-500/20 px-2.5 py-1 text-[11px] font-semibold text-white border border-emerald-500/25">
+                    <span className="ml-auto rounded-full bg-[var(--green-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--green)] border border-[var(--green-border)]">
                       Verified
                     </span>
                   </li>
@@ -347,7 +347,7 @@ export default function LandingPage() {
               <Button
                 asChild
                 variant="outline"
-                className="h-12 w-full rounded-xl border-cyan-500/35 text-cyan-200 hover:bg-cyan-500/10 sm:inline-flex sm:w-auto"
+                className="h-12 w-full rounded-xl border-[var(--green-border)] text-[var(--green)] hover:bg-[var(--green-soft)] sm:inline-flex sm:w-auto"
               >
                 <Link href="/winners">View All Winners →</Link>
               </Button>
@@ -377,7 +377,7 @@ export default function LandingPage() {
                 <p
                   className={cn(
                     "landing-mono mt-2 tabular-nums text-[#f0f0f0]",
-                    s.label === "Paid out" ? "text-[40px] leading-none font-black text-emerald-300 landing-amount-glow" : "text-lg font-bold sm:text-xl",
+                    s.label === "Paid out" ? "text-[40px] leading-none font-black text-[var(--money)] landing-amount-glow" : "text-lg font-bold sm:text-xl",
                   )}
                 >
                   {s.val}
@@ -415,9 +415,9 @@ export default function LandingPage() {
               <p className="text-[14px] leading-snug">
                 <span aria-hidden>🎉</span> <span className="font-semibold">{masked}</span>{" "}
                 <span className="text-[#94a3b8]">just won</span>{" "}
-                <span className="font-extrabold text-emerald-300 landing-amount-glow">${w.prize.toFixed(2)}</span>{" "}
+                <span className="font-extrabold text-[var(--money)] landing-amount-glow">${w.prize.toFixed(2)}</span>{" "}
                 <span className="text-[#94a3b8]">on</span>{" "}
-                <span className="font-semibold text-cyan-200">{poolName}</span>
+                <span className="font-semibold text-[var(--green)]">{poolName}</span>
               </p>
             );
           })()}
@@ -429,7 +429,7 @@ export default function LandingPage() {
 
       <MarketingMotionSection id="faq" className="rounded-2xl py-16 sm:px-2" style={{ backgroundColor: SURFACE }}>
         <div className="mx-auto max-w-[720px]">
-          <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400">FAQ</p>
+          <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--green)]">FAQ</p>
           <h2 className="landing-display mt-2 text-center text-2xl font-bold">Common Questions</h2>
           <LandingFaqAccordion />
         </div>
@@ -437,8 +437,8 @@ export default function LandingPage() {
 
       <style>{`
         @keyframes landing-cta-glow {
-          0%, 100% { box-shadow: 0 4px 24px rgba(34,197,94,0.25); }
-          50% { box-shadow: 0 6px 32px rgba(34,197,94,0.38); }
+          0%, 100% { box-shadow: 0 4px 24px rgba(0,194,168,0.22); }
+          50% { box-shadow: 0 6px 32px rgba(0,194,168,0.34); }
         }
         .landing-live-dot span:first-child {
           animation: landing-dot-pulse 2s ease-in-out infinite;
@@ -464,7 +464,7 @@ export default function LandingPage() {
           border-radius: 999px;
           transform: scaleX(0);
           transform-origin: left;
-          background: linear-gradient(90deg, rgba(0,230,118,1), rgba(0,212,255,1));
+          background: var(--green);
           transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
         }
         .landing-underline-bar.is-on { transform: scaleX(1); }
@@ -475,7 +475,7 @@ export default function LandingPage() {
           from { opacity: 0; transform: translateX(-12px); }
           to { opacity: 1; transform: translateX(0); }
         }
-        .landing-amount-glow { text-shadow: 0 0 16px rgba(0,230,118,0.22); }
+        .landing-amount-glow { text-shadow: 0 0 16px rgba(0,194,168,0.22); }
         .landing-toast {
           position: fixed;
           left: 16px;
@@ -502,7 +502,7 @@ export default function LandingPage() {
           top: 0;
           bottom: 0;
           width: 4px;
-          background: linear-gradient(180deg, rgba(0,230,118,1), rgba(0,212,255,1));
+          background: var(--green);
         }
         @media (max-width: 768px) {
           .landing-toast { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(15,20,40,0.92); }

@@ -306,10 +306,10 @@ export default function StakingPage() {
       </div>
 
       {/* (A) HERO EARNING CARD */}
-      <div className="rounded-[22px] border border-border/60 bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(34,211,238,0.22),transparent_40%),radial-gradient(900px_circle_at_100%_0%,rgba(255,215,0,0.10),transparent_55%)] bg-card/60 backdrop-blur-md p-5 sm:p-6 shadow-[0_0_38px_rgba(34,211,238,0.12)]">
+      <div className="rounded-[22px] border border-border/60 bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(0,194,168,0.22),transparent_40%),radial-gradient(900px_circle_at_100%_0%,rgba(255,215,0,0.10),transparent_55%)] bg-card/60 backdrop-blur-md p-5 sm:p-6 shadow-[0_0_38px_rgba(0,194,168,0.12)]">
         <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Your Staked Earnings</p>
         <div className="mt-2">
-          <p className="text-3xl sm:text-4xl font-extrabold tracking-tight text-emerald-200 drop-shadow-[0_0_20px_rgba(34,197,94,0.12)]">
+          <p className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--money)] drop-shadow-[0_0_20px_rgba(34,197,94,0.12)]">
             +<AnimatedNumber value={totalEarned} decimals={2} />{" "}
             <span className="text-base font-semibold text-muted-foreground">USDT</span>
           </p>
@@ -327,13 +327,13 @@ export default function StakingPage() {
           </div>
           <div className="rounded-2xl border border-border/60 bg-muted/10 p-3">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Today</p>
-            <p className="text-sm font-bold text-emerald-300 drop-shadow-[0_0_18px_rgba(34,197,94,0.14)]">
+            <p className="text-sm font-bold text-[var(--money)] drop-shadow-[0_0_18px_rgba(34,197,94,0.14)]">
               +<AnimatedNumber value={liveDailyEarnings} decimals={3} /> USDT
             </p>
           </div>
           <div className="rounded-2xl border border-border/60 bg-muted/10 p-3">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Monthly</p>
-            <p className="text-sm font-bold text-emerald-200">
+            <p className="text-sm font-bold text-[var(--money)]">
               ~<AnimatedNumber value={estMonthly} decimals={2} /> USDT
             </p>
           </div>
@@ -341,8 +341,8 @@ export default function StakingPage() {
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {[
-            { label: "Secure System", tone: "border-cyan-500/25 bg-cyan-500/10 text-cyan-200" },
-            { label: "Fair Rewards Engine", tone: "border-emerald-500/25 bg-emerald-500/10 text-emerald-200" },
+            { label: "Secure System", tone: "border-[var(--green-border)] bg-[var(--green-soft)] text-[var(--green)]" },
+            { label: "Fair Rewards Engine", tone: "border-[var(--green-border)] bg-[var(--green-soft)] text-[var(--green)]" },
             { label: "Instant Tracking", tone: "border-amber-500/25 bg-amber-500/10 text-amber-200" },
           ].map((b) => (
             <span key={b.label} className={cn("text-[10px] font-bold px-2.5 py-1 rounded-full border", b.tone)}>
@@ -352,7 +352,7 @@ export default function StakingPage() {
 
           <div className="ml-auto">
             <Button
-              className="rounded-full px-5 h-10 shadow-[0_0_24px_rgba(34,211,238,0.18)]"
+              className="rounded-full px-5 h-10 shadow-[0_0_24px_rgba(0,194,168,0.18)]"
               onClick={() => document.getElementById("quickStake")?.scrollIntoView({ behavior: "smooth", block: "start" })}
             >
               Start Staking
@@ -431,7 +431,7 @@ export default function StakingPage() {
                 </div>
                 <div className="mt-1 flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Est. at unlock</span>
-                  <span className="font-mono font-semibold text-emerald-200">
+                  <span className="font-mono font-semibold text-[var(--money)]">
                     {quickProj ? `~${quickProj.receive.toFixed(2)}` : "—"} USDT
                   </span>
                 </div>
@@ -441,7 +441,7 @@ export default function StakingPage() {
               </div>
 
               <Button
-                className="w-full h-12 rounded-2xl shadow-[0_0_28px_rgba(34,211,238,0.16)]"
+                className="w-full h-12 rounded-2xl shadow-[0_0_28px_rgba(0,194,168,0.16)]"
                 disabled={!quickAmountOk || creating}
                 onClick={() => void submitStake()}
               >
@@ -507,7 +507,7 @@ export default function StakingPage() {
                         <div className="grid grid-cols-2 gap-2.5">
                           <div className="rounded-2xl border border-border/60 bg-card/40 p-3">
                             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Earned today</p>
-                            <p className="text-sm font-bold text-emerald-300">
+                            <p className="text-sm font-bold text-[var(--money)]">
                               +<AnimatedNumber value={earnedToday} decimals={3} /> USDT
                             </p>
                           </div>
@@ -525,10 +525,10 @@ export default function StakingPage() {
                             <span>{pct.toFixed(0)}%</span>
                           </div>
                           <div className="mt-2 h-2 rounded-full bg-muted/40 overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-cyan-400 via-[#00E5CC] to-emerald-400" style={{ width: `${pct}%` }} />
+                            <div className="h-full bg-[var(--green)]" style={{ width: `${pct}%` }} />
                           </div>
                           <p className="text-[11px] text-muted-foreground mt-2">
-                            Est. daily: <span className="font-mono text-emerald-200">~{daily.toFixed(3)} USDT</span>
+                            Est. daily: <span className="font-mono text-[var(--money)]">~{daily.toFixed(3)} USDT</span>
                           </p>
                         </div>
 
@@ -581,7 +581,7 @@ export default function StakingPage() {
                   <p className="text-[11px] text-muted-foreground mt-0.5">Unlocked {new Date(s.endsAt).toLocaleDateString()}</p>
                   <p className="text-[11px] text-muted-foreground mt-1">
                     You receive{" "}
-                    <span className="font-mono font-semibold text-emerald-200">{(s.stakedAmount + s.earnedAmount).toFixed(2)} USDT</span>
+                    <span className="font-mono font-semibold text-[var(--money)]">{(s.stakedAmount + s.earnedAmount).toFixed(2)} USDT</span>
                   </p>
                 </div>
                 <Button className="h-10 rounded-2xl" disabled={claimingId === s.id} onClick={() => void claim(s.id)}>
@@ -609,7 +609,7 @@ export default function StakingPage() {
             </div>
             <div className="rounded-2xl border border-border/60 bg-muted/10 p-3">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg daily %</p>
-              <p className="text-lg font-bold text-cyan-200">~{dailyReturnPct.toFixed(2)}%</p>
+              <p className="text-lg font-bold text-[var(--green)]">~{dailyReturnPct.toFixed(2)}%</p>
             </div>
           </div>
 
@@ -637,11 +637,11 @@ export default function StakingPage() {
               <div className="mt-3 space-y-2 text-sm">
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-muted-foreground">Real-time reward calculation</span>
-                  <span className="text-emerald-200 font-semibold">Live</span>
+                  <span className="text-[var(--green)] font-semibold">Live</span>
                 </div>
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-muted-foreground">No hidden charges</span>
-                  <span className="text-cyan-200 font-semibold">0 fees</span>
+                  <span className="text-[var(--green)] font-semibold">0 fees</span>
                 </div>
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-muted-foreground">Unstake anytime</span>
@@ -663,7 +663,7 @@ export default function StakingPage() {
           <div className="space-y-3">
             <div className="rounded-2xl border border-border/60 bg-muted/10 p-3">
               <p className="text-xs text-muted-foreground">Available earnings</p>
-              <p className="text-xl font-bold text-emerald-200">+{withdrawDialog.amount.toFixed(2)} USDT</p>
+              <p className="text-xl font-bold text-[var(--money)]">+{withdrawDialog.amount.toFixed(2)} USDT</p>
               <p className="text-[11px] text-muted-foreground mt-1">Withdraw may take a few seconds.</p>
             </div>
             <Button className="w-full h-11 rounded-2xl" disabled={withdrawingId != null} onClick={() => void confirmWithdraw()}>

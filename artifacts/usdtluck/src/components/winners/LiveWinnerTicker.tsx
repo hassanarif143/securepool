@@ -38,8 +38,8 @@ export function LiveWinnerTicker() {
         <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Live winners</p>
         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <span className="relative flex h-2 w-2" aria-hidden>
-            <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+            <span className="absolute inline-flex h-full w-full rounded-full bg-[var(--green)] opacity-60 animate-ping" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--green)]" />
           </span>
           LIVE
         </span>
@@ -129,7 +129,7 @@ export function LiveWinnerTicker() {
           inset: -1px;
           border-radius: 16px;
           pointer-events: none;
-          background: radial-gradient(120px 60px at 20% 20%, rgba(0,230,118,0.14), transparent 60%);
+          background: radial-gradient(120px 60px at 20% 20%, rgba(0,194,168,0.14), transparent 60%);
         }
         .sp-marquee-line {
           font-size: 13px;
@@ -140,8 +140,8 @@ export function LiveWinnerTicker() {
           text-overflow: ellipsis;
         }
         .sp-marquee-name { font-weight: 700; color: #ffffff; }
-        .sp-marquee-amt { font-weight: 800; color: #00e676; text-shadow: 0 0 14px rgba(0,230,118,0.25); }
-        .sp-marquee-pool { color: #00D4FF; font-weight: 600; }
+        .sp-marquee-amt { font-weight: 800; color: var(--money); text-shadow: 0 0 14px rgba(0,194,168,0.18); }
+        .sp-marquee-pool { color: var(--green); font-weight: 600; }
         .sp-marquee-time { color: #9e9e9e; font-size: 12px; }
         .sp-marquee-dim { color: #9e9e9e; }
         .sp-marquee-sub { margin-top: 2px; font-size: 11px; color: #9e9e9e; }

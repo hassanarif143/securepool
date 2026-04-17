@@ -193,7 +193,7 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
         {LADDER.map((m) => (
           <div
             key={m}
-            className={`h-2 flex-1 rounded-full ${mult >= m ? "bg-[#00E5CC] shadow-[0_0_8px_rgba(0,229,204,0.4)]" : "bg-white/10"}`}
+            className={`h-2 flex-1 rounded-full ${mult >= m ? "bg-[var(--green)] shadow-[0_0_8px_rgba(0,194,168,0.4)]" : "bg-white/10"}`}
             title={`${m}×`}
           />
         ))}
@@ -299,7 +299,9 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
                 }}
                 className={cn(
                   "h-11 rounded-xl border px-4 font-sp-mono text-sm font-bold transition",
-                  bet === b ? "border-[#00E5CC]/35 bg-[#00E5CC]/15 text-[#99F6E4]" : "border-white/10 bg-white/[0.03] text-white/85",
+                  bet === b
+                    ? "border-[var(--green-border)] bg-[var(--green-soft)] text-[var(--green)]"
+                    : "border-white/10 bg-white/[0.03] text-white/85",
                 )}
               >
                 {b}
@@ -310,7 +312,7 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
             type="button"
             disabled={busy || balance < bet}
             onClick={() => void deal()}
-            className="mt-1 h-12 rounded-2xl bg-gradient-to-r from-[#00E5CC] to-[#00B89C] px-10 font-sp-display text-sm font-extrabold text-[#06080F] shadow-[0_10px_34px_rgba(0,229,204,0.22)] disabled:opacity-40"
+            className="mt-1 h-12 rounded-2xl bg-gradient-to-r from-[var(--green)] to-[var(--green-hover)] px-10 font-sp-display text-sm font-extrabold text-[var(--green-text)] shadow-[0_10px_34px_rgba(0,194,168,0.22)] disabled:opacity-40"
           >
             DEAL
           </button>
@@ -327,7 +329,7 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
               onClick={() => void guess("higher")}
               onPointerEnter={() => play("hover")}
               className={cn(
-                "flex-1 rounded-2xl bg-gradient-to-r from-[#00E5CC] to-[#00B89C] px-6 py-3 font-sp-display text-sm font-extrabold text-[#06080F]",
+                "flex-1 rounded-2xl bg-gradient-to-r from-[var(--green)] to-[var(--green-hover)] px-6 py-3 font-sp-display text-sm font-extrabold text-[var(--green-text)]",
                 "shadow-[0_10px_34px_rgba(0,229,204,0.18)] disabled:opacity-50",
               )}
             >
@@ -339,7 +341,7 @@ export default function HiLoCards({ balance, allowedBets, onBalanceUpdate, onPla
               onClick={() => void guess("lower")}
               onPointerEnter={() => play("hover")}
               className={cn(
-                "flex-1 rounded-2xl bg-gradient-to-r from-[#8B5CF6] to-[#5B21B6] px-6 py-3 font-sp-display text-sm font-extrabold text-white",
+                "flex-1 rounded-2xl bg-gradient-to-r from-[var(--green-hover)] to-[var(--green)] px-6 py-3 font-sp-display text-sm font-extrabold text-[var(--green-text)]",
                 "shadow-[0_10px_34px_rgba(139,92,246,0.16)] disabled:opacity-50",
               )}
             >

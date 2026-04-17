@@ -186,12 +186,12 @@ export default function VerifyEmailPage() {
           <Logo size="md" />
         </div>
         <div
-          className="rounded-2xl border border-emerald-500/20 bg-[hsl(222,30%,9%)] p-6 sm:p-8 shadow-2xl"
-          style={{ boxShadow: "0 0 60px rgba(0,212,255,0.06)" }}
+          className="rounded-2xl border border-[var(--green-border)] bg-[hsl(222,30%,9%)] p-6 sm:p-8 shadow-2xl"
+          style={{ boxShadow: "0 0 60px rgba(0,194,168,0.06)" }}
         >
           <h1 className="text-xl sm:text-2xl font-bold text-center text-white mb-1">Verify your email</h1>
           <p className="text-sm text-muted-foreground text-center mb-6">
-            We sent a 6-digit code to <span className="text-emerald-400 font-medium">{user.email}</span>
+            We sent a 6-digit code to <span className="text-[var(--green)] font-medium">{user.email}</span>
           </p>
 
           {blockedLeftSec > 0 && (
@@ -216,7 +216,7 @@ export default function VerifyEmailPage() {
                 disabled={submitting || blockedLeftSec > 0}
                 onChange={(e) => setDigit(i, e.target.value)}
                 onKeyDown={(e) => onKeyDown(i, e)}
-                className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-mono font-bold rounded-lg bg-[#0A1628] border border-emerald-500/35 text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-50"
+                className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-mono font-bold rounded-lg bg-[#0A1628] border border-[var(--green-border)] text-[var(--green)] focus:outline-none focus:ring-2 focus:ring-[var(--green)]/50 disabled:opacity-50"
               />
             ))}
             <span className="self-center text-muted-foreground px-1">—</span>
@@ -234,7 +234,7 @@ export default function VerifyEmailPage() {
                 disabled={submitting || blockedLeftSec > 0}
                 onChange={(e) => setDigit(i, e.target.value)}
                 onKeyDown={(e) => onKeyDown(i, e)}
-                className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-mono font-bold rounded-lg bg-[#0A1628] border border-emerald-500/35 text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-50"
+                className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-mono font-bold rounded-lg bg-[#0A1628] border border-[var(--green-border)] text-[var(--green)] focus:outline-none focus:ring-2 focus:ring-[var(--green)]/50 disabled:opacity-50"
               />
             ))}
           </div>
@@ -255,7 +255,7 @@ export default function VerifyEmailPage() {
           <Button
             type="button"
             variant="outline"
-            className="w-full border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 mb-4"
+            className="w-full border-[var(--green-border)] text-[var(--green)] hover:bg-[var(--green-soft)] mb-4"
             disabled={resending || resendLeftSec > 0 || blockedLeftSec > 0}
             onClick={() => void handleResend()}
           >
@@ -268,7 +268,7 @@ export default function VerifyEmailPage() {
 
           <p className="text-xs text-center text-muted-foreground">
             Wrong inbox? Check spam, or{" "}
-            <Link href="/profile" className="text-emerald-400 hover:underline">
+            <Link href="/profile" className="text-[var(--green)] hover:underline">
               profile settings
             </Link>
             .
