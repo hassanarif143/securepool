@@ -73,7 +73,7 @@ export default function MySharesPage() {
       if (!wrap?.firstElementChild) return;
       try {
         const canvas = await html2canvas(wrap.firstElementChild as HTMLElement, {
-          backgroundColor: "#0a0f1a",
+          backgroundColor: "#0a1628",
           scale: 2,
           useCORS: true,
         });
