@@ -337,16 +337,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-      {user.riskLevel && user.riskLevel !== "low" && !user.isAdmin ? (
-        <div className="rounded-2xl border border-red-500/35 bg-red-500/[0.08] px-4 py-4 sm:px-5">
-          <p className="text-sm font-semibold text-red-200">Suspicious activity detected</p>
-          <p className="mt-1 text-xs text-red-100/90 leading-relaxed">
-            Your account risk level is <span className="font-semibold uppercase">{user.riskLevel}</span>. Some actions may be limited for security.
-            Review your recent activity and contact support if this looks incorrect.
-          </p>
-        </div>
-      ) : null}
-
       {/* Page intro */}
       <div className="relative overflow-hidden rounded-2xl border border-[var(--green-border)] bg-gradient-to-br from-[var(--green-soft)] via-[rgba(8,11,20,0.92)] to-[rgba(6,8,15,0.98)] px-4 py-4 shadow-[0_16px_48px_rgba(0,0,0,0.28)] ring-1 ring-white/[0.06] sm:px-6 sm:py-6">
         <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--green)]/35 to-transparent" aria-hidden />
