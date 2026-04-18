@@ -1033,7 +1033,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       <main
-        className={`flex-1 max-w-7xl w-full min-w-0 mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${
+        className={`flex-1 max-w-7xl w-full min-w-0 mx-auto overflow-x-hidden px-3 min-[420px]:px-4 sm:px-6 lg:px-8 py-5 sm:py-8 md:py-10 ${
           user
             ? "pb-[calc(6.25rem+env(safe-area-inset-bottom,0px))] md:pb-10"
             : ""
@@ -1059,12 +1059,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex-1 min-w-0 basis-0 max-w-[20%]"
+                className="flex flex-1 min-w-0 basis-0 max-w-[20%] min-h-[48px] items-stretch justify-center"
                 aria-current={active ? "page" : undefined}
               >
                 <span
                   className={cn(
-                    "flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-2 text-[10px] font-medium tracking-tight transition-colors duration-150 active:scale-[0.98] touch-manipulation opacity-95",
+                    "flex h-full min-h-[48px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 py-1 text-[10px] font-medium tracking-tight transition-colors duration-150 active:scale-[0.98] touch-manipulation opacity-95",
                     goldTab && active
                       ? "text-[#FFD166]"
                       : active

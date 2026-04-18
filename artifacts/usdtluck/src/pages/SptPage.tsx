@@ -338,15 +338,19 @@ export default function SptPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="earn" className="w-full">
-        <TabsList className="w-full flex flex-wrap h-auto gap-1 justify-start bg-white/[0.04] p-1 rounded-xl border border-white/10">
-          <TabsTrigger value="earn" className="data-[state=active]:bg-[#FFD166]/20 data-[state=active]:text-[#FFD166]">
+        <TabsList className="w-full flex flex-wrap h-auto min-h-0 gap-1 justify-start bg-white/[0.04] p-1.5 rounded-xl border border-white/10">
+          <TabsTrigger value="earn" className="min-h-11 px-3 sm:min-h-9 data-[state=active]:bg-[#FFD166]/20 data-[state=active]:text-[#FFD166]">
             Earn SPT
           </TabsTrigger>
-          <TabsTrigger value="spend" className="data-[state=active]:bg-[#FFD166]/20 data-[state=active]:text-[#FFD166]">
+          <TabsTrigger value="spend" className="min-h-11 px-3 sm:min-h-9 data-[state=active]:bg-[#FFD166]/20 data-[state=active]:text-[#FFD166]">
             Spend SPT
           </TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-          <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
+          <TabsTrigger value="history" className="min-h-11 px-3 sm:min-h-9">
+            History
+          </TabsTrigger>
+          <TabsTrigger value="leaderboard" className="min-h-11 px-3 sm:min-h-9">
+            Leaderboard
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="earn" className="mt-6 space-y-4">

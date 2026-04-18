@@ -48,48 +48,28 @@ export default function PoolsPage() {
     <>
       <div className="wrap">
         {/* Page Header */}
-        <div style={{ marginBottom: 32 }}>
+        <div className="mb-8 min-w-0">
           <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: "2px",
-              textTransform: "uppercase",
-              color: "var(--green)",
-              marginBottom: 8,
-              fontFamily: "DM Sans, sans-serif",
-            }}
+            className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--green)]"
+            style={{ fontFamily: "DM Sans, sans-serif" }}
           >
             Prize Pools
           </div>
 
           <h1
-            style={{
-              fontFamily: "Syne, sans-serif",
-              fontWeight: 800,
-              fontSize: 36,
-              color: "#E8EFF8",
-              letterSpacing: -1,
-              marginBottom: 10,
-              lineHeight: 1.1,
-            }}
+            className="mb-2.5 font-extrabold leading-[1.12] tracking-tight text-[#E8EFF8] text-[clamp(1.5rem,6.5vw,2.25rem)] min-[400px]:text-4xl"
+            style={{ fontFamily: "Syne, sans-serif" }}
           >
             Join a Pool,{" "}
-            <span
-              style={{
-                color: "var(--green)",
-              }}
-            >
-              Win USDT
-            </span>
+            <span className="text-[var(--green)]">Win USDT</span>
           </h1>
 
-          <p style={{ fontSize: 15, color: "#7A8FA6", marginBottom: 28 }}>
+          <p className="mb-7 text-[15px] leading-relaxed text-[#7A8FA6] max-w-[42ch]">
             Buy a ticket. Pool fills. 3 winners get paid instantly.
           </p>
 
           {/* Stats row */}
-          <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
+          <div className="mb-6 flex min-w-0 flex-wrap gap-2.5 sm:gap-2.5">
             {[
               { value: activePoolsCount, label: "Active Pools", color: "var(--green)" },
               { value: `${totalPaidOut} USDT`, label: "Total Paid Out", color: "#22C55E" },
@@ -97,62 +77,32 @@ export default function PoolsPage() {
             ].map((s, i) => (
               <div
                 key={i}
-                style={{
-                  background: "#0C1628",
-                  border: "1px solid rgba(255,255,255,0.07)",
-                  borderRadius: 12,
-                  padding: "12px 20px",
-                  minWidth: 140,
-                  flex: 1,
-                }}
+                className="min-w-0 flex-1 basis-[calc(50%-0.375rem)] rounded-xl border border-white/[0.07] bg-[#0C1628] px-3 py-3 sm:min-w-[140px] sm:basis-auto sm:px-5"
               >
                 <div
-                  style={{
-                    fontFamily: "Syne, sans-serif",
-                    fontWeight: 800,
-                    fontSize: 22,
-                    color: s.color,
-                    marginBottom: 4,
-                  }}
+                  className="mb-1 text-lg font-extrabold tabular-nums min-[400px]:text-[22px]"
+                  style={{ fontFamily: "Syne, sans-serif", color: s.color }}
                 >
                   {String(s.value)}
                 </div>
-                <div style={{ fontSize: 12, color: "#7A8FA6", fontWeight: 500 }}>{s.label}</div>
+                <div className="text-xs font-medium text-[#7A8FA6]">{s.label}</div>
               </div>
             ))}
           </div>
 
-          {/* Filter tabs */}
-          <div
-            style={{
-              display: "flex",
-              gap: 6,
-              overflowX: "auto",
-              paddingBottom: 4,
-              scrollbarWidth: "none",
-            }}
-          >
-            {[
-              ...FILTERS,
-            ].map((f) => (
+          {/* Filter tabs — min height for touch */}
+          <div className="-mx-1 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {FILTERS.map((f) => (
               <button
                 key={f.key}
                 type="button"
                 onClick={() => setFilter(f.key)}
-                style={{
-                  padding: "7px 16px",
-                  borderRadius: 99,
-                  border: "1px solid",
-                  borderColor: filter === f.key ? "var(--green-border)" : "rgba(255,255,255,0.07)",
-                  background: filter === f.key ? "var(--green-soft)" : "transparent",
-                  color: filter === f.key ? "var(--green)" : "#7A8FA6",
-                  fontSize: 13,
-                  fontWeight: filter === f.key ? 600 : 400,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  transition: "all 0.15s",
-                  fontFamily: "DM Sans, sans-serif",
-                }}
+                className={`min-h-11 shrink-0 touch-manipulation rounded-full border px-4 py-2.5 text-[13px] font-medium transition-all sm:min-h-10 sm:py-2 ${
+                  filter === f.key
+                    ? "border-[var(--green-border)] bg-[var(--green-soft)] font-semibold text-[var(--green)]"
+                    : "border-white/[0.07] bg-transparent font-normal text-[#7A8FA6]"
+                }`}
+                style={{ fontFamily: "DM Sans, sans-serif" }}
               >
                 {f.label}
               </button>

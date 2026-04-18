@@ -191,7 +191,14 @@
     margin: 0 auto;
     padding: 36px 24px;
   }
-  @media (max-width: 768px) {
+  /* Mobile-first: narrow phones (320–420px) need tighter horizontal rhythm */
+  @media (max-width: 420px) {
+    .wrap,
+    .wrap-sm {
+      padding: 16px 12px;
+    }
+  }
+  @media (min-width: 421px) and (max-width: 768px) {
     .wrap,
     .wrap-sm {
       padding: 20px 16px;
@@ -203,11 +210,11 @@
   }
   /** Standard page shell — use on route roots for consistent rhythm */
   .ds-page {
-    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 md:py-10 space-y-6 md:space-y-8;
+    @apply w-full max-w-7xl mx-auto px-3 min-[420px]:px-4 sm:px-6 lg:px-8 py-5 sm:py-8 md:py-10 space-y-5 md:space-y-8;
   }
   .ds-page-heading {
     font-family: var(--app-font-display), var(--app-font-sans), system-ui, sans-serif;
-    @apply text-2xl sm:text-3xl font-bold tracking-tight text-foreground;
+    @apply text-xl min-[420px]:text-2xl sm:text-3xl font-bold tracking-tight text-foreground;
   }
   .ds-surface {
     @apply rounded-2xl border border-border bg-card text-card-foreground shadow-sm;
@@ -216,7 +223,7 @@
     @apply transition-[box-shadow,background-color,border-color,color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
   .page-container {
-    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+    @apply w-full max-w-7xl mx-auto px-3 min-[420px]:px-4 sm:px-6 lg:px-8;
   }
   .safe-area-pb {
     padding-bottom: env(safe-area-inset-bottom, 0px);
