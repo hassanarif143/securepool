@@ -86,77 +86,30 @@ export function SPTOpportunityBar({
 
   return (
     <div
-      style={{
-        width: "100%",
-        height: "34px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "0 20px",
-        background: "linear-gradient(90deg, rgba(255,209,102,0.06) 0%, transparent 60%)",
-        borderBottom: "1px solid rgba(255,209,102,0.1)",
-      }}
+      className={cn(
+        "flex w-full min-h-0 flex-col gap-2 border-b border-[rgba(255,209,102,0.1)] bg-gradient-to-r from-[rgba(255,209,102,0.06)] to-transparent px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:py-1.5 sm:pl-4 sm:pr-3",
+      )}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <div className="flex min-w-0 items-start gap-2 sm:items-center">
         <div
-          style={{
-            width: "5px",
-            height: "5px",
-            borderRadius: "50%",
-            background: "#FFD166",
-            boxShadow: "0 0 6px #FFD166",
-            animation: "softPulse 2s ease-in-out infinite",
-            flexShrink: 0,
-          }}
+          className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#FFD166] shadow-[0_0_6px_#FFD166] motion-safe:animate-pulse sm:mt-0"
           aria-hidden
         />
-        <span
-          style={{
-            fontSize: "12.5px",
-            fontFamily: '"DM Sans", sans-serif',
-            color: "#667799",
-          }}
-        >
+        <span className="min-w-0 text-[12px] leading-snug text-[#667799] sm:text-[12.5px]" style={{ fontFamily: '"DM Sans", sans-serif' }}>
           {opp.icon} {opp.msg}
-          <strong style={{ color: "#FFD166", fontWeight: "700" }}>{amount}</strong>
+          <strong className="font-bold text-[#FFD166]">{amount}</strong>
         </span>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <div className="flex shrink-0 items-center justify-end gap-2 pl-6 sm:pl-0">
         {opp.action ? (
           <Link
             href={opp.action}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              fontSize: "11.5px",
-              fontWeight: "600",
-              color: "#FFD166",
-              textDecoration: "none",
-              padding: "3px 10px",
-              border: "1px solid rgba(255,209,102,0.25)",
-              borderRadius: "99px",
-              transition: "all 0.15s",
-              fontFamily: '"DM Sans", sans-serif',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(255,209,102,0.1)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-            }}
+            className="inline-flex min-h-9 items-center gap-1 rounded-full border border-[rgba(255,209,102,0.25)] px-3 py-1.5 text-[11px] font-semibold text-[#FFD166] transition-colors hover:bg-[rgba(255,209,102,0.1)] sm:min-h-0 sm:py-1 sm:text-[11.5px]"
+            style={{ fontFamily: '"DM Sans", sans-serif' }}
           >
             Earn now
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#FFD166"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FFD166" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </Link>
@@ -165,28 +118,7 @@ export function SPTOpportunityBar({
         <button
           type="button"
           onClick={dismissFor24h}
-          style={{
-            width: "20px",
-            height: "20px",
-            borderRadius: "50%",
-            background: "rgba(255,255,255,0.05)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            color: "#445577",
-            fontSize: "12px",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            lineHeight: 1,
-            padding: 0,
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = "#8899BB";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = "#445577";
-          }}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.05] text-sm leading-none text-[#445577] transition-colors hover:text-[#8899BB]"
           aria-label="Dismiss SPT opportunity"
           title="Hide for 24 hours"
         >

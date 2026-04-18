@@ -41,7 +41,7 @@ export function GameCard({ href, title, tagline, stats, accent = "cyan", icon, l
         onClick={() => play("tap")}
         onPointerEnter={() => play("hover")}
         className={cn(
-          "group relative block overflow-hidden rounded-2xl border border-white/[0.08] bg-[rgba(12,16,30,0.85)] p-5",
+          "group relative block overflow-hidden rounded-2xl border border-white/[0.08] bg-[rgba(12,16,30,0.85)] p-3 sm:p-5",
           "shadow-[0_18px_52px_rgba(0,0,0,0.44)] backdrop-blur-xl transition-colors",
           a.border,
         )}
@@ -49,18 +49,18 @@ export function GameCard({ href, title, tagline, stats, accent = "cyan", icon, l
         <div className={cn("absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100", "bg-gradient-to-br", a.glow)} />
         <div className="relative">
           {/* SPT earn badge (FOMO) */}
-          <div className="absolute right-0 top-0">
-            <div className="inline-flex items-center gap-1 rounded-full border border-[#FFD166]/30 bg-[#FFD166]/15 px-2.5 py-1">
-              <span className="text-[12px]" aria-hidden>
+          <div className="absolute right-0 top-0 max-w-[min(100%,9.5rem)]">
+            <div className="inline-flex max-w-full items-center gap-0.5 rounded-full border border-[#FFD166]/30 bg-[#FFD166]/15 px-1.5 py-0.5 sm:gap-1 sm:px-2.5 sm:py-1">
+              <span className="text-[10px] sm:text-[12px]" aria-hidden>
                 🪙
               </span>
-              <span className="font-sp-display text-[12px] font-extrabold text-[#FFD166]">+10 SPT</span>
+              <span className="font-sp-display truncate text-[10px] font-extrabold text-[#FFD166] sm:text-[12px]">+10 SPT</span>
             </div>
           </div>
 
-          <div className="flex items-start justify-between gap-3">
-            <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ring-1 ring-white/10", a.iconBg)}>
-              <div className="text-2xl">{icon}</div>
+          <div className="flex items-start justify-between gap-2 sm:gap-3">
+            <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ring-1 ring-white/10 sm:h-12 sm:w-12 sm:rounded-2xl", a.iconBg)}>
+              <div className="text-xl sm:text-2xl">{icon}</div>
             </div>
             {liveLabel ? (
               <span className="rounded-full bg-[var(--green-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--green)]/90">
@@ -69,9 +69,9 @@ export function GameCard({ href, title, tagline, stats, accent = "cyan", icon, l
             ) : null}
           </div>
 
-          <h3 className="mt-4 font-sp-display text-lg font-bold text-white">{title}</h3>
-          <p className="mt-1 text-sm text-sp-text-dim">{tagline}</p>
-          {stats ? <p className="mt-3 text-[11px] text-sp-text-dim">{stats}</p> : null}
+          <h3 className="mt-2.5 font-sp-display text-base font-bold leading-snug text-white sm:mt-4 sm:text-lg">{title}</h3>
+          <p className="mt-1 text-xs leading-relaxed text-sp-text-dim sm:text-sm">{tagline}</p>
+          {stats ? <p className="mt-2 text-[10px] leading-snug text-sp-text-dim sm:mt-3 sm:text-[11px]">{stats}</p> : null}
         </div>
       </Link>
     </motion.div>

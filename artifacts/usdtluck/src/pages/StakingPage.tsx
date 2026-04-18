@@ -453,12 +453,12 @@ export default function StakingPage() {
 
       {/* Section 3 — Plans + calculator */}
       <section ref={plansRef} id="pick-plan" className="space-y-4 scroll-mt-4">
-        <h2 className="text-lg font-bold text-foreground">Pick your plan</h2>
+        <h2 className="text-base font-bold text-foreground sm:text-lg">Pick your plan</h2>
 
         {loading && plans.length === 0 ? (
           <Skeleton className="h-32 w-full rounded-2xl" />
         ) : (
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {plans.map((p) => {
               const sel = String(p.id) === selectedPlanId;
               const d = planDecor(p.slug);
@@ -470,7 +470,7 @@ export default function StakingPage() {
                   type="button"
                   onClick={() => setSelectedPlanId(String(p.id))}
                   className={cn(
-                    "min-w-[140px] snap-start rounded-2xl border p-3 text-left transition-all",
+                    "w-full rounded-2xl border p-3 text-left transition-all touch-manipulation min-h-[100px]",
                     sel ? "ring-2 ring-offset-2 ring-offset-background" : "border-white/10 opacity-90",
                   )}
                   style={{

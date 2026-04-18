@@ -86,8 +86,8 @@ export default function GamesPage() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="font-sp-display text-xs font-semibold uppercase tracking-[0.28em] text-[var(--green)]/90">Arcade</p>
-              <h1 className="font-sp-display mt-2 text-3xl font-extrabold tracking-tight text-sp-text sm:text-4xl">SecurePool Games</h1>
-              <p className="mt-2 max-w-xl text-sm text-sp-text-dim">
+              <h1 className="font-sp-display mt-2 text-2xl font-extrabold tracking-tight text-sp-text min-[400px]:text-3xl sm:text-4xl">SecurePool Games</h1>
+              <p className="mt-2 max-w-xl text-xs text-sp-text-dim sm:text-sm">
                 Provably fair mini games — play from your withdrawable balance with clear odds.
               </p>
             </div>
@@ -194,7 +194,7 @@ export default function GamesPage() {
 
             <div>
               <h2 className="mb-4 font-sp-display text-xs font-bold uppercase tracking-[0.2em] text-sp-text-dim">Quick play</h2>
-              <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 md:gap-4">
                 <GameCard
                   href="/games/spin-wheel"
                   title="Risk Wheel"

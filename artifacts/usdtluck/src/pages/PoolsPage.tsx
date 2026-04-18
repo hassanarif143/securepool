@@ -48,7 +48,7 @@ export default function PoolsPage() {
     <>
       <div className="wrap">
         {/* Page Header */}
-        <div className="mb-8 min-w-0">
+        <div className="mb-6 min-w-0">
           <div
             className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--green)]"
             style={{ fontFamily: "DM Sans, sans-serif" }}
@@ -57,19 +57,19 @@ export default function PoolsPage() {
           </div>
 
           <h1
-            className="mb-2.5 font-extrabold leading-[1.12] tracking-tight text-[#E8EFF8] text-[clamp(1.5rem,6.5vw,2.25rem)] min-[400px]:text-4xl"
+            className="mb-2 font-extrabold leading-[1.12] tracking-tight text-[#E8EFF8] text-[clamp(1.35rem,5.5vw,2rem)] min-[400px]:text-3xl sm:text-4xl"
             style={{ fontFamily: "Syne, sans-serif" }}
           >
             Join a Pool,{" "}
             <span className="text-[var(--green)]">Win USDT</span>
           </h1>
 
-          <p className="mb-7 text-[15px] leading-relaxed text-[#7A8FA6] max-w-[42ch]">
+          <p className="mb-5 text-[14px] leading-relaxed text-[#7A8FA6] max-w-[42ch] sm:text-[15px]">
             Buy a ticket. Pool fills. 3 winners get paid instantly.
           </p>
 
           {/* Stats row */}
-          <div className="mb-6 flex min-w-0 flex-wrap gap-2.5 sm:gap-2.5">
+          <div className="mb-4 flex min-w-0 flex-wrap gap-2 sm:gap-2.5">
             {[
               { value: activePoolsCount, label: "Active Pools", color: "var(--green)" },
               { value: `${totalPaidOut} USDT`, label: "Total Paid Out", color: "#22C55E" },
@@ -77,10 +77,10 @@ export default function PoolsPage() {
             ].map((s, i) => (
               <div
                 key={i}
-                className="min-w-0 flex-1 basis-[calc(50%-0.375rem)] rounded-xl border border-white/[0.07] bg-[#0C1628] px-3 py-3 sm:min-w-[140px] sm:basis-auto sm:px-5"
+                className="min-w-0 flex-1 basis-[calc(50%-0.25rem)] rounded-xl border border-white/[0.07] bg-[#0C1628] px-2.5 py-2.5 sm:min-w-[140px] sm:basis-auto sm:px-5 sm:py-3"
               >
                 <div
-                  className="mb-1 text-lg font-extrabold tabular-nums min-[400px]:text-[22px]"
+                  className="mb-0.5 text-base font-extrabold tabular-nums min-[400px]:text-lg sm:text-[22px]"
                   style={{ fontFamily: "Syne, sans-serif", color: s.color }}
                 >
                   {String(s.value)}

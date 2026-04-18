@@ -348,15 +348,15 @@ export default function DashboardPage() {
       ) : null}
 
       {/* Page intro */}
-      <div className="relative overflow-hidden rounded-2xl border border-[var(--green-border)] bg-gradient-to-br from-[var(--green-soft)] via-[rgba(8,11,20,0.92)] to-[rgba(6,8,15,0.98)] px-5 py-5 shadow-[0_16px_48px_rgba(0,0,0,0.28)] ring-1 ring-white/[0.06] sm:px-6 sm:py-6">
+      <div className="relative overflow-hidden rounded-2xl border border-[var(--green-border)] bg-gradient-to-br from-[var(--green-soft)] via-[rgba(8,11,20,0.92)] to-[rgba(6,8,15,0.98)] px-4 py-4 shadow-[0_16px_48px_rgba(0,0,0,0.28)] ring-1 ring-white/[0.06] sm:px-6 sm:py-6">
         <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--green)]/35 to-transparent" aria-hidden />
         <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[var(--green)]/[0.09] blur-3xl" aria-hidden />
         <div className="relative flex flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-1.5">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--green)]/90">Dashboard</p>
-              <h1 className="font-sp-display text-2xl font-bold tracking-tight text-sp-text sm:text-3xl">Dashboard</h1>
-              <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+              <h1 className="font-sp-display text-xl font-bold tracking-tight text-sp-text sm:text-2xl md:text-3xl">Dashboard</h1>
+              <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground sm:text-sm md:text-base">
                 {greeting()}, {firstName}. Your balance, pools, and wallet activity in one place.
               </p>
             </div>
@@ -535,64 +535,34 @@ function CompactStreakSptRow({
 
   return (
     <>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 10,
-          marginBottom: 16,
-        }}
-      >
+      <div className="mb-4 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 min-[400px]:gap-2.5">
         {/* Streak */}
         <div
-          style={{
-            background: "#0C1628",
-            border: `1px solid ${dailyClaimed ? "rgba(255,255,255,0.07)" : "rgba(245,200,66,0.2)"}`,
-            borderRadius: 12,
-            padding: "14px 16px",
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            animation: dailyClaimed ? "none" : "glow-gold 3s ease-in-out infinite",
-          }}
+          className={`flex min-h-[72px] items-center gap-2.5 rounded-xl border px-3 py-2.5 min-[400px]:gap-3 min-[400px]:px-3.5 sm:min-h-0 ${
+            dailyClaimed ? "border-white/[0.07] bg-[#0C1628]" : "border-[rgba(245,200,66,0.2)] bg-[#0C1628] motion-safe:animate-[glow-gold_3s_ease-in-out_infinite]"
+          }`}
         >
-          <span style={{ fontSize: 24, flexShrink: 0 }}>{dailyClaimed ? "✅" : "🔥"}</span>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <span className="shrink-0 text-xl min-[400px]:text-2xl" aria-hidden>
+            {dailyClaimed ? "✅" : "🔥"}
+          </span>
+          <div className="min-w-0 flex-1">
             <div
-              style={{
-                fontFamily: "Syne, sans-serif",
-                fontWeight: 700,
-                fontSize: 14,
-                color: dailyClaimed ? "#22C55E" : "#F5C842",
-                marginBottom: 2,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
+              className={`truncate text-sm font-bold min-[400px]:text-[15px] ${dailyClaimed ? "text-emerald-400" : "text-[#F5C842]"}`}
+              style={{ fontFamily: "Syne, sans-serif" }}
             >
               {Math.max(0, loginStreak)} Day Streak
             </div>
-            <div style={{ fontSize: 11, color: "#7A8FA6" }}>
+            <div className="text-[10px] text-[#7A8FA6] min-[400px]:text-[11px]">
               {dailyClaimed ? "Claimed today" : `+${bonusAvailable} SPT available`}
             </div>
           </div>
           {!dailyClaimed && (
             <button
+              type="button"
               onClick={claimDaily}
               disabled={claiming}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 99,
-                background: "#F5C842",
-                border: "none",
-                color: "#070F1E",
-                fontFamily: "Syne, sans-serif",
-                fontWeight: 700,
-                fontSize: 12,
-                cursor: claiming ? "not-allowed" : "pointer",
-                flexShrink: 0,
-                opacity: claiming ? 0.7 : 1,
-              }}
+              className="shrink-0 rounded-full bg-[#F5C842] px-3 py-2 text-[11px] font-bold text-[#070F1E] min-[400px]:px-3.5 min-[400px]:text-xs disabled:cursor-not-allowed disabled:opacity-70"
+              style={{ fontFamily: "Syne, sans-serif" }}
             >
               Claim
             </button>
@@ -602,39 +572,19 @@ function CompactStreakSptRow({
         {/* SPT Value */}
         <Link
           href="/spt"
-          style={{
-            background: "#0C1628",
-            border: "1px solid rgba(245,200,66,0.15)",
-            borderRadius: 12,
-            padding: "14px 16px",
-            textDecoration: "none",
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            transition: "border-color 0.15s",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(245,200,66,0.3)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(245,200,66,0.15)";
-          }}
+          className="flex min-h-[72px] items-center gap-2.5 rounded-xl border border-[rgba(245,200,66,0.15)] bg-[#0C1628] px-3 py-2.5 transition-colors hover:border-[rgba(245,200,66,0.3)] min-[400px]:gap-3 min-[400px]:px-3.5 sm:min-h-0"
         >
-          <span style={{ fontSize: 22, flexShrink: 0 }}>🪙</span>
-          <div>
+          <span className="shrink-0 text-lg min-[400px]:text-[22px]" aria-hidden>
+            🪙
+          </span>
+          <div className="min-w-0">
             <div
-              style={{
-                fontFamily: "Syne, sans-serif",
-                fontWeight: 800,
-                fontSize: 18,
-                color: "#F5C842",
-                lineHeight: 1,
-                marginBottom: 3,
-              }}
+              className="text-base font-extrabold leading-tight text-[#F5C842] min-[400px]:text-lg"
+              style={{ fontFamily: "Syne, sans-serif" }}
             >
               {Number(sptBalance ?? 0).toLocaleString()} SPT
             </div>
-            <div style={{ fontSize: 11, color: "#7A8FA6" }}>
+            <div className="text-[10px] leading-snug text-[#7A8FA6] min-[400px]:text-[11px]">
               ≈ {(Number(sptBalance ?? 0) * 0.01).toFixed(2)} USDT • {sptLevel}
             </div>
           </div>

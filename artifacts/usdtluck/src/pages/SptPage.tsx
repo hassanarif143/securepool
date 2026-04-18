@@ -195,7 +195,7 @@ export default function SptPage() {
       />
 
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-3xl border border-[#FFD166]/15 bg-gradient-to-b from-[#0A0E1A] via-[#0d1224] to-[#0A0E1A] px-5 py-10 sm:px-10 mb-8">
+      <section className="relative mb-6 overflow-hidden rounded-3xl border border-[#FFD166]/15 bg-gradient-to-b from-[#0A0E1A] via-[#0d1224] to-[#0A0E1A] px-4 py-7 sm:mb-8 sm:px-10 sm:py-10">
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.07]"
           style={{
@@ -203,40 +203,40 @@ export default function SptPage() {
           }}
         />
         <div className="relative flex flex-col items-center text-center">
-          <SPTCoin size="xl" animate className="drop-shadow-[0_12px_40px_rgba(255,184,0,0.35)]" />
-          <h1 className="mt-6 font-sp-display text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+          <div className="origin-top scale-[0.78] sm:scale-100">
+            <SPTCoin size="xl" animate className="drop-shadow-[0_12px_40px_rgba(255,184,0,0.35)]" />
+          </div>
+          <h1 className="mt-4 font-sp-display text-xl font-extrabold tracking-tight text-white sm:mt-6 sm:text-2xl md:text-3xl">
             SecurePool Token
           </h1>
-          <p className="mt-1 font-sp-display text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-[#FFD166] via-amber-300 to-[#FFB800] bg-clip-text text-transparent">
+          <p className="mt-0.5 font-sp-display text-3xl font-extrabold leading-none bg-gradient-to-r from-[#FFD166] via-amber-300 to-[#FFB800] bg-clip-text text-transparent sm:mt-1 sm:text-4xl md:text-5xl">
             SPT
           </p>
 
-          <div className="mt-8 w-full max-w-md rounded-2xl border border-[#FFD166]/20 bg-white/[0.06] backdrop-blur-md px-5 py-5 sm:px-6 text-left shadow-[0_8px_40px_rgba(0,0,0,0.35)]">
-            <p className="text-[11px] uppercase tracking-widest text-[#FFD166]/80 font-semibold">Current rate</p>
-            <p className="font-sp-display text-2xl font-bold text-[#FFD166] mt-1">
+          <div className="mt-5 w-full max-w-md rounded-2xl border border-[#FFD166]/20 bg-white/[0.06] px-4 py-4 text-left shadow-[0_8px_40px_rgba(0,0,0,0.35)] backdrop-blur-md sm:mt-8 sm:px-6 sm:py-5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#FFD166]/80 sm:text-[11px]">Current rate</p>
+            <p className="font-sp-display mt-1 text-xl font-bold text-[#FFD166] sm:text-2xl">
               1 SPT = {SPT_USDT_RATE} USDT
             </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {formatPkrEq(1)} per 1 SPT (approx.)
-            </p>
+            <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{formatPkrEq(1)} per 1 SPT (approx.)</p>
           </div>
 
-          <div className="mt-8 grid w-full max-w-3xl grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-              <p className="text-[10px] uppercase text-muted-foreground">Total SPT awarded</p>
-              <p className="font-sp-display text-lg font-bold text-[#FFD166] tabular-nums">
+          <div className="mt-5 grid w-full max-w-3xl grid-cols-2 gap-2 text-sm sm:mt-8 sm:grid-cols-3 sm:gap-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+              <p className="text-[9px] uppercase text-muted-foreground sm:text-[10px]">Total SPT awarded</p>
+              <p className="font-sp-display text-base font-bold tabular-nums text-[#FFD166] sm:text-lg">
                 {(stats?.total_spt_awarded ?? 0).toLocaleString()} SPT
               </p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-              <p className="text-[10px] uppercase text-muted-foreground">Active earners</p>
-              <p className="font-sp-display text-lg font-bold text-[var(--green)] tabular-nums">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+              <p className="text-[9px] uppercase text-muted-foreground sm:text-[10px]">Active earners</p>
+              <p className="font-sp-display text-base font-bold tabular-nums text-[var(--green)] sm:text-lg">
                 {(stats?.active_earners ?? 0).toLocaleString()} users
               </p>
             </div>
-            <div className="rounded-2xl border border-[var(--green-border)] bg-[var(--green-soft)] px-4 py-3">
-              <p className="text-[10px] uppercase text-[var(--green)]/90">Phase</p>
-              <p className="font-semibold text-[var(--green)]">Phase 1 · Live</p>
+            <div className="col-span-2 rounded-xl border border-[var(--green-border)] bg-[var(--green-soft)] px-3 py-2.5 sm:col-span-1 sm:rounded-2xl sm:px-4 sm:py-3">
+              <p className="text-[9px] uppercase text-[var(--green)]/90 sm:text-[10px]">Phase</p>
+              <p className="text-sm font-semibold text-[var(--green)] sm:text-base">Phase 1 · Live</p>
             </div>
           </div>
         </div>
@@ -244,25 +244,25 @@ export default function SptPage() {
 
       {/* Holdings */}
       {bal && (
-        <section className="mb-10">
-          <h2 className="font-sp-display text-lg font-bold text-white mb-4 tracking-tight">Your SPT holdings</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <section className="mb-8 sm:mb-10">
+          <h2 className="font-sp-display mb-3 text-base font-bold tracking-tight text-white sm:mb-4 sm:text-lg">Your SPT holdings</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             <Card className="border-[#FFD166]/20 bg-[#0A0E1A]/80">
-              <CardContent className="p-6">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Balance</p>
-                <p className="font-sp-display text-4xl font-extrabold text-[#FFD166] tabular-nums mt-1">
+              <CardContent className="p-4 sm:p-6">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground sm:text-xs">Balance</p>
+                <p className="font-sp-display mt-1 text-2xl font-extrabold tabular-nums text-[#FFD166] sm:text-3xl md:text-4xl">
                   {bal.spt_balance.toLocaleString()} SPT
                 </p>
-                <p className="text-xs text-amber-200/90 mt-2 inline-flex rounded-full border border-amber-500/40 bg-amber-950/40 px-2.5 py-0.5">
+                <p className="mt-2 inline-flex rounded-full border border-amber-500/40 bg-amber-950/40 px-2 py-0.5 text-[10px] text-amber-200/90 sm:text-xs">
                   {holderLabel(bal.spt_level)}
                 </p>
               </CardContent>
             </Card>
             <Card className="border-[var(--green-border)] bg-[#0A0E1A]/80">
-              <CardContent className="p-6">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Current value (at platform rate)</p>
-                <p className="font-sp-display text-3xl font-bold text-[var(--money)] tabular-nums mt-1">{usdtVal.toFixed(2)} USDT</p>
-                <p className="text-sm text-muted-foreground mt-1">{formatPkrEq(bal.spt_balance)}</p>
+              <CardContent className="p-4 sm:p-6">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground sm:text-xs">Current value (at platform rate)</p>
+                <p className="font-sp-display mt-1 text-2xl font-bold tabular-nums text-[var(--money)] sm:text-3xl">{usdtVal.toFixed(2)} USDT</p>
+                <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{formatPkrEq(bal.spt_balance)}</p>
               </CardContent>
             </Card>
           </div>
@@ -287,11 +287,11 @@ export default function SptPage() {
               </p>
             )}
           </div>
-          <div className="flex flex-wrap gap-3 mt-6">
-            <Button asChild className="bg-gradient-to-r from-amber-600 to-[#FFD166] text-[#1a0f00] font-bold">
+          <div className="mt-5 flex w-full flex-col gap-2 sm:mt-6 sm:w-auto sm:flex-row sm:flex-wrap">
+            <Button asChild className="w-full bg-gradient-to-r from-amber-600 to-[#FFD166] font-bold text-[#1a0f00] sm:w-auto">
               <Link href="/pools">Earn more SPT</Link>
             </Button>
-            <Button asChild variant="outline" className="border-[var(--green-border)] text-[var(--green)]">
+            <Button asChild variant="outline" className="w-full border-[var(--green-border)] text-[var(--green)] sm:w-auto sm:min-w-[8.5rem]">
               <Link href="/wallet">Wallet</Link>
             </Button>
           </div>

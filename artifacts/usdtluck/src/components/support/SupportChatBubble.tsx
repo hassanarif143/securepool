@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { apiUrl } from "@/lib/api-base";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,13 @@ const QUICK_REPLIES = [
   { icon: "💸", text: "Withdrawal not received" },
   { icon: "🪙", text: "What is SPT token?" },
 ] as const;
+
+/** Routes with tall sticky/footer CTAs where the default FAB bottom clears the nav but still overlaps content. */
+const FAB_EXTRA_LIFT_PATHS = ["/my-shares", "/referral"] as const;
+
+function pathNeedsFabLift(path: string) {
+  return FAB_EXTRA_LIFT_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
+}
 
 function AIAvatar() {
   return (
@@ -36,6 +43,8 @@ type ChatMsg = {
 
 export function SupportChatBubble() {
   const { user } = useAuth();
+  const [location] = useLocation();
+  const fabLift = pathNeedsFabLift(location);
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
@@ -153,7 +162,13 @@ export function SupportChatBubble() {
     return (
       <Link
         href="/login"
-        className="fixed z-[90] flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[var(--green)] text-[13px] font-extrabold text-[var(--green-text)] border-2 border-[var(--green-border)] shadow-lg shadow-[rgba(0,194,168,0.25)] md:bottom-6 md:right-6 bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4"
+        className={cn(
+          "fixed z-[90] flex h-[52px] w-[52px] items-center justify-center rounded-full border-2 border-[var(--green-border)] bg-[var(--green)] text-[13px] font-extrabold text-[var(--green-text)] shadow-lg shadow-[rgba(0,194,168,0.25)]",
+          "right-4",
+          fabLift
+            ? "bottom-[calc(8.25rem+env(safe-area-inset-bottom,0px))] md:bottom-10 md:right-6"
+            : "bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:bottom-6 md:right-6",
+        )}
         aria-label="Login for support chat"
       >
         SP
@@ -167,7 +182,9 @@ export function SupportChatBubble() {
         <div
           className={cn(
             "fixed z-[95] flex h-[540px] w-[360px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-[#1E2D4A] bg-[#0D1526] shadow-2xl",
-            "bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 md:bottom-24 md:right-6",
+            fabLift
+              ? "bottom-[calc(8.25rem+env(safe-area-inset-bottom,0px))] right-4 md:bottom-28 md:right-6"
+              : "bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 md:bottom-24 md:right-6",
             "max-[480px]:bottom-0 max-[480px]:right-0 max-[480px]:left-0 max-[480px]:w-screen max-[480px]:h-[85vh] max-[480px]:rounded-t-2xl max-[480px]:rounded-b-none",
           )}
         >
@@ -309,7 +326,10 @@ export function SupportChatBubble() {
         className={cn(
           "fixed z-[90] flex h-[52px] w-[52px] items-center justify-center rounded-full border-2 border-[var(--green-border)] shadow-lg shadow-[rgba(0,194,168,0.25)] transition-colors",
           isOpen ? "bg-[#1E2D4A] text-[#8899BB]" : "bg-[var(--green)] text-[var(--green-text)]",
-          "bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 md:bottom-6 md:right-6",
+          "right-4",
+          fabLift
+            ? "bottom-[calc(8.25rem+env(safe-area-inset-bottom,0px))] md:bottom-10 md:right-6"
+            : "bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:bottom-6 md:right-6",
         )}
         aria-label={isOpen ? "Close support" : "Open support chat"}
       >
