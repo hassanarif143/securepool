@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -445,6 +446,73 @@ function SptMiniPill() {
   );
 }
 
+/** USDT balance chip — compact on small phones so the header does not overflow. */
+function HeaderWalletPill({
+  user,
+}: {
+  user: { withdrawableBalance?: number; bonusBalance?: number };
+}) {
+  const total = Number(user.withdrawableBalance ?? 0) + Number(user.bonusBalance ?? 0);
+  const pkr = Math.round(total * 279).toLocaleString();
+
+  return (
+    <Link
+      href="/wallet"
+      aria-label={`Wallet ${total.toFixed(2)} USDT`}
+      className={cn(
+        "group flex min-w-0 shrink items-center rounded-full border border-[var(--green-border)] bg-[var(--green-soft)] no-underline transition-all",
+        "gap-1 px-2 py-1 max-w-[min(44vw,11rem)] sm:max-w-none sm:gap-[7px] sm:px-[10px] sm:py-[5px] sm:pl-2",
+      )}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "rgba(0,194,168,0.13)";
+        e.currentTarget.style.transform = "translateY(-1px)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "var(--green-soft)";
+        e.currentTarget.style.transform = "translateY(0)";
+      }}
+    >
+      <div className="relative h-[6px] w-[6px] shrink-0 sm:h-[7px] sm:w-[7px]">
+        <div
+          className="absolute inset-0 rounded-full bg-[var(--green)]"
+          style={{ animation: "pingDot 2s ease-in-out infinite" }}
+        />
+        <div className="absolute inset-[1.5px] rounded-full bg-[var(--green)]" />
+      </div>
+
+      <div className="flex min-w-0 flex-col leading-[1.1] sm:hidden">
+        <span
+          className="truncate text-[11px] font-bold tracking-tight text-[var(--money)] tabular-nums"
+          style={{ fontFamily: '"Syne", sans-serif', letterSpacing: "-0.2px" }}
+        >
+          {total.toFixed(2)} USDT
+        </span>
+      </div>
+
+      <div className="hidden min-w-0 flex-col leading-[1.1] sm:flex">
+        <span
+          className="text-[13px] font-bold tracking-tight text-[var(--money)] tabular-nums"
+          style={{ fontFamily: '"Syne", sans-serif', letterSpacing: "-0.2px" }}
+        >
+          {total.toFixed(2)} USDT
+        </span>
+        <span className="text-[9px] text-[rgba(0,194,168,0.55)]" style={{ letterSpacing: "0.2px" }}>
+          ≈ {pkr} PKR
+        </span>
+      </div>
+
+      <div
+        className="hidden h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full border border-[var(--green-border)] bg-[var(--green-soft)] sm:flex"
+        aria-hidden
+      >
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="3" strokeLinecap="round">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </div>
+    </Link>
+  );
+}
+
 /* ─────────────────────────────────────────────
    Wallet quick-action dropdown
 ───────────────────────────────────────────── */
@@ -577,16 +645,16 @@ function MobileMenu({
   const allLinks = [...primaryLinks, ...secondaryLinks];
 
   return (
-    <div className="md:hidden border-t border-border bg-background">
+    <>
       {/* User identity strip */}
-      <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b border-border">
+      <div className="px-4 pt-4 pb-3 flex items-center gap-3 border-b border-border bg-background">
         <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold bg-primary/15 border border-primary/30 text-primary">
           {user.name.charAt(0).toUpperCase()}
         </div>
         <div>
           <p className="font-semibold text-sm">{user.name}</p>
         </div>
-        <div className="ml-auto text-right">
+        <div className="ml-auto text-right min-w-0">
           <p className="text-xs font-bold text-primary">
             <UsdtAmount
               amount={Number(user.withdrawableBalance ?? 0) + Number(user.bonusBalance ?? 0)}
@@ -598,7 +666,7 @@ function MobileMenu({
         </div>
       </div>
 
-      <nav className="px-3 pt-3 pb-6 space-y-1 safe-area-pb" aria-label="Mobile menu">
+      <nav className="px-3 pt-3 pb-6 space-y-1 safe-area-pb bg-background" aria-label="Mobile menu">
         {allLinks.map((link) => {
           const active = location.startsWith(link.href);
           const isSpt = "kind" in link && link.kind === "spt";
@@ -653,7 +721,7 @@ function MobileMenu({
           </button>
         </div>
       </nav>
-    </div>
+    </>
   );
 }
 
@@ -668,6 +736,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { loading: gamesLoading, miniGamesEnabled } = useGameAvailability(!!user);
   /* Close mobile menu on navigation */
   useEffect(() => { setMobileOpen(false); }, [location]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileOpen]);
 
   // Level-up celebration (FOMO milestone): detect SPT level changes.
   useEffect(() => {
@@ -770,13 +847,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      <div className="sticky top-0 z-50">
+      <div className="sticky top-0 z-50 [--sp-mobile-header-h:60px]">
       <header className="border-b border-white/[0.06] bg-[rgba(9,14,26,0.96)] backdrop-blur-[24px] supports-[backdrop-filter]:bg-[rgba(9,14,26,0.92)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-[60px] gap-2 sm:gap-3">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
+          <div className="flex items-center min-h-[60px] h-[60px] gap-1.5 sm:gap-2 md:gap-3">
 
             {/* ── Logo ── */}
-            <Link href={user ? "/dashboard" : "/"} className="shrink-0 mr-2">
+            <Link href={user ? "/dashboard" : "/"} className="shrink-0 mr-1 min-[380px]:mr-2">
               <Logo size="sm" />
             </Link>
 
@@ -857,113 +934,34 @@ export function Layout({ children }: { children: React.ReactNode }) {
             )}
 
             {/* ── Right side ── */}
-            <div className="flex items-center gap-3 ml-auto shrink-0">
+            <div className="flex items-center gap-1 sm:gap-2 md:gap-3 ml-auto min-w-0 shrink">
               {!isLoading && user && (
                 <>
                   {/* Notification bell */}
-                  <NotificationBell />
+                  <div className="shrink-0">
+                    <NotificationBell />
+                  </div>
 
-                  {/* USDT Balance Pill — premium */}
-                  <Link
-                    href="/wallet"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "7px",
-                      padding: "5px 10px 5px 8px",
-                      background: "var(--green-soft)",
-                      border: "1px solid var(--green-border)",
-                      borderRadius: "999px",
-                      textDecoration: "none",
-                      transition: "all 0.18s ease",
-                      flexShrink: 0,
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "rgba(0,194,168,0.13)";
-                      e.currentTarget.style.transform = "translateY(-1px)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "var(--green-soft)";
-                      e.currentTarget.style.transform = "translateY(0)";
-                    }}
-                  >
-                    <div style={{ position: "relative", width: "7px", height: "7px", flexShrink: 0 }}>
-                      <div
-                        style={{
-                          position: "absolute",
-                          inset: 0,
-                          borderRadius: "50%",
-                          background: "var(--green)",
-                          animation: "pingDot 2s ease-in-out infinite",
-                        }}
-                      />
-                      <div
-                        style={{
-                          position: "absolute",
-                          inset: "1.5px",
-                          borderRadius: "50%",
-                          background: "var(--green)",
-                        }}
-                      />
-                    </div>
+                  {/* USDT — compact on narrow viewports */}
+                  <HeaderWalletPill user={user} />
 
-                    <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-                      <span
-                        style={{
-                          fontFamily: '"Syne", sans-serif',
-                          fontWeight: "700",
-                          fontSize: "13px",
-                          color: "var(--money)",
-                          letterSpacing: "-0.2px",
-                        }}
-                      >
-                        {Number(Number(user.withdrawableBalance ?? 0) + Number(user.bonusBalance ?? 0)).toFixed(2)} USDT
-                      </span>
-                      <span
-                        style={{
-                          fontSize: "9px",
-                          color: "rgba(0,194,168,0.55)",
-                          letterSpacing: "0.2px",
-                        }}
-                      >
-                        ≈{" "}
-                        {Math.round((Number(user.withdrawableBalance ?? 0) + Number(user.bonusBalance ?? 0)) * 279).toLocaleString()}{" "}
-                        PKR
-                      </span>
-                    </div>
+                  {/* SPT — desktop header only; mobile uses bottom tab + slide-out menu (frees header space) */}
+                  <div className="hidden md:block shrink-0">
+                    <SptMiniPill />
+                  </div>
 
-                    <div
-                      style={{
-                        width: "17px",
-                        height: "17px",
-                        borderRadius: "50%",
-                        background: "var(--green-soft)",
-                        border: "1px solid var(--green-border)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                      }}
-                      aria-hidden
-                    >
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="3" strokeLinecap="round">
-                        <path d="M12 5v14M5 12h14" />
-                      </svg>
-                    </div>
-                  </Link>
-
-                  {/* SPT balance — separate small pill */}
-                  <SptMiniPill />
-
-                  {/* User menu */}
-                  <PremiumProfileDropdown user={user} logout={logout} />
+                  {/* Profile dropdown — desktop / tablet only; mobile uses bottom & slide-out menu */}
+                  <div className="hidden md:block shrink-0">
+                    <PremiumProfileDropdown user={user} logout={logout} />
+                  </div>
 
                   {/* Hamburger — mobile only */}
                   <button
                     type="button"
                     onClick={() => setMobileOpen((v) => !v)}
-                    className={cn("md:hidden p-2 rounded-lg transition-colors", mobileOpen ? "text-primary" : undefined)}
+                    className={cn("md:hidden shrink-0 p-1.5 sm:p-2 rounded-lg transition-colors touch-manipulation", mobileOpen ? "text-primary" : undefined)}
                     aria-label="Menu"
+                    aria-expanded={mobileOpen}
                   >
                     {mobileOpen ? (
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -998,24 +996,47 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* Mobile menu slide-down */}
-        {mobileOpen && user && (
-          <MobileMenu
-            primaryLinks={primaryLinks}
-            secondaryLinks={secondaryLinksFlat}
-            location={location}
-            user={user}
-            logout={logout}
-            onClose={() => setMobileOpen(false)}
-          />
-        )}
+        {/* Mobile menu — portaled below header so it is not trapped by backdrop-blur / sticky */}
+        {mobileOpen && user && typeof document !== "undefined"
+          ? createPortal(
+              <>
+                <div
+                  className="fixed inset-x-0 bottom-0 z-[44] bg-black/55 backdrop-blur-[1px] md:hidden"
+                  style={{ top: "var(--sp-mobile-header-h, 60px)" }}
+                  aria-hidden
+                  onClick={() => setMobileOpen(false)}
+                />
+                <div
+                  className="fixed inset-x-0 bottom-0 z-[45] flex flex-col overflow-hidden border-t border-border bg-background shadow-[0_-12px_48px_rgba(0,0,0,0.5)] md:hidden"
+                  style={{ top: "var(--sp-mobile-header-h, 60px)" }}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Site menu"
+                >
+                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]">
+                    <MobileMenu
+                      primaryLinks={primaryLinks}
+                      secondaryLinks={secondaryLinksFlat}
+                      location={location}
+                      user={user}
+                      logout={logout}
+                      onClose={() => setMobileOpen(false)}
+                    />
+                  </div>
+                </div>
+              </>,
+              document.body,
+            )
+          : null}
       </header>
       {user ? <SPTOpportunityBar pathname={location} onDismissKey={location.split("?")[0] ?? location} /> : null}
       </div>
 
       <main
         className={`flex-1 max-w-7xl w-full min-w-0 mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 ${
-          user ? "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:pb-10" : ""
+          user
+            ? "pb-[calc(6.25rem+env(safe-area-inset-bottom,0px))] md:pb-10"
+            : ""
         }`}
       >
         {user ? <LiveJoinNotification /> : null}

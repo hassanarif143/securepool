@@ -195,7 +195,7 @@ export default function SptPage() {
       />
 
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-3xl border border-[#FFD166]/15 bg-gradient-to-b from-[#0A0E1A] via-[#0d1224] to-[#0A0E1A] px-4 py-10 sm:px-10 mb-8">
+      <section className="relative overflow-hidden rounded-3xl border border-[#FFD166]/15 bg-gradient-to-b from-[#0A0E1A] via-[#0d1224] to-[#0A0E1A] px-5 py-10 sm:px-10 mb-8">
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.07]"
           style={{
@@ -211,7 +211,7 @@ export default function SptPage() {
             SPT
           </p>
 
-          <div className="mt-8 w-full max-w-md rounded-2xl border border-[#FFD166]/20 bg-white/[0.06] backdrop-blur-md px-6 py-5 text-left shadow-[0_8px_40px_rgba(0,0,0,0.35)]">
+          <div className="mt-8 w-full max-w-md rounded-2xl border border-[#FFD166]/20 bg-white/[0.06] backdrop-blur-md px-5 py-5 sm:px-6 text-left shadow-[0_8px_40px_rgba(0,0,0,0.35)]">
             <p className="text-[11px] uppercase tracking-widest text-[#FFD166]/80 font-semibold">Current rate</p>
             <p className="font-sp-display text-2xl font-bold text-[#FFD166] mt-1">
               1 SPT = {SPT_USDT_RATE} USDT
