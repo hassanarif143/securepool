@@ -49,12 +49,13 @@ export default function PoolsPage() {
   const activePoolsCount = openPools.length;
   const totalPaidOut = stats ? Math.round(stats.totalPaidOutUsdt).toLocaleString() : "—";
   const drawsToday = stats ? String(stats.drawsToday) : "—";
+  const hasLiveDrawAlert = liveDrawingSoon.length > 0;
   const FILTERS = [
-    { key: "active", label: "Active" },
-    { key: "all", label: "All" },
-    { key: "hot", label: "⚡ Filling Fast" },
-    { key: "drawSoon", label: `Live Drawing Soon (${liveDrawingSoon.length})` },
-    { key: "done", label: `Completed (${completed.length})` },
+    { key: "active", label: "Active", hasAlert: false },
+    { key: "all", label: "All", hasAlert: false },
+    { key: "hot", label: "⚡ Filling Fast", hasAlert: false },
+    { key: "drawSoon", label: `Live Drawing Soon (${liveDrawingSoon.length})`, hasAlert: hasLiveDrawAlert },
+    { key: "done", label: `Completed (${completed.length})`, hasAlert: false },
   ] as const;
 
   return (
@@ -117,7 +118,15 @@ export default function PoolsPage() {
                 }`}
                 style={{ fontFamily: "DM Sans, sans-serif" }}
               >
-                {f.label}
+                <span className="inline-flex items-center gap-1.5">
+                  <span>{f.label}</span>
+                  {f.hasAlert ? (
+                    <span
+                      className={`inline-flex h-2.5 w-2.5 rounded-full ${filter === f.key ? "bg-[var(--green)]" : "bg-[#EF4444]"} animate-pulse`}
+                      aria-label="Live draw activity available"
+                    />
+                  ) : null}
+                </span>
               </button>
             ))}
           </div>
