@@ -15,7 +15,7 @@ type PublicStats = {
 
 export default function PoolsPage() {
   const { data: pools, isLoading, isError, refetch } = useListPools();
-  const [filter, setFilter] = useState<"active" | "all" | "hot" | "done">("active");
+  const [filter, setFilter] = useState<"active" | "all" | "hot" | "drawSoon" | "done">("active");
 
   const { data: stats } = useQuery({
     queryKey: ["pools-public-stats"],
@@ -29,10 +29,22 @@ export default function PoolsPage() {
   const poolStatus = (p: { status?: string }) => String(p?.status ?? "");
   const openPools = pools?.filter((p) => poolStatus(p) === "open") ?? [];
   const fillingFast = openPools.filter((p) => p.maxUsers > 0 && p.participantCount / p.maxUsers > 0.6);
+  const liveDrawingSoon = pools?.filter((p) => {
+    const status = poolStatus(p);
+    return status === "filled" || status === "drawing";
+  }) ?? [];
   const completed = pools?.filter((p) => poolStatus(p) === "completed" || poolStatus(p) === "closed") ?? [];
 
   const poolsToShow: Pool[] =
-    filter === "active" ? openPools : filter === "hot" ? fillingFast : filter === "done" ? completed : pools ?? [];
+    filter === "active"
+      ? openPools
+      : filter === "hot"
+        ? fillingFast
+        : filter === "drawSoon"
+          ? liveDrawingSoon
+          : filter === "done"
+            ? completed
+            : pools ?? [];
 
   const activePoolsCount = openPools.length;
   const totalPaidOut = stats ? Math.round(stats.totalPaidOutUsdt).toLocaleString() : "—";
@@ -41,7 +53,8 @@ export default function PoolsPage() {
     { key: "active", label: "Active" },
     { key: "all", label: "All" },
     { key: "hot", label: "⚡ Filling Fast" },
-    { key: "done", label: "Completed" },
+    { key: "drawSoon", label: `Live Drawing Soon (${liveDrawingSoon.length})` },
+    { key: "done", label: `Completed (${completed.length})` },
   ] as const;
 
   return (
