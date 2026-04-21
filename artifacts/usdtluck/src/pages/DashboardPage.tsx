@@ -24,6 +24,7 @@ import { LiveWinnerTicker } from "@/components/winners/LiveWinnerTicker";
 import { useGameAvailability } from "@/lib/game-availability";
 import { premiumPanel, premiumPanelHead } from "@/lib/premium-panel";
 import { SPTLiveFeed } from "@/components/spt/SPTLiveFeed";
+import { PlatformDepositEmbed } from "@/components/payments/PlatformDepositEmbed";
 
 function greeting() {
   const h = new Date().getHours();
@@ -376,6 +377,10 @@ export default function DashboardPage() {
             </Button>
           </div>
         </div>
+      </div>
+
+      <div className={`${premiumPanel} overflow-hidden p-4 sm:p-5`}>
+        <PlatformDepositEmbed />
       </div>
 
       {/* Streak + SPT — compact single row */}

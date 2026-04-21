@@ -21,10 +21,10 @@ import { appToast } from "@/components/feedback/AppToast";
 import { UsdtAmount } from "@/components/UsdtAmount";
 import { cn } from "@/lib/utils";
 import { premiumPanel, premiumPanelHead } from "@/lib/premium-panel";
+import { getPlatformUsdtDepositAddress, PLATFORM_USDT_NETWORK_LABEL } from "@/lib/platform-deposit";
 
-/** USDT (TRC20) address users send deposits to — Deposit tab + copy button. */
-const PLATFORM_ADDRESS = "TBjGU8jfZvsfDVPpjJXVb47khVyKjQqjqp";
-const NETWORK = "TRON (USDT)";
+const PLATFORM_ADDRESS = getPlatformUsdtDepositAddress();
+const NETWORK = PLATFORM_USDT_NETWORK_LABEL;
 const MIN_WITHDRAW_USDT = 10;
 type WithdrawPinStatusApi = { hasWithdrawPin: boolean };
 
