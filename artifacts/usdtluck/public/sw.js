@@ -1,4 +1,4 @@
-const SW_VERSION = "securepool-sw-v1";
+const SW_VERSION = "securepool-sw-v2";
 const SHELL_CACHE = `${SW_VERSION}-shell`;
 const ASSET_CACHE = `${SW_VERSION}-assets`;
 const API_CACHE = `${SW_VERSION}-api`;
@@ -57,8 +57,20 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((networkResponse) => {
-          const cloned = networkResponse.clone();
-          caches.open(API_CACHE).then((cache) => cache.put(request, cloned));
+          // Never cache error responses — otherwise a transient 502/503/500 can "stick"
+          // and the SPA will keep replaying it from Cache Storage forever.
+          if (networkResponse.ok) {
+            const cloned = networkResponse.clone();
+            void caches.open(API_CACHE).then((cache) => cache.put(request, cloned));
+          } else {
+            void caches.open(API_CACHE).then(async (cache) => {
+              try {
+                await cache.delete(request);
+              } catch {
+                /* ignore */
+              }
+            });
+          }
           return networkResponse;
         })
         .catch(() => caches.match(request)),
