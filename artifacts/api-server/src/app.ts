@@ -96,6 +96,7 @@ function buildAllowedOrigins(): string[] {
 }
 
 const allowedOrigins = buildAllowedOrigins();
+const maintenanceMode = process.env.API_MAINTENANCE_MODE === "1";
 
 // CORS must run before session/auth so OPTIONS preflight and credentialed responses get proper headers (Vercel → Railway).
 app.use(
@@ -121,66 +122,77 @@ app.use(
   }),
 );
 
-const isProd = process.env.NODE_ENV === "production";
-let sessionSecret = process.env.SESSION_SECRET;
-if (!sessionSecret && !isProd) {
-  sessionSecret = "local-dev-only-insecure-session-secret";
-  logger.warn(
-    "[session] SESSION_SECRET unset — using insecure dev default. Set SESSION_SECRET in artifacts/api-server/.env for stable sessions.",
-  );
-}
-if (!sessionSecret) {
-  throw new Error("SESSION_SECRET environment variable is required");
-}
+if (maintenanceMode) {
+  logger.error("[startup] API_MAINTENANCE_MODE active — serving 503 for /api");
+  app.use("/api", (_req, res) => {
+    res.status(503).json({
+      error: "Service Unavailable",
+      message: "Service is temporarily unavailable due to database capacity limits. Please retry shortly.",
+      code: "DB_CAPACITY_EXCEEDED",
+    });
+  });
+} else {
+  const isProd = process.env.NODE_ENV === "production";
+  let sessionSecret = process.env.SESSION_SECRET;
+  if (!sessionSecret && !isProd) {
+    sessionSecret = "local-dev-only-insecure-session-secret";
+    logger.warn(
+      "[session] SESSION_SECRET unset — using insecure dev default. Set SESSION_SECRET in artifacts/api-server/.env for stable sessions.",
+    );
+  }
+  if (!sessionSecret) {
+    throw new Error("SESSION_SECRET environment variable is required");
+  }
 
-// Before session — required on Railway so `req.secure` / cookie behavior matches the client-facing HTTPS URL.
-app.set("trust proxy", 1);
+  // Before session — required on Railway so `req.secure` / cookie behavior matches the client-facing HTTPS URL.
+  app.set("trust proxy", 1);
 
-const sessionCookieCrossSite = process.env.NODE_ENV === "production";
+  const sessionCookieCrossSite = process.env.NODE_ENV === "production";
 
-app.use(
-  session({
-    name: "connect.sid",
-    store: new PgStore({
-      pool,
+  app.use(
+    session({
+      name: "connect.sid",
+      store: new PgStore({
+        pool,
+      }),
+      proxy: sessionCookieCrossSite,
+      secret: sessionSecret,
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        secure: sessionCookieCrossSite,
+        sameSite: sessionCookieCrossSite ? "none" : "lax",
+        httpOnly: true,
+        maxAge: 86_400_000, // 24h
+        path: "/",
+      },
     }),
-    proxy: sessionCookieCrossSite,
-    secret: sessionSecret,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: sessionCookieCrossSite,
-      sameSite: sessionCookieCrossSite ? "none" : "lax",
-      httpOnly: true,
-      maxAge: 86_400_000, // 24h
-      path: "/",
-    },
-  }),
-);
+  );
 
-app.use(attachAuth);
-app.use(issueCsrfToken);
+  app.use(attachAuth);
+  app.use(issueCsrfToken);
 
-// Basic rate limit for all API routes (tighten per-route later)
-app.use(
-  "/api",
-  rateLimit({
-    windowMs: 60_000,
-    limit: 120,
-    standardHeaders: true,
-    legacyHeaders: false,
-  }),
-);
+  // Basic rate limit for all API routes (tighten per-route later)
+  app.use(
+    "/api",
+    rateLimit({
+      windowMs: 60_000,
+      limit: 120,
+      standardHeaders: true,
+      legacyHeaders: false,
+    }),
+  );
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(getUploadsDir()));
-app.use(csrfProtection);
-app.use(verifyRequestSignature);
-app.use(auditTrail);
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+  app.use("/uploads", express.static(getUploadsDir()));
+  app.use(csrfProtection);
+  app.use(verifyRequestSignature);
+  app.use(auditTrail);
 
-app.use("/api", rejectIfBlocked);
-app.use("/api", router);
+  app.use("/api", rejectIfBlocked);
+  app.use("/api", router);
+}
 
 app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   if (res.headersSent) return;

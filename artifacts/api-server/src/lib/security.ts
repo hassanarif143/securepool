@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { db, securityConfigTable, securityEventsTable, trustedDevicesTable, usersTable, transactionsTable } from "@workspace/db";
 import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { logger } from "./logger";
 
 type SecurityConfig = {
   withdrawLimits: {
@@ -96,7 +97,15 @@ export async function getSecurityConfig(): Promise<SecurityConfig> {
 }
 
 export async function assertSecurityStartupRequirements(): Promise<void> {
-  const cfg = await getSecurityConfig();
+  let cfg = DEFAULT_SECURITY_CONFIG;
+  try {
+    cfg = await getSecurityConfig();
+  } catch (err) {
+    logger.warn(
+      { err },
+      "[security] failed to load config from DB during startup; using defaults",
+    );
+  }
   if (cfg.featureFlags.requireRequestSignature && !process.env.REQUEST_HMAC_SECRET) {
     throw new Error("Security startup check failed: REQUEST_HMAC_SECRET is required when request signature is enabled.");
   }

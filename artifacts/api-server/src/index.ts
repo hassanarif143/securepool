@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { pool } from "@workspace/db";
 
 import { logConfiguredEnv } from "./lib/startup-env";
 import { runPendingSqlMigrations } from "./runMigrations";
@@ -45,9 +46,33 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+function shouldAllowDegradedStartup(): boolean {
+  const raw = String(process.env.ALLOW_DEGRADED_STARTUP ?? "").toLowerCase().trim();
+  if (raw === "1" || raw === "true" || raw === "yes") return true;
+  return process.env.NODE_ENV === "production";
+}
+
 async function main() {
   logConfiguredEnv();
-  await runPendingSqlMigrations();
+  try {
+    await runPendingSqlMigrations();
+  } catch (err) {
+    if (!shouldAllowDegradedStartup()) throw err;
+    logger.error(
+      { err },
+      "[startup] migration step failed; continuing in degraded mode (set ALLOW_DEGRADED_STARTUP=0 to fail hard)",
+    );
+  }
+  try {
+    await pool.query("select 1");
+  } catch (err) {
+    if (!shouldAllowDegradedStartup()) throw err;
+    process.env.API_MAINTENANCE_MODE = "1";
+    logger.error(
+      { err },
+      "[startup] database is unavailable; enabling API_MAINTENANCE_MODE=1",
+    );
+  }
   await assertSecurityStartupRequirements();
   const { default: app } = await import("./app");
   app.listen(port, (err?: Error) => {
