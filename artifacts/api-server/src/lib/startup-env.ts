@@ -6,6 +6,8 @@ export function logConfiguredEnv(): void {
     (process.env.SMTP_PASS?.replace(/\s/g, "") ?? "").length ||
     (process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, "") ?? "").length ||
     (process.env.GOOGLE_APP_PASSWORD?.replace(/\s/g, "") ?? "").length;
+  const bootstrapEmail = (process.env.BOOTSTRAP_ADMIN_EMAIL ?? "").trim();
+  const bootstrapPassLen = (process.env.BOOTSTRAP_ADMIN_PASSWORD ?? "").replace(/\s/g, "").length;
 
   logger.info(
     {
@@ -25,6 +27,13 @@ export function logConfiguredEnv(): void {
       EMAIL_FROM: process.env.EMAIL_FROM ? "set" : "unset (falls back to SMTP user)",
       PORT: process.env.PORT ?? "(unset)",
       DRAW_DELAY_MINUTES: process.env.DRAW_DELAY_MINUTES ?? "(default 10)",
+      SKIP_DB_MIGRATIONS: process.env.SKIP_DB_MIGRATIONS ?? "(unset)",
+      ALLOW_DEGRADED_STARTUP: process.env.ALLOW_DEGRADED_STARTUP ?? "(unset)",
+      API_MAINTENANCE_MODE: process.env.API_MAINTENANCE_MODE ?? "(unset)",
+      SUPER_ADMIN_USER_IDS: process.env.SUPER_ADMIN_USER_IDS ?? "(unset)",
+      BOOTSTRAP_ADMIN_EMAIL: bootstrapEmail ? bootstrapEmail : "(unset)",
+      BOOTSTRAP_ADMIN_PASSWORD: bootstrapPassLen > 0 ? `set (normalized len ${bootstrapPassLen})` : "MISSING",
+      BOOTSTRAP_ADMIN_NAME: process.env.BOOTSTRAP_ADMIN_NAME ? "set" : "(default Admin)",
     },
     "[env] configuration snapshot (values redacted)",
   );

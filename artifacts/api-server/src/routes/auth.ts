@@ -305,165 +305,218 @@ router.post("/signup", signupLimiter, async (req, res) => {
 });
 
 router.post("/login", loginLimiter, async (req, res) => {
-  const parse = LoginSchema.safeParse(req.body);
-  if (!parse.success) {
-    res.status(400).json({ error: "Validation error", message: parse.error.message });
-    return;
-  }
-
-  const email = parse.data.email.toLowerCase();
-  const { password } = parse.data;
-
-  let rows: any[];
   try {
-    const r = await dbPool.query(
-      `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at,
-              COALESCE(is_demo, false) AS is_demo,
-              COALESCE(reward_points, 0) AS reward_points,
-              COALESCE(bonus_balance, 0) AS bonus_balance,
-              COALESCE(withdrawable_balance, 0) AS withdrawable_balance,
-              COALESCE(email_verified, true) AS email_verified
-       FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
-      [email],
-    );
-    rows = r.rows as any[];
-  } catch {
-    const r = await dbPool.query(
-      `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at,
-              COALESCE(is_demo, false) AS is_demo,
-              COALESCE(email_verified, true) AS email_verified
-       FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
-      [email],
-    );
-    rows = (r.rows as any[]).map((row) => ({
-      ...row,
-      reward_points: 0,
-      bonus_balance: 0,
-      withdrawable_balance: row.wallet_balance,
-    }));
-  }
-  if (!rows[0]) {
-    logger.warn({ email, ip: req.ip }, "Failed login attempt — user not found");
-    await logSecurityEvent({
-      userId: null,
-      eventType: "auth.login_failed_no_user",
-      severity: "warn",
-      ipAddress: extractClientIp(req.ip),
-      endpoint: `${req.baseUrl}${req.path}`,
-      details: { email },
-    });
-    res.status(401).json({ error: "Invalid credentials", message: "Email or password is incorrect." });
-    return;
-  }
-  const user = rows[0] as {
-    id: number;
-    name: string;
-    email: string;
-    password_hash: string;
-    wallet_balance: string | number;
-    crypto_address: string | null;
-    is_admin: boolean;
-    joined_at: string | Date;
-    is_demo?: boolean;
-    bonus_balance?: string | number;
-    reward_points?: string | number;
-    withdrawable_balance?: string | number;
-    email_verified?: boolean;
-  };
-
-  const valid = await verifyAndUpgradePassword(user.id, user.password_hash, password);
-  if (!valid) {
-    logger.warn({ email, userId: user.id, ip: req.ip }, "Failed login attempt — bad password");
-    if (!user.is_admin) {
-      await applyRiskDelta(user.id, 2);
+    const parse = LoginSchema.safeParse(req.body);
+    if (!parse.success) {
+      res.status(400).json({ error: "Validation error", message: parse.error.message });
+      return;
     }
-    await logSecurityEvent({
-      userId: user.id,
-      eventType: "auth.login_failed_bad_password",
-      severity: "warn",
-      ipAddress: extractClientIp(req.ip),
-      endpoint: `${req.baseUrl}${req.path}`,
-      details: { email },
-    });
-    res.status(401).json({ error: "Invalid credentials", message: "Email or password is incorrect." });
-    return;
-  }
 
-  if (user.is_demo === true) {
-    res.status(403).json({
-      error: "Demo account",
-      message: "Demo accounts cannot sign in. This account is for display only.",
-    });
-    return;
-  }
+    const email = parse.data.email.toLowerCase();
+    const { password } = parse.data;
 
-  let isBlocked = false;
-  let blockedReason: string | null = null;
-  try {
-    const br = await dbPool.query(
-      `SELECT is_blocked, blocked_reason FROM users WHERE id = $1 LIMIT 1`,
-      [user.id],
-    );
-    const row = br.rows[0] as { is_blocked?: boolean; blocked_reason?: string | null } | undefined;
-    isBlocked = row?.is_blocked === true;
-    blockedReason = typeof row?.blocked_reason === "string" ? row.blocked_reason : null;
-  } catch (err) {
-    logger.warn({ err, userId: user.id }, "Could not read is_blocked columns; run migration 0003_user_block.sql");
-  }
-
-  if (isBlocked) {
-    const reason =
-      typeof blockedReason === "string" && blockedReason.trim() ? blockedReason.trim() : "Policy violation";
-    res.status(403).json({
-      error: "Account suspended",
-      message: `Your account has been suspended. Reason: ${reason}. Contact support.`,
-    });
-    return;
-  }
-
-  // Back-compat session + JWT cookie (cross-site SPA)
-  req.session.userId = user.id;
-  await persistSession(req);
-  signAndSetJwtCookie(res, user.id, Boolean(user.is_admin));
-  const device = await registerDeviceLogin({
-    userId: user.id,
-    ip: extractClientIp(req.ip),
-    userAgent: req.get("user-agent") ?? "",
-  });
-  if (device.isNewDevice && !device.trusted) {
-    if (!user.is_admin) {
-      await applyRiskDelta(user.id, 6);
+    let rows: any[];
+    try {
+      const r = await dbPool.query(
+        `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at,
+                COALESCE(is_demo, false) AS is_demo,
+                COALESCE(reward_points, 0) AS reward_points,
+                COALESCE(bonus_balance, 0) AS bonus_balance,
+                COALESCE(withdrawable_balance, 0) AS withdrawable_balance,
+                COALESCE(email_verified, true) AS email_verified
+         FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+        [email],
+      );
+      rows = r.rows as any[];
+    } catch (err) {
+      logger.warn({ err, email }, "auth.login: primary user query failed; attempting legacy fallback query");
+      try {
+        const r = await dbPool.query(
+          `SELECT id, name, email, password_hash, wallet_balance, crypto_address, is_admin, joined_at,
+                  COALESCE(is_demo, false) AS is_demo,
+                  COALESCE(email_verified, true) AS email_verified
+           FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+          [email],
+        );
+        rows = (r.rows as any[]).map((row) => ({
+          ...row,
+          reward_points: 0,
+          bonus_balance: 0,
+          withdrawable_balance: row.wallet_balance,
+        }));
+      } catch (err2) {
+        logger.error({ err: err2, email }, "auth.login: users table/query failed");
+        res.status(503).json({
+          error: "DATABASE_NOT_READY",
+          message: "Database is not ready yet (migrations missing or incomplete). Retry in a minute after deploy finishes.",
+        });
+        return;
+      }
     }
-    await logSecurityEvent({
-      userId: user.id,
-      eventType: "auth.new_device_login",
-      severity: "warn",
-      ipAddress: extractClientIp(req.ip),
-      endpoint: `${req.baseUrl}${req.path}`,
-      details: { trusted: false, admin: user.is_admin },
-    });
-  }
+    if (!rows[0]) {
+      logger.warn({ email, ip: req.ip }, "Failed login attempt — user not found");
+      try {
+        await logSecurityEvent({
+          userId: null,
+          eventType: "auth.login_failed_no_user",
+          severity: "warn",
+          ipAddress: extractClientIp(req.ip),
+          endpoint: `${req.baseUrl}${req.path}`,
+          details: { email },
+        });
+      } catch (err) {
+        logger.warn({ err, email }, "auth.login: logSecurityEvent failed (non-fatal)");
+      }
+      res.status(401).json({ error: "Invalid credentials", message: "Email or password is incorrect." });
+      return;
+    }
+    const user = rows[0] as {
+      id: number;
+      name: string;
+      email: string;
+      password_hash: string;
+      wallet_balance: string | number;
+      crypto_address: string | null;
+      is_admin: boolean;
+      joined_at: string | Date;
+      is_demo?: boolean;
+      bonus_balance?: string | number;
+      reward_points?: string | number;
+      withdrawable_balance?: string | number;
+      email_verified?: boolean;
+    };
 
-  res.json({
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      walletBalance: parseFloat(String(user.wallet_balance)),
-      rewardPoints: parseInt(String(user.reward_points ?? "0"), 10),
-      bonusBalance: 0,
-      withdrawableBalance: parseFloat(String(user.withdrawable_balance ?? "0")),
-      cryptoAddress: user.crypto_address ?? null,
-      isAdmin: user.is_admin,
-      joinedAt: user.joined_at,
-      emailVerified: user.email_verified !== false,
-      security: {
-        newDevice: device.isNewDevice,
-        trustedDevice: device.trusted,
+    const valid = await verifyAndUpgradePassword(user.id, user.password_hash, password);
+    if (!valid) {
+      logger.warn({ email, userId: user.id, ip: req.ip }, "Failed login attempt — bad password");
+      if (!user.is_admin) {
+        try {
+          await applyRiskDelta(user.id, 2);
+        } catch (err) {
+          logger.warn({ err, userId: user.id }, "auth.login: applyRiskDelta failed (non-fatal)");
+        }
+      }
+      try {
+        await logSecurityEvent({
+          userId: user.id,
+          eventType: "auth.login_failed_bad_password",
+          severity: "warn",
+          ipAddress: extractClientIp(req.ip),
+          endpoint: `${req.baseUrl}${req.path}`,
+          details: { email },
+        });
+      } catch (err) {
+        logger.warn({ err, email, userId: user.id }, "auth.login: logSecurityEvent failed (non-fatal)");
+      }
+      res.status(401).json({ error: "Invalid credentials", message: "Email or password is incorrect." });
+      return;
+    }
+
+    if (user.is_demo === true) {
+      res.status(403).json({
+        error: "Demo account",
+        message: "Demo accounts cannot sign in. This account is for display only.",
+      });
+      return;
+    }
+
+    let isBlocked = false;
+    let blockedReason: string | null = null;
+    try {
+      const br = await dbPool.query(
+        `SELECT is_blocked, blocked_reason FROM users WHERE id = $1 LIMIT 1`,
+        [user.id],
+      );
+      const row = br.rows[0] as { is_blocked?: boolean; blocked_reason?: string | null } | undefined;
+      isBlocked = row?.is_blocked === true;
+      blockedReason = typeof row?.blocked_reason === "string" ? row.blocked_reason : null;
+    } catch (err) {
+      logger.warn({ err, userId: user.id }, "Could not read is_blocked columns; run migration 0003_user_block.sql");
+    }
+
+    if (isBlocked) {
+      const reason =
+        typeof blockedReason === "string" && blockedReason.trim() ? blockedReason.trim() : "Policy violation";
+      res.status(403).json({
+        error: "Account suspended",
+        message: `Your account has been suspended. Reason: ${reason}. Contact support.`,
+      });
+      return;
+    }
+
+    // Back-compat session + JWT cookie (cross-site SPA)
+    req.session.userId = user.id;
+    try {
+      await persistSession(req);
+    } catch (err) {
+      logger.error({ err, userId: user.id }, "auth.login: session save failed");
+      res.status(503).json({
+        error: "SESSION_STORE_UNAVAILABLE",
+        message: "Login cannot complete because session storage is unavailable. Check Postgres + connect-pg-simple session table.",
+      });
+      return;
+    }
+    signAndSetJwtCookie(res, user.id, Boolean(user.is_admin));
+
+    let device: { isNewDevice: boolean; trusted: boolean } = { isNewDevice: false, trusted: true };
+    try {
+      device = await registerDeviceLogin({
+        userId: user.id,
+        ip: extractClientIp(req.ip),
+        userAgent: req.get("user-agent") ?? "",
+      });
+    } catch (err) {
+      logger.warn({ err, userId: user.id }, "auth.login: registerDeviceLogin failed (non-fatal)");
+    }
+    if (device.isNewDevice && !device.trusted) {
+      if (!user.is_admin) {
+        try {
+          await applyRiskDelta(user.id, 6);
+        } catch (err) {
+          logger.warn({ err, userId: user.id }, "auth.login: applyRiskDelta failed (non-fatal)");
+        }
+      }
+      try {
+        await logSecurityEvent({
+          userId: user.id,
+          eventType: "auth.new_device_login",
+          severity: "warn",
+          ipAddress: extractClientIp(req.ip),
+          endpoint: `${req.baseUrl}${req.path}`,
+          details: { trusted: false, admin: user.is_admin },
+        });
+      } catch (err) {
+        logger.warn({ err, userId: user.id }, "auth.login: logSecurityEvent failed (non-fatal)");
+      }
+    }
+
+    res.json({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        walletBalance: parseFloat(String(user.wallet_balance)),
+        rewardPoints: parseInt(String(user.reward_points ?? "0"), 10),
+        bonusBalance: 0,
+        withdrawableBalance: parseFloat(String(user.withdrawable_balance ?? "0")),
+        cryptoAddress: user.crypto_address ?? null,
+        isAdmin: user.is_admin,
+        joinedAt: user.joined_at,
+        emailVerified: user.email_verified !== false,
+        security: {
+          newDevice: device.isNewDevice,
+          trustedDevice: device.trusted,
+        },
       },
-    },
-    message: "Login successful",
-  });
+      message: "Login successful",
+    });
+  } catch (err) {
+    logger.error({ err }, "auth.login: unexpected error");
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: process.env.NODE_ENV === "production" ? "Login failed. Please try again." : (err instanceof Error ? err.message : String(err)),
+    });
+  }
 });
 
 router.get("/otp-status", async (req, res) => {

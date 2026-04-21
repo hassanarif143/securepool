@@ -14,6 +14,7 @@ import { scheduleStakingSimJobs } from "./lib/staking-sim-scheduler";
 import { scheduleSptJobs } from "./lib/spt-scheduler";
 import { scheduleSmartNotificationJobs } from "./lib/smart-notification-scheduler";
 import { assertSecurityStartupRequirements } from "./lib/security";
+import { bootstrapFreshDatabase } from "./lib/startup-bootstrap";
 import { ensureSmartPoolTemplates } from "./services/pool-lifecycle";
 
 process.on("unhandledRejection", (reason: unknown) => {
@@ -49,7 +50,9 @@ if (Number.isNaN(port) || port <= 0) {
 function shouldAllowDegradedStartup(): boolean {
   const raw = String(process.env.ALLOW_DEGRADED_STARTUP ?? "").toLowerCase().trim();
   if (raw === "1" || raw === "true" || raw === "yes") return true;
-  return process.env.NODE_ENV === "production";
+  // Default: fail hard in production if migrations/DB can't start — avoids "half-up" APIs that always 500.
+  if (process.env.NODE_ENV === "production") return false;
+  return true;
 }
 
 async function main() {
@@ -60,7 +63,7 @@ async function main() {
     if (!shouldAllowDegradedStartup()) throw err;
     logger.error(
       { err },
-      "[startup] migration step failed; continuing in degraded mode (set ALLOW_DEGRADED_STARTUP=0 to fail hard)",
+      "[startup] migration step failed; continuing in degraded mode (set ALLOW_DEGRADED_STARTUP=1 to allow boot without migrations)",
     );
   }
   try {
@@ -78,6 +81,7 @@ async function main() {
       "[startup] database is unavailable; enabling API_MAINTENANCE_MODE=1",
     );
   }
+  await bootstrapFreshDatabase();
   await assertSecurityStartupRequirements();
   const { default: app } = await import("./app");
   app.listen(port, (err?: Error) => {
