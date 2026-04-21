@@ -158,6 +158,9 @@ if (isMaintenanceMode()) {
       name: "connect.sid",
       store: new PgStore({
         pool,
+        // Fresh databases (Railway Postgres) may not have the session table yet.
+        // connect-pg-simple can create it automatically on first use.
+        createTableIfMissing: true,
       }),
       proxy: sessionCookieCrossSite,
       secret: sessionSecret,
