@@ -96,7 +96,11 @@ function buildAllowedOrigins(): string[] {
 }
 
 const allowedOrigins = buildAllowedOrigins();
-const maintenanceMode = process.env.API_MAINTENANCE_MODE === "1";
+
+function isMaintenanceMode(): boolean {
+  const v = String(process.env.API_MAINTENANCE_MODE ?? "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
 
 // CORS must run before session/auth so OPTIONS preflight and credentialed responses get proper headers (Vercel → Railway).
 app.use(
@@ -122,7 +126,7 @@ app.use(
   }),
 );
 
-if (maintenanceMode) {
+if (isMaintenanceMode()) {
   logger.error("[startup] API_MAINTENANCE_MODE active — serving 503 for /api");
   app.use("/api", (_req, res) => {
     res.status(503).json({

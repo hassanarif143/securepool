@@ -65,6 +65,11 @@ async function main() {
   }
   try {
     await pool.query("select 1");
+    // If we previously forced maintenance in-process, clear it when DB is healthy again.
+    if (process.env.API_MAINTENANCE_MODE === "1") {
+      delete process.env.API_MAINTENANCE_MODE;
+      logger.warn("[startup] database recovered — cleared in-process API_MAINTENANCE_MODE");
+    }
   } catch (err) {
     if (!shouldAllowDegradedStartup()) throw err;
     process.env.API_MAINTENANCE_MODE = "1";
