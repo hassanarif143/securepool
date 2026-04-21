@@ -36,6 +36,8 @@ async function buildAll() {
     // - use path traversal to read files (e.g. @google-cloud/secret-manager loads sibling .proto files)
     external: [
       "*.node",
+      // connect-pg-simple reads a sibling `table.sql` using __dirname; bundling breaks that on Railway.
+      "connect-pg-simple",
       "sharp",
       "better-sqlite3",
       "sqlite3",

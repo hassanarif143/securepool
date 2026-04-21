@@ -158,9 +158,12 @@ if (isMaintenanceMode()) {
       name: "connect.sid",
       store: new PgStore({
         pool,
-        // Fresh databases (Railway Postgres) may not have the session table yet.
-        // connect-pg-simple can create it automatically on first use.
-        createTableIfMissing: true,
+        // Session table is created via SQL migration (`0067_express_session_table.sql`).
+        //
+        // IMPORTANT: do not enable `createTableIfMissing` when bundling the API with esbuild:
+        // `connect-pg-simple` reads `table.sql` via `__dirname`, which resolves inside `dist/`
+        // and crashes with ENOENT on Railway.
+        createTableIfMissing: false,
       }),
       proxy: sessionCookieCrossSite,
       secret: sessionSecret,
