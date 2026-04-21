@@ -100,8 +100,14 @@ export async function assertSecurityStartupRequirements(): Promise<void> {
   if (cfg.featureFlags.requireRequestSignature && !process.env.REQUEST_HMAC_SECRET) {
     throw new Error("Security startup check failed: REQUEST_HMAC_SECRET is required when request signature is enabled.");
   }
-  if (process.env.NODE_ENV === "production" && !process.env.FAIR_SEED_ENC_KEY) {
-    throw new Error("Security startup check failed: FAIR_SEED_ENC_KEY is required in production.");
+  if (process.env.NODE_ENV === "production") {
+    const hasFairSeedKey = Boolean(process.env.FAIR_SEED_ENC_KEY);
+    const hasFallbackKey = Boolean(process.env.JWT_SECRET || process.env.SESSION_SECRET);
+    if (!hasFairSeedKey && !hasFallbackKey) {
+      throw new Error(
+        "Security startup check failed: set FAIR_SEED_ENC_KEY (recommended) or provide JWT_SECRET/SESSION_SECRET for provably-fair seed encryption.",
+      );
+    }
   }
 }
 

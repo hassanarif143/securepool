@@ -15,6 +15,9 @@ export function logConfiguredEnv(): void {
       JWT_SECRET: process.env.JWT_SECRET
         ? `set (len ${process.env.JWT_SECRET.length})`
         : "unset (JWT derived from SESSION_SECRET if needed)",
+      FAIR_SEED_ENC_KEY: process.env.FAIR_SEED_ENC_KEY
+        ? `set (len ${process.env.FAIR_SEED_ENC_KEY.length})`
+        : "unset (fallback to JWT_SECRET/SESSION_SECRET)",
       FRONTEND_ORIGINS: process.env.FRONTEND_ORIGINS ?? process.env.FRONTEND_ORIGIN ?? "(using code fallback)",
       SMTP_USER: process.env.SMTP_USER || process.env.GMAIL_USER ? "set" : "MISSING",
       SMTP_PASS: smtpPassLen > 0 ? `set (normalized len ${smtpPassLen})` : "MISSING",
