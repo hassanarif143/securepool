@@ -45,6 +45,12 @@ export function friendlyApiError(status: number, rawMessage: string): string {
     return "That action isn't available right now.";
   }
   if (status === 429) return "Too many attempts. Please wait a minute and try again.";
+  if (status === 503) {
+    if (low.includes("db_capacity_exceeded") || low.includes("database capacity") || low.includes("capacity")) {
+      return "Server is under heavy load. Please try again in a few minutes.";
+    }
+    return "Service is temporarily unavailable. Please try again shortly.";
+  }
   if (status >= 500) return "Something went wrong. Please try again.";
 
   if (status === 400) {
