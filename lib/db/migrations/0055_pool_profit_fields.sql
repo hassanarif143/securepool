@@ -1,11 +1,11 @@
 ALTER TABLE pools
-  ADD COLUMN profit_percent numeric(8, 2) NOT NULL DEFAULT '0';
+  ADD COLUMN IF NOT EXISTS profit_percent numeric(8, 2) NOT NULL DEFAULT '0';
 
 ALTER TABLE pools
-  ADD COLUMN draw_delay_minutes integer;
+  ADD COLUMN IF NOT EXISTS draw_delay_minutes integer;
 
 ALTER TABLE pools
-  ADD COLUMN auto_recreate boolean NOT NULL DEFAULT true;
+  ADD COLUMN IF NOT EXISTS auto_recreate boolean NOT NULL DEFAULT true;
 
 -- Backfill total_pool_amount / platform_fee_amount where possible.
 UPDATE pools
