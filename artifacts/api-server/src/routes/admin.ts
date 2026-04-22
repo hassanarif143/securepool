@@ -1776,27 +1776,6 @@ const AdminSelectWinnersBody = z.object({
   winnerUserIds: z.array(z.number().int().positive()).min(1).max(3),
 });
 
-const DEFAULT_POOL_BLUEPRINTS: Array<{
-  title: string;
-  entryFee: number;
-  maxUsers: number;
-  prizeFirst: number;
-  prizeSecond: number;
-  prizeThird: number;
-  winnerCount: 1 | 2 | 3;
-}> = [
-  { title: "Starter 5 USDT", entryFee: 5, maxUsers: 50, prizeFirst: 80, prizeSecond: 30, prizeThird: 20, winnerCount: 3 },
-  { title: "Classic 10 USDT", entryFee: 10, maxUsers: 60, prizeFirst: 220, prizeSecond: 90, prizeThird: 50, winnerCount: 3 },
-  { title: "Prime 15 USDT", entryFee: 15, maxUsers: 60, prizeFirst: 360, prizeSecond: 120, prizeThird: 70, winnerCount: 3 },
-  { title: "Power 20 USDT", entryFee: 20, maxUsers: 70, prizeFirst: 560, prizeSecond: 180, prizeThird: 100, winnerCount: 3 },
-  { title: "Turbo 25 USDT", entryFee: 25, maxUsers: 70, prizeFirst: 760, prizeSecond: 240, prizeThird: 140, winnerCount: 3 },
-  { title: "Single Winner 10 USDT", entryFee: 10, maxUsers: 45, prizeFirst: 260, prizeSecond: 0, prizeThird: 0, winnerCount: 1 },
-  { title: "Single Winner 20 USDT", entryFee: 20, maxUsers: 45, prizeFirst: 540, prizeSecond: 0, prizeThird: 0, winnerCount: 1 },
-  { title: "2 Winner Pro 15 USDT", entryFee: 15, maxUsers: 55, prizeFirst: 420, prizeSecond: 180, prizeThird: 0, winnerCount: 2 },
-  { title: "2 Winner Pro 25 USDT", entryFee: 25, maxUsers: 55, prizeFirst: 760, prizeSecond: 320, prizeThird: 0, winnerCount: 2 },
-  { title: "Mega 50 USDT", entryFee: 50, maxUsers: 80, prizeFirst: 2500, prizeSecond: 700, prizeThird: 350, winnerCount: 3 },
-];
-
 type FactoryBlueprint = {
   title: string;
   entryFee: number;
@@ -2087,23 +2066,16 @@ async function createFactoryPools(blueprints: FactoryBlueprint[]) {
   return created;
 }
 
-router.post("/pool-factory/generate-small", async (req, res) => {
-  const distributionOverride = parseFactoryDistributionFromBody(req.body);
-  const created = await createFactoryPools(withDistributionOverride(buildSmallFactoryBlueprints("open"), distributionOverride));
-  res.json({ message: "Small pools generated", created });
+router.post("/pool-factory/generate-small", async (_req, res) => {
+  res.status(400).json({ error: "Bulk pool generation is disabled. Create pools with POST /api/admin/pool/create only." });
 });
 
-router.post("/pool-factory/generate-large", async (req, res) => {
-  const distributionOverride = parseFactoryDistributionFromBody(req.body);
-  const created = await createFactoryPools(withDistributionOverride(buildLargeFactoryBlueprints("open"), distributionOverride));
-  res.json({ message: "Large pools generated", created });
+router.post("/pool-factory/generate-large", async (_req, res) => {
+  res.status(400).json({ error: "Bulk pool generation is disabled. Create pools with POST /api/admin/pool/create only." });
 });
 
-router.post("/pool-factory/create-upcoming", async (req, res) => {
-  const distributionOverride = parseFactoryDistributionFromBody(req.body);
-  const createdSmall = await createFactoryPools(withDistributionOverride(buildSmallFactoryBlueprints("upcoming"), distributionOverride));
-  const createdLarge = await createFactoryPools(withDistributionOverride(buildLargeFactoryBlueprints("upcoming"), distributionOverride));
-  res.json({ message: "Upcoming pools created", created: createdSmall + createdLarge });
+router.post("/pool-factory/create-upcoming", async (_req, res) => {
+  res.status(400).json({ error: "Bulk pool generation is disabled. Create pools with POST /api/admin/pool/create only." });
 });
 
 router.post("/pool-factory/delete-all", async (_req, res) => {
@@ -2548,40 +2520,7 @@ router.get("/pool/:id/participants", async (req, res) => {
 });
 
 router.post("/pool/seed-defaults", async (_req, res) => {
-  const now = new Date();
-  let created = 0;
-  for (let i = 0; i < DEFAULT_POOL_BLUEPRINTS.length; i++) {
-    const bp = DEFAULT_POOL_BLUEPRINTS[i]!;
-    const title = `[Default] ${bp.title}`;
-    const existing = await db.select({ id: poolsTable.id }).from(poolsTable).where(eq(poolsTable.title, title)).limit(1);
-    if (existing.length > 0) continue;
-    const start = new Date(now.getTime() + i * 5 * 60_000);
-    const end = new Date(start.getTime() + 24 * 60 * 60_000);
-    await db.insert(poolsTable).values({
-      title,
-      entryFee: bp.entryFee.toFixed(2),
-      maxUsers: bp.maxUsers,
-      ticketPrice: bp.entryFee.toFixed(2),
-      totalTickets: bp.maxUsers,
-      soldTickets: 0,
-      maxTicketsPerUser: null,
-      allowMultiWin: false,
-      cooldownPeriodDays: 7,
-      cooldownWeight: "0.2000",
-      startTime: start,
-      endTime: end,
-      status: "open",
-      prizeFirst: bp.prizeFirst.toFixed(2),
-      prizeSecond: bp.prizeSecond.toFixed(2),
-      prizeThird: bp.prizeThird.toFixed(2),
-      winnerCount: bp.winnerCount,
-      minPoolVipTier: "bronze",
-      isFrozen: false,
-      selectedWinnerUserIds: null,
-    });
-    created++;
-  }
-  res.json({ message: "Default pools seeded", created, total: DEFAULT_POOL_BLUEPRINTS.length });
+  res.status(400).json({ error: "Default pool seeding is disabled. Create pools with POST /api/admin/pool/create only." });
 });
 
 router.get("/transactions/pending", async (_req, res) => {

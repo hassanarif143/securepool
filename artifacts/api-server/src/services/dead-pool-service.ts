@@ -1,7 +1,7 @@
 import { db, poolsTable, pool as pgPool } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { refundAllPoolParticipants } from "../lib/pool-refunds";
-import { insertAuditLog, runPoolRotationMaintenance } from "./pool-template-service";
+import { insertAuditLog } from "./pool-template-service";
 import { logger } from "../lib/logger";
 
 export type DeadPoolRule = {
@@ -156,7 +156,6 @@ export async function runDeadPoolMaintenance(opts?: { force?: boolean }): Promis
             `Auto-cancelled Pool #${pool.id} (${rule.name})`,
             { poolId: pool.id, rule: rule.name },
           );
-          await runPoolRotationMaintenance();
           break;
         }
         if (rule.action === "reduce_seats") {

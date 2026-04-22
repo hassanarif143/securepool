@@ -221,6 +221,12 @@ router.post("/templates/:id/create-pool", async (req, res) => {
       res.status(429).json({ error: "Max pools created today (daily cap)" });
       return;
     }
+    if (code === "TEMPLATE_POOL_CREATE_DISABLED") {
+      res
+        .status(400)
+        .json({ error: "Template-based pool creation is disabled. Use POST /api/admin/pool/create." });
+      return;
+    }
     res.status(500).json({ error: "Failed to create pool" });
   }
 });
@@ -377,6 +383,10 @@ router.post("/schedules/:id/run-now", async (req, res) => {
       res.status(429).json({ error: code });
       return;
     }
+    if (code === "TEMPLATE_POOL_CREATE_DISABLED") {
+      res.status(400).json({ error: "Template pool creation is disabled. Use POST /api/admin/pool/create." });
+      return;
+    }
     res.status(500).json({ error: "Failed" });
   }
 });
@@ -411,6 +421,10 @@ router.post("/quick-actions/launch-daily-set", async (req, res) => {
       res.status(429).json({ error: code });
       return;
     }
+    if (code === "TEMPLATE_POOL_CREATE_DISABLED") {
+      res.status(400).json({ error: "Template pool creation is disabled. Use POST /api/admin/pool/create." });
+      return;
+    }
     res.status(500).json({ error: "Failed" });
   }
 });
@@ -431,6 +445,10 @@ router.post("/quick-actions/quick-fill", async (req, res) => {
       res.status(429).json({ error: code });
       return;
     }
+    if (code === "TEMPLATE_POOL_CREATE_DISABLED") {
+      res.status(400).json({ error: "Template pool creation is disabled. Use POST /api/admin/pool/create." });
+      return;
+    }
     res.status(500).json({ error: "Failed" });
   }
 });
@@ -449,6 +467,10 @@ router.post("/quick-actions/weekend-special", async (req, res) => {
     const code = (e as { code?: string })?.code ?? "";
     if (code === "MAX_ACTIVE_POOLS" || code === "MAX_DAILY_POOLS") {
       res.status(429).json({ error: code });
+      return;
+    }
+    if (code === "TEMPLATE_POOL_CREATE_DISABLED") {
+      res.status(400).json({ error: "Template pool creation is disabled. Use POST /api/admin/pool/create." });
       return;
     }
     res.status(500).json({ error: "Failed" });

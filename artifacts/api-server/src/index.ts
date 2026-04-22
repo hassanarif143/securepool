@@ -15,8 +15,6 @@ import { scheduleSptJobs } from "./lib/spt-scheduler";
 import { scheduleSmartNotificationJobs } from "./lib/smart-notification-scheduler";
 import { assertSecurityStartupRequirements } from "./lib/security";
 import { bootstrapFreshDatabase } from "./lib/startup-bootstrap";
-import { ensureSmartPoolTemplates } from "./services/pool-lifecycle";
-
 process.on("unhandledRejection", (reason: unknown) => {
   logger.warn({ reason }, "[process] unhandledRejection");
 });
@@ -91,13 +89,9 @@ async function main() {
     }
 
     logger.info({ port }, "Server listening");
-    void ensureSmartPoolTemplates().catch((err: unknown) =>
-      logger.warn({ err }, "[seed] ensureSmartPoolTemplates failed"),
-    );
     scheduleExpiredPoolJob();
     schedulePoolAutoDrawJob();
     scheduleEngagementJobs();
-    /* Pool automation map: `src/services/pool-lifecycle.ts` — rotation + schedules + dead-pool live in pool-factory-scheduler */
     schedulePoolFactoryJobs();
     scheduleMegaDrawJob();
     scheduleStakingV2Jobs();

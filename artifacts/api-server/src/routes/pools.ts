@@ -39,46 +39,6 @@ import { logger } from "../lib/logger";
 import { getAuthedUserId, requireAdmin, type AuthedRequest } from "../middleware/auth";
 import { assertEmailVerified } from "../middleware/require-email-verified";
 import { pickUniqueWinners, pickWeightedWinnersByTickets, secureShuffle } from "../services/draw-service";
-import { createPoolFromTemplateByName } from "../services/pool-template-service";
-
-let lastEnsureDefaultPoolsAt = 0;
-async function ensureRequiredDefaultPools(): Promise<void> {
-  // Throttle to keep public endpoints fast.
-  const now = Date.now();
-  if (now - lastEnsureDefaultPoolsAt < 30_000) return;
-  lastEnsureDefaultPoolsAt = now;
-
-  const required = [
-    { ticketPrice: 2, templateName: "Starter Pool" },
-    { ticketPrice: 3, templateName: "$3 Pool" },
-    { ticketPrice: 5, templateName: "Standard Pool" },
-    { ticketPrice: 10, templateName: "Classic Pool" },
-    { ticketPrice: 15, templateName: "$15 Pool" },
-    { ticketPrice: 20, templateName: "$20 Pool" },
-    { ticketPrice: 25, templateName: "Pro Pool" },
-  ];
-
-  // Look only at active pools; if a required price is missing, create one from its template.
-  const active = await db
-    .select({ entryFee: poolsTable.entryFee, ticketPrice: poolsTable.ticketPrice })
-    .from(poolsTable)
-    .where(inArray(poolsTable.status, ["open", "filled", "drawing"]));
-  const have = new Set(
-    active
-      .map((p) => Math.round(Number(p.ticketPrice != null ? parseFloat(String(p.ticketPrice)) : parseFloat(String(p.entryFee)))))
-      .filter((n) => Number.isFinite(n) && n > 0),
-  );
-
-  for (const r of required) {
-    if (have.has(r.ticketPrice)) continue;
-    try {
-      await createPoolFromTemplateByName(r.templateName, { autoCreated: true });
-    } catch (err) {
-      // Safe to ignore: caps/cooldowns can block creation; cron rotation will retry.
-      logger.warn({ err, templateName: r.templateName }, "[pools] ensureRequiredDefaultPools create failed");
-    }
-  }
-}
 import { logActivity } from "../services/activity-service";
 import { privacyDisplayName } from "../lib/privacy-name";
 import { runJoinSideEffects } from "../services/join-side-effects";
@@ -277,7 +237,6 @@ function preExitChargeUsdt(entryFee: number, poolPlatformFeeOverride: string | n
 }
 
 router.get("/", async (_req, res) => {
-  await ensureRequiredDefaultPools();
   const pools = await db.select().from(poolsTable).orderBy(desc(poolsTable.createdAt));
   const desiredProfitUsdt = await getDrawDesiredProfitUsdt();
 
@@ -313,7 +272,6 @@ router.get("/public-stats", async (_req, res) => {
 });
 
 router.get("/active", async (_req, res) => {
-  await ensureRequiredDefaultPools();
   const pools = await db
     .select()
     .from(poolsTable)
@@ -2556,14 +2514,6 @@ async function finalizePoolDistribution(
       winner ? String(winner.prize) : undefined,
     );
   }
-
-  void import("../services/pool-template-service.js")
-    .then((m) =>
-      m.runRotationAfterPoolCompleted(poolId).catch((err: unknown) =>
-        logger.warn({ err, poolId }, "[pool] rotation hook failed"),
-      ),
-    )
-    .catch(() => {});
 
   const [fpool] = await db.select().from(poolsTable).where(eq(poolsTable.id, poolId)).limit(1);
   const drawHashShort =
