@@ -70,7 +70,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PoolFactoryDashboard } from "@/components/admin/PoolFactoryDashboard";
 import { ShareAnalyticsStrip } from "@/components/admin/ShareAnalyticsStrip";
 import { DEPOSIT_REJECTION_OPTIONS } from "@/lib/payment-rejection-reasons";
 import { useLoadMore } from "@/hooks/useLoadMore";
@@ -3266,15 +3265,6 @@ function CreatePoolTab() {
   const defaultEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   const [form, setForm] = useState({
-    preset: "custom" as
-      | "custom"
-      | "starter"
-      | "lite"
-      | "blitz"
-      | "standard"
-      | "pro"
-      | "mega"
-      | "jackpot",
     title: "Custom Pool",
     ticketPrice: 5,
     totalTickets: 8,
@@ -3297,40 +3287,8 @@ function CreatePoolTab() {
     if (dpp == null) return;
     const n = Number(dpp);
     if (!Number.isFinite(n) || n < 0 || n > 80) return;
-    setForm((f) => (f.preset === "custom" ? { ...f, profitPercent: Math.round(n) } : f));
+    setForm((f) => ({ ...f, profitPercent: Math.round(n) }));
   }, [finSettings]);
-
-  type PresetKey = "starter" | "lite" | "blitz" | "standard" | "pro" | "mega" | "jackpot";
-  const presets: Record<PresetKey, { title: string; ticketPrice: number; totalTickets: number; winnerCount: 1 | 2 | 3; profitPercent: number }> =
-    useMemo(
-      () => ({
-        starter: { title: "Starter Pool", ticketPrice: 2, totalTickets: 10, winnerCount: 3, profitPercent: 15 },
-        lite: { title: "Lite Pool", ticketPrice: 3, totalTickets: 10, winnerCount: 3, profitPercent: 15 },
-        blitz: { title: "Blitz Pool", ticketPrice: 5, totalTickets: 8, winnerCount: 2, profitPercent: 15 },
-        standard: { title: "Standard Pool", ticketPrice: 10, totalTickets: 10, winnerCount: 3, profitPercent: 15 },
-        pro: { title: "Pro Pool", ticketPrice: 25, totalTickets: 10, winnerCount: 3, profitPercent: 15 },
-        mega: { title: "Mega Pool", ticketPrice: 50, totalTickets: 10, winnerCount: 3, profitPercent: 20 },
-        jackpot: { title: "Jackpot Pool", ticketPrice: 10, totalTickets: 20, winnerCount: 1, profitPercent: 20 },
-      }),
-      [],
-    );
-
-  function applyPreset(key: PresetKey) {
-    const p = presets[key];
-    setForm((f) => ({
-      ...f,
-      preset: key,
-      title: p.title,
-      ticketPrice: p.ticketPrice,
-      totalTickets: p.totalTickets,
-      winnerCount: p.winnerCount as 1 | 2 | 3,
-      profitPercent: p.profitPercent,
-      customPrizeSplit: false,
-      p1: p.winnerCount === 1 ? 100 : p.winnerCount === 2 ? 65 : 55,
-      p2: p.winnerCount === 1 ? 0 : p.winnerCount === 2 ? 35 : 30,
-      p3: p.winnerCount === 3 ? 15 : 0,
-    }));
-  }
 
   function setDuration(days: number) {
     const start = new Date();
@@ -3390,7 +3348,7 @@ function CreatePoolTab() {
       : new Date(form.endTime).toISOString();
 
     try {
-      // CSRF token (same approach as PoolFactoryDashboard)
+      // CSRF token for admin POST
       const csrfRes = await fetch(apiUrl("/api/auth/csrf-token"), { credentials: "include" });
       const csrfData = await csrfRes.json().catch(() => ({}));
       const token = (csrfData as { csrfToken?: string }).csrfToken;
@@ -3425,7 +3383,6 @@ function CreatePoolTab() {
       const end2 = new Date(now2.getTime() + 7 * 24 * 60 * 60 * 1000);
       setForm((f) => ({
         ...f,
-        preset: "custom",
         title: "Custom Pool",
         ticketPrice: 5,
         totalTickets: 8,
@@ -3453,15 +3410,7 @@ function CreatePoolTab() {
 
   return (
     <div className="mt-4 space-y-6">
-      <div className="rounded-2xl border border-border bg-card p-4 sm:p-6 shadow-sm">
-        <p className="text-sm font-semibold text-foreground">Pool templates</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Use templates for day-to-day pools. The form below is only for one-off custom pools.
-        </p>
-      </div>
-
       <ShareAnalyticsStrip />
-      <PoolFactoryDashboard />
 
       <form onSubmit={handleSubmit}>
         <div className="grid lg:grid-cols-5 gap-6">
@@ -3477,41 +3426,13 @@ function CreatePoolTab() {
                 <p className="text-sm font-semibold">Basic Info</p>
               </div>
 
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Quick create</p>
-                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-                  {[
-                    { key: "starter", label: "Starter $2" },
-                    { key: "lite", label: "Lite $3" },
-                    { key: "blitz", label: "Blitz $5" },
-                    { key: "standard", label: "Standard $10" },
-                    { key: "pro", label: "Pro $25" },
-                    { key: "mega", label: "Mega $50" },
-                    { key: "jackpot", label: "Jackpot" },
-                  ].map((b) => (
-                    <button
-                      key={b.key}
-                      type="button"
-                      onClick={() => applyPreset(b.key as keyof typeof presets)}
-                      className={`shrink-0 rounded-xl px-3 py-2 text-xs font-semibold border transition-colors ${
-                        form.preset === b.key
-                          ? "bg-primary/15 border-primary/30 text-primary"
-                          : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/50"
-                      }`}
-                    >
-                      {b.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5 block">
                   Pool Name <span className="text-red-400">*</span>
                 </Label>
                 <Input
                   value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value, preset: "custom" })}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
                   required
                   placeholder="e.g. Blitz Pool"
                   className="h-10"
@@ -3525,7 +3446,7 @@ function CreatePoolTab() {
                     <Input
                       type="number" min="1" step="0.5"
                       value={form.ticketPrice}
-                      onChange={(e) => setForm({ ...form, ticketPrice: parseFloat(e.target.value) || 0, preset: "custom" })}
+                      onChange={(e) => setForm({ ...form, ticketPrice: parseFloat(e.target.value) || 0 })}
                       className="h-10 pr-14"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-primary">USDT</span>
@@ -3537,7 +3458,7 @@ function CreatePoolTab() {
                     <Input
                       type="number" min="2" step="1"
                       value={form.totalTickets}
-                      onChange={(e) => setForm({ ...form, totalTickets: parseInt(e.target.value) || 0, preset: "custom" })}
+                      onChange={(e) => setForm({ ...form, totalTickets: parseInt(e.target.value) || 0 })}
                       className="h-10 pr-14"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">tickets</span>
@@ -3559,7 +3480,6 @@ function CreatePoolTab() {
                         setForm((f) => ({
                           ...f,
                           winnerCount: b.v as 1 | 2 | 3,
-                          preset: "custom",
                           customPrizeSplit: false,
                           p1: b.v === 1 ? 100 : b.v === 2 ? 65 : 55,
                           p2: b.v === 1 ? 0 : b.v === 2 ? 35 : 30,
@@ -3590,7 +3510,7 @@ function CreatePoolTab() {
                     max="40"
                     step="1"
                     value={form.profitPercent}
-                    onChange={(e) => setForm((f) => ({ ...f, profitPercent: parseInt(e.target.value, 10) || 15, preset: "custom" }))}
+                    onChange={(e) => setForm((f) => ({ ...f, profitPercent: parseInt(e.target.value, 10) || 15 }))}
                     className="h-10"
                   />
                   <Input
@@ -3599,7 +3519,7 @@ function CreatePoolTab() {
                     max="80"
                     step="1"
                     value={form.profitPercent}
-                    onChange={(e) => setForm((f) => ({ ...f, profitPercent: parseInt(e.target.value, 10) || 0, preset: "custom" }))}
+                    onChange={(e) => setForm((f) => ({ ...f, profitPercent: parseInt(e.target.value, 10) || 0 }))}
                     className="h-10"
                   />
                 </div>
@@ -3723,7 +3643,7 @@ function CreatePoolTab() {
                   <input
                     type="checkbox"
                     checked={form.customPrizeSplit}
-                    onChange={(e) => setForm((f) => ({ ...f, customPrizeSplit: e.target.checked, preset: "custom" }))}
+                    onChange={(e) => setForm((f) => ({ ...f, customPrizeSplit: e.target.checked }))}
                     className="rounded border-border"
                   />
                   Custom split
